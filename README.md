@@ -53,9 +53,31 @@ python setup_telegram.py
 
 This will create a session file (`mcp_telegram_search.session`) that stores your Telegram session data.
 
-## Usage
+## Cursor Configuration
 
-### Starting the Server
+To use this server with Cursor IDE:
+
+1. Create an `mcp.json` file in your `.cursor` directory with the following content:
+```json
+{
+  "mcpServers": {
+    "mcp-telegram": {
+      "command": "cmd /c set PYTHONPATH=%PYTHONPATH%;<path_to_server> && mcp run <path_to_server>/src/server.py",
+      "description": "Telegram MCP server"
+    }
+  }
+}
+```
+
+Note: Replace `<path_to_server>` with the absolute path to your installation directory.
+
+2. Ensure your `.env` file is properly configured as described in the Installation section.
+
+3. The server will automatically connect to Cursor when you open the project, making all Telegram tools available through the IDE.
+
+Note: If you modify the server code, you'll need to reload the server in Cursor for changes to take effect.
+
+## Usage
 
 The server can be run using MCP:
 
@@ -63,7 +85,7 @@ The server can be run using MCP:
 mcp run <path_to_server>/server.py
 ```
 
-### Available Tools
+## Available Tools
 
 The server provides the following MCP tools:
 
