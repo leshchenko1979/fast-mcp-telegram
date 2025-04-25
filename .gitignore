@@ -61,7 +61,7 @@ coverage.xml
 *.session-journal
 
 # MCP specific
-.cursor/
+.cursor/mcp.json
 .cursorrules
 
 # OS specific

@@ -41,8 +41,8 @@ pip install -r requirements.txt
 
 3. Create a `.env` file in the root directory with your Telegram credentials:
 ```env
-TELEGRAM_API_ID=your_api_id
-TELEGRAM_API_HASH=your_api_hash
+API_ID=your_api_id
+API_HASH=your_api_hash
 PHONE_NUMBER=+123456789
 ```
 
@@ -140,7 +140,6 @@ tg_mcp/
 ├── setup.py          # Package setup configuration
 ├── requirements.txt  # Project dependencies
 ├── .env             # Environment variables (create this)
-├── .cursorrules     # Cursor IDE rules
 ├── .gitignore       # Git ignore patterns
 └── LICENSE          # MIT License
 
