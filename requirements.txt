@@ -1,0 +1,5 @@
+loguru
+aiohttp
+mcp[cli]
+telethon>=1.34.0
+python-dotenv>=1.0.0
