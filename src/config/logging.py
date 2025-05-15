@@ -12,13 +12,8 @@ IS_TEST_MODE = '--test-mode' in sys.argv
 
 def setup_logging():
     """Configure logging with loguru."""
-    if IS_TEST_MODE or os.environ.get("MCP_TRANSPORT") == "http":
-        logger.remove()
-        logger.add(LOG_PATH, rotation="1 day", retention="7 days")
-    else:
-        logger.remove()
-        logger.add(sys.stdout, level="INFO")
-        logger.add(LOG_PATH, rotation="1 day", retention="7 days")
+    logger.remove()
+    logger.add(LOG_PATH, rotation="1 day", retention="7 days")
 
 def format_diagnostic_info(info: dict) -> str:
     """Format diagnostic information for logging."""
