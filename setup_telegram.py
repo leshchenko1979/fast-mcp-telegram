@@ -1,21 +1,10 @@
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
-import os
-from dotenv import load_dotenv
 import asyncio
-
-# Load environment variables
-load_dotenv()
-
-# Get credentials from environment variables
-API_ID = os.getenv('API_ID')
-API_HASH = os.getenv('API_HASH')
-PHONE_NUMBER = os.getenv('PHONE_NUMBER')
-SESSION_NAME = os.getenv('SESSION_NAME', 'mcp_telegram_search')
-
-# Use project directory for session file
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-SESSION_PATH = os.path.join(PROJECT_DIR, SESSION_NAME)
+from src.config.settings import (
+    API_ID, API_HASH, PHONE_NUMBER,
+    SESSION_PATH
+)
 
 async def main():
     print("Starting Telegram session setup...")
