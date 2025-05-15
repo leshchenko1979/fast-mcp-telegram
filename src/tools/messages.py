@@ -4,6 +4,7 @@ import time
 import traceback
 from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
+from src.utils.entity import build_entity_dict
 
 async def send_message(
     chat_id: str,
@@ -46,15 +47,15 @@ async def send_message(
             parse_mode=parse_mode
         )
 
+        chat_dict = build_entity_dict(chat)
+        sender_dict = build_entity_dict(getattr(sent_message, 'sender', None))
         result = {
             "message_id": sent_message.id,
             "date": sent_message.date.isoformat(),
-            "chat_id": chat.id if hasattr(chat, 'id') else str(chat_id),
-            "chat_name": chat.title if hasattr(chat, 'title') else (
-                chat.username if hasattr(chat, 'username') else str(chat_id)
-            ),
+            "chat": chat_dict,
             "text": sent_message.text,
-            "status": "sent"
+            "status": "sent",
+            "sender": sender_dict
         }
 
         logger.info(f"[{request_id}] Message sent successfully to chat {chat_id}")

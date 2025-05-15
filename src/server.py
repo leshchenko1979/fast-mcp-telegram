@@ -11,9 +11,10 @@ import traceback
 import asyncio
 import sys
 import atexit
+from pydantic import BaseModel, Field
 
 from src.config.logging import setup_logging
-from src.tools.search import search_telegram, advanced_search_telegram, pattern_search_telegram
+from src.tools.search import search_telegram
 from src.tools.messages import send_message, list_dialogs
 from src.tools.statistics import get_chat_statistics
 from src.tools.links import generate_telegram_links
@@ -40,47 +41,51 @@ setup_logging()
 
 # Register tools with the MCP server
 @mcp.tool()
-async def search_messages(query: str, chat_id: str = None, limit: int = 100, offset: int = 0):
-    """Search for messages in Telegram chats with pagination."""
+async def search_messages(
+    query: str,
+    chat_id: str = None,
+    limit: int = 100,
+    offset: int = 0,
+    chat_type: str = None,
+    min_date: str = None,
+    max_date: str = None,
+    auto_expand_batches: int = 2,
+):
+    """
+    Search Telegram messages with pagination, date range, chat type filter, and auto-expansion.
+
+    Args:
+        query: The search query string.
+        chat_id: Optional chat ID to search in a specific chat.
+        limit: Maximum number of results to return.
+        offset: Number of results to skip (for pagination).
+        chat_type: Filter by chat type: 'private', 'group', 'channel', or None for all.
+        min_date: Minimum date (ISO format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).
+        max_date: Maximum date (ISO format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS).
+        auto_expand_batches: Maximum additional batches to fetch if not enough filtered results are found (default 2).
+    """
     try:
         request_id = f"search_{int(time.time())}"
-        logger.info(f"[{request_id}] Searching messages with query: {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}")
-        results = await search_telegram(query, chat_id, limit, offset=offset)
-        logger.info(f"[{request_id}] Found {len(results)} messages (offset: {offset})")
+        logger.info(f"[{request_id}] Searching messages with query: {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}")
+        results = await search_telegram(
+            query,
+            chat_id,
+            limit,
+            min_date=min_date,
+            max_date=max_date,
+            offset=offset,
+            chat_type=chat_type,
+            auto_expand_batches=auto_expand_batches
+        )
+        logger.info(f"[{request_id}] Found {len(results)} messages (offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches})")
         return results
     except Exception as e:
         logger.error(f"[{request_id}] Error searching messages: {str(e)}\n{traceback.format_exc()}")
         raise
 
 @mcp.tool()
-async def advanced_search(query: str, chat_id: str = None, limit: int = 100, **kwargs):
-    """Advanced search for messages with additional filters."""
-    try:
-        request_id = f"adv_search_{int(time.time())}"
-        logger.info(f"[{request_id}] Advanced search with query: {query}, chat_id: {chat_id}, limit: {limit}, filters: {kwargs}")
-        results = await advanced_search_telegram(query, chat_id, limit, **kwargs)
-        logger.info(f"[{request_id}] Found {len(results)} messages")
-        return results
-    except Exception as e:
-        logger.error(f"[{request_id}] Error in advanced search: {str(e)}\n{traceback.format_exc()}")
-        raise
-
-@mcp.tool()
-async def pattern_search(pattern: str, chat_id: str = None, limit: int = 100):
-    """Search messages using regex patterns."""
-    try:
-        request_id = f"pattern_{int(time.time())}"
-        logger.info(f"[{request_id}] Pattern search with pattern: {pattern}, chat_id: {chat_id}, limit: {limit}")
-        results = await pattern_search_telegram(pattern, chat_id, limit)
-        logger.info(f"[{request_id}] Found {len(results)} messages")
-        return results
-    except Exception as e:
-        logger.error(f"[{request_id}] Error in pattern search: {str(e)}\n{traceback.format_exc()}")
-        raise
-
-@mcp.tool()
 async def send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None):
-    """Send a message to a Telegram chat."""
+    """Send a message to a Telegram chat, optionally as a reply."""
     try:
         request_id = f"send_{int(time.time())}"
         logger.info(f"[{request_id}] Sending message to chat: {chat_id}")
@@ -93,7 +98,7 @@ async def send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int
 
 @mcp.tool()
 async def get_dialogs(limit: int = 100, offset: int = 0):
-    """List available Telegram dialogs with pagination."""
+    """List available Telegram dialogs (chats) with pagination."""
     try:
         request_id = f"dialogs_{int(time.time())}"
         logger.info(f"[{request_id}] Fetching dialogs, limit: {limit}, offset: {offset}")
@@ -106,7 +111,7 @@ async def get_dialogs(limit: int = 100, offset: int = 0):
 
 @mcp.tool()
 async def get_statistics(chat_id: str):
-    """Get statistics for a Telegram chat."""
+    """Get statistics for a specific Telegram chat."""
     try:
         request_id = f"stats_{int(time.time())}"
         logger.info(f"[{request_id}] Getting statistics for chat: {chat_id}")
@@ -119,7 +124,7 @@ async def get_statistics(chat_id: str):
 
 @mcp.tool()
 async def generate_links(chat_id: str, message_ids: list[int]):
-    """Generate Telegram links for messages."""
+    """Generate Telegram links for specific messages in a chat."""
     try:
         request_id = f"links_{int(time.time())}"
         logger.info(f"[{request_id}] Generating links for chat: {chat_id}, messages: {message_ids}")
@@ -132,7 +137,7 @@ async def generate_links(chat_id: str, message_ids: list[int]):
 
 @mcp.tool()
 async def export_data(chat_id: str, format: str = "json"):
-    """Export chat data in specified format."""
+    """Export chat data in the specified format (default: JSON)."""
     try:
         request_id = f"export_{int(time.time())}"
         logger.info(f"[{request_id}] Exporting data for chat: {chat_id}, format: {format}")

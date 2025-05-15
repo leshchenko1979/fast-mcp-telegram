@@ -89,32 +89,29 @@ mcp run <path_to_server>/server.py
 
 The server provides the following MCP tools:
 
-- `search_messages(query: str, chat_id: str = None, limit: int = 20, offset: int = 0, min_date: str = None, max_date: str = None)`
+- `search_messages(query: str, chat_id: str = None, limit: int = 20, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None)`
   - Search for messages in Telegram chats
   - Supports both global search and chat-specific search
   - Supports pagination with `limit` and `offset` parameters
-  - Dates should be in ISO format
-  - Example:
+  - Supports filtering by chat type with the optional `chat_type` parameter:
+    - `"private"` — only personal dialogs (one-to-one)
+    - `"group"` — only group chats
+    - `"channel"` — only channels/supergroups
+    - `None` (default) — all types
+  - Supports date range filtering with `min_date` and `max_date` (ISO format, e.g. `2024-05-15` or `2024-05-15T12:00:00`)
+  - Example (search in private chats for messages in May 2024):
     ```json
     {
       "tool": "search_messages",
       "params": {
-        "query": "hello",
+        "query": "warehouse",
         "limit": 10,
-        "offset": 20
+        "chat_type": "private",
+        "min_date": "2024-05-01",
+        "max_date": "2024-05-31"
       }
     }
     ```
-
-- `advanced_search(query: str, filters: str = None, date_range: str = None, chat_ids: str = None, message_types: str = None, limit: int = 20)`
-  - Advanced search with filtering options
-  - `filters`, `date_range` should be JSON strings
-  - `chat_ids`, `message_types` should be comma-separated strings
-
-- `pattern_search(pattern: str, chat_ids: List[str] = None, pattern_type: str = None, limit: int = None)`
-  - Search messages using regex patterns
-  - Supports multiple chat IDs
-  - Optional pattern type specification
 
 - `send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None)`
   - Send messages to Telegram chats

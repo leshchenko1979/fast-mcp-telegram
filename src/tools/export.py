@@ -8,6 +8,7 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
+from src.utils.entity import build_entity_dict
 
 async def export_chat_data(
     chat_id: int,
@@ -75,13 +76,7 @@ async def export_chat_data(
 
         # Prepare export data
         export_data = {
-            "chat_info": {
-                "id": chat.id,
-                "title": chat.title if hasattr(chat, 'title') else str(chat.id),
-                "type": chat.__class__.__name__,
-                "export_date": datetime.now().isoformat(),
-                "message_count": len(messages)
-            },
+            "chat_info": build_entity_dict(chat),
             "messages": messages
         }
 
@@ -124,11 +119,7 @@ async def _process_message(message, anonymize: bool, include_media: bool) -> Dic
         if anonymize:
             message_data["sender"] = f"user_{hash(str(message.sender.id)) % 10000}"
         else:
-            message_data["sender"] = {
-                "id": message.sender.id,
-                "name": message.sender.first_name,
-                "username": message.sender.username
-            }
+            message_data["sender"] = build_entity_dict(message.sender)
 
     # Add media information
     if include_media and message.media:
