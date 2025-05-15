@@ -2,6 +2,7 @@ from typing import Dict, Any, List, Union
 from loguru import logger
 import traceback
 from ..config.logging import format_diagnostic_info
+from ..client.connection import connection_pool
 
 async def generate_telegram_links(
     chat_id: str,
@@ -13,21 +14,7 @@ async def generate_telegram_links(
 ) -> Dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
-
-    Args:
-        chat_id: The ID of the chat/channel or its username
-        message_ids: Optional list of message IDs
-        username: Optional username of the chat/channel (if known)
-        thread_id: Optional topic/thread ID for forum messages
-        comment_id: Optional comment message ID
-        media_timestamp: Optional media timestamp in seconds
-
-    Returns:
-        Dict containing various formats of Telegram links:
-        - private_chat_link: Link for private chats (requires membership)
-        - public_chat_link: Link for public chats (if username is provided)
-        - message_links: Links to specific messages (if message_ids provided)
-        - join_link: Link to join the chat/channel (if applicable)
+    Now: chat_id может быть как username, так и id. Username и публичность определяются внутри.
     """
     logger.debug(
         "Generating Telegram links",
@@ -47,7 +34,6 @@ async def generate_telegram_links(
         result = {}
         query_params = []
 
-        # Add optional query parameters
         if thread_id:
             query_params.append(f"thread={thread_id}")
         if comment_id:
@@ -59,43 +45,54 @@ async def generate_telegram_links(
         if query_string:
             query_string = "?" + query_string
 
-        # Handle public chats (with username)
-        if username:
-            clean_username = username.lstrip('@')
-            result["public_chat_link"] = f"https://t.me/{clean_username}"
+        # --- Новый блок: определяем username и публичность ---
+        real_username = None
+        is_public = False
+        entity = None
+        async with connection_pool as client:
+            try:
+                entity = await client.get_entity(chat_id)
+            except Exception as e:
+                logger.warning(f"Could not get entity by chat_id: {e}")
+            if entity is None and username:
+                try:
+                    entity = await client.get_entity(username)
+                except Exception as e2:
+                    logger.warning(f"Could not get entity by username: {e2}")
+            if entity is not None and hasattr(entity, 'username') and entity.username:
+                real_username = entity.username
+                is_public = True
 
+        # --- Генерация ссылок ---
+        if is_public and real_username:
+            clean_username = real_username.lstrip('@')
+            result["public_chat_link"] = f"https://t.me/{clean_username}"
             if message_ids:
                 result["message_links"] = []
                 for msg_id in message_ids:
                     if thread_id:
-                        # Format: t.me/username/thread_id/message_id?params
                         link = f"https://t.me/{clean_username}/{thread_id}/{msg_id}{query_string}"
                     else:
-                        # Format: t.me/username/message_id?params
                         link = f"https://t.me/{clean_username}/{msg_id}{query_string}"
                     result["message_links"].append(link)
-
-        # Handle private chats
-        elif chat_id.isdigit():
-            # For private chats, use c/channel_id format
-            # Remove leading -100 for supergroups if present
-            channel_id = chat_id[4:] if chat_id.startswith('-100') else chat_id
+        elif entity is not None:
+            # Приватный чат
+            channel_id = str(entity.id)
+            if channel_id.startswith('-100'):
+                channel_id = channel_id[4:]
             result["private_chat_link"] = f"https://t.me/c/{channel_id}"
-
             if message_ids:
                 result["message_links"] = []
                 for msg_id in message_ids:
                     if thread_id:
-                        # Format: t.me/c/channel_id/thread_id/message_id?params
                         link = f"https://t.me/c/{channel_id}/{thread_id}/{msg_id}{query_string}"
                     else:
-                        # Format: t.me/c/channel_id/message_id?params
                         link = f"https://t.me/c/{channel_id}/{msg_id}{query_string}"
                     result["message_links"].append(link)
+        else:
+            result["note"] = "Cannot resolve chat entity. Check chat_id or username."
 
-        # Add note about link accessibility
-        result["note"] = "Private chat links only work for chat members. Public links work for anyone."
-
+        result["note"] = result.get("note") or "Private chat links only work for chat members. Public links work for anyone."
         logger.info(f"Successfully generated Telegram links for chat_id: {chat_id}")
         return result
 
