@@ -139,7 +139,7 @@ async def search_telegram(
                                                  getattr(message.peer_id, 'user_id', None))),
                                         "chat_name": chat_name,
                                         "text": message.message,
-                                        "reply_to_msg_id": message.reply_to.reply_to_msg_id if hasattr(message, 'reply_to') else None
+                                        "reply_to_msg_id": getattr(getattr(message, 'reply_to', None), 'reply_to_msg_id', None)
                                     })
                                 except Exception as e:
                                     logger.warning(f"Error processing message: {e}")
