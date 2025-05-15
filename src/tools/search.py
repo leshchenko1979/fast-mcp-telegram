@@ -14,21 +14,19 @@ async def search_telegram(
     chat_id: str = None,
     limit: int = 20,
     min_date: str = None,  # ISO format date string
-    max_date: str = None   # ISO format date string
+    max_date: str = None,  # ISO format date string
+    offset: int = 0        # Offset for pagination
 ) -> List[Dict[str, Any]]:
     """
-    Search for messages in Telegram chats using Telegram's global search functionality.
+    Search for messages in Telegram chats using Telegram's global search functionality with pagination.
 
     Args:
         query: Search query string
-        chat_id: Optional chat ID to search in specific chat. Can be:
-                - Username/link (e.g. "@username" or "t.me/username")
-                - Channel/Supergroup ID (e.g. "-100123456789")
-                - Group ID (e.g. "-123456789")
-                - Raw integer ID for direct chats
+        chat_id: Optional chat ID to search in specific chat.
         limit: Maximum number of results to return
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
+        offset: Number of messages to skip (for pagination)
 
     Returns:
         List of dictionaries containing message information
@@ -49,7 +47,8 @@ async def search_telegram(
                 "chat_id": chat_id,
                 "limit": limit,
                 "min_date": min_date,
-                "max_date": max_date
+                "max_date": max_date,
+                "offset": offset
             }
         }
     )
@@ -63,29 +62,33 @@ async def search_telegram(
                 try:
                     # Handle different chat ID formats
                     try:
-                        # Try parsing as integer first (for raw IDs)
                         chat_id_int = int(chat_id)
-                        # Handle supergroup/channel format (-100...)
                         if str(chat_id).startswith('-100'):
                             chat_id_int = int(str(chat_id)[4:])
-                        # Handle group format (-)
                         elif str(chat_id).startswith('-'):
                             chat_id_int = int(str(chat_id)[1:])
                         entity = await client.get_entity(chat_id_int)
                     except ValueError:
-                        # If not an integer, try as username/link
                         entity = await client.get_entity(chat_id)
 
-                    async for message in client.iter_messages(entity, search=query, limit=limit):
-                        if message and message.text:
-                            results.append({
-                                "id": message.id,
-                                "date": message.date.isoformat(),
-                                "chat_id": message.chat_id,
-                                "chat_name": entity.title if hasattr(entity, 'title') else str(entity.id),
-                                "text": message.text,
-                                "reply_to_msg_id": message.reply_to_msg_id if hasattr(message, 'reply_to_msg_id') else None
-                            })
+                    count = 0
+                    async for message in client.iter_messages(entity, search=query):
+                        if not message or not message.text:
+                            continue
+                        if count < offset:
+                            count += 1
+                            continue
+                        if len(results) >= limit:
+                            break
+                        results.append({
+                            "id": message.id,
+                            "date": message.date.isoformat(),
+                            "chat_id": message.chat_id,
+                            "chat_name": entity.title if hasattr(entity, 'title') else str(entity.id),
+                            "text": message.text,
+                            "reply_to_msg_id": message.reply_to_msg_id if hasattr(message, 'reply_to_msg_id') else None
+                        })
+                        count += 1
                 except Exception as e:
                     logger.error(f"Error searching in specific chat: {str(e)}")
                     logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
@@ -93,6 +96,23 @@ async def search_telegram(
             else:
                 # Global search
                 try:
+                    # For offset, we need to use offset_id if possible, otherwise skip in results
+                    offset_id = 0
+                    if offset > 0:
+                        # Fetch the message at the offset position to get its id
+                        temp_result = await client(SearchGlobalRequest(
+                            q=query,
+                            filter=InputMessagesFilterEmpty(),
+                            min_date=min_datetime,
+                            max_date=max_datetime,
+                            offset_rate=0,
+                            offset_peer=InputPeerEmpty(),
+                            offset_id=0,
+                            limit=offset
+                        ))
+                        if hasattr(temp_result, 'messages') and len(temp_result.messages) > 0:
+                            offset_id = temp_result.messages[-1].id
+
                     result = await client(SearchGlobalRequest(
                         q=query,
                         filter=InputMessagesFilterEmpty(),
@@ -100,7 +120,7 @@ async def search_telegram(
                         max_date=max_datetime,
                         offset_rate=0,
                         offset_peer=InputPeerEmpty(),
-                        offset_id=0,
+                        offset_id=offset_id,
                         limit=limit
                     ))
 
@@ -145,7 +165,8 @@ async def search_telegram(
                     "chat_id": chat_id,
                     "limit": limit,
                     "min_date": min_date,
-                    "max_date": max_date
+                    "max_date": max_date,
+                    "offset": offset
                 }
             }
             logger.error(f"[{request_id}] Error searching Telegram", extra=error_info)

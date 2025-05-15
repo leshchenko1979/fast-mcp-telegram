@@ -78,28 +78,36 @@ async def send_message(
             logger.error(f"[{request_id}] Error sending message", extra={"diagnostic_info": format_diagnostic_info(error_info)})
             raise
 
-async def list_dialogs(limit: int = 50) -> List[Dict[str, Any]]:
+async def list_dialogs(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
     """
-    List available Telegram dialogs (chats).
+    List available Telegram dialogs (chats) with pagination.
 
     Args:
         limit: Maximum number of dialogs to return
+        offset: Number of dialogs to skip (for pagination)
     """
     request_id = f"dialogs_{int(time.time()*1000)}"
-    logger.debug(f"[{request_id}] Listing Telegram dialogs, limit: {limit}")
+    logger.debug(f"[{request_id}] Listing Telegram dialogs, limit: {limit}, offset: {offset}")
 
     async with connection_pool as client:
         try:
             dialogs = []
-            async for dialog in client.iter_dialogs(limit=limit):
+            count = 0
+            async for dialog in client.iter_dialogs():
+                if count < offset:
+                    count += 1
+                    continue
+                if len(dialogs) >= limit:
+                    break
                 dialogs.append({
                     "id": dialog.id,
                     "name": dialog.name,
                     "type": str(dialog.entity.__class__.__name__),
                     "unread_count": dialog.unread_count
                 })
+                count += 1
 
-            logger.info(f"[{request_id}] Found {len(dialogs)} dialogs")
+            logger.info(f"[{request_id}] Found {len(dialogs)} dialogs (offset: {offset})")
             return dialogs
 
         except Exception as e:
@@ -110,7 +118,7 @@ async def list_dialogs(limit: int = 50) -> List[Dict[str, Any]]:
                     "message": str(e),
                     "traceback": traceback.format_exc()
                 },
-                "params": {"limit": limit}
+                "params": {"limit": limit, "offset": offset}
             }
             logger.error(f"[{request_id}] Error listing dialogs", extra={"diagnostic_info": format_diagnostic_info(error_info)})
             raise

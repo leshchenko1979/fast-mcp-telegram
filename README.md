@@ -89,10 +89,22 @@ mcp run <path_to_server>/server.py
 
 The server provides the following MCP tools:
 
-- `search_messages(query: str, chat_id: str = None, limit: int = 20, min_date: str = None, max_date: str = None)`
+- `search_messages(query: str, chat_id: str = None, limit: int = 20, offset: int = 0, min_date: str = None, max_date: str = None)`
   - Search for messages in Telegram chats
   - Supports both global search and chat-specific search
+  - Supports pagination with `limit` and `offset` parameters
   - Dates should be in ISO format
+  - Example:
+    ```json
+    {
+      "tool": "search_messages",
+      "params": {
+        "query": "hello",
+        "limit": 10,
+        "offset": 20
+      }
+    }
+    ```
 
 - `advanced_search(query: str, filters: str = None, date_range: str = None, chat_ids: str = None, message_types: str = None, limit: int = 20)`
   - Advanced search with filtering options
@@ -109,9 +121,20 @@ The server provides the following MCP tools:
   - Supports replying to messages
   - Optional markdown/HTML parsing
 
-- `get_dialogs(limit: int = 50)`
+- `get_dialogs(limit: int = 50, offset: int = 0)`
   - List available Telegram dialogs
+  - Supports pagination with `limit` and `offset` parameters
   - Returns chat IDs, names, types, and unread counts
+  - Example:
+    ```json
+    {
+      "tool": "get_dialogs",
+      "params": {
+        "limit": 10,
+        "offset": 30
+      }
+    }
+    ```
 
 - `get_statistics(chat_id: str)`
   - Get statistics for a specific chat

@@ -39,13 +39,13 @@ setup_logging()
 
 # Register tools with the MCP server
 @mcp.tool()
-async def search_messages(query: str, chat_id: str = None, limit: int = 100):
-    """Search for messages in Telegram chats."""
+async def search_messages(query: str, chat_id: str = None, limit: int = 100, offset: int = 0):
+    """Search for messages in Telegram chats with pagination."""
     try:
         request_id = f"search_{int(time.time())}"
-        logger.info(f"[{request_id}] Searching messages with query: {query}, chat_id: {chat_id}, limit: {limit}")
-        results = await search_telegram(query, chat_id, limit)
-        logger.info(f"[{request_id}] Found {len(results)} messages")
+        logger.info(f"[{request_id}] Searching messages with query: {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}")
+        results = await search_telegram(query, chat_id, limit, offset=offset)
+        logger.info(f"[{request_id}] Found {len(results)} messages (offset: {offset})")
         return results
     except Exception as e:
         logger.error(f"[{request_id}] Error searching messages: {str(e)}\n{traceback.format_exc()}")
@@ -91,13 +91,13 @@ async def send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int
         raise
 
 @mcp.tool()
-async def get_dialogs(limit: int = 100):
-    """List available Telegram dialogs."""
+async def get_dialogs(limit: int = 100, offset: int = 0):
+    """List available Telegram dialogs with pagination."""
     try:
         request_id = f"dialogs_{int(time.time())}"
-        logger.info(f"[{request_id}] Fetching dialogs, limit: {limit}")
-        results = await list_dialogs(limit)
-        logger.info(f"[{request_id}] Found {len(results)} dialogs")
+        logger.info(f"[{request_id}] Fetching dialogs, limit: {limit}, offset: {offset}")
+        results = await list_dialogs(limit, offset)
+        logger.info(f"[{request_id}] Found {len(results)} dialogs (offset: {offset})")
         return results
     except Exception as e:
         logger.error(f"[{request_id}] Error listing dialogs: {str(e)}\n{traceback.format_exc()}")
