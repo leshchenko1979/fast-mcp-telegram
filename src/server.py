@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 import traceback
 import asyncio
 import sys
+import atexit
 
 from src.config.logging import setup_logging
 from src.tools.search import search_telegram, advanced_search_telegram, pattern_search_telegram
@@ -142,9 +143,34 @@ async def export_data(chat_id: str, format: str = "json"):
         logger.error(f"[{request_id}] Error exporting data: {str(e)}\n{traceback.format_exc()}")
         raise
 
+def _sync_cleanup():
+    """Synchronous cleanup for atexit (for stdio transport)."""
+    import asyncio
+    from src.client.connection import connection_pool
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Schedule cleanup in running loop
+            loop.create_task(connection_pool.cleanup())
+        else:
+            loop.run_until_complete(connection_pool.cleanup())
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+
 # Run the server if this file is executed directly
 if __name__ == "__main__":
     if transport == "http":
-        asyncio.run(mcp.run_sse_async())
+        try:
+            asyncio.run(mcp.run_sse_async())
+        finally:
+            # Ensure cleanup on HTTP server shutdown
+            loop = asyncio.get_event_loop()
+            if not loop.is_running():
+                try:
+                    loop.run_until_complete(connection_pool.cleanup())
+                except Exception as e:
+                    logger.error(f"Error during cleanup: {e}")
     else:
+        # For stdio, use atexit to ensure cleanup
+        atexit.register(_sync_cleanup)
         mcp.run()
