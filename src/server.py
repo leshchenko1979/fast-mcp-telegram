@@ -3,10 +3,13 @@ Main server module for the Telegram bot functionality.
 Provides API endpoints and core bot features.
 """
 
+import os
+import time
 from loguru import logger
 from mcp.server.fastmcp import FastMCP
 import traceback
-import time
+import asyncio
+import sys
 
 from src.config.logging import setup_logging
 from src.tools.search import search_telegram, advanced_search_telegram, pattern_search_telegram
@@ -15,11 +18,24 @@ from src.tools.statistics import get_chat_statistics
 from src.tools.links import generate_telegram_links
 from src.tools.export import export_chat_data
 
+IS_TEST_MODE = '--test-mode' in sys.argv
+
+if IS_TEST_MODE:
+    transport = "http"
+    host = "127.0.0.1"
+    port = 8000
+else:
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+    host = os.environ.get("MCP_HOST", "127.0.0.1")
+    port = int(os.environ.get("MCP_PORT", "8000"))
+
+if transport == "http":
+    mcp = FastMCP("Telegram MCP Server", transport="http", host=host, port=port)
+else:
+    mcp = FastMCP("Telegram MCP Server", transport="stdio")
+
 # Set up logging
 setup_logging()
-
-# Initialize the MCP server with a friendly name
-mcp = FastMCP("Telegram MCP Server", transport="stdio")
 
 # Register tools with the MCP server
 @mcp.tool()
@@ -128,4 +144,7 @@ async def export_data(chat_id: str, format: str = "json"):
 
 # Run the server if this file is executed directly
 if __name__ == "__main__":
-    mcp.run()
+    if transport == "http":
+        asyncio.run(mcp.run_sse_async())
+    else:
+        mcp.run()
