@@ -21,7 +21,11 @@ async def search_telegram(
 
     Args:
         query: Search query string
-        chat_id: Optional chat ID to search in specific chat
+        chat_id: Optional chat ID to search in specific chat. Can be:
+                - Username/link (e.g. "@username" or "t.me/username")
+                - Channel/Supergroup ID (e.g. "-100123456789")
+                - Group ID (e.g. "-123456789")
+                - Raw integer ID for direct chats
         limit: Maximum number of results to return
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
@@ -29,6 +33,8 @@ async def search_telegram(
     Returns:
         List of dictionaries containing message information
     """
+    if not query or not query.strip():
+        raise ValueError("Search query must not be empty.")
     request_id = f"search_{int(time.time()*1000)}"
 
     # Convert date strings to datetime objects if provided
@@ -55,7 +61,21 @@ async def search_telegram(
             if chat_id:
                 # Search in specific chat
                 try:
-                    entity = await client.get_entity(chat_id)
+                    # Handle different chat ID formats
+                    try:
+                        # Try parsing as integer first (for raw IDs)
+                        chat_id_int = int(chat_id)
+                        # Handle supergroup/channel format (-100...)
+                        if str(chat_id).startswith('-100'):
+                            chat_id_int = int(str(chat_id)[4:])
+                        # Handle group format (-)
+                        elif str(chat_id).startswith('-'):
+                            chat_id_int = int(str(chat_id)[1:])
+                        entity = await client.get_entity(chat_id_int)
+                    except ValueError:
+                        # If not an integer, try as username/link
+                        entity = await client.get_entity(chat_id)
+
                     async for message in client.iter_messages(entity, search=query, limit=limit):
                         if message and message.text:
                             results.append({
@@ -67,7 +87,8 @@ async def search_telegram(
                                 "reply_to_msg_id": message.reply_to_msg_id if hasattr(message, 'reply_to_msg_id') else None
                             })
                 except Exception as e:
-                    logger.error(f"Error searching in specific chat: {e}")
+                    logger.error(f"Error searching in specific chat: {str(e)}")
+                    logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
                     raise
             else:
                 # Global search
