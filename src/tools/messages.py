@@ -33,14 +33,9 @@ async def send_message(
         }
     )
 
-    async with connection_pool.acquire() as client:
+    async with connection_pool as client:
         try:
-            # Handle username format
-            if isinstance(chat_id, str) and not chat_id.startswith('@'):
-                chat_id = f"@{chat_id}"
-                logger.debug(f"[{request_id}] Using username: {chat_id}")
-
-            # Get chat entity
+            # Не модифицируем chat_id, передаём как есть
             chat = await client.get_entity(chat_id)
 
             # Send message
@@ -93,7 +88,7 @@ async def list_dialogs(limit: int = 50) -> List[Dict[str, Any]]:
     request_id = f"dialogs_{int(time.time()*1000)}"
     logger.debug(f"[{request_id}] Listing Telegram dialogs, limit: {limit}")
 
-    async with connection_pool.acquire() as client:
+    async with connection_pool as client:
         try:
             dialogs = []
             async for dialog in client.iter_dialogs(limit=limit):

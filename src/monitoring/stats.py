@@ -54,7 +54,7 @@ class UsageStats:
         stats = await self.get_basic_stats()
         pool_stats = await self.get_pool_stats()
 
-        async with connection_pool.acquire() as client:
+        async with connection_pool as client:
             telegram_stats = await self.get_telegram_stats(client)
 
         return {

@@ -20,9 +20,8 @@ class TelegramConnectionPool:
 
     async def __aenter__(self):
         """Async context manager entry."""
-        client = await self.acquire()
-        self._current_client = client
-        return client
+        self._current_client = await self.acquire()
+        return self._current_client
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""

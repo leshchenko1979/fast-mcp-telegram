@@ -43,7 +43,7 @@ async def export_chat_data(
         }
     )
 
-    async with connection_pool.acquire() as client:
+    async with connection_pool as client:
         try:
             # Get chat entity
             chat = await client.get_entity(chat_id)
