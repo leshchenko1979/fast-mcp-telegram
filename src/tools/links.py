@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Union
 from loguru import logger
 import traceback
 from ..config.logging import format_diagnostic_info
-from ..client.connection import connection_pool
+from ..client.connection import get_client
 
 async def generate_telegram_links(
     chat_id: str,
@@ -49,19 +49,19 @@ async def generate_telegram_links(
         real_username = None
         is_public = False
         entity = None
-        async with connection_pool as client:
+        client = await get_client()
+        try:
+            entity = await client.get_entity(chat_id)
+        except Exception as e:
+            logger.warning(f"Could not get entity by chat_id: {e}")
+        if entity is None and username:
             try:
-                entity = await client.get_entity(chat_id)
-            except Exception as e:
-                logger.warning(f"Could not get entity by chat_id: {e}")
-            if entity is None and username:
-                try:
-                    entity = await client.get_entity(username)
-                except Exception as e2:
-                    logger.warning(f"Could not get entity by username: {e2}")
-            if entity is not None and hasattr(entity, 'username') and entity.username:
-                real_username = entity.username
-                is_public = True
+                entity = await client.get_entity(username)
+            except Exception as e2:
+                logger.warning(f"Could not get entity by username: {e2}")
+        if entity is not None and hasattr(entity, 'username') and entity.username:
+            real_username = entity.username
+            is_public = True
 
         # --- Генерация ссылок ---
         if is_public and real_username:

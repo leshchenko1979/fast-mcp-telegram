@@ -6,7 +6,7 @@ import io
 import csv
 from datetime import datetime
 import traceback
-from ..client.connection import connection_pool
+from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
 
 async def export_chat_data(
@@ -43,73 +43,73 @@ async def export_chat_data(
         }
     )
 
-    async with connection_pool as client:
-        try:
-            # Get chat entity
-            chat = await client.get_entity(chat_id)
+    client = await get_client()
+    try:
+        # Get chat entity
+        chat = await client.get_entity(chat_id)
 
-            # Process time range
-            start_date = None
-            end_date = None
-            if time_range:
-                start_date = datetime.fromisoformat(time_range.get('start')) if time_range.get('start') else None
-                end_date = datetime.fromisoformat(time_range.get('end')) if time_range.get('end') else None
+        # Process time range
+        start_date = None
+        end_date = None
+        if time_range:
+            start_date = datetime.fromisoformat(time_range.get('start')) if time_range.get('start') else None
+            end_date = datetime.fromisoformat(time_range.get('end')) if time_range.get('end') else None
 
-            # Collect messages
-            messages = []
-            message_count = 0
-            async for message in client.iter_messages(chat):
-                if message_limit and message_count >= message_limit:
-                    break
+        # Collect messages
+        messages = []
+        message_count = 0
+        async for message in client.iter_messages(chat):
+            if message_limit and message_count >= message_limit:
+                break
 
-                # Apply time range filter
-                if start_date and message.date < start_date:
-                    continue
-                if end_date and message.date > end_date:
-                    continue
+            # Apply time range filter
+            if start_date and message.date < start_date:
+                continue
+            if end_date and message.date > end_date:
+                continue
 
-                # Process message data
-                message_data = await _process_message(message, anonymize, include_media)
-                messages.append(message_data)
-                message_count += 1
+            # Process message data
+            message_data = await _process_message(message, anonymize, include_media)
+            messages.append(message_data)
+            message_count += 1
 
-            # Prepare export data
-            export_data = {
-                "chat_info": {
-                    "id": chat.id,
-                    "title": chat.title if hasattr(chat, 'title') else str(chat.id),
-                    "type": chat.__class__.__name__,
-                    "export_date": datetime.now().isoformat(),
-                    "message_count": len(messages)
-                },
-                "messages": messages
+        # Prepare export data
+        export_data = {
+            "chat_info": {
+                "id": chat.id,
+                "title": chat.title if hasattr(chat, 'title') else str(chat.id),
+                "type": chat.__class__.__name__,
+                "export_date": datetime.now().isoformat(),
+                "message_count": len(messages)
+            },
+            "messages": messages
+        }
+
+        # Format data according to export_format
+        formatted_data = await _format_export_data(export_data, export_format)
+
+        logger.info(f"[{request_id}] Successfully exported {len(messages)} messages from chat {chat_id}")
+        return formatted_data
+
+    except Exception as e:
+        error_info = {
+            "request_id": request_id,
+            "error": {
+                "type": type(e).__name__,
+                "message": str(e),
+                "traceback": traceback.format_exc()
+            },
+            "export_params": {
+                "chat_id": chat_id,
+                "format": export_format,
+                "time_range": time_range,
+                "include_media": include_media,
+                "anonymize": anonymize,
+                "message_limit": message_limit
             }
-
-            # Format data according to export_format
-            formatted_data = await _format_export_data(export_data, export_format)
-
-            logger.info(f"[{request_id}] Successfully exported {len(messages)} messages from chat {chat_id}")
-            return formatted_data
-
-        except Exception as e:
-            error_info = {
-                "request_id": request_id,
-                "error": {
-                    "type": type(e).__name__,
-                    "message": str(e),
-                    "traceback": traceback.format_exc()
-                },
-                "export_params": {
-                    "chat_id": chat_id,
-                    "format": export_format,
-                    "time_range": time_range,
-                    "include_media": include_media,
-                    "anonymize": anonymize,
-                    "message_limit": message_limit
-                }
-            }
-            logger.error(f"[{request_id}] Error exporting chat data", extra={"diagnostic_info": format_diagnostic_info(error_info)})
-            raise
+        }
+        logger.error(f"[{request_id}] Error exporting chat data", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        raise
 
 async def _process_message(message, anonymize: bool, include_media: bool) -> Dict[str, Any]:
     """Process a single message for export."""

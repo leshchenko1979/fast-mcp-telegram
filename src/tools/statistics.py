@@ -3,7 +3,7 @@ from loguru import logger
 import time
 from datetime import datetime
 import traceback
-from ..client.connection import connection_pool
+from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
 
 async def get_chat_statistics(
@@ -34,54 +34,54 @@ async def get_chat_statistics(
         }
     )
 
-    async with connection_pool as client:
-        try:
-            # Get chat entity
-            chat = await client.get_entity(chat_id)
+    client = await get_client()
+    try:
+        # Get chat entity
+        chat = await client.get_entity(chat_id)
 
-            # Initialize statistics
-            stats = {
+        # Initialize statistics
+        stats = {
+            "chat_id": chat_id,
+            "chat_name": chat.title if hasattr(chat, 'title') else str(chat_id),
+            "chat_type": chat.__class__.__name__,
+            "timestamp": datetime.now().isoformat()
+        }
+
+        # Process time range
+        start_date = None
+        end_date = None
+        if time_range:
+            start_date = datetime.fromisoformat(time_range.get('start')) if time_range.get('start') else None
+            end_date = datetime.fromisoformat(time_range.get('end')) if time_range.get('end') else None
+
+        if include_message_stats:
+            stats["message_stats"] = await _collect_message_stats(
+                client, chat, start_date, end_date
+            )
+
+        if include_member_stats:
+            stats["member_stats"] = await _collect_member_stats(
+                client, chat, start_date, end_date
+            )
+
+        logger.info(f"[{request_id}] Successfully gathered statistics for chat {chat_id}")
+        return stats
+
+    except Exception as e:
+        error_info = {
+            "request_id": request_id,
+            "error": {
+                "type": type(e).__name__,
+                "message": str(e),
+                "traceback": traceback.format_exc()
+            },
+            "params": {
                 "chat_id": chat_id,
-                "chat_name": chat.title if hasattr(chat, 'title') else str(chat_id),
-                "chat_type": chat.__class__.__name__,
-                "timestamp": datetime.now().isoformat()
+                "time_range": time_range
             }
-
-            # Process time range
-            start_date = None
-            end_date = None
-            if time_range:
-                start_date = datetime.fromisoformat(time_range.get('start')) if time_range.get('start') else None
-                end_date = datetime.fromisoformat(time_range.get('end')) if time_range.get('end') else None
-
-            if include_message_stats:
-                stats["message_stats"] = await _collect_message_stats(
-                    client, chat, start_date, end_date
-                )
-
-            if include_member_stats:
-                stats["member_stats"] = await _collect_member_stats(
-                    client, chat, start_date, end_date
-                )
-
-            logger.info(f"[{request_id}] Successfully gathered statistics for chat {chat_id}")
-            return stats
-
-        except Exception as e:
-            error_info = {
-                "request_id": request_id,
-                "error": {
-                    "type": type(e).__name__,
-                    "message": str(e),
-                    "traceback": traceback.format_exc()
-                },
-                "params": {
-                    "chat_id": chat_id,
-                    "time_range": time_range
-                }
-            }
-            logger.error(f"[{request_id}] Error getting chat statistics", extra={"diagnostic_info": format_diagnostic_info(error_info)})
-            raise
+        }
+        logger.error(f"[{request_id}] Error getting chat statistics", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        raise
 
 async def _collect_message_stats(client, chat, start_date, end_date) -> Dict[str, Any]:
     """Collect message statistics for a chat."""

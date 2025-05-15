@@ -146,14 +146,14 @@ async def export_data(chat_id: str, format: str = "json"):
 def _sync_cleanup():
     """Synchronous cleanup for atexit (for stdio transport)."""
     import asyncio
-    from src.client.connection import connection_pool
+    from src.client.connection import cleanup_client
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             # Schedule cleanup in running loop
-            loop.create_task(connection_pool.cleanup())
+            loop.create_task(cleanup_client())
         else:
-            loop.run_until_complete(connection_pool.cleanup())
+            loop.run_until_complete(cleanup_client())
     except Exception as e:
         logger.error(f"Error during cleanup: {e}")
 
@@ -167,7 +167,8 @@ if __name__ == "__main__":
             loop = asyncio.get_event_loop()
             if not loop.is_running():
                 try:
-                    loop.run_until_complete(connection_pool.cleanup())
+                    from src.client.connection import cleanup_client
+                    loop.run_until_complete(cleanup_client())
                 except Exception as e:
                     logger.error(f"Error during cleanup: {e}")
     else:

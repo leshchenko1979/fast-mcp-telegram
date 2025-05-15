@@ -5,7 +5,7 @@ import psutil
 import json
 from loguru import logger
 import asyncio
-from ..client.connection import connection_pool
+from ..client.connection import get_client
 
 class UsageStats:
     def __init__(self):
@@ -40,26 +40,13 @@ class UsageStats:
             "is_connected": False
         }
 
-    async def get_pool_stats(self) -> Dict[str, Any]:
-        """Get connection pool statistics."""
-        async with connection_pool._lock:
-            return {
-                "total_connections": len(connection_pool.pool),
-                "active_connections": sum(1 for v in connection_pool.in_use.values() if v),
-                "available_connections": sum(1 for v in connection_pool.in_use.values() if not v)
-            }
-
     async def get_full_stats(self) -> Dict[str, Any]:
         """Get comprehensive server statistics."""
         stats = await self.get_basic_stats()
-        pool_stats = await self.get_pool_stats()
-
-        async with connection_pool as client:
-            telegram_stats = await self.get_telegram_stats(client)
-
+        client = await get_client()
+        telegram_stats = await self.get_telegram_stats(client)
         return {
             **stats,
-            "pool": pool_stats,
             "telegram": telegram_stats
         }
 
