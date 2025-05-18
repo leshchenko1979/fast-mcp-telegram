@@ -100,20 +100,25 @@ The server provides the following MCP tools:
     - `None` (default) — all types
   - Supports date range filtering with `min_date` and `max_date` (ISO format, e.g. `2024-05-15` or `2024-05-15T12:00:00`)
   - Supports `auto_expand_batches` (int, default 2): maximum additional batches to fetch if not enough filtered results are found
-  - Example (search in private chats for messages in May 2024):
+  - **Query parameter behavior:**
+    - If `chat_id` is provided, you may leave `query` empty to fetch all messages from that chat (optionally filtered by `min_date` and `max_date`).
+    - If `chat_id` is not provided (global search), `query` must not be empty.
+  - **Example: Fetch all messages from a chat in a date range:**
     ```json
     {
       "tool": "search_messages",
       "params": {
-        "query": "warehouse",
-        "limit": 10,
-        "chat_type": "private",
+        "query": "",
+        "chat_id": "123456789",
         "min_date": "2024-05-01",
         "max_date": "2024-05-31",
-        "auto_expand_batches": 2
+        "limit": 50
       }
     }
     ```
+  - **Note:**
+    - For global search (no `chat_id`), you must provide a non-empty `query`.
+    - For per-chat search, an empty `query` will return all messages in the specified chat (optionally filtered by date).
 
 - `send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None)`
   - Send messages to Telegram chats

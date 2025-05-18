@@ -20,11 +20,11 @@ async def search_telegram(
     auto_expand_batches: int = 2  # Maximum additional batches to fetch if not enough filtered results
 ) -> List[Dict[str, Any]]:
     """
-    Search for messages in Telegram chats using Telegram's global search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
+    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
 
     Args:
-        query: Search query string
-        chat_id: Optional chat ID to search in specific chat.
+        query: Search query string. If chat_id is provided, query may be empty to fetch all messages from that chat (optionally filtered by min_date and max_date). If chat_id is not provided (global search), query must not be empty.
+        chat_id: Optional chat ID to search in a specific chat. If not provided, performs a global search.
         limit: Maximum number of results to return
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
@@ -34,9 +34,13 @@ async def search_telegram(
 
     Returns:
         List of dictionaries containing message information
+
+    Note:
+        - For per-chat search (chat_id provided), an empty query returns all messages in the specified chat (optionally filtered by date).
+        - For global search (no chat_id), query must not be empty.
     """
-    if not query or not query.strip():
-        raise ValueError("Search query must not be empty.")
+    if (not query or not query.strip()) and not chat_id:
+        raise ValueError("Search query must not be empty for global search.")
     request_id = f"search_{int(time.time()*1000)}"
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
     max_datetime = datetime.fromisoformat(max_date) if max_date else None
