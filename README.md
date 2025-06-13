@@ -149,6 +149,37 @@ The server provides the following MCP tools:
 - `export_data(chat_id: str, format: str = "json")`
   - Export chat data in specified format
 
+- `invoke_mtproto(method_full_name: str, params: dict)`
+  - Dynamically invoke any raw MTProto method supported by Telethon
+  - **Parameters:**
+    - `method_full_name` (str): Full class name of the MTProto method, e.g., `"messages.GetHistory"` (the tool will automatically append `Request` if needed)
+    - `params` (dict): Dictionary of parameters required by the method. All required fields must be provided (see Telegram API docs for details).
+  - **Example:**
+    ```json
+    {
+      "tool": "invoke_mtproto",
+      "params": {
+        "method_full_name": "messages.GetHistory",
+        "params": {
+          "peer": "@flipping_invest",
+          "limit": 1,
+          "offset_id": 0,
+          "offset_date": 0,
+          "add_offset": 0,
+          "max_id": 0,
+          "min_id": 0,
+          "hash": 0
+        }
+      }
+    }
+    ```
+  - **Note:**
+    - You must provide all required parameters for the method. For `messages.GetHistory`, this includes `peer`, `limit`, `offset_id`, `offset_date`, `add_offset`, `max_id`, `min_id`, and `hash` (set `hash` to `0` unless you are using advanced caching).
+    - The result will be a raw dictionary as returned by Telethon, including all message and chat metadata.
+  - **Warning:**
+    - This tool is for advanced users. Incorrect parameters may result in errors from the Telegram API or Telethon.
+    - Refer to the [Telegram API documentation](https://core.telegram.org/methods) and [Telethon docs](https://docs.telethon.dev/en/latest/) for method details and required fields.
+
 ## Example Use Cases & AI Agent Requests
 
 Here are some practical scenarios and example user requests you can make to an AI Agent using this MCP Telegram server:

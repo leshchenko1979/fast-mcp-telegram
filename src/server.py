@@ -19,6 +19,7 @@ from src.tools.messages import send_message, list_dialogs
 from src.tools.statistics import get_chat_statistics
 from src.tools.links import generate_telegram_links
 from src.tools.export import export_chat_data
+from src.tools.mtproto import invoke_mtproto_method
 
 IS_TEST_MODE = '--test-mode' in sys.argv
 
@@ -146,6 +147,19 @@ async def export_data(chat_id: str, format: str = "json"):
         return data
     except Exception as e:
         logger.error(f"[{request_id}] Error exporting data: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+@mcp.tool()
+async def invoke_mtproto(method_full_name: str, params: dict):
+    """Invoke any MTProto method by full name and parameters."""
+    try:
+        request_id = f"mtproto_{int(time.time())}"
+        logger.info(f"[{request_id}] Invoking MTProto method: {method_full_name} with params: {params}")
+        result = await invoke_mtproto_method(method_full_name, params)
+        logger.info(f"[{request_id}] MTProto method invoked successfully")
+        return result
+    except Exception as e:
+        logger.error(f"[{request_id}] Error invoking MTProto method: {str(e)}\n{traceback.format_exc()}")
         raise
 
 def _sync_cleanup():
