@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 import traceback
 import asyncio
 import sys
-import atexit
 from pydantic import BaseModel, Field
 
 from src.config.logging import setup_logging
@@ -79,6 +78,8 @@ async def search_messages(
             auto_expand_batches=auto_expand_batches
         )
         logger.info(f"[{request_id}] Found {len(results)} messages (offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches})")
+        if not results:
+            return {"status": "No results found, custom message."}
         return results
     except Exception as e:
         logger.error(f"[{request_id}] Error searching messages: {str(e)}\n{traceback.format_exc()}")
@@ -162,19 +163,20 @@ async def invoke_mtproto(method_full_name: str, params: dict):
         logger.error(f"[{request_id}] Error invoking MTProto method: {str(e)}\n{traceback.format_exc()}")
         raise
 
-def _sync_cleanup():
-    """Synchronous cleanup for atexit (for stdio transport)."""
-    import asyncio
+def shutdown_procedure():
+    """Synchronously performs async cleanup."""
+    logger.info("Starting cleanup procedure.")
     from src.client.connection import cleanup_client
+
+    # Create a new event loop for cleanup to avoid conflicts.
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # Schedule cleanup in running loop
-            loop.create_task(cleanup_client())
-        else:
-            loop.run_until_complete(cleanup_client())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(cleanup_client())
+        loop.close()
+        logger.info("Cleanup successful.")
     except Exception as e:
-        logger.error(f"Error during cleanup: {e}")
+        logger.error(f"Error during cleanup: {e}\n{traceback.format_exc()}")
 
 # Run the server if this file is executed directly
 if __name__ == "__main__":
@@ -183,14 +185,21 @@ if __name__ == "__main__":
             asyncio.run(mcp.run_sse_async())
         finally:
             # Ensure cleanup on HTTP server shutdown
-            loop = asyncio.get_event_loop()
-            if not loop.is_running():
-                try:
-                    from src.client.connection import cleanup_client
-                    loop.run_until_complete(cleanup_client())
-                except Exception as e:
-                    logger.error(f"Error during cleanup: {e}")
+            shutdown_procedure()
     else:
-        # For stdio, use atexit to ensure cleanup
-        atexit.register(_sync_cleanup)
-        mcp.run()
+        # For stdio, we watch for stdin to be closed by the parent (Cursor)
+        # as the signal to shut down.
+        import threading
+
+        mcp_thread = threading.Thread(target=mcp.run)
+        mcp_thread.daemon = True
+        mcp_thread.start()
+
+        try:
+            # This blocks until stdin is closed
+            sys.stdin.read()
+            logger.info("stdin closed by parent process. Initiating shutdown.")
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt received. Initiating shutdown.")
+
+        shutdown_procedure()
