@@ -7,7 +7,7 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import build_entity_dict
+from src.utils.entity import build_entity_dict, get_entity_by_id
 
 async def search_telegram(
     query: str,
@@ -63,16 +63,9 @@ async def search_telegram(
         if chat_id:
             # Search in a specific chat
             try:
-                # Handle different chat ID formats
-                try:
-                    chat_id_int = int(chat_id)
-                    if str(chat_id).startswith('-100'):
-                        chat_id_int = int(str(chat_id)[4:])
-                    elif str(chat_id).startswith('-'):
-                        chat_id_int = int(str(chat_id)[1:])
-                    entity = await client.get_entity(chat_id_int)
-                except ValueError:
-                    entity = await client.get_entity(chat_id)
+                entity = await get_entity_by_id(chat_id)
+                if not entity:
+                    raise ValueError(f"Could not find chat with ID '{chat_id}'")
                 results = await _search_in_single_chat(client, entity, query, limit, offset, chat_type, auto_expand_batches)
             except Exception as e:
                 logger.error(f"Error searching in specific chat: {str(e)}")
@@ -174,7 +167,11 @@ async def _search_global(client, query, limit, min_datetime, max_datetime, offse
         for message in result.messages:
             if message and hasattr(message, 'message') and message.message:
                 try:
-                    chat = await client.get_entity(message.peer_id)
+                    chat = await get_entity_by_id(message.peer_id)
+                    if not chat:
+                        logger.warning(f"Could not get entity for peer_id: {message.peer_id}")
+                        continue
+
                     identifier = getattr(chat, 'username', None)
                     if not identifier and hasattr(chat, 'id'):
                         if str(chat.id).startswith('-100'):
@@ -218,8 +215,10 @@ async def _build_result(client, message, entity_or_chat, link):
 async def _get_sender_info(client, message):
     if hasattr(message, 'sender_id') and message.sender_id:
         try:
-            sender = await client.get_entity(message.sender_id)
-            return build_entity_dict(sender)
+            sender = await get_entity_by_id(message.sender_id)
+            if sender:
+                return build_entity_dict(sender)
+            return {"id": message.sender_id, "error": "Sender not found"}
         except Exception:
-            return {"id": message.sender_id}
+            return {"id": message.sender_id, "error": "Failed to retrieve sender"}
     return None

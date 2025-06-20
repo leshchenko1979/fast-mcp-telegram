@@ -3,6 +3,7 @@ from loguru import logger
 import traceback
 from ..config.logging import format_diagnostic_info
 from ..client.connection import get_client
+from src.utils.entity import get_entity_by_id
 
 async def generate_telegram_links(
     chat_id: str,
@@ -50,15 +51,12 @@ async def generate_telegram_links(
         is_public = False
         entity = None
         client = await get_client()
-        try:
-            entity = await client.get_entity(chat_id)
-        except Exception as e:
-            logger.warning(f"Could not get entity by chat_id: {e}")
+
+        entity = await get_entity_by_id(chat_id)
+
         if entity is None and username:
-            try:
-                entity = await client.get_entity(username)
-            except Exception as e2:
-                logger.warning(f"Could not get entity by username: {e2}")
+            entity = await get_entity_by_id(username)
+
         if entity is not None and hasattr(entity, 'username') and entity.username:
             real_username = entity.username
             is_public = True

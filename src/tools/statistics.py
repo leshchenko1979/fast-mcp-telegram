@@ -5,6 +5,7 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
+from src.utils.entity import get_entity_by_id
 
 async def get_chat_statistics(
     chat_id: str,
@@ -37,7 +38,9 @@ async def get_chat_statistics(
     client = await get_client()
     try:
         # Get chat entity
-        chat = await client.get_entity(chat_id)
+        chat = await get_entity_by_id(chat_id)
+        if not chat:
+            raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
         # Initialize statistics
         stats = {
@@ -142,7 +145,7 @@ async def _collect_member_stats(client, chat, start_date, end_date) -> Dict[str,
 
     # Get total member count
     try:
-        full_chat = await client.get_entity(chat.id)
+        full_chat = await get_entity_by_id(chat.id)
         member_stats["total_members"] = full_chat.participants_count if hasattr(full_chat, 'participants_count') else 0
     except Exception as e:
         logger.warning(f"Could not get total member count: {e}")
@@ -168,13 +171,21 @@ async def _collect_member_stats(client, chat, start_date, end_date) -> Dict[str,
 
     for user_id, message_count in sorted_contributors:
         try:
-            user = await client.get_entity(int(user_id))
-            member_stats["top_contributors"].append({
-                "id": user_id,
-                "name": user.first_name,
-                "username": user.username,
-                "message_count": message_count
-            })
+            user = await get_entity_by_id(user_id)
+            if user:
+                member_stats["top_contributors"].append({
+                    "id": user_id,
+                    "name": user.first_name,
+                    "username": user.username,
+                    "message_count": message_count
+                })
+            else:
+                logger.warning(f"Could not get user info for {user_id}")
+                member_stats["top_contributors"].append({
+                    "id": user_id,
+                    "name": "Unknown User",
+                    "message_count": message_count
+                })
         except Exception as e:
             logger.warning(f"Could not get user info for {user_id}: {e}")
             member_stats["top_contributors"].append({

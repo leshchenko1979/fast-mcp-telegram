@@ -4,7 +4,7 @@ import time
 import traceback
 from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
-from src.utils.entity import build_entity_dict
+from src.utils.entity import build_entity_dict, get_entity_by_id
 
 async def send_message(
     chat_id: str,
@@ -36,8 +36,9 @@ async def send_message(
 
     client = await get_client()
     try:
-        # Не модифицируем chat_id, передаём как есть
-        chat = await client.get_entity(chat_id)
+        chat = await get_entity_by_id(chat_id)
+        if not chat:
+            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
 
         # Send message
         sent_message = await client.send_message(

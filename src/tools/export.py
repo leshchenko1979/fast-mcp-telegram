@@ -8,7 +8,7 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
-from src.utils.entity import build_entity_dict
+from src.utils.entity import build_entity_dict, get_entity_by_id
 
 async def export_chat_data(
     chat_id: int,
@@ -47,7 +47,9 @@ async def export_chat_data(
     client = await get_client()
     try:
         # Get chat entity
-        chat = await client.get_entity(chat_id)
+        chat = await get_entity_by_id(chat_id)
+        if not chat:
+            raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
         # Process time range
         start_date = None
