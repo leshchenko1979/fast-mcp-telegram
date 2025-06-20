@@ -10,7 +10,6 @@ from mcp.server.fastmcp import FastMCP
 import traceback
 import asyncio
 import sys
-from pydantic import BaseModel, Field
 
 from src.config.logging import setup_logging
 from src.tools.search import search_telegram
