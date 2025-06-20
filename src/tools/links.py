@@ -15,7 +15,6 @@ async def generate_telegram_links(
 ) -> Dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
-    Now: chat_id может быть как username, так и id. Username и публичность определяются внутри.
     """
     logger.debug(
         "Generating Telegram links",
@@ -46,7 +45,7 @@ async def generate_telegram_links(
         if query_string:
             query_string = "?" + query_string
 
-        # --- Новый блок: определяем username и публичность ---
+        # --- New block: determine username and publicity ---
         real_username = None
         is_public = False
         entity = None
@@ -61,7 +60,7 @@ async def generate_telegram_links(
             real_username = entity.username
             is_public = True
 
-        # --- Генерация ссылок ---
+        # --- Link generation ---
         if is_public and real_username:
             clean_username = real_username.lstrip('@')
             result["public_chat_link"] = f"https://t.me/{clean_username}"
@@ -74,7 +73,7 @@ async def generate_telegram_links(
                         link = f"https://t.me/{clean_username}/{msg_id}{query_string}"
                     result["message_links"].append(link)
         elif entity is not None:
-            # Приватный чат
+            # Private chat
             channel_id = str(entity.id)
             if channel_id.startswith('-100'):
                 channel_id = channel_id[4:]
