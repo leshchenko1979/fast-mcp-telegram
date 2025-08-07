@@ -1,6 +1,6 @@
 # MCP Telegram Server
 
-A powerful MCP server implementation that provides Telegram functionality through a clean API interface, including message search, sending, and chat management capabilities.
+A powerful MCP server implementation built with FastMCP that provides Telegram functionality through a clean API interface, including message search, sending, and chat management capabilities.
 
 Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, updates, and community discussions.
 
@@ -62,28 +62,50 @@ To use this server with Cursor IDE:
 {
   "mcpServers": {
     "mcp-telegram": {
-      "command": "cmd /c set PYTHONPATH=%PYTHONPATH%;<path_to_server> && mcp run <path_to_server>/src/server.py",
-      "description": "Telegram MCP server"
+      "command": "python3",
+      "args": ["/path/to/your/tg_mcp/src/server.py"],
+      "cwd": "/path/to/your/tg_mcp",
+      "env": {
+        "PYTHONPATH": "/path/to/your/tg_mcp"
+      },
+      "description": "Telegram MCP server with search, messaging, and analytics tools"
     }
   }
 }
 ```
 
-Note: Replace `<path_to_server>` with the absolute path to your installation directory.
+**Note:** Replace `/path/to/your/tg_mcp` with your actual project directory path.
 
 2. Ensure your `.env` file is properly configured as described in the Installation section.
 
 3. The server will automatically connect to Cursor when you open the project, making all Telegram tools available through the IDE.
 
-Note: If you modify the server code, you'll need to reload the server in Cursor for changes to take effect.
+**Note:** If you modify the server code, you'll need to reload the server in Cursor for changes to take effect.
 
 ## Usage
 
-The server can be run using MCP:
+The server can be run in several ways:
+
+### For Cursor IDE (Recommended)
+The server is configured to run automatically with Cursor IDE using the `mcp.json` configuration.
+
+### For HTTP Testing
+Run the server in HTTP mode for testing:
 
 ```bash
-mcp run <path_to_server>/server.py
+python3 -m src.server --test-mode
 ```
+
+This will start the server on `http://127.0.0.1:8000/mcp/`
+
+### For Direct Execution
+Run the server directly:
+
+```bash
+python3 src/server.py
+```
+
+This runs the server with STDIO transport for MCP clients.
 
 ## Available Tools
 
@@ -257,9 +279,9 @@ Note: *.session and *.session-journal files will be created after authentication
 
 The project relies on the following main packages:
 ```
+fastmcp         # FastMCP framework for MCP servers
 loguru          # Logging
 aiohttp         # Async HTTP
-mcp[cli]        # Model Control Protocol
 telethon>=1.34.0  # Telegram client
 python-dotenv>=1.0.0  # Environment management
 ```

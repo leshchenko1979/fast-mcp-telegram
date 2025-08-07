@@ -6,10 +6,14 @@ Provides API endpoints and core bot features.
 import os
 import time
 from loguru import logger
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 import traceback
 import asyncio
 import sys
+import os
+
+# Add the project root to Python path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config.logging import setup_logging
 from src.tools.search import search_telegram
@@ -30,10 +34,7 @@ else:
     host = os.environ.get("MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("MCP_PORT", "8000"))
 
-if transport == "http":
-    mcp = FastMCP("Telegram MCP Server", transport="http", host=host, port=port)
-else:
-    mcp = FastMCP("Telegram MCP Server", transport="stdio")
+mcp = FastMCP("Telegram MCP Server")
 
 # Set up logging
 setup_logging()
@@ -181,24 +182,16 @@ def shutdown_procedure():
 if __name__ == "__main__":
     if transport == "http":
         try:
-            asyncio.run(mcp.run_sse_async())
+            mcp.run(transport="http", host=host, port=port)
         finally:
             # Ensure cleanup on HTTP server shutdown
             shutdown_procedure()
     else:
-        # For stdio, we watch for stdin to be closed by the parent (Cursor)
-        # as the signal to shut down.
-        import threading
-
-        mcp_thread = threading.Thread(target=mcp.run)
-        mcp_thread.daemon = True
-        mcp_thread.start()
-
+        # For stdio transport, just run directly
+        # FastMCP handles the stdio communication automatically
         try:
-            # This blocks until stdin is closed
-            sys.stdin.read()
-            logger.info("stdin closed by parent process. Initiating shutdown.")
+            mcp.run(transport="stdio")
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received. Initiating shutdown.")
-
-        shutdown_procedure()
+        finally:
+            shutdown_procedure()
