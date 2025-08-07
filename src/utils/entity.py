@@ -35,3 +35,125 @@ def build_entity_dict(entity) -> dict:
         "first_name": first_name,
         "last_name": last_name
     }
+
+async def _extract_forward_info(message) -> dict:
+    """
+    Extract forward information from a Telegram message in minimal format.
+    
+    Args:
+        message: Telegram message object
+        
+    Returns:
+        dict: Forward information dictionary containing:
+            - sender: Original sender information (if available)
+            - date: Original message date in ISO format
+            - chat: Source chat information (if available)
+        None: If the message is not forwarded
+    """
+    if not message:
+        return None
+        
+    forward = getattr(message, 'forward', None)
+    if not forward:
+        return None
+        
+    # Extract forward date and convert to ISO format if present
+    forward_date = getattr(forward, 'date', None)
+    original_date = None
+    if forward_date:
+        try:
+            original_date = forward_date.isoformat()
+        except Exception:
+            original_date = str(forward_date)
+    
+    # Extract original sender information with full entity resolution
+    sender = None
+    from_id = getattr(forward, 'from_id', None)
+    if from_id:
+        # Extract user ID from PeerUser or other peer types
+        sender_id = None
+        if hasattr(from_id, 'user_id'):
+            sender_id = from_id.user_id
+        elif hasattr(from_id, 'channel_id'):
+            sender_id = from_id.channel_id
+        elif hasattr(from_id, 'chat_id'):
+            sender_id = from_id.chat_id
+        else:
+            sender_id = str(from_id)
+        
+        # Try to resolve the full entity information
+        if sender_id:
+            try:
+                sender_entity = await get_entity_by_id(sender_id)
+                if sender_entity:
+                    sender = build_entity_dict(sender_entity)
+                else:
+                    # Fallback to basic info if entity resolution fails
+                    sender = {
+                        "id": sender_id,
+                        "title": None,
+                        "type": "User" if hasattr(from_id, 'user_id') else "Channel" if hasattr(from_id, 'channel_id') else "Chat" if hasattr(from_id, 'chat_id') else "Unknown",
+                        "username": None,
+                        "first_name": None,
+                        "last_name": None
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to resolve forwarded sender entity {sender_id}: {e}")
+                # Fallback to basic info
+                sender = {
+                    "id": sender_id,
+                    "title": None,
+                    "type": "User" if hasattr(from_id, 'user_id') else "Channel" if hasattr(from_id, 'channel_id') else "Chat" if hasattr(from_id, 'chat_id') else "Unknown",
+                    "username": None,
+                    "first_name": None,
+                    "last_name": None
+                }
+    
+    # Extract source chat information with full entity resolution
+    chat = None
+    saved_from_peer = getattr(forward, 'saved_from_peer', None)
+    if saved_from_peer:
+        # Extract chat ID from peer types
+        chat_id = None
+        if hasattr(saved_from_peer, 'user_id'):
+            chat_id = saved_from_peer.user_id
+        elif hasattr(saved_from_peer, 'channel_id'):
+            chat_id = saved_from_peer.channel_id
+        elif hasattr(saved_from_peer, 'chat_id'):
+            chat_id = saved_from_peer.chat_id
+        else:
+            chat_id = str(saved_from_peer)
+        
+        # Try to resolve the full entity information
+        if chat_id:
+            try:
+                chat_entity = await get_entity_by_id(chat_id)
+                if chat_entity:
+                    chat = build_entity_dict(chat_entity)
+                else:
+                    # Fallback to basic info if entity resolution fails
+                    chat = {
+                        "id": chat_id,
+                        "title": None,
+                        "type": "User" if hasattr(saved_from_peer, 'user_id') else "Channel" if hasattr(saved_from_peer, 'channel_id') else "Chat" if hasattr(saved_from_peer, 'chat_id') else "Unknown",
+                        "username": None,
+                        "first_name": None,
+                        "last_name": None
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to resolve forwarded chat entity {chat_id}: {e}")
+                # Fallback to basic info
+                chat = {
+                    "id": chat_id,
+                    "title": None,
+                    "type": "User" if hasattr(saved_from_peer, 'user_id') else "Channel" if hasattr(saved_from_peer, 'channel_id') else "Chat" if hasattr(saved_from_peer, 'chat_id') else "Unknown",
+                    "username": None,
+                    "first_name": None,
+                    "last_name": None
+                }
+    
+    return {
+        "sender": sender,
+        "date": original_date,
+        "chat": chat
+    }

@@ -7,7 +7,7 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import build_entity_dict, get_entity_by_id
+from src.utils.entity import build_entity_dict, get_entity_by_id, _extract_forward_info
 
 async def search_telegram(
     query: str,
@@ -202,15 +202,31 @@ async def _search_global(client, query, limit, min_datetime, max_datetime, offse
 async def _build_result(client, message, entity_or_chat, link):
     sender = await _get_sender_info(client, message)
     chat = build_entity_dict(entity_or_chat)
-    return {
+    forward_info = await _extract_forward_info(message)
+    
+    result = {
         "id": message.id,
         "date": message.date.isoformat(),
         "chat": chat,
-        "text": getattr(message, 'text', None) or getattr(message, 'message', None),
-        "reply_to_msg_id": getattr(message, 'reply_to_msg_id', None) or getattr(getattr(message, 'reply_to', None), 'reply_to_msg_id', None),
+        "text": getattr(message, 'text', None) or getattr(message, 'caption', None),
         "link": link,
         "sender": sender
     }
+    
+    # Only add reply_to_msg_id if the message is actually a reply
+    reply_to_msg_id = getattr(message, 'reply_to_msg_id', None) or getattr(getattr(message, 'reply_to', None), 'reply_to_msg_id', None)
+    if reply_to_msg_id is not None:
+        result["reply_to_msg_id"] = reply_to_msg_id
+    
+    # Add media info if the message has media
+    if hasattr(message, 'media') and message.media:
+        result["media"] = message.media
+    
+    # Only add forwarded_from if the message is actually forwarded
+    if forward_info is not None:
+        result["forwarded_from"] = forward_info
+    
+    return result
 
 async def _get_sender_info(client, message):
     if hasattr(message, 'sender_id') and message.sender_id:
