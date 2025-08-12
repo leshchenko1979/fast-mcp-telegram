@@ -1,0 +1,136 @@
+# Technical Context: tg_mcp
+
+## Technologies Used
+
+### Core Framework
+- **FastMCP**: MCP (Modular Control Platform) server framework
+- **Telethon**: Python library for Telegram's MTProto API
+- **Python 3.x**: Primary development language
+
+### Key Dependencies
+```python
+# Core dependencies from requirements.txt
+fastmcp          # MCP server framework
+telethon         # Telegram API client
+loguru           # Advanced logging
+```
+
+### Development Tools
+- **Cursor IDE**: Primary development environment
+- **Git**: Version control
+- **Python venv**: Virtual environment management
+
+## Development Setup
+
+### Environment Configuration
+```bash
+# Project structure
+tg_mcp/
+├── src/                    # Source code
+│   ├── server.py          # MCP server entry point
+│   ├── tools/             # Tool implementations
+│   ├── client/            # Telegram client management
+│   ├── config/            # Configuration and logging
+│   └── utils/             # Utility functions
+├── tests/                 # Test suite
+├── memory-bank/           # Project documentation
+└── requirements.txt       # Dependencies
+```
+
+### MCP Server Configuration
+```json
+{
+  "mcpServers": {
+    "mcp-telegram": {
+      "command": "python3",
+      "args": ["/Users/leshchenko/coding_projects/tg_mcp/src/server.py"],
+      "cwd": "/Users/leshchenko/coding_projects/tg_mcp",
+      "env": {
+        "PYTHONPATH": "/Users/leshchenko/coding_projects/tg_mcp"
+      }
+    }
+  }
+}
+```
+
+## Technical Constraints
+
+### Telegram API Limitations
+- **Rate Limiting**: API calls are subject to Telegram's rate limits
+- **Session Management**: Requires proper session handling and authentication
+- **Search Limitations**: Global search has different capabilities than per-chat search
+- **Entity Resolution**: Chat IDs can be in multiple formats (username, numeric ID, channel ID)
+
+### MCP Protocol Constraints
+- **Tool Registration**: All tools must be properly registered with FastMCP
+- **Async Operations**: All Telegram operations must be async
+- **Error Handling**: Errors must be properly propagated to MCP clients
+- **Documentation**: Tool descriptions must be clear for AI model consumption
+
+## Dependencies and Imports
+
+### Import Structure
+```python
+# Server imports
+from fastmcp import FastMCP
+from src.tools.search import search_telegram
+from src.tools.messages import send_message, list_dialogs
+from src.tools.statistics import get_chat_statistics
+from src.tools.links import generate_telegram_links
+from src.tools.export import export_chat_data
+from src.tools.mtproto import invoke_mtproto_method
+```
+
+### Module Dependencies
+- **server.py**: Orchestrates all tool modules
+- **search.py**: Core search functionality
+- **client/connection.py**: Telegram client management
+- **utils/entity.py**: Entity resolution utilities
+
+## Tool Usage Patterns
+
+### Search Tool Parameters
+```python
+async def search_messages(
+    query: str,                    # Search query (can be empty for chat_id searches)
+    chat_id: str = None,           # Target chat ID (for per-chat search)
+    limit: int = 100,              # Maximum results
+    offset: int = 0,               # Pagination offset
+    chat_type: str = None,         # Filter by chat type
+    min_date: str = None,          # Date range filter
+    max_date: str = None,          # Date range filter
+    auto_expand_batches: int = 2,  # Auto-expansion for filtered results
+)
+```
+
+### Key Usage Scenarios
+1. **Per-chat Search**: `chat_id` provided, `query` optional
+2. **Global Search**: `chat_id` not provided, `query` required
+3. **Date-filtered Search**: Use `min_date` and `max_date` parameters
+4. **Type-filtered Search**: Use `chat_type` parameter
+
+## Development Workflow
+
+### Testing
+- **Unit Tests**: Located in `tests/` directory
+- **Integration Tests**: Test MCP server functionality
+- **Manual Testing**: Using Cursor IDE with MCP client
+
+### Deployment
+- **Local Development**: Using stdio transport
+- **HTTP Server**: For testing with HTTP transport
+- **Production**: MCP server runs as part of Cursor IDE
+
+## Current Technical Challenges
+
+### Search Query Interpretation
+**Problem**: Language models incorrectly use contact names as search queries in global search
+**Impact**: Returns irrelevant results from other chats instead of targeting specific contacts
+**Technical Root Cause**: Ambiguous parameter usage between `query` and `chat_id`
+
+### Documentation Clarity
+**Problem**: Tool descriptions don't clearly distinguish between search modes
+**Impact**: AI models make incorrect assumptions about parameter usage
+**Solution Needed**: Enhanced documentation with clear usage examples and scenarios
+
+
