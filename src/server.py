@@ -22,6 +22,7 @@ from src.tools.statistics import get_chat_statistics
 from src.tools.links import generate_telegram_links
 from src.tools.export import export_chat_data
 from src.tools.mtproto import invoke_mtproto_method
+from src.tools.contacts import get_contact_info, search_contacts_telegram
 
 IS_TEST_MODE = '--test-mode' in sys.argv
 
@@ -53,10 +54,42 @@ async def search_messages(
 ):
     """
     Search Telegram messages with pagination, date range, chat type filter, and auto-expansion.
-
+    
+    IMPORTANT: This tool supports two distinct search modes. Choose the correct mode based on your intent:
+    
+    1. PER-CHAT SEARCH (Recommended for contact-specific requests):
+       - Use when you want to search within a specific contact's chat
+       - Set chat_id to the target contact's chat ID
+       - query can be empty (to get all messages) or specific (to search for content)
+       - Example: "Find messages from John about project" → use chat_id=John's_chat_id, query="project"
+    
+    2. GLOBAL SEARCH (Use only for content across all chats):
+       - Use when you want to find messages containing specific content across all chats
+       - Do NOT set chat_id (leave as None)
+       - query must contain the content you're searching for
+       - Example: "Find all messages about project X" → use query="project X", chat_id=None
+    
+    COMMON MISTAKE TO AVOID:
+    ❌ DON'T use contact names as query in global search
+    ❌ Example: query="John" with chat_id=None (this searches for "John" in all chats)
+    ✅ DO use chat_id to target specific contacts
+    ✅ Example: chat_id=John's_chat_id with query="" (this gets all messages from John)
+    
+    RECOMMENDED WORKFLOW FOR CONTACT-SPECIFIC SEARCHES:
+    1. Use search_contacts() to find the contact's chat ID by name/username
+    2. Use the returned chat_id in this search function
+    3. Set query to empty string or specific content you want to find
+    
+    ALTERNATIVE WORKFLOW (if search_contacts doesn't work):
+    1. Use get_dialogs() to get a list of available chats/dialogs
+    2. Find the contact you're looking for in the returned list
+    3. Use the contact's chat_id in this search function
+    
     Args:
-        query: The search query string.
-        chat_id: Optional chat ID to search in a specific chat.
+        query: The search query string. For per-chat search, can be empty to get all messages.
+               For global search, must contain the content you're searching for.
+        chat_id: Chat ID to search within a specific chat. If provided, performs per-chat search.
+                 If None, performs global search across all chats.
         limit: Maximum number of results to return.
         offset: Number of results to skip (for pagination).
         chat_type: Filter by chat type: 'private', 'group', 'channel', or None for all.
@@ -100,7 +133,35 @@ async def send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int
 
 @mcp.tool()
 async def get_dialogs(limit: int = 100, offset: int = 0):
-    """List available Telegram dialogs (chats) with pagination."""
+    """
+    List available Telegram dialogs (chats) with pagination.
+    
+    IMPORTANT: This is an alternative tool for finding chat IDs. For better contact search, use search_contacts() first.
+    
+    RECOMMENDED WORKFLOW FOR CONTACT-SPECIFIC SEARCHES:
+    1. Use search_contacts() to find the contact's chat ID by name/username (preferred method)
+    2. Use the returned chat_id in search_messages() for targeted search
+    
+    ALTERNATIVE WORKFLOW (if search_contacts doesn't work):
+    1. Use this tool to get a list of available chats/dialogs
+    2. Find the contact you're looking for in the returned list
+    3. Use the contact's chat_id in search_messages() for targeted search
+    
+    The returned data includes:
+    - chat_id: Use this ID in search_messages() to target specific contacts
+    - title/name: The contact or chat name
+    - type: Whether it's a private chat, group, or channel
+    
+    Example workflow:
+    1. User asks: "Find messages from John about the project"
+    2. Use search_contacts("John") to find John's chat_id (preferred)
+    3. Or use get_dialogs() to find John's chat_id (alternative)
+    4. Use search_messages(chat_id=John's_chat_id, query="project")
+    
+    Args:
+        limit: Maximum number of dialogs to return.
+        offset: Number of dialogs to skip (for pagination).
+    """
     try:
         request_id = f"dialogs_{int(time.time())}"
         logger.info(f"[{request_id}] Fetching dialogs, limit: {limit}, offset: {offset}")
@@ -148,6 +209,68 @@ async def export_data(chat_id: str, format: str = "json"):
         return data
     except Exception as e:
         logger.error(f"[{request_id}] Error exporting data: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+@mcp.tool()
+async def search_contacts(query: str, limit: int = 20):
+    """
+    Search contacts using Telegram's native search functionality.
+    
+    This tool uses Telegram's built-in contacts.SearchRequest method to find
+    users and chats by name, username, or phone number. This is more powerful
+    than get_dialogs() as it searches through your contacts and global Telegram users.
+    
+    IMPORTANT: This is the recommended method for finding specific contacts.
+    
+    FEATURES:
+    - Searches through your contacts and global Telegram users
+    - Supports search by name, username, or phone number
+    - Returns detailed contact information including chat_id, username, phone
+    - More accurate than manual search through dialogs
+    
+    WORKFLOW:
+    1. User asks: "Find messages from @username or John Doe"
+    2. Use this tool: search_contacts(query="username") or search_contacts(query="John Doe")
+    3. Get the chat_id from the result
+    4. Use search_messages(chat_id=chat_id, query="your_search_term")
+    
+    Example:
+    - search_contacts("Евдокимов") → finds all contacts with "Евдокимов" in name
+    - search_contacts("@username") → finds specific user by username
+    - search_contacts("+1234567890") → finds contact by phone number
+    
+    Args:
+        query: The search query (name, username, or phone number)
+        limit: Maximum number of results to return
+    """
+    try:
+        request_id = f"search_contacts_{int(time.time())}"
+        logger.info(f"[{request_id}] Searching contacts: {query}, limit: {limit}")
+        result = await search_contacts_telegram(query, limit)
+        logger.info(f"[{request_id}] Found {len(result)} contacts")
+        return result
+    except Exception as e:
+        logger.error(f"[{request_id}] Error searching contacts: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+@mcp.tool()
+async def get_contact_details(chat_id: str):
+    """
+    Get detailed information about a specific contact.
+    
+    Use this tool to get more information about a contact after finding their chat_id.
+    
+    Args:
+        chat_id: The chat ID of the contact
+    """
+    try:
+        request_id = f"contact_details_{int(time.time())}"
+        logger.info(f"[{request_id}] Getting contact details for: {chat_id}")
+        result = await get_contact_info(chat_id)
+        logger.info(f"[{request_id}] Contact details retrieved successfully")
+        return result
+    except Exception as e:
+        logger.error(f"[{request_id}] Error getting contact details: {str(e)}\n{traceback.format_exc()}")
         raise
 
 @mcp.tool()

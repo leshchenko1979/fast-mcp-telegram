@@ -165,7 +165,7 @@ async def _search_global(client, query, limit, min_datetime, max_datetime, offse
         if not hasattr(result, 'messages') or not result.messages:
             break
         for message in result.messages:
-            if message and hasattr(message, 'message') and message.message:
+            if message and (hasattr(message, 'message') and message.message) or (hasattr(message, 'text') and message.text):
                 try:
                     chat = await get_entity_by_id(message.peer_id)
                     if not chat:
@@ -208,7 +208,7 @@ async def _build_result(client, message, entity_or_chat, link):
         "id": message.id,
         "date": message.date.isoformat(),
         "chat": chat,
-        "text": getattr(message, 'text', None) or getattr(message, 'caption', None),
+        "text": getattr(message, 'text', None) or getattr(message, 'message', None) or getattr(message, 'caption', None),
         "link": link,
         "sender": sender
     }
