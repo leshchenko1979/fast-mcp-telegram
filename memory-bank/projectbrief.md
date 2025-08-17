@@ -18,8 +18,7 @@ tg_mcp is a Python-based MCP (Modular Control Platform) server that provides com
 - Maintain clean separation between global and targeted search operations
 - Ensure proper documentation for language model usage
 
-## Current Challenge
-**Search Query Interpretation Issue**: Language models are incorrectly using contact names as search queries in global search, causing the system to search for the name within message content rather than targeting the specific contact's chat.
+
 
 ## Technical Constraints
 - Must work with existing Telegram API limitations

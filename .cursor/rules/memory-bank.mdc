@@ -5,7 +5,7 @@ I am an expert software engineer with a unique characteristic: my memory resets 
 
 ## Memory Bank Structure
 
-The Memory Bank consists of core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy:
+The Memory Bank consists of core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy with distinct areas of responsibility:
 
 flowchart TD
     PB[projectbrief.md] --> PC[productContext.md]
@@ -18,47 +18,51 @@ flowchart TD
 
     AC --> P[progress.md]
 
-### Core Files (Required)
-1. `projectbrief.md`
+### Core Files (Required) - Clear Areas of Responsibility
+
+1. `projectbrief.md` - **Foundation & Scope**
    - Foundation document that shapes all other files
    - Created at project start if it doesn't exist
    - Defines core requirements and goals
    - Source of truth for project scope
+   - **AOR**: What the project is and what it should accomplish
 
-2. `productContext.md`
+2. `productContext.md` - **Why & How**
    - Why this project exists
    - Problems it solves
    - How it should work
    - User experience goals
+   - **AOR**: Product vision, user needs, and experience design
 
-3. `activeContext.md`
-   - Current work focus
-   - Recent changes
-   - Next steps
+3. `activeContext.md` - **Current Focus & Decisions**
+   - Current work focus (1-2 main items)
    - Active decisions and considerations
    - Important patterns and preferences
-   - Learnings and project insights
+   - Next immediate steps (3-5 items max)
+   - **AOR**: What we're working on right now and why
 
-4. `systemPatterns.md`
+4. `systemPatterns.md` - **Architecture & Design**
    - System architecture
    - Key technical decisions
    - Design patterns in use
    - Component relationships
    - Critical implementation paths
+   - **AOR**: How the system is structured and why
 
-5. `techContext.md`
+5. `techContext.md` - **Technology & Setup**
    - Technologies used
    - Development setup
    - Technical constraints
    - Dependencies
    - Tool usage patterns
+   - **AOR**: Technical foundation and constraints
 
-6. `progress.md`
-   - What works
-   - What's left to build
-   - Current status
-   - Known issues
+6. `progress.md` - **Status & Evolution**
+   - What works (functional status)
+   - What's left to build (remaining work)
+   - Known issues and their status
    - Evolution of project decisions
+   - **AOR**: Project health and completion status
 
 ### Additional Context
 Create additional files/folders within memory-bank/ when they help organize:
@@ -67,6 +71,22 @@ Create additional files/folders within memory-bank/ when they help organize:
 - API documentation
 - Testing strategies
 - Deployment procedures
+
+## File Content Guidelines
+
+### Content Boundaries
+- **activeContext.md**: Keep under 50 lines, focus on current work only
+- **progress.md**: Focus on status, not detailed change tracking
+- **systemPatterns.md**: Architecture and patterns, not implementation details
+- **techContext.md**: Technical setup and constraints, not current work
+- **productContext.md**: Product vision and user experience, not technical details
+
+### Anti-Patterns to Avoid
+- ❌ Duplicating information across multiple files
+- ❌ Making activeContext.md a catch-all for current work
+- ❌ Including detailed change history in progress.md
+- ❌ Mixing current work with architectural decisions
+- ❌ Over-documenting completed work in activeContext.md
 
 ## Core Workflows
 
@@ -110,6 +130,13 @@ flowchart TD
     end
 
     Start --> Process
+
+### Update Guidelines
+- **activeContext.md**: Update when work focus changes or new decisions are made
+- **progress.md**: Update when functionality status changes or new issues arise
+- **systemPatterns.md**: Update when architecture or design patterns evolve
+- **techContext.md**: Update when technical setup or constraints change
+- **productContext.md**: Update when product vision or user experience goals change
 
 Note: When triggered by **update memory bank**, I MUST review every memory bank file, even if some don't require updates. Focus particularly on activeContext.md and progress.md as they track current state.
 

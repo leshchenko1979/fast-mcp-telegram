@@ -22,12 +22,7 @@ The tg_mcp project addresses the need for AI assistants and language models to i
 - **Efficient Queries**: Minimize unnecessary global searches when specific chat targeting is possible
 - **Clear Documentation**: Provide explicit guidance for different search scenarios
 
-## Current User Experience Issues
-**Primary Problem**: Language models are treating contact names as search terms in global search instead of using them to identify specific chats. This leads to:
-- Irrelevant search results (finding the name mentioned in other chats)
-- Missed target conversations
-- Inefficient search operations
-- Confusion about search intent
+
 
 ## Target User Experience
 1. **Contact-Specific Search**: "Find messages from John" → Use chat_id with John's chat ID

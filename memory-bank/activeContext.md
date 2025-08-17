@@ -1,56 +1,21 @@
 # Active Context: tg_mcp
 
 ## Current Work Focus
-**Primary Issue**: Language models are incorrectly interpreting search requests when users ask to find information from specific contacts. Instead of using the contact name to identify a specific chat (via `chat_id`), models are using the name as a search query in global search.
+**Primary**: All major features are complete and working. The system is production-ready with comprehensive documentation and testing.
 
-**Secondary Enhancement**: Added message formatting support to provide users with control over message appearance.
-
-## Recent Changes
-- Created comprehensive memory bank documentation
-- Identified the core search interpretation problem
-- Analyzed current search functionality in `src/tools/search.py`
-- Documented the dual search mode architecture (global vs per-chat)
-- Enhanced `search_messages` tool documentation with clear usage guidance
-- Improved `get_dialogs` tool documentation with workflow examples
-- Created new `search_contacts` tool using Telegram's native contacts.SearchRequest
-- Removed old `find_contact` tool to eliminate duplication
-- Fixed global search text extraction issue
-- Added comprehensive language model guidance documentation
-- **NEW**: Enhanced `send_telegram_message` tool with `parse_mode` parameter for message formatting
-- **NEW**: Added support for Markdown and HTML formatting options
-- **NEW**: Updated documentation with formatting examples and usage guidance
-- **NEW**: Created comprehensive test suite for message formatting functionality
-
-## Next Steps
-1. **✅ Test the Enhanced Documentation**: Verified that the improved tool descriptions resolve the search interpretation issue
-2. **✅ Validate New Tools**: Tested the `search_contacts` tool with language models - works perfectly
-3. **✅ Monitor Usage Patterns**: Language models now correctly use the contact resolution workflow
-4. **✅ Gather Feedback**: New documentation and tools are effective and working as expected
-5. **✅ Message Formatting**: Implemented and tested message formatting support with Markdown and HTML options
-6. **🔄 Production Ready**: All improvements are implemented and tested successfully
+**Current Status**: Monitoring system performance and gathering user feedback for potential future enhancements.
 
 ## Active Decisions and Considerations
 
-### Search Mode Clarification
-**Decision**: Need to make the distinction between search modes explicit in documentation
-**Rationale**: Current documentation doesn't clearly explain when to use `chat_id` vs global search
-**Impact**: Will help language models make correct parameter choices
+### Documentation Maintenance
+**Decision**: Keep documentation updated as new usage patterns emerge
+**Rationale**: Language models may discover new edge cases or usage scenarios
+**Impact**: Ensures continued accuracy of search and messaging functionality
 
-### Contact Name Resolution
-**Decision**: Implemented `search_contacts` tool using Telegram's native contacts.SearchRequest
-**Rationale**: Provides powerful contact search through contacts and global Telegram users
-**Implementation**: Created `src/tools/contacts.py` with native Telegram search functionality
-**Benefits**: More accurate contact resolution, supports username/phone search, eliminates duplication
-
-### Documentation Strategy
-**Approach**: Enhanced tool descriptions with:
-- Clear usage scenarios and examples
-- Parameter relationship explanations
-- Common mistake examples with ❌/✅ indicators
-- Best practices for different search types
-- Recommended and alternative workflows for contact resolution
-- Comprehensive language model guidance document
-- Updated tool descriptions reflecting new search_contacts functionality
+### Future Enhancement Planning
+**Consideration**: Monitor for additional user needs or Telegram API changes
+**Approach**: Maintain current functionality while being ready for new requirements
+**Priority**: Low - current system meets all defined requirements
 
 ## Important Patterns and Preferences
 
@@ -64,39 +29,9 @@
 2. **Markdown**: Use `parse_mode='md'` or `'markdown'` for rich text formatting
 3. **HTML**: Use `parse_mode='html'` for HTML-based formatting
 
-### Language Model Guidance
-- **Explicit Instructions**: Always specify when to use each parameter
-- **Example-Driven**: Provide concrete examples for each scenario
-- **Error Prevention**: Highlight common mistakes and how to avoid them
-- **Formatting Choice**: Let users choose their preferred message formatting style
-
-## Learnings and Project Insights
-
-### Current Search Behavior
-- **Global Search**: Searches across all chats for the query term
-- **Per-Chat Search**: Searches within a specific chat (identified by chat_id)
-- **Query Interpretation**: Global search treats the query as content to find, not as a contact identifier
-
-### Language Model Behavior
-- **Assumption Pattern**: Models assume contact names should be search queries
-- **Context Confusion**: Models don't distinguish between "find messages from X" vs "find messages about X"
-- **Parameter Ambiguity**: The relationship between `query` and `chat_id` is not clear enough
-
-### Technical Architecture Insights
-- **Dual Mode Design**: The system correctly supports both search modes
-- **Parameter Validation**: Current validation prevents invalid combinations
-- **Documentation Gap**: The main issue is in tool documentation, not implementation
-
-## Immediate Action Items
-1. **✅ Enhanced search_messages tool description** with clear parameter explanations and examples
-2. **✅ Added usage examples** for different search scenarios with ❌/✅ indicators
-3. **✅ Created comprehensive documentation** explaining contact targeting vs content searching
-4. **✅ Implemented search_contacts tool** using Telegram's native contacts.SearchRequest
-5. **✅ Removed duplicate tools** and cleaned up codebase
-6. **✅ Fixed global search text extraction** issue
-7. **✅ Tested all improvements** - working perfectly
-8. **✅ Updated tool descriptions** with recommended and alternative workflows
-9. **✅ Enhanced send_telegram_message tool** with parse_mode parameter for message formatting
-10. **✅ Added Markdown and HTML formatting support** with comprehensive documentation
-11. **✅ Created test suite** for message formatting functionality
-12. **✅ Updated README and CHANGELOG** with formatting examples and usage guidance
+## Next Immediate Steps
+1. **Monitor System Performance**: Track usage patterns and identify any issues
+2. **Gather User Feedback**: Collect feedback on search accuracy and message formatting
+3. **Documentation Updates**: Update docs if new usage patterns emerge
+4. **Maintenance**: Keep dependencies updated and monitor for API changes
+5. **Future Planning**: Identify potential enhancements based on user needs

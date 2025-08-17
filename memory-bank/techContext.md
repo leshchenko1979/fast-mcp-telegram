@@ -130,21 +130,18 @@ async def send_telegram_message(
 - **HTTP Server**: For testing with HTTP transport
 - **Production**: MCP server runs as part of Cursor IDE
 
-## Current Technical Challenges
+## Technical Constraints and Limitations
 
-### Search Query Interpretation
-**Problem**: Language models incorrectly use contact names as search queries in global search
-**Impact**: Returns irrelevant results from other chats instead of targeting specific contacts
-**Technical Root Cause**: Ambiguous parameter usage between `query` and `chat_id`
+### Telegram API Limitations
+- **Rate Limiting**: API calls are subject to Telegram's rate limits
+- **Search Limitations**: Global search has different capabilities than per-chat search
+- **Entity Resolution**: Chat IDs can be in multiple formats (username, numeric ID, channel ID)
+- **Session Management**: Requires proper session handling and authentication
 
-### Documentation Clarity
-**Problem**: Tool descriptions don't clearly distinguish between search modes
-**Impact**: AI models make incorrect assumptions about parameter usage
-**Status**: ✅ Resolved with comprehensive documentation and usage examples
-
-### Message Formatting Support
-**Problem**: Limited message formatting options for users
-**Impact**: Users couldn't control message appearance and formatting
-**Status**: ✅ Resolved with parse_mode parameter supporting Markdown and HTML
+### MCP Protocol Constraints
+- **Tool Registration**: All tools must be properly registered with FastMCP
+- **Async Operations**: All Telegram operations must be async
+- **Error Handling**: Errors must be properly propagated to MCP clients
+- **Documentation**: Tool descriptions must be clear for AI model consumption
 
 
