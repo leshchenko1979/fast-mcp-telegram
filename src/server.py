@@ -119,12 +119,32 @@ async def search_messages(
         raise
 
 @mcp.tool()
-async def send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None):
-    """Send a message to a Telegram chat, optionally as a reply."""
+async def send_telegram_message(
+    chat_id: str, 
+    message: str, 
+    reply_to_msg_id: int = None,
+    parse_mode: str = None
+):
+    """
+    Send a message to a Telegram chat, optionally as a reply.
+    
+    Args:
+        chat_id: The ID of the chat to send the message to
+        message: The text message to send
+        reply_to_msg_id: ID of the message to reply to (optional)
+        parse_mode: Parse mode for message formatting (optional)
+            - None: Plain text (default)
+            - 'md' or 'markdown': Markdown formatting
+            - 'html': HTML formatting
+    
+    Formatting Examples:
+        Markdown: *bold*, _italic_, [link](url), `code`
+        HTML: <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
+    """
     try:
         request_id = f"send_{int(time.time())}"
-        logger.info(f"[{request_id}] Sending message to chat: {chat_id}")
-        result = await send_message(chat_id, message, reply_to_msg_id)
+        logger.info(f"[{request_id}] Sending message to chat: {chat_id}, parse_mode: {parse_mode}")
+        result = await send_message(chat_id, message, reply_to_msg_id, parse_mode)
         logger.info(f"[{request_id}] Message sent successfully")
         return result
     except Exception as e:
