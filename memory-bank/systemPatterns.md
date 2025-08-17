@@ -27,6 +27,7 @@ The tg_mcp system follows a modular MCP server architecture with clear separatio
 - **Async Operations**: All Telegram operations are async for performance
 - **Error Handling**: Comprehensive error logging and propagation
 - **Request Tracking**: Unique request IDs for debugging
+- **Parameter Flexibility**: Tools support optional parameters with sensible defaults
 
 ### 3. Data Flow Patterns
 ```
@@ -63,9 +64,10 @@ else:
 
 ### Tool Dependencies
 - **search_messages**: Depends on search.py and entity resolution
-- **send_telegram_message**: Depends on messages.py
+- **send_telegram_message**: Depends on messages.py with formatting support
 - **get_dialogs**: Depends on messages.py for chat listing
 - **get_statistics**: Depends on statistics.py
+- **search_contacts**: Depends on contacts.py for contact resolution
 
 ## Design Patterns in Use
 

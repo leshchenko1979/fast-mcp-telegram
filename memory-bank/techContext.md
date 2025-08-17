@@ -101,6 +101,13 @@ async def search_messages(
     max_date: str = None,          # Date range filter
     auto_expand_batches: int = 2,  # Auto-expansion for filtered results
 )
+
+async def send_telegram_message(
+    chat_id: str,                  # Target chat ID
+    message: str,                  # Message text
+    reply_to_msg_id: int = None,   # Reply to specific message
+    parse_mode: str = None,        # Formatting mode (None, 'md', 'html')
+)
 ```
 
 ### Key Usage Scenarios
@@ -108,6 +115,8 @@ async def search_messages(
 2. **Global Search**: `chat_id` not provided, `query` required
 3. **Date-filtered Search**: Use `min_date` and `max_date` parameters
 4. **Type-filtered Search**: Use `chat_type` parameter
+5. **Message Formatting**: Use `parse_mode` for Markdown or HTML formatting
+6. **Contact Resolution**: Use `search_contacts` for contact name to chat_id resolution
 
 ## Development Workflow
 
@@ -131,6 +140,11 @@ async def search_messages(
 ### Documentation Clarity
 **Problem**: Tool descriptions don't clearly distinguish between search modes
 **Impact**: AI models make incorrect assumptions about parameter usage
-**Solution Needed**: Enhanced documentation with clear usage examples and scenarios
+**Status**: ✅ Resolved with comprehensive documentation and usage examples
+
+### Message Formatting Support
+**Problem**: Limited message formatting options for users
+**Impact**: Users couldn't control message appearance and formatting
+**Status**: ✅ Resolved with parse_mode parameter supporting Markdown and HTML
 
 

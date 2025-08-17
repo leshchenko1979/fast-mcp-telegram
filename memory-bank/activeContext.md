@@ -3,6 +3,8 @@
 ## Current Work Focus
 **Primary Issue**: Language models are incorrectly interpreting search requests when users ask to find information from specific contacts. Instead of using the contact name to identify a specific chat (via `chat_id`), models are using the name as a search query in global search.
 
+**Secondary Enhancement**: Added message formatting support to provide users with control over message appearance.
+
 ## Recent Changes
 - Created comprehensive memory bank documentation
 - Identified the core search interpretation problem
@@ -14,13 +16,18 @@
 - Removed old `find_contact` tool to eliminate duplication
 - Fixed global search text extraction issue
 - Added comprehensive language model guidance documentation
+- **NEW**: Enhanced `send_telegram_message` tool with `parse_mode` parameter for message formatting
+- **NEW**: Added support for Markdown and HTML formatting options
+- **NEW**: Updated documentation with formatting examples and usage guidance
+- **NEW**: Created comprehensive test suite for message formatting functionality
 
 ## Next Steps
 1. **✅ Test the Enhanced Documentation**: Verified that the improved tool descriptions resolve the search interpretation issue
 2. **✅ Validate New Tools**: Tested the `search_contacts` tool with language models - works perfectly
 3. **✅ Monitor Usage Patterns**: Language models now correctly use the contact resolution workflow
 4. **✅ Gather Feedback**: New documentation and tools are effective and working as expected
-5. **🔄 Production Ready**: All improvements are implemented and tested successfully
+5. **✅ Message Formatting**: Implemented and tested message formatting support with Markdown and HTML options
+6. **🔄 Production Ready**: All improvements are implemented and tested successfully
 
 ## Active Decisions and Considerations
 
@@ -52,10 +59,16 @@
 2. **Content Search**: Use global search with `query` parameter, no `chat_id`
 3. **Hybrid Search**: Use both `chat_id` and `query` for targeted content search
 
+### Message Formatting Patterns
+1. **Plain Text**: Default behavior (`parse_mode=None`) for maximum compatibility
+2. **Markdown**: Use `parse_mode='md'` or `'markdown'` for rich text formatting
+3. **HTML**: Use `parse_mode='html'` for HTML-based formatting
+
 ### Language Model Guidance
 - **Explicit Instructions**: Always specify when to use each parameter
 - **Example-Driven**: Provide concrete examples for each scenario
 - **Error Prevention**: Highlight common mistakes and how to avoid them
+- **Formatting Choice**: Let users choose their preferred message formatting style
 
 ## Learnings and Project Insights
 
@@ -83,3 +96,7 @@
 6. **✅ Fixed global search text extraction** issue
 7. **✅ Tested all improvements** - working perfectly
 8. **✅ Updated tool descriptions** with recommended and alternative workflows
+9. **✅ Enhanced send_telegram_message tool** with parse_mode parameter for message formatting
+10. **✅ Added Markdown and HTML formatting support** with comprehensive documentation
+11. **✅ Created test suite** for message formatting functionality
+12. **✅ Updated README and CHANGELOG** with formatting examples and usage guidance

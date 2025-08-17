@@ -145,7 +145,21 @@ The server provides the following MCP tools:
 - `send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None)`
   - Send messages to Telegram chats
   - Supports replying to messages
-  - Optional markdown/HTML parsing
+  - **parse_mode options:**
+    - `None` (default): Plain text
+    - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
+    - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
+  - **Example with formatting:**
+    ```json
+    {
+      "tool": "send_telegram_message",
+      "params": {
+        "chat_id": "123456789",
+        "message": "*Important Update*: The warehouse market is showing _strong growth_ trends. See [detailed report](https://example.com/report) for more information.",
+        "parse_mode": "markdown"
+      }
+    }
+    ```
 
 - `get_dialogs(limit: int = 50, offset: int = 0)`
   - List available Telegram dialogs

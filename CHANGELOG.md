@@ -1,5 +1,35 @@
 # Changelog
 
+## [2025-01-27] - Message Formatting Support
+
+### ✨ Enhanced
+- **Message Formatting Options**: Added `parse_mode` parameter to `send_telegram_message` tool
+  - Support for Markdown formatting (`'md'` or `'markdown'`)
+  - Support for HTML formatting (`'html'`)
+  - Default behavior remains plain text (`None`)
+  - Comprehensive documentation with formatting examples
+
+### 📚 Added
+- **Formatting Documentation**: Updated README with detailed parse_mode options and examples
+- **Tool Enhancement**: Enhanced `send_telegram_message` with proper parameter documentation
+
+### 🔧 Technical Details
+- **Telethon Default**: According to Telethon documentation, the default parse_mode is `'md'` (Markdown)
+- **Current Implementation**: Server defaults to `None` (plain text) for maximum compatibility
+- **User Choice**: Users can now explicitly choose their preferred formatting mode
+
+### 📋 Usage Examples
+```json
+{
+  "tool": "send_telegram_message",
+  "params": {
+    "chat_id": "123456789",
+    "message": "*Bold text* and _italic text_ with [link](https://example.com)",
+    "parse_mode": "markdown"
+  }
+}
+```
+
 ## [2025-08-12] - Search Interpretation Fix
 
 ### 🐛 Fixed

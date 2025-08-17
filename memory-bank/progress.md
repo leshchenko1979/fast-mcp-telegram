@@ -4,7 +4,8 @@
 ✅ **Core MCP Server**: FastMCP server is properly configured and running
 ✅ **Telegram Integration**: Telethon client successfully connects to Telegram API
 ✅ **Search Functionality**: Both global and per-chat search are implemented and functional
-✅ **Message Sending**: Can send messages to chats with reply functionality
+✅ **Message Sending**: Can send messages to chats with reply functionality and formatting options
+✅ **Message Formatting**: Support for Markdown and HTML formatting with parse_mode parameter
 ✅ **Dialog Listing**: Can retrieve list of available chats/dialogs
 ✅ **Statistics**: Can generate chat statistics and analytics
 ✅ **Link Generation**: Can create direct links to specific messages
@@ -30,12 +31,27 @@
 - [x] Improved guidance for using `get_dialogs` to find chat IDs
 - [x] Created comprehensive documentation for contact lookup workflows
 
+✅ **Message Formatting**: Added comprehensive message formatting support
+- [x] Enhanced `send_telegram_message` tool with `parse_mode` parameter
+- [x] Added support for Markdown formatting (`'md'` or `'markdown'`)
+- [x] Added support for HTML formatting (`'html'`)
+- [x] Maintained backward compatibility with plain text default
+- [x] Created comprehensive documentation with formatting examples
+- [x] Added test suite for all formatting modes
+
 ### Testing and Validation
 ✅ **Language Model Testing**: Tested search functionality with different AI model prompts
 - [x] Tested various search scenarios with language models
 - [x] Validated that improved documentation resolves the search interpretation issue
 - [x] Documented successful usage patterns
 - [x] Verified `search_contacts` tool works perfectly with real contact search
+
+✅ **Message Formatting Testing**: Comprehensive testing of formatting functionality
+- [x] Tested Markdown formatting with various syntax elements
+- [x] Tested HTML formatting with different tags
+- [x] Verified plain text default behavior
+- [x] Created automated test suite for all formatting modes
+- [x] Validated backward compatibility with existing implementations
 
 ## Current Status
 
@@ -47,11 +63,13 @@ All core functionality is working correctly. The system can:
 - Export data in multiple formats
 - Handle all major Telegram operations
 
-### Documentation Status: 🔄 Needs Improvement
-The main gap is in tool documentation clarity, specifically:
-- **Search Tool Documentation**: Current descriptions don't clearly distinguish between search modes
-- **Parameter Guidance**: Insufficient guidance on when to use `query` vs `chat_id`
-- **Usage Examples**: Missing concrete examples for different scenarios
+### Documentation Status: ✅ Comprehensive and Complete
+All documentation has been enhanced with:
+- **Search Tool Documentation**: Clear distinction between search modes with examples
+- **Parameter Guidance**: Comprehensive guidance on when to use `query` vs `chat_id`
+- **Usage Examples**: Concrete examples for different scenarios with ❌/✅ indicators
+- **Message Formatting Documentation**: Detailed examples for Markdown and HTML formatting
+- **Contact Resolution**: Complete workflow documentation for contact search and resolution
 
 ### Issue Resolution Status: ✅ Resolved
 **Primary Issue**: Language models incorrectly using contact names as search queries
@@ -72,6 +90,12 @@ The main gap is in tool documentation clarity, specifically:
 **Impact**: AI models make incorrect assumptions about parameter usage
 **Status**: ✅ Resolved with comprehensive documentation and usage examples
 **Priority**: High
+
+### 3. Message Formatting Support - ✅ RESOLVED
+**Description**: Limited message formatting options for users
+**Impact**: Users couldn't control message appearance and formatting
+**Status**: ✅ Resolved with parse_mode parameter supporting Markdown and HTML
+**Priority**: Medium
 
 ## Evolution of Project Decisions
 
@@ -109,4 +133,8 @@ The main gap is in tool documentation clarity, specifically:
 - ✅ Efficient resource usage
 
 ## Next Milestone
-**✅ Documentation Enhancement**: Completed the documentation improvements to resolve the search interpretation issue and improve language model usage accuracy. All tools are now working perfectly with comprehensive guidance.
+**✅ Complete Feature Enhancement**: Successfully completed both documentation improvements and message formatting support. The system now provides:
+- Resolved search interpretation issues with comprehensive guidance
+- Enhanced message formatting with Markdown and HTML support
+- Complete documentation with examples and usage patterns
+- Full backward compatibility and comprehensive testing
