@@ -236,7 +236,6 @@ async def generate_links(chat_id: str, message_ids: list[int]):
         logger.error(f"[{request_id}] Error generating links: {str(e)}\n{traceback.format_exc()}")
         raise
 
-@mcp.tool()
 # Removed export_data tool as export functionality has been deprecated
 
 @mcp.tool()
