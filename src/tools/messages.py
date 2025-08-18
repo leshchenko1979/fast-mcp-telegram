@@ -6,7 +6,14 @@ from ..client.connection import get_client
 from ..config.logging import format_diagnostic_info
 from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.tools.links import generate_telegram_links
-from src.utils.message_format import build_message_result
+from src.utils.message_format import (
+    build_message_result, 
+    generate_request_id, 
+    build_send_edit_result,
+    log_operation_start,
+    log_operation_success,
+    log_operation_error
+)
 
 async def send_message(
     chat_id: str,
@@ -23,18 +30,14 @@ async def send_message(
         reply_to_msg_id: ID of the message to reply to
         parse_mode: Parse mode ('markdown' or 'html')
     """
-    request_id = f"send_msg_{int(time.time()*1000)}"
-    logger.debug(
-        f"[{request_id}] Sending message to chat",
-        extra={
-            "params": {
-                "chat_id": chat_id,
-                "message_length": len(message),
-                "reply_to_msg_id": reply_to_msg_id,
-                "parse_mode": parse_mode
-            }
-        }
-    )
+    request_id = generate_request_id("send_msg")
+    params = {
+        "chat_id": chat_id,
+        "message_length": len(message),
+        "reply_to_msg_id": reply_to_msg_id,
+        "parse_mode": parse_mode
+    }
+    log_operation_start(request_id, "Sending message to chat", params)
 
     client = await get_client()
     try:
@@ -50,82 +53,61 @@ async def send_message(
             parse_mode=parse_mode
         )
 
-        chat_dict = build_entity_dict(chat)
-        sender_dict = build_entity_dict(getattr(sent_message, 'sender', None))
-        result = {
-            "message_id": sent_message.id,
-            "date": sent_message.date.isoformat(),
-            "chat": chat_dict,
-            "text": sent_message.text,
-            "status": "sent",
-            "sender": sender_dict
-        }
-
-        logger.info(f"[{request_id}] Message sent successfully to chat {chat_id}")
+        result = build_send_edit_result(sent_message, chat, "sent")
+        log_operation_success(request_id, "Message sent", chat_id)
         return result
 
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc()
-            },
-            "params": {
-                "chat_id": chat_id,
-                "message_length": len(message),
-                "reply_to_msg_id": reply_to_msg_id,
-                "parse_mode": parse_mode
-            }
-        }
-        logger.error(f"[{request_id}] Error sending message", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        log_operation_error(request_id, "sending message", e, params)
         raise
 
-async def list_dialogs(limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+async def edit_message(
+    chat_id: str,
+    message_id: int,
+    new_text: str,
+    parse_mode: str = None
+) -> Dict[str, Any]:
     """
-    List available Telegram dialogs (chats) with pagination.
+    Edit an existing message in a Telegram chat.
 
     Args:
-        limit: Maximum number of dialogs to return
-        offset: Number of dialogs to skip (for pagination)
+        chat_id: The ID of the chat containing the message
+        message_id: ID of the message to edit
+        new_text: The new text content for the message
+        parse_mode: Parse mode ('markdown' or 'html')
     """
-    request_id = f"dialogs_{int(time.time()*1000)}"
-    logger.debug(f"[{request_id}] Listing Telegram dialogs, limit: {limit}, offset: {offset}")
+    request_id = generate_request_id("edit_msg")
+    params = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "new_text_length": len(new_text),
+        "parse_mode": parse_mode
+    }
+    log_operation_start(request_id, "Editing message in chat", params)
 
     client = await get_client()
     try:
-        dialogs = []
-        count = 0
-        async for dialog in client.iter_dialogs():
-            if count < offset:
-                count += 1
-                continue
-            if len(dialogs) >= limit:
-                break
-            dialogs.append({
-                "id": dialog.id,
-                "name": dialog.name,
-                "type": str(dialog.entity.__class__.__name__),
-                "unread_count": dialog.unread_count
-            })
-            count += 1
+        chat = await get_entity_by_id(chat_id)
+        if not chat:
+            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
 
-        logger.info(f"[{request_id}] Found {len(dialogs)} dialogs (offset: {offset})")
-        return dialogs
+        # Edit message
+        edited_message = await client.edit_message(
+            entity=chat,
+            message=message_id,
+            text=new_text,
+            parse_mode=parse_mode
+        )
+
+        result = build_send_edit_result(edited_message, chat, "edited")
+        log_operation_success(request_id, "Message edited", chat_id)
+        return result
 
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc()
-            },
-            "params": {"limit": limit, "offset": offset}
-        }
-        logger.error(f"[{request_id}] Error listing dialogs", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        log_operation_error(request_id, "editing message", e, params)
         raise
+
+
 
 
 async def read_messages_by_ids(chat_id: str, message_ids: List[int]) -> List[Dict[str, Any]]:
@@ -139,16 +121,12 @@ async def read_messages_by_ids(chat_id: str, message_ids: List[int]) -> List[Dic
     Returns:
         List of message dictionaries consistent with search results format
     """
-    request_id = f"read_msgs_{int(time.time()*1000)}"
-    logger.debug(
-        f"[{request_id}] Reading messages by IDs",
-        extra={
-            "params": {
-                "chat_id": chat_id,
-                "message_ids": message_ids,
-            }
-        }
-    )
+    request_id = generate_request_id("read_msgs")
+    params = {
+        "chat_id": chat_id,
+        "message_ids": message_ids,
+    }
+    log_operation_start(request_id, "Reading messages by IDs", params)
 
     if not message_ids or not isinstance(message_ids, list):
         raise ValueError("message_ids must be a non-empty list of integers")
@@ -200,21 +178,10 @@ async def read_messages_by_ids(chat_id: str, message_ids: List[int]) -> List[Dic
             built = await build_message_result(client, msg, entity, link)
             results.append(built)
 
-        logger.info(f"[{request_id}] Retrieved {len([r for r in results if 'error' not in r])} messages out of {len(message_ids)} requested")
+        successful_count = len([r for r in results if 'error' not in r])
+        log_operation_success(request_id, f"Retrieved {successful_count} messages out of {len(message_ids)} requested")
         return results
 
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc()
-            },
-            "params": {
-                "chat_id": chat_id,
-                "message_ids": message_ids,
-            }
-        }
-        logger.error(f"[{request_id}] Error reading messages by IDs", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        log_operation_error(request_id, "reading messages by IDs", e, params)
         raise

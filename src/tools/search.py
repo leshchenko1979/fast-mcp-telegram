@@ -1,5 +1,5 @@
-from typing import Dict, List, Any
-from telethon.tl.functions.messages import SearchGlobalRequest
+from typing import Dict, List, Any, Optional
+from telethon.tl.functions.messages import SearchGlobalRequest, GetSearchCountersRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 from loguru import logger
 import time
@@ -7,10 +7,38 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import build_entity_dict, get_entity_by_id, _extract_forward_info, compute_entity_identifier
+from src.utils.entity import get_entity_by_id, compute_entity_identifier
 from src.utils.message_format import build_message_result
 
-async def search_telegram(
+
+async def _get_chat_message_count(chat_id: str) -> Optional[int]:
+    """
+    Get total message count for a specific chat.
+    """
+    try:
+        client = await get_client()
+        entity = await get_entity_by_id(chat_id)
+        if not entity:
+            return None
+        
+        result = await client(GetSearchCountersRequest(
+            peer=entity,
+            filters=[InputMessagesFilterEmpty()]
+        ))
+        
+        if hasattr(result, 'counters') and result.counters:
+            for counter in result.counters:
+                if hasattr(counter, 'filter') and isinstance(counter.filter, InputMessagesFilterEmpty):
+                    return getattr(counter, 'count', 0)
+        
+        return 0
+        
+    except Exception as e:
+        logger.warning(f"Error getting search count for chat {chat_id}: {str(e)}")
+        return None
+
+
+async def search_messages(
     query: str,
     chat_id: str = None,
     limit: int = 20,
@@ -18,8 +46,9 @@ async def search_telegram(
     max_date: str = None,  # ISO format date string
     offset: int = 0,       # Offset for pagination
     chat_type: str = None, # 'private', 'group', 'channel', or None
-    auto_expand_batches: int = 2  # Maximum additional batches to fetch if not enough filtered results
-) -> List[Dict[str, Any]]:
+    auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
+    include_total_count: bool = False  # Whether to include total count in response
+) -> Dict[str, Any]:
     """
     Search for messages in Telegram chats using Telegram's global or per-chat search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
 
@@ -32,13 +61,18 @@ async def search_telegram(
         offset: Number of messages to skip (for pagination)
         chat_type: Optional filter for chat type ('private', 'group', 'channel')
         auto_expand_batches: Maximum additional batches to fetch if not enough filtered results (default 2)
+        include_total_count: Whether to include total count of matching messages in response (default False)
 
     Returns:
-        List of dictionaries containing message information
+        Dictionary containing:
+        - 'messages': List of dictionaries containing message information
+        - 'total_count': Total number of matching messages (if include_total_count=True)
+        - 'has_more': Boolean indicating if there are more results available
 
     Note:
         - For per-chat search (chat_id provided), an empty query returns all messages in the specified chat (optionally filtered by date).
         - For global search (no chat_id), query must not be empty.
+        - Total count is only available for per-chat searches, not global searches.
     """
     if (not query or not query.strip()) and not chat_id:
         raise ValueError("Search query must not be empty for global search.")
@@ -61,13 +95,19 @@ async def search_telegram(
     )
     client = await get_client()
     try:
+        total_count = None
         if chat_id:
             # Search in a specific chat
             try:
                 entity = await get_entity_by_id(chat_id)
                 if not entity:
                     raise ValueError(f"Could not find chat with ID '{chat_id}'")
-                results = await _search_in_single_chat(client, entity, query, limit, offset, chat_type, auto_expand_batches)
+                results = await _search_chat_messages(client, entity, query, limit, offset, chat_type, auto_expand_batches)
+                
+                # Get total count if requested
+                if include_total_count:
+                    total_count = await _get_chat_message_count(chat_id)
+                    
             except Exception as e:
                 logger.error(f"Error searching in specific chat: {str(e)}")
                 logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
@@ -75,12 +115,27 @@ async def search_telegram(
         else:
             # Global search
             try:
-                results = await _search_global(client, query, limit, min_datetime, max_datetime, offset, chat_type, auto_expand_batches)
+                results = await _search_global_messages(client, query, limit, min_datetime, max_datetime, offset, chat_type, auto_expand_batches)
+                # Total count not available for global searches
             except Exception as e:
                 logger.error(f"Error in global search: {e}")
                 raise
+        
         logger.info(f"[{request_id}] Found {len(results)} messages matching query: {query}")
-        return results
+        
+        # Determine if there are more results
+        has_more = len(results) >= limit
+        
+        # Return structured response
+        response = {
+            'messages': results,
+            'has_more': has_more
+        }
+        
+        if total_count is not None:
+            response['total_count'] = total_count
+            
+        return response
     except Exception as e:
         error_info = {
             "request_id": request_id,
@@ -102,7 +157,7 @@ async def search_telegram(
         logger.error(f"[{request_id}] Error searching Telegram", extra=error_info)
         raise
 
-async def _search_in_single_chat(client, entity, query, limit, offset, chat_type, auto_expand_batches):
+async def _search_chat_messages(client, entity, query, limit, offset, chat_type, auto_expand_batches):
     results = []
     count = 0
     batch_count = 0
@@ -139,7 +194,7 @@ async def _search_in_single_chat(client, entity, query, limit, offset, chat_type
         batch_count += 1
     return results[:limit]
 
-async def _search_global(client, query, limit, min_datetime, max_datetime, offset, chat_type, auto_expand_batches):
+async def _search_global_messages(client, query, limit, min_datetime, max_datetime, offset, chat_type, auto_expand_batches):
     results = []
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
