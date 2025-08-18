@@ -1,11 +1,16 @@
 # Active Context: tg_mcp
 
 ## Current Work Focus
-**Primary**: All major features are complete and working. The system is production-ready with comprehensive documentation and testing.
+**Primary**: Successfully removed unused usage statistics and monitoring functionality. Cleaned up the codebase by removing the entire `src/monitoring/` directory which contained unused stats collection and health monitoring code.
 
-**Current Status**: Monitoring system performance and gathering user feedback for potential future enhancements.
+**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase is now cleaner without unused monitoring functionality.
 
 ## Active Decisions and Considerations
+
+### Code Cleanup
+**Decision**: Removed unused monitoring and statistics functionality
+**Rationale**: The monitoring module was not being used anywhere in the codebase and added unnecessary complexity
+**Impact**: Cleaner project structure with only essential functionality
 
 ### Documentation Maintenance
 **Decision**: Keep documentation updated as new usage patterns emerge
@@ -35,4 +40,4 @@
 2. **Gather User Feedback**: Collect feedback on search accuracy and message formatting
 3. **Documentation Updates**: Update docs if new usage patterns emerge
 4. **Maintenance**: Keep dependencies updated and monitor for API changes
-5. **Refactoring**: Maintain DRY utilities (`build_message_result`, `compute_entity_identifier`) across tools
+5. **Code Quality**: Continue applying DRY principles to other modules as needed

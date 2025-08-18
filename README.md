@@ -16,7 +16,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
   - Generate message links
   - Read specific messages by ID in any chat
 - Analytics and data:
-  - Chat statistics and analytics
+  
 - Robust error handling and logging
 - Built on MCP (Model Control Protocol) architecture
 
@@ -142,17 +142,18 @@ The server provides the following MCP tools:
     - For global search (no `chat_id`), you must provide a non-empty `query`.
     - For per-chat search, an empty `query` will return all messages in the specified chat (optionally filtered by date).
 
-- `send_telegram_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None)`
-  - Send messages to Telegram chats
-  - Supports replying to messages
+- `send_or_edit_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None, message_id: int = None)`
+  - Send messages to Telegram chats or edit existing messages
+  - Supports replying to messages (when sending new messages)
+  - Supports editing existing messages (when message_id is provided)
   - **parse_mode options:**
     - `None` (default): Plain text
     - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
     - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
-  - **Example with formatting:**
+  - **Example sending new message with formatting:**
     ```json
     {
-      "tool": "send_telegram_message",
+      "tool": "send_or_edit_message",
       "params": {
         "chat_id": "123456789",
         "message": "*Important Update*: The warehouse market is showing _strong growth_ trends. See [detailed report](https://example.com/report) for more information.",
@@ -160,24 +161,23 @@ The server provides the following MCP tools:
       }
     }
     ```
-
-- `get_dialogs(limit: int = 50, offset: int = 0)`
-  - List available Telegram dialogs
-  - Supports pagination with `limit` and `offset` parameters
-  - Returns chat IDs, names, types, and unread counts
-  - Example:
+  - **Example editing existing message:**
     ```json
     {
-      "tool": "get_dialogs",
+      "tool": "send_or_edit_message",
       "params": {
-        "limit": 10,
-        "offset": 30
+        "chat_id": "123456789",
+        "message": "*Updated*: The warehouse market analysis has been revised with new data.",
+        "message_id": 12345,
+        "parse_mode": "markdown"
       }
     }
     ```
 
-- `get_statistics(chat_id: str)`
-  - Get statistics for a specific chat
+
+
+
+
 
 - `generate_links(chat_id: str, message_ids: list[int])`
   - Generate Telegram links for messages
@@ -266,7 +266,7 @@ Here are some practical scenarios and example user requests you can make to an A
   - AI Agent action (after resolving the chat_id for Jane Smith):
     ```json
     {
-      "tool": "send_telegram_message",
+      "tool": "send_or_edit_message",
       "params": {
         "chat_id": "123456789",
         "message": "Summary of the current warehouse market situation (2025):\n\n- The volume of new warehouse construction in Russia reached a record 1.2 million sq.m in Q1 2025, a 12% increase year-over-year, mainly due to high demand in previous years. However, forecasts indicate a 29% year-over-year decrease in new warehouse supply in Moscow and the region by the end of 2026, down to 1.2 million sq.m, due to high financing costs and rising construction expenses.\n- Developers are increasingly shifting from speculative projects to build-to-suit and owner-occupied warehouses, with many taking a wait-and-see approach.\n- The share of e-commerce companies among tenants has dropped sharply (from 57% to 15-34%), while the share of logistics, transport, and distribution companies is growing.\n- Despite a drop in demand and a slight increase in vacancy (up to 2-4%), rental rates for class A warehouses continue to rise.\n- Regional expansion of retailers has led to record-high new supply, with the Moscow region remaining the leader (44% of new supply in Q1 2025).\n- The market is experiencing a cooling after several years of rapid growth, but there is potential for renewed activity if monetary policy eases.\n\nIf you need more details or analytics, let me know!"

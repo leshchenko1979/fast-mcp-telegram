@@ -189,10 +189,7 @@ When returning results, always include context about which chat the messages cam
 - **Purpose**: Read specific messages by their IDs in a given chat
 - **Use when**: You know exact message IDs (e.g., from a link like `https://t.me/<username>/<id>`) or need precise retrieval
 
-### get_dialogs(limit=100, offset=0)
-- **Purpose**: List all available chats
-- **Use when**: Need to see all available contacts
-- **Alternative**: Use `search_contacts()` for specific searches
+
 
 ## Testing Your Understanding
 

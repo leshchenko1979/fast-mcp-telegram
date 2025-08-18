@@ -73,18 +73,20 @@ tg_mcp/
 ```python
 # Server imports
 from fastmcp import FastMCP
-from src.tools.search import search_telegram
-from src.tools.messages import send_message, list_dialogs
-from src.tools.statistics import get_chat_statistics
+from src.tools.search import search_messages
+from src.tools.messages import send_message, edit_message, read_messages_by_ids
 from src.tools.links import generate_telegram_links
 from src.tools.mtproto import invoke_mtproto_method
+from src.tools.contacts import get_contact_info, search_contacts_telegram
 ```
 
 ### Module Dependencies
 - **server.py**: Orchestrates all tool modules
 - **search.py**: Core search functionality
+- **messages.py**: Message sending, editing, and reading functionality
 - **client/connection.py**: Telegram client management
 - **utils/entity.py**: Entity resolution utilities
+- **utils/message_format.py**: Shared message formatting utilities
 
 ## Tool Usage Patterns
 
@@ -93,19 +95,24 @@ from src.tools.mtproto import invoke_mtproto_method
 async def search_messages(
     query: str,                    # Search query (can be empty for chat_id searches)
     chat_id: str = None,           # Target chat ID (for per-chat search)
-    limit: int = 100,              # Maximum results
+    limit: int = 50,               # Maximum results (limited to prevent context overflow)
     offset: int = 0,               # Pagination offset
     chat_type: str = None,         # Filter by chat type
     min_date: str = None,          # Date range filter
     max_date: str = None,          # Date range filter
     auto_expand_batches: int = 2,  # Auto-expansion for filtered results
+    include_total_count: bool = False,  # Include total count in response
 )
 
-async def send_telegram_message(
+
+```
+
+async def send_or_edit_message(
     chat_id: str,                  # Target chat ID
     message: str,                  # Message text
-    reply_to_msg_id: int = None,   # Reply to specific message
+    reply_to_msg_id: int = None,   # Reply to specific message (only for sending)
     parse_mode: str = None,        # Formatting mode (None, 'md', 'html')
+    message_id: int = None,        # Message ID to edit (if provided, edits instead of sending)
 )
 ```
 
@@ -116,6 +123,22 @@ async def send_telegram_message(
 4. **Type-filtered Search**: Use `chat_type` parameter
 5. **Message Formatting**: Use `parse_mode` for Markdown or HTML formatting
 6. **Contact Resolution**: Use `search_contacts` for contact name to chat_id resolution
+7. **Message Editing**: Use `message_id` parameter to edit existing messages
+8. **Direct Message Reading**: Use `read_messages` to get specific messages by ID
+9. **Search with Count**: Use `include_total_count=True` in search_messages for per-chat searches
+
+### Performance Considerations
+- **Search Limit**: Default limit is 50 results to prevent LLM context window overflow
+- **Pagination**: Use `offset` parameter for accessing additional results beyond the limit
+- **Auto-expansion**: Limited to 2 additional batches by default to balance completeness with performance
+
+### LLM Usage Guidelines
+- **Start Small**: Begin searches with limit=10-20 for initial exploration
+- **Use Filters**: Apply date ranges and chat type filters before increasing limits
+- **Avoid Large Limits**: Never request more than 50 results in a single search
+- **Pagination Strategy**: Use offset parameter to access additional results when needed
+- **Contact Searches**: Keep contact search limits at 20 or lower (contact results are typically smaller)
+- **Performance Impact**: Large result sets can cause context overflow and incomplete processing
 
 ## Development Workflow
 

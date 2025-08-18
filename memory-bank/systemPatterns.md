@@ -64,9 +64,9 @@ else:
 
 ### Tool Dependencies
 - **search_messages**: Depends on search.py and entity resolution
-- **send_telegram_message**: Depends on messages.py with formatting support
-- **get_dialogs**: Depends on messages.py for chat listing
-- **get_statistics**: Depends on statistics.py
+- **send_or_edit_message**: Depends on messages.py with formatting support and editing capabilities
+
+
 - **search_contacts**: Depends on contacts.py for contact resolution
 
 ## Design Patterns in Use
@@ -102,8 +102,8 @@ else:
 - Link generation for direct message access
 
 ### Shared Utilities (DRY)
-- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`
+- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`, `build_send_edit_result`, `generate_request_id`, `log_operation_start`, `log_operation_success`, `log_operation_error`
 - `src/utils/entity.py`: `compute_entity_identifier`
-These are used by both `search.py` and `messages.py` to avoid duplication and ensure consistent output.
+These are used by both `search.py` and `messages.py` to avoid duplication and ensure consistent output. The message formatting utilities now include comprehensive logging and error handling patterns.
 
 
