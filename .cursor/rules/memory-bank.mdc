@@ -88,6 +88,12 @@ Create additional files/folders within memory-bank/ when they help organize:
 - ❌ Mixing current work with architectural decisions
 - ❌ Over-documenting completed work in activeContext.md
 
+### Logging and Documentation Rules
+- **NO Future Plans**: Don't make future plans in any memory bank files unless directly asked by user
+- **NO Status Tags**: Don't add **NEW** or **COMPLETED** tags to logs - everything in logs has been new and completed
+- **Add Dates**: Always add dates to logs in format (YYYY-MM-DD) - use datetime tool or "date" shell command to get current date
+- **Focus on Current State**: Document what is, not what will be (unless explicitly requested)
+
 ## Core Workflows
 
 ### Plan Mode
