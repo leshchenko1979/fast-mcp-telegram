@@ -9,7 +9,7 @@
 ✅ **Dialog Listing**: Retrieve list of available chats/dialogs
 ✅ **Statistics**: Generate chat statistics and analytics
 ✅ **Link Generation**: Create direct links to specific messages
-✅ **Data Export**: Export chat data in various formats
+✅ **Direct Message Retrieval**: Read specific messages by IDs in any chat
 ✅ **MTProto Access**: Invoke arbitrary MTProto methods
 ✅ **Error Handling**: Comprehensive error logging and propagation
 ✅ **Session Management**: Proper Telegram session handling and authentication
@@ -31,7 +31,6 @@ All core functionality is working correctly. The system can:
 - Perform both global and per-chat searches
 - Send messages to any chat with formatting options
 - Generate statistics and analytics
-- Export data in multiple formats
 - Handle all major Telegram operations
 - Resolve contacts using native Telegram search
 
@@ -42,11 +41,13 @@ All documentation has been enhanced with:
 - Usage examples for different scenarios
 - Message formatting documentation
 - Contact resolution workflows
+- Read-by-ID workflow and examples
 
 ### Issue Resolution Status: ✅ All Resolved
 - **Search Query Interpretation**: Resolved with improved documentation and contact resolution tools
 - **Documentation Clarity**: Resolved with comprehensive examples and guidance
 - **Message Formatting Support**: Resolved with parse_mode parameter
+- **DRY Refactor**: Shared `build_message_result` and `compute_entity_identifier` used across tools
 
 ## Known Issues
 **Status**: No known issues. All previously identified problems have been resolved.

@@ -7,7 +7,8 @@ from datetime import datetime
 import traceback
 from ..client.connection import get_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import build_entity_dict, get_entity_by_id, _extract_forward_info
+from src.utils.entity import build_entity_dict, get_entity_by_id, _extract_forward_info, compute_entity_identifier
+from src.utils.message_format import build_message_result
 
 async def search_telegram(
     query: str,
@@ -121,23 +122,16 @@ async def _search_in_single_chat(client, entity, query, limit, offset, chat_type
         if not batch:
             break
         for message in batch:
-            identifier = getattr(entity, 'username', None)
-            if not identifier and hasattr(entity, 'id'):
-                if str(entity.id).startswith('-100'):
-                    identifier = str(entity.id)
-                elif entity.__class__.__name__ in ['Channel', 'Chat', 'ChannelForbidden']:
-                    identifier = f'-100{entity.id}'
-                else:
-                    identifier = str(entity.id)
+            identifier = compute_entity_identifier(entity)
             links = await generate_telegram_links(identifier, [message.id])
             link = links.get('message_links', [None])[0]
             if chat_type:
                 if (chat_type == 'private' and entity.__class__.__name__ == 'User') or \
                    (chat_type == 'group' and entity.__class__.__name__ == 'Chat') or \
                    (chat_type == 'channel' and entity.__class__.__name__ in ['Channel', 'ChannelForbidden']):
-                    results.append(await _build_result(client, message, entity, link))
+                    results.append(await build_message_result(client, message, entity, link))
             else:
-                results.append(await _build_result(client, message, entity, link))
+                results.append(await build_message_result(client, message, entity, link))
             if len(results) >= limit:
                 break
         if batch:
@@ -172,23 +166,16 @@ async def _search_global(client, query, limit, min_datetime, max_datetime, offse
                         logger.warning(f"Could not get entity for peer_id: {message.peer_id}")
                         continue
 
-                    identifier = getattr(chat, 'username', None)
-                    if not identifier and hasattr(chat, 'id'):
-                        if str(chat.id).startswith('-100'):
-                            identifier = str(chat.id)
-                        elif chat.__class__.__name__ in ['Channel', 'Chat', 'ChannelForbidden']:
-                            identifier = f'-100{chat.id}'
-                        else:
-                            identifier = str(chat.id)
+                    identifier = compute_entity_identifier(chat)
                     links = await generate_telegram_links(identifier, [message.id])
                     link = links.get('message_links', [None])[0]
                     if chat_type:
                         if (chat_type == 'private' and chat.__class__.__name__ == 'User') or \
                            (chat_type == 'group' and chat.__class__.__name__ == 'Chat') or \
                            (chat_type == 'channel' and chat.__class__.__name__ in ['Channel', 'ChannelForbidden']):
-                            results.append(await _build_result(client, message, chat, link))
+                            results.append(await build_message_result(client, message, chat, link))
                     else:
-                        results.append(await _build_result(client, message, chat, link))
+                        results.append(await build_message_result(client, message, chat, link))
                     if len(results) >= limit:
                         break
                 except Exception as e:
@@ -198,43 +185,3 @@ async def _search_global(client, query, limit, min_datetime, max_datetime, offse
             next_offset_id = result.messages[-1].id
         batch_count += 1
     return results[:limit]
-
-async def _build_result(client, message, entity_or_chat, link):
-    sender = await _get_sender_info(client, message)
-    chat = build_entity_dict(entity_or_chat)
-    forward_info = await _extract_forward_info(message)
-    
-    result = {
-        "id": message.id,
-        "date": message.date.isoformat(),
-        "chat": chat,
-        "text": getattr(message, 'text', None) or getattr(message, 'message', None) or getattr(message, 'caption', None),
-        "link": link,
-        "sender": sender
-    }
-    
-    # Only add reply_to_msg_id if the message is actually a reply
-    reply_to_msg_id = getattr(message, 'reply_to_msg_id', None) or getattr(getattr(message, 'reply_to', None), 'reply_to_msg_id', None)
-    if reply_to_msg_id is not None:
-        result["reply_to_msg_id"] = reply_to_msg_id
-    
-    # Add media info if the message has media
-    if hasattr(message, 'media') and message.media:
-        result["media"] = message.media
-    
-    # Only add forwarded_from if the message is actually forwarded
-    if forward_info is not None:
-        result["forwarded_from"] = forward_info
-    
-    return result
-
-async def _get_sender_info(client, message):
-    if hasattr(message, 'sender_id') and message.sender_id:
-        try:
-            sender = await get_entity_by_id(message.sender_id)
-            if sender:
-                return build_entity_dict(sender)
-            return {"id": message.sender_id, "error": "Sender not found"}
-        except Exception:
-            return {"id": message.sender_id, "error": "Failed to retrieve sender"}
-    return None

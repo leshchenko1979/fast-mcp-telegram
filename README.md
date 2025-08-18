@@ -14,9 +14,9 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
   - List available dialogs
   - Send messages with optional reply support
   - Generate message links
+  - Read specific messages by ID in any chat
 - Analytics and data:
   - Chat statistics and analytics
-  - Chat data export functionality
 - Robust error handling and logging
 - Built on MCP (Model Control Protocol) architecture
 
@@ -182,8 +182,20 @@ The server provides the following MCP tools:
 - `generate_links(chat_id: str, message_ids: list[int])`
   - Generate Telegram links for messages
 
-- `export_data(chat_id: str, format: str = "json")`
-  - Export chat data in specified format
+- `read_messages(chat_id: str, message_ids: list[int])`
+  - Read specific messages by their IDs in a given chat
+  - `chat_id` may be `@username`, a numeric user/chat ID, or a channel ID like `-100...`
+  - Returns a list of message objects consistent with `search_messages` output
+  - Example:
+    ```json
+    {
+      "tool": "read_messages",
+      "params": {
+        "chat_id": "@flipping_invest",
+        "message_ids": [993]
+      }
+    }
+    ```
 
 - `invoke_mtproto(method_full_name: str, params: dict)`
   - Dynamically invoke any raw MTProto method supported by Telethon

@@ -84,6 +84,20 @@ User Request → Find Contact → Get Chat ID → Search in Chat for Content
 3. Extract chat_id from result
 4. `search_messages(chat_id=mike_chat_id, query="budget")`
 
+### Workflow 4: Read message(s) by ID
+```
+User Request → Provide chat and message IDs → Read directly
+```
+
+**Example**:
+```python
+# Read a single message by link components
+read_messages(chat_id="@flipping_invest", message_ids=[993])
+
+# Read several messages in a private or public chat
+read_messages(chat_id="-1001234567890", message_ids=[101, 205, 309])
+```
+
 ## Common Scenarios and Solutions
 
 ### Scenario 1: "Find messages from [Contact Name]"
@@ -134,6 +148,7 @@ if contacts:
 - ❌ Using contact names as search terms without finding their chat_id first
 - ❌ Mixing global search with contact-specific intent
 - ❌ Using old `find_contact()` instead of new `search_contacts()`
+- ❌ Trying to use `search_messages` to fetch exact IDs — use `read_messages` instead
 
 ## Best Practices
 
@@ -170,6 +185,10 @@ When returning results, always include context about which chat the messages cam
 - **Use query**: For content-specific searches
 - **Use both**: For contact + content searches
 
+### read_messages(chat_id, message_ids)
+- **Purpose**: Read specific messages by their IDs in a given chat
+- **Use when**: You know exact message IDs (e.g., from a link like `https://t.me/<username>/<id>`) or need precise retrieval
+
 ### get_dialogs(limit=100, offset=0)
 - **Purpose**: List all available chats
 - **Use when**: Need to see all available contacts
@@ -189,4 +208,4 @@ When returning results, always include context about which chat the messages cam
 - ✅ Correct: `search_contacts("Bob")` → `search_messages(chat_id=bob_chat_id, query="deadline")`
 - ❌ Wrong: `search_messages(query="Bob deadline", chat_id=None)`
 
-Remember: **Contact names go in `search_contacts()`, content goes in `search_messages(query=)`**.
+Remember: **Contact names go in `search_contacts()`, content goes in `search_messages(query=)`; exact message IDs go in `read_messages()`.**

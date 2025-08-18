@@ -101,4 +101,9 @@ else:
 - Optional fields for media, forwards, replies
 - Link generation for direct message access
 
+### Shared Utilities (DRY)
+- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`
+- `src/utils/entity.py`: `compute_entity_identifier`
+These are used by both `search.py` and `messages.py` to avoid duplication and ensure consistent output.
+
 

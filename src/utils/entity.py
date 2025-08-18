@@ -157,3 +157,24 @@ async def _extract_forward_info(message) -> dict:
         "date": original_date,
         "chat": chat
     }
+
+def compute_entity_identifier(entity) -> str:
+    """
+    Compute a stable identifier string for a chat/entity suitable for link generation.
+    Prefers public username; falls back to channel/chat numeric id with '-100' prefix when required.
+    """
+    if entity is None:
+        return None
+    username = getattr(entity, 'username', None)
+    if username:
+        return username
+    entity_id = getattr(entity, 'id', None)
+    if entity_id is None:
+        return None
+    entity_type = entity.__class__.__name__ if hasattr(entity, '__class__') else ''
+    entity_id_str = str(entity_id)
+    if entity_id_str.startswith('-100'):
+        return entity_id_str
+    if entity_type in ['Channel', 'Chat', 'ChannelForbidden']:
+        return f'-100{entity_id}'
+    return entity_id_str

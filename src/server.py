@@ -17,10 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config.logging import setup_logging
 from src.tools.search import search_telegram
-from src.tools.messages import send_message, list_dialogs
+from src.tools.messages import send_message, list_dialogs, read_messages_by_ids
 from src.tools.statistics import get_chat_statistics
 from src.tools.links import generate_telegram_links
-from src.tools.export import export_chat_data
 from src.tools.mtproto import invoke_mtproto_method
 from src.tools.contacts import get_contact_info, search_contacts_telegram
 
@@ -152,6 +151,25 @@ async def send_telegram_message(
         raise
 
 @mcp.tool()
+async def read_messages(chat_id: str, message_ids: list[int]):
+    """
+    Read specific messages by their IDs in a given chat.
+    
+    Args:
+        chat_id: Target chat identifier (username like '@channel', numeric ID, or '-100...' form)
+        message_ids: List of message IDs to fetch
+    """
+    try:
+        request_id = f"read_{int(time.time())}"
+        logger.info(f"[{request_id}] Reading messages for chat: {chat_id}, ids: {message_ids}")
+        results = await read_messages_by_ids(chat_id, message_ids)
+        logger.info(f"[{request_id}] Read {len(results)} message entries")
+        return results
+    except Exception as e:
+        logger.error(f"[{request_id}] Error reading messages: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+@mcp.tool()
 async def get_dialogs(limit: int = 100, offset: int = 0):
     """
     List available Telegram dialogs (chats) with pagination.
@@ -219,17 +237,7 @@ async def generate_links(chat_id: str, message_ids: list[int]):
         raise
 
 @mcp.tool()
-async def export_data(chat_id: str, format: str = "json"):
-    """Export chat data in the specified format (default: JSON)."""
-    try:
-        request_id = f"export_{int(time.time())}"
-        logger.info(f"[{request_id}] Exporting data for chat: {chat_id}, format: {format}")
-        data = await export_chat_data(chat_id, format)
-        logger.info(f"[{request_id}] Data exported successfully")
-        return data
-    except Exception as e:
-        logger.error(f"[{request_id}] Error exporting data: {str(e)}\n{traceback.format_exc()}")
-        raise
+# Removed export_data tool as export functionality has been deprecated
 
 @mcp.tool()
 async def search_contacts(query: str, limit: int = 20):
