@@ -6,18 +6,27 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 ## Features
 
-- Message search with multiple modes:
-  - Basic search by text
-  - Advanced search with custom filters
-- Chat management:
-  - Send messages with optional reply support
-  - Generate message links
-  - Read specific messages by ID in any chat
-  - Search contacts and get contact details
-- Analytics and data:
- 
-- Robust error handling and logging
-- Built on MCP (Model Control Protocol) architecture
+- Message search
+  - Global and per-chat modes
+  - Filters: chat type (private/group/channel), date range, pagination
+  - Auto-expansion for filtered results and optional include_total_count (per-chat)
+- Messaging
+  - Send new messages and edit existing ones
+  - Replies and Markdown/HTML formatting
+- Message access
+  - Read specific messages by IDs
+  - Generate direct links to messages
+- Contacts
+  - Search contacts
+  - Get contact details
+- MTProto access
+  - Invoke raw MTProto methods via JSON parameters
+- Reliability and logging
+  - Automatic reconnect and consistent error handling
+  - Structured logging with request IDs
+- MCP integration
+  - Works in Cursor IDE via mcp.json
+  - STDIO transport and HTTP test mode
 
 ## Prerequisites
 
