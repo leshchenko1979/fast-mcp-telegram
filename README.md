@@ -10,6 +10,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 - [Prerequisites](#prerequisites)
 - [Quick Start & Usage](#quick-start--usage)
 - [Available Tools](#available-tools)
+- [Result Structure & Completeness](#result-structure--completeness)
 - [Examples](#examples)
 - [Project Structure](#project-structure)
 - [Dependencies](#dependencies)
@@ -27,6 +28,9 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 - Message access
   - Read specific messages by IDs
   - Generate direct links to messages
+- Results
+  - Full-fidelity message objects: id, date, chat, text, link, sender, reply_to_msg_id, media, forwarded_from
+  - Consistent result structures across tools
 - Contacts
   - Search contacts
   - Get contact details
@@ -261,6 +265,47 @@ The server provides the following MCP tools:
   - **Warning:**
     - This tool is for advanced users. Incorrect parameters may result in errors from the Telegram API or Telethon.
     - Refer to the [Telegram API documentation](https://core.telegram.org/methods) and [Telethon docs](https://docs.telethon.dev/en/latest/) for method details and required fields.
+
+## Result Structure & Completeness
+
+The server returns full-fidelity, richly structured results to minimize follow-up queries and preserve important Telegram context.
+
+- Search and read responses:
+  - Top-level fields: `messages` (list), `has_more` (bool), and `total_count` (int, per-chat searches only when requested).
+  - Each message includes: `id`, `date`, `chat`, `text`, `link`, `sender`, and when available `reply_to_msg_id`, `media`, `forwarded_from`.
+
+Example message object:
+
+```json
+{
+  "id": 123,
+  "date": "2025-08-25T12:34:56",
+  "chat": { "id": 123456, "type": "Channel", "title": "Example" },
+  "text": "Hello",
+  "link": "https://t.me/c/123456/123",
+  "sender": { "id": 111, "username": "alice" },
+  "reply_to_msg_id": 100,
+  "media": { },
+  "forwarded_from": { }
+}
+```
+
+- Send/edit responses:
+  - Include `message_id`, `date`, `chat`, `text`, `status` (e.g., `sent` or `edited`), `sender`, and optional `edit_date` when edited.
+
+Example send/edit result:
+
+```json
+{
+  "message_id": 456,
+  "date": "2025-08-25T12:35:10",
+  "chat": { "id": 123456, "type": "Channel", "title": "Example" },
+  "text": "Updated content",
+  "status": "edited",
+  "sender": { "id": 111, "username": "alice" },
+  "edit_date": "2025-08-25T12:36:00"
+}
+```
 
 ## Examples
 
