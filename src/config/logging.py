@@ -10,10 +10,31 @@ LOG_PATH = LOG_DIR / f"mcp_server_{current_time}.log"
 
 IS_TEST_MODE = '--test-mode' in sys.argv
 
+
 def setup_logging():
     """Configure logging with loguru."""
     logger.remove()
-    logger.add(LOG_PATH, rotation="1 day", retention="7 days")
+    # File sink with full tracebacks and diagnostics
+    logger.add(
+        LOG_PATH,
+        rotation="1 day",
+        retention="7 days",
+        level="DEBUG",
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}"
+    )
+    # Console sink for quick visibility
+    logger.add(
+        sys.stderr,
+        level="INFO",
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+        format="{time:HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}"
+    )
+
 
 def format_diagnostic_info(info: dict) -> str:
     """Format diagnostic information for logging."""
