@@ -228,12 +228,13 @@ The server provides the following MCP tools:
     }
     ```
 
+- `search_contacts(query: str, limit: int = 20)`
+  - Search contacts using Telegram's native search
+
+- `get_contact_details(chat_id: str)`
+  - Get detailed information about a specific contact
+
 - `invoke_mtproto(method_full_name: str, params_json: str)`
- - `search_contacts(query: str, limit: int = 20)`
-   - Search contacts using Telegram's native search
- 
- - `get_contact_details(chat_id: str)`
-   - Get detailed information about a specific contact
   - Dynamically invoke any raw MTProto method supported by Telethon
   - **Parameters:**
     - `method_full_name` (str): Full class name of the MTProto method, e.g., `"messages.GetHistory"`
