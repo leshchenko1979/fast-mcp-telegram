@@ -1,6 +1,6 @@
 # MCP Telegram Server
 
-A powerful MCP server implementation built with FastMCP that provides Telegram functionality through a clean API interface, including message search, sending, and chat management capabilities.
+A powerful MCP server implementation built with FastMCP that provides Telegram functionality through a clean API interface, including search and messaging capabilities.
 
 Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, updates, and community discussions.
 
@@ -9,14 +9,13 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 - Message search with multiple modes:
   - Basic search by text
   - Advanced search with custom filters
-  - Pattern-based search using regex
 - Chat management:
-  - List available dialogs
   - Send messages with optional reply support
   - Generate message links
   - Read specific messages by ID in any chat
+  - Search contacts and get contact details
 - Analytics and data:
-  
+ 
 - Robust error handling and logging
 - Built on MCP (Model Control Protocol) architecture
 
@@ -30,8 +29,8 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 1. Clone the repository and navigate to the project directory:
 ```bash
-git clone https://github.com/leshchenko1979/tg_mcp.git
-cd tg_mcp
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
+cd fast-mcp-telegram
 ```
 
 2. Install dependencies:
@@ -51,7 +50,7 @@ PHONE_NUMBER=+123456789
 python setup_telegram.py
 ```
 
-This will create a session file (`mcp_telegram_search.session`) that stores your Telegram session data.
+This will create a session file (by default `mcp_telegram.session`, configurable via `SESSION_NAME` in `.env`) that stores your Telegram session data.
 
 ## Cursor Configuration
 
@@ -63,18 +62,18 @@ To use this server with Cursor IDE:
   "mcpServers": {
     "mcp-telegram": {
       "command": "python3",
-      "args": ["/path/to/your/tg_mcp/src/server.py"],
-      "cwd": "/path/to/your/tg_mcp",
+      "args": ["/path/to/your/fast-mcp-telegram/src/server.py"],
+      "cwd": "/path/to/your/fast-mcp-telegram",
       "env": {
-        "PYTHONPATH": "/path/to/your/tg_mcp"
+        "PYTHONPATH": "/path/to/your/fast-mcp-telegram"
       },
-      "description": "Telegram MCP server with search, messaging, and analytics tools"
+      "description": "Telegram MCP server with search and messaging tools"
     }
   }
 }
 ```
 
-**Note:** Replace `/path/to/your/tg_mcp` with your actual project directory path.
+**Note:** Replace `/path/to/your/fast-mcp-telegram` with your actual project directory path.
 
 2. Ensure your `.env` file is properly configured as described in the Installation section.
 
@@ -96,7 +95,7 @@ Run the server in HTTP mode for testing:
 python3 -m src.server --test-mode
 ```
 
-This will start the server on `http://127.0.0.1:8000/mcp/`
+This will start the server on `http://127.0.0.1:8000/mcp`
 
 ### For Direct Execution
 Run the server directly:
@@ -111,7 +110,7 @@ This runs the server with STDIO transport for MCP clients.
 
 The server provides the following MCP tools:
 
-- `search_messages(query: str, chat_id: str = None, limit: int = 20, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2)`
+- `search_messages(query: str, chat_id: str = None, limit: int = 50, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
   - Search for messages in Telegram chats
   - Supports both global search and chat-specific search
   - Supports pagination with `limit` and `offset` parameters
@@ -197,11 +196,16 @@ The server provides the following MCP tools:
     }
     ```
 
-- `invoke_mtproto(method_full_name: str, params: dict)`
+- `invoke_mtproto(method_full_name: str, params_json: str)`
+ - `search_contacts(query: str, limit: int = 20)`
+   - Search contacts using Telegram's native search
+ 
+ - `get_contact_details(chat_id: str)`
+   - Get detailed information about a specific contact
   - Dynamically invoke any raw MTProto method supported by Telethon
   - **Parameters:**
-    - `method_full_name` (str): Full class name of the MTProto method, e.g., `"messages.GetHistory"` (the tool will automatically append `Request` if needed)
-    - `params` (dict): Dictionary of parameters required by the method. All required fields must be provided (see Telegram API docs for details).
+    - `method_full_name` (str): Full class name of the MTProto method, e.g., `"messages.GetHistory"`
+    - `params_json` (str): JSON string with method parameters. All required fields must be provided (see Telegram API docs).
   - **Example:**
     ```json
     {
@@ -280,7 +284,7 @@ These examples illustrate how natural language requests can be mapped to MCP too
 ## Project Structure
 
 ```
-tg_mcp/
+fast-mcp-telegram/
 ├── src/                # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
@@ -308,8 +312,8 @@ The project relies on the following main packages:
 fastmcp         # FastMCP framework for MCP servers
 loguru          # Logging
 aiohttp         # Async HTTP
-telethon>=1.34.0  # Telegram client
-python-dotenv>=1.0.0  # Environment management
+telethon  # Telegram client
+python-dotenv  # Environment management
 ```
 
 ## License

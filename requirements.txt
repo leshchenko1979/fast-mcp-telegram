@@ -1,5 +1,5 @@
 loguru
 aiohttp
 fastmcp
-telethon>=1.34.0
-python-dotenv>=1.0.0
+telethon
+python-dotenv

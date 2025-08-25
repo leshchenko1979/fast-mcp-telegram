@@ -104,3 +104,7 @@ All documentation has been enhanced with:
 
 ## Project Health: ✅ Excellent
 The project has successfully achieved all defined goals and is production-ready with comprehensive documentation, testing, and clean code structure.
+
+## Repository Maintenance
+
+- (2025-08-25) Repository renamed to `fast-mcp-telegram` and Git remote updated. Documentation (`README.md`) and packaging metadata (`setup.py`) now reference the new repository URL and directory name.
