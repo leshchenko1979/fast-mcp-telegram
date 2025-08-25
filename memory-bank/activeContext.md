@@ -3,7 +3,7 @@
 ## Current Work Focus
 **Primary**: Applied DRY principles to connection management by creating `get_connected_client()` function that combines `get_client()` and `ensure_connection()`. This eliminates repetitive connection check patterns across all tools while maintaining the same reliability.
 
-**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase now includes robust connection management with DRY principles applied.
+**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase now includes robust connection management with DRY principles applied. The standalone `generate_links` MCP tool was removed; links remain included in all message results.
 
 ## Active Decisions and Considerations
 

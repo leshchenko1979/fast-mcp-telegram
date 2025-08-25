@@ -210,9 +210,6 @@ The server provides the following MCP tools:
     }
     ```
 
-- `generate_links(chat_id: str, message_ids: list[int])`
-  - Generate Telegram links for messages
-
 - `read_messages(chat_id: str, message_ids: list[int])`
   - Read specific messages by their IDs in a given chat
   - `chat_id` may be `@username`, a numeric user/chat ID, or a channel ID like `-100...`

@@ -7,7 +7,7 @@
 ✅ **Message Editing**: Edit existing messages with formatting support
 ✅ **Message Formatting**: Support for Markdown and HTML formatting
 ✅ **Dialog Listing**: Retrieve list of available chats/dialogs
-✅ **Link Generation**: Create direct links to specific messages
+✅ **Link Generation**: Direct links included in all message results; standalone tool removed (2025-08-25)
 ✅ **Direct Message Retrieval**: Read specific messages by IDs in any chat
 ✅ **MTProto Access**: Invoke arbitrary MTProto methods
 ✅ **Error Handling**: Comprehensive error logging and propagation
