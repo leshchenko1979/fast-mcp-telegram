@@ -60,8 +60,13 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
        "mcpServers": {
          "mcp-telegram": {
            "command": "uvx",
-           "args": ["fast-mcp-telegram"],
-           "description": "Telegram MCP server (uvx console script)"
+           "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git", "fast-mcp-telegram"],
+           "env": {
+             "API_ID": "your_api_id",
+             "API_HASH": "your_api_hash",
+             "PHONE_NUMBER": "+123456789"
+           },
+           "description": "Telegram MCP server with search and messaging tools"
          }
        }
      }
@@ -197,11 +202,6 @@ The server provides the following MCP tools:
       }
     }
     ```
-
-
-
-
-
 
 - `generate_links(chat_id: str, message_ids: list[int])`
   - Generate Telegram links for messages
