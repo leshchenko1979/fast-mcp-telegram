@@ -91,7 +91,9 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
      }
      ```
 
-   Note: Replace `/path/to/your/fast-mcp-telegram` with your actual project path. The JSON above shows Cursor's configuration format; for other MCP clients (e.g., Claude Desktop), adapt to their configuration. If you modify the server code, reload the server in your MCP client for changes to take effect. See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients).
+   Note: Replace `/path/to/your/fast-mcp-telegram` with your actual project path. The JSON above shows Cursor's configuration format; for other MCP clients (e.g., Claude Desktop), adapt to their configuration. 
+   
+   If you modify the server code, reload the server in your MCP client for changes to take effect. See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients).
 
 2. Install dependencies (local development only):
 
@@ -102,7 +104,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 3. Authenticate with Telegram (one-time):
 
-   Create a `.env` file in the project root with your Telegram credentials, then run the setup script:
+   If you are not using `uvx` with environment variables, create a `.env` file in the project root containing your Telegram credentials:
 
    ```env
    API_ID=your_api_id
@@ -110,9 +112,14 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
    PHONE_NUMBER=+123456789
    ```
 
+   Next, run the setup script:
    ```bash
    python setup_telegram.py
    ```
+
+   The script will prompt you to enter the Telegram verification code and, if necessary, your password.
+
+   If the MCP server is already running, reload it to apply the new credentials.
 
 4. Run from the console (optional):
 
