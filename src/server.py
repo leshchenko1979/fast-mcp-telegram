@@ -40,6 +40,7 @@ mcp = FastMCP("Telegram MCP Server")
 # Set up logging
 setup_logging()
 
+
 # Register tools with the MCP server
 @mcp.tool()
 async def search_messages(
@@ -110,6 +111,7 @@ async def search_messages(
         logger.error(f"[{request_id}] Error searching messages: {str(e)}\n{traceback.format_exc()}")
         raise
 
+
 @mcp.tool()
 async def send_or_edit_message(
     chat_id: str, 
@@ -144,6 +146,7 @@ async def send_or_edit_message(
     
     return result
 
+
 @mcp.tool()
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
@@ -157,16 +160,12 @@ async def read_messages(chat_id: str, message_ids: list[int]):
     return results
 
 
-
-
-
 @mcp.tool()
 async def generate_links(chat_id: str, message_ids: list[int]):
     """Generate Telegram links for specific messages in a chat."""
     links = await generate_telegram_links(chat_id, message_ids)
     return links
 
-# Removed export_data tool as export functionality has been deprecated
 
 @mcp.tool()
 async def search_contacts(query: str, limit: int = 20):
@@ -206,6 +205,7 @@ async def search_contacts(query: str, limit: int = 20):
     result = await search_contacts_telegram(query, limit)
     return result
 
+
 @mcp.tool()
 async def get_contact_details(chat_id: str):
     """
@@ -222,10 +222,32 @@ async def get_contact_details(chat_id: str):
 
 
 @mcp.tool()
-async def invoke_mtproto(method_full_name: str, params: dict):
-    """Invoke any MTProto method by full name and parameters."""
-    result = await invoke_mtproto_method(method_full_name, params)
-    return result
+async def invoke_mtproto(method_full_name: str, params_json: str):
+    """
+    Dynamically invoke any MTProto method by name and parameters.
+    
+    Args:
+        method_full_name: Full class name of the MTProto method, e.g., 'messages.GetHistory'
+        params_json: JSON string with parameters for the method
+    Returns:
+        Result of the method call as a dict, or error info
+    """
+    try:
+        import json
+        try:
+            params = json.loads(params_json)
+        except Exception as e:
+            return {"ok": False, "error": f"Invalid JSON in params_json: {e}"}
+
+        # Convert any non-string keys to strings
+        sanitized_params = { (k if isinstance(k, str) else str(k)): v for k, v in params.items() }
+
+        result = await invoke_mtproto_method(method_full_name, sanitized_params)
+        return result
+    except Exception as e:
+        logger.error(f"Error in invoke_mtproto: {str(e)}\n{traceback.format_exc()}")
+        return {"ok": False, "error": str(e)}
+
 
 def shutdown_procedure():
     """Synchronously performs async cleanup."""
@@ -241,6 +263,7 @@ def shutdown_procedure():
         logger.info("Cleanup successful.")
     except Exception as e:
         logger.error(f"Error during cleanup: {e}\n{traceback.format_exc()}")
+
 
 # Run the server if this file is executed directly
 if __name__ == "__main__":
