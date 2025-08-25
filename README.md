@@ -60,7 +60,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
        "mcpServers": {
          "mcp-telegram": {
            "command": "uvx",
-           "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git", "fast-mcp-telegram"],
+           "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@main", "fast-mcp-telegram"],
            "env": {
              "API_ID": "your_api_id",
              "API_HASH": "your_api_hash",
