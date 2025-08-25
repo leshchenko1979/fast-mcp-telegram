@@ -1,8 +1,19 @@
-# MCP Telegram Server
+# fast-mcp-telegram
 
 A powerful MCP server implementation built with FastMCP that provides Telegram functionality through a clean API interface, including search and messaging capabilities.
 
 Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, updates, and community discussions.
+
+## Table of Contents
+
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Quick Start & Usage](#quick-start--usage)
+- [Available Tools](#available-tools)
+- [Examples](#examples)
+- [Project Structure](#project-structure)
+- [Dependencies](#dependencies)
+- [License](#license)
 
 ## Features
 
@@ -25,95 +36,100 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
   - Automatic reconnect and consistent error handling
   - Structured logging with request IDs
 - MCP integration
-  - Works in Cursor IDE via mcp.json
+  - Works with MCP-compatible clients (e.g., Cursor IDE, Claude Desktop); Cursor example provided
   - STDIO transport and HTTP test mode
 
 ## Prerequisites
 
 - Python 3.x
 - Telegram API credentials (API ID, API Hash)
-- MCP-compatible environment (like Cursor IDE)
+- MCP-compatible environment (e.g., Cursor IDE, Claude Desktop)
 
-## Installation
+ 
 
-1. Clone the repository and navigate to the project directory:
-```bash
-git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
-cd fast-mcp-telegram
-```
+## Quick Start & Usage
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+1. Use in an MCP-compatible client (Recommended):
 
-3. Create a `.env` file in the root directory with your Telegram credentials:
-```env
-API_ID=your_api_id
-API_HASH=your_api_hash
-PHONE_NUMBER=+123456789
-```
+   Cursor example (`.cursor/mcp.json`):
 
-4. Run the setup script to authenticate with Telegram:
-```bash
-python setup_telegram.py
-```
+   - Primary (uvx console script):
 
-This will create a session file (by default `mcp_telegram.session`, configurable via `SESSION_NAME` in `.env`) that stores your Telegram session data.
+     ```json
+     {
+       "mcpServers": {
+         "mcp-telegram": {
+           "command": "uvx",
+           "args": ["fast-mcp-telegram"],
+           "description": "Telegram MCP server (uvx console script)"
+         }
+       }
+     }
+     ```
+     Note: `uvx` will automatically download and isolate all required dependencies; no local `pip install` is needed.
 
-## Cursor Configuration
+   - Alternative (local development with python3):
 
-To use this server with Cursor IDE:
+     ```json
+     {
+       "mcpServers": {
+         "mcp-telegram": {
+           "command": "python3",
+           "args": ["/path/to/your/fast-mcp-telegram/src/server.py"],
+           "cwd": "/path/to/your/fast-mcp-telegram",
+           "env": {
+             "PYTHONPATH": "/path/to/your/fast-mcp-telegram"
+           },
+           "description": "Telegram MCP server with search and messaging tools"
+         }
+       }
+     }
+     ```
 
-1. Create an `mcp.json` file in your `.cursor` directory with the following content:
-```json
-{
-  "mcpServers": {
-    "mcp-telegram": {
-      "command": "python3",
-      "args": ["/path/to/your/fast-mcp-telegram/src/server.py"],
-      "cwd": "/path/to/your/fast-mcp-telegram",
-      "env": {
-        "PYTHONPATH": "/path/to/your/fast-mcp-telegram"
-      },
-      "description": "Telegram MCP server with search and messaging tools"
-    }
-  }
-}
-```
+   Note: Replace `/path/to/your/fast-mcp-telegram` with your actual project path. The JSON above shows Cursor's configuration format; for other MCP clients (e.g., Claude Desktop), adapt to their configuration. If you modify the server code, reload the server in your MCP client for changes to take effect. See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients).
 
-**Note:** Replace `/path/to/your/fast-mcp-telegram` with your actual project directory path.
+2. Install dependencies (local development only):
 
-2. Ensure your `.env` file is properly configured as described in the Installation section.
+   ```bash
+   pip install -r requirements.txt
+   ```
+   Skip this step if you use `uvx` — it resolves and installs dependencies automatically when launching the server.
 
-3. The server will automatically connect to Cursor when you open the project, making all Telegram tools available through the IDE.
+3. Authenticate with Telegram (one-time):
 
-**Note:** If you modify the server code, you'll need to reload the server in Cursor for changes to take effect.
+   Create a `.env` file in the project root with your Telegram credentials, then run the setup script:
 
-## Usage
+   ```env
+   API_ID=your_api_id
+   API_HASH=your_api_hash
+   PHONE_NUMBER=+123456789
+   ```
 
-The server can be run in several ways:
+   ```bash
+   python setup_telegram.py
+   ```
 
-### For Cursor IDE (Recommended)
-The server is configured to run automatically with Cursor IDE using the `mcp.json` configuration.
+4. Run from the console (optional):
 
-### For HTTP Testing
-Run the server in HTTP mode for testing:
+   - Console script (installed package):
 
-```bash
-python3 -m src.server --test-mode
-```
+     ```bash
+     fast-mcp-telegram
+     # or HTTP test mode
+     fast-mcp-telegram --test-mode
+     ```
 
-This will start the server on `http://127.0.0.1:8000/mcp`
+   - Python module (HTTP test mode):
 
-### For Direct Execution
-Run the server directly:
+     ```bash
+     python3 -m src.server --test-mode
+     ```
 
-```bash
-python3 src/server.py
-```
+   - Direct execution (STDIO transport):
 
-This runs the server with STDIO transport for MCP clients.
+     ```bash
+     python3 src/server.py
+     ```
 
 ## Available Tools
 
@@ -241,7 +257,7 @@ The server provides the following MCP tools:
     - This tool is for advanced users. Incorrect parameters may result in errors from the Telegram API or Telethon.
     - Refer to the [Telegram API documentation](https://core.telegram.org/methods) and [Telethon docs](https://docs.telethon.dev/en/latest/) for method details and required fields.
 
-## Example Use Cases & AI Agent Requests
+## Examples
 
 Here are some practical scenarios and example user requests you can make to an AI Agent using this MCP Telegram server:
 
@@ -297,12 +313,10 @@ fast-mcp-telegram/
 ├── src/                # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
-│   ├── monitoring/    # Monitoring and health checks
 │   ├── tools/         # MCP tool implementations
 │   ├── utils/         # Utility functions
 │   ├── __init__.py    # Package initialization
 │   └── server.py      # Main server implementation
-├── tests/             # Test directory
 ├── logs/              # Log files directory
 ├── setup_telegram.py  # Telegram setup script
 ├── setup.py          # Package setup configuration

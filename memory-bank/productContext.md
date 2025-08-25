@@ -1,7 +1,7 @@
 
 
 ## Why This Project Exists
-The tg_mcp project addresses the need for AI assistants and language models to interact with Telegram in a structured, reliable manner. Traditional approaches require complex API integrations and authentication handling, while this MCP server provides a standardized interface that abstracts away these complexities.
+The fast-mcp-telegram project addresses the need for AI assistants and language models to interact with Telegram in a structured, reliable manner. Traditional approaches require complex API integrations and authentication handling, while this MCP server provides a standardized interface that abstracts away these complexities.
 
 ## Problems It Solves
 1. **AI-Telegram Integration Gap**: Bridges the divide between AI assistants and Telegram's messaging platform

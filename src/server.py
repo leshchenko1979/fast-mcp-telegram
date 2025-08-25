@@ -265,13 +265,14 @@ def shutdown_procedure():
         logger.error(f"Error during cleanup: {e}\n{traceback.format_exc()}")
 
 
-# Run the server if this file is executed directly
-if __name__ == "__main__":
+def main():
+    """Entry point for console script; runs the MCP server and ensures cleanup."""
     if transport == "http":
         try:
             mcp.run(transport="http", host=host, port=port)
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt received. Initiating shutdown.")
         finally:
-            # Ensure cleanup on HTTP server shutdown
             shutdown_procedure()
     else:
         # For stdio transport, just run directly
@@ -282,3 +283,8 @@ if __name__ == "__main__":
             logger.info("KeyboardInterrupt received. Initiating shutdown.")
         finally:
             shutdown_procedure()
+
+
+# Run the server if this file is executed directly
+if __name__ == "__main__":
+    main()

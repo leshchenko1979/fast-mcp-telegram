@@ -7,7 +7,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="mcp-telegram-search",
+    name="fast-mcp-telegram",
     version="1.0.0",
     author="Your Name",
     author_email="your.email@example.com",
@@ -29,7 +29,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "mcp-telegram=src.server:main",
+            "fast-mcp-telegram=src.server:main",
         ],
     },
     include_package_data=True,

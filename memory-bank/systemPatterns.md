@@ -1,7 +1,7 @@
 
 
 ## Architecture Overview
-The tg_mcp system follows a modular MCP server architecture with clear separation of concerns:
+The fast-mcp-telegram system follows a modular MCP server architecture with clear separation of concerns:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
