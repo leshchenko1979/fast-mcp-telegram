@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, List
 from loguru import logger
 import time
 import traceback
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 from ..config.logging import format_diagnostic_info
 from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.tools.links import generate_telegram_links
@@ -39,7 +39,7 @@ async def send_message(
     }
     log_operation_start(request_id, "Sending message to chat", params)
 
-    client = await get_client()
+    client = await get_connected_client()
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
@@ -85,7 +85,7 @@ async def edit_message(
     }
     log_operation_start(request_id, "Editing message in chat", params)
 
-    client = await get_client()
+    client = await get_connected_client()
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
@@ -131,7 +131,7 @@ async def read_messages_by_ids(chat_id: str, message_ids: List[int]) -> List[Dic
     if not message_ids or not isinstance(message_ids, list):
         raise ValueError("message_ids must be a non-empty list of integers")
 
-    client = await get_client()
+    client = await get_connected_client()
     try:
         entity = await get_entity_by_id(chat_id)
         if not entity:

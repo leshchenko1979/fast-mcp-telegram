@@ -1,28 +1,39 @@
 # Active Context: tg_mcp
 
 ## Current Work Focus
-**Primary**: Successfully removed unused usage statistics and monitoring functionality. Cleaned up the codebase by removing the entire `src/monitoring/` directory which contained unused stats collection and health monitoring code.
+**Primary**: Applied DRY principles to connection management by creating `get_connected_client()` function that combines `get_client()` and `ensure_connection()`. This eliminates repetitive connection check patterns across all tools while maintaining the same reliability.
 
-**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase is now cleaner without unused monitoring functionality.
+**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase now includes robust connection management with DRY principles applied.
 
 ## Active Decisions and Considerations
 
-### Code Cleanup
-**Decision**: Removed unused monitoring and statistics functionality
-**Rationale**: The monitoring module was not being used anywhere in the codebase and added unnecessary complexity
-**Impact**: Cleaner project structure with only essential functionality
+### DRY Connection Management
+**Decision**: Created `get_connected_client()` function to eliminate repetitive connection check patterns
+**Rationale**: All tools were using the same pattern of `get_client()` followed by `ensure_connection()` checks
+**Impact**: Cleaner, more maintainable code with reduced duplication while maintaining the same reliability
+
+### Connection Management Fix
+**Decision**: Added `ensure_connection()` checks to all client operations
+**Rationale**: The "Can't send while disconnected" error occurs when the Telegram client loses connection and operations are attempted without reconnecting
+**Impact**: All tools now automatically reconnect if disconnected, preventing operation failures
+
+### Code Quality Improvements
+**Decision**: Applied connection checks consistently across all tools
+**Rationale**: Ensures reliable operation regardless of network conditions or connection state
+**Impact**: Improved reliability and user experience
 
 ### Documentation Maintenance
 **Decision**: Keep documentation updated as new usage patterns emerge
 **Rationale**: Language models may discover new edge cases or usage scenarios
 **Impact**: Ensures continued accuracy of search and messaging functionality
 
-### Future Enhancement Planning
-**Consideration**: Monitor for additional user needs or Telegram API changes
-**Approach**: Maintain current functionality while being ready for new requirements
-**Priority**: Low - current system meets all defined requirements
-
 ## Important Patterns and Preferences
+
+### Connection Management Patterns
+1. **Single Function Pattern**: Use `get_connected_client()` instead of separate `get_client()` + `ensure_connection()` calls
+2. **Automatic Reconnection**: All tools now check connection state before operations
+3. **Graceful Error Handling**: Clear error messages when connection cannot be established
+4. **Consistent Implementation**: Connection checks added to all client-using functions
 
 ### Search Usage Patterns
 1. **Contact-Specific Search**: Use `chat_id` parameter, `query` can be empty or specific
@@ -36,8 +47,8 @@
 3. **HTML**: Use `parse_mode='html'` for HTML-based formatting
 
 ## Next Immediate Steps
-1. **Monitor System Performance**: Track usage patterns and identify any issues
-2. **Gather User Feedback**: Collect feedback on search accuracy and message formatting
-3. **Documentation Updates**: Update docs if new usage patterns emerge
-4. **Maintenance**: Keep dependencies updated and monitor for API changes
-5. **Code Quality**: Continue applying DRY principles to other modules as needed
+1. **Test Connection Resilience**: Verify that the connection fixes work under various network conditions
+2. **Monitor System Performance**: Track usage patterns and identify any remaining issues
+3. **Gather User Feedback**: Collect feedback on connection reliability and message sending
+4. **Documentation Updates**: Update docs if new usage patterns emerge
+5. **Maintenance**: Keep dependencies updated and monitor for API changes

@@ -37,6 +37,21 @@ async def get_client() -> TelegramClient:
             raise
     return _singleton_client
 
+async def get_connected_client() -> TelegramClient:
+    """
+    Get a connected Telegram client, ensuring the connection is established.
+    
+    Returns:
+        Connected TelegramClient instance
+        
+    Raises:
+        Exception: If connection cannot be established
+    """
+    client = await get_client()
+    if not await ensure_connection(client):
+        raise Exception("Failed to establish connection to Telegram")
+    return client
+
 async def ensure_connection(client: TelegramClient) -> bool:
     try:
         if not client.is_connected():

@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Union
 from loguru import logger
 import traceback
 from ..config.logging import format_diagnostic_info
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 from src.utils.entity import get_entity_by_id
 
 async def generate_telegram_links(
@@ -49,7 +49,7 @@ async def generate_telegram_links(
         real_username = None
         is_public = False
         entity = None
-        client = await get_client()
+        client = await get_connected_client()
 
         entity = await get_entity_by_id(chat_id)
 

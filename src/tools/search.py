@@ -5,7 +5,7 @@ from loguru import logger
 import time
 from datetime import datetime
 import traceback
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
 from src.utils.entity import get_entity_by_id, compute_entity_identifier
 from src.utils.message_format import build_message_result
@@ -16,7 +16,7 @@ async def _get_chat_message_count(chat_id: str) -> Optional[int]:
     Get total message count for a specific chat.
     """
     try:
-        client = await get_client()
+        client = await get_connected_client()
         entity = await get_entity_by_id(chat_id)
         if not entity:
             return None
@@ -93,7 +93,7 @@ async def search_messages(
             }
         }
     )
-    client = await get_client()
+    client = await get_connected_client()
     try:
         total_count = None
         if chat_id:

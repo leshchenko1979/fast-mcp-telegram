@@ -6,7 +6,7 @@ Provides tools to help language models find chat IDs for specific contacts.
 from typing import Dict, List, Any, Optional
 from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 from src.utils.entity import build_entity_dict
 
 
@@ -29,7 +29,7 @@ async def search_contacts_telegram(
         List of matching contacts with their information
     """
     try:
-        client = await get_client()
+        client = await get_connected_client()
         
         # Use Telegram's native contact search
         result = await client(SearchRequest(
@@ -84,7 +84,7 @@ async def get_contact_info(chat_id: str) -> Optional[Dict[str, Any]]:
         Contact information or None if not found
     """
     try:
-        client = await get_client()
+        client = await get_connected_client()
         entity = await client.get_entity(chat_id)
         
         if not entity:

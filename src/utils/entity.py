@@ -1,11 +1,11 @@
 from loguru import logger
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 
 async def get_entity_by_id(entity_id):
     """
     A wrapper around client.get_entity to handle numeric strings and log errors.
     """
-    client = await get_client()
+    client = await get_connected_client()
     peer = None
     try:
         # Try to convert entity_id to an integer if it's a numeric string

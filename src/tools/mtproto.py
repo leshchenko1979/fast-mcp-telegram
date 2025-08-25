@@ -2,7 +2,7 @@ from typing import Dict, Any
 from loguru import logger
 import traceback
 from importlib import import_module
-from ..client.connection import get_client
+from ..client.connection import get_connected_client
 
 async def invoke_mtproto_method(method_full_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -27,7 +27,7 @@ async def invoke_mtproto_method(method_full_name: str, params: Dict[str, Any]) -
         tl_module = import_module(f"telethon.tl.functions.{module_name}")
         method_cls = getattr(tl_module, class_name)
         method_obj = method_cls(**params)
-        client = await get_client()
+        client = await get_connected_client()
         result = await client(method_obj)
         # Try to convert result to dict (if possible)
         if hasattr(result, 'to_dict'):
