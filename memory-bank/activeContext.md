@@ -1,4 +1,4 @@
-# Active Context: tg_mcp
+
 
 ## Current Work Focus
 **Primary**: Applied DRY principles to connection management by creating `get_connected_client()` function that combines `get_client()` and `ensure_connection()`. This eliminates repetitive connection check patterns across all tools while maintaining the same reliability.

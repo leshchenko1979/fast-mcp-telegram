@@ -1,4 +1,3 @@
-# Progress: tg_mcp
 
 ## What Works
 ✅ **Core MCP Server**: FastMCP server properly configured and running

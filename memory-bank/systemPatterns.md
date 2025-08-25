@@ -1,4 +1,4 @@
-# System Patterns: tg_mcp
+
 
 ## Architecture Overview
 The tg_mcp system follows a modular MCP server architecture with clear separation of concerns:

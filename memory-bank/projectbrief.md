@@ -1,7 +1,7 @@
-# Project Brief: tg_mcp
+
 
 ## Project Overview
-tg_mcp is a Python-based MCP (Modular Control Platform) server that provides comprehensive Telegram integration capabilities. The project enables AI assistants and language models to interact with Telegram through a standardized interface, offering search, messaging, and contact management functionality.
+fast-mcp-telegram is a Python-based MCP (Modular Control Platform) server that provides comprehensive Telegram integration capabilities. The project enables AI assistants and language models to interact with Telegram through a standardized interface, offering search, messaging, and contact management functionality.
 
 ## Core Requirements
 1. **Telegram Integration**: Connect to Telegram via MTProto API using Telethon
