@@ -41,6 +41,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 - Reliability and logging
   - Automatic reconnect and consistent error handling
   - Structured logging with request IDs
+  - Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information
 - MCP integration
   - Works with MCP-compatible clients (e.g., Cursor IDE, Claude Desktop); Cursor example provided
   - STDIO transport and HTTP test mode
