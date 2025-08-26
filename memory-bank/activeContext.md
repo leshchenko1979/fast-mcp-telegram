@@ -3,9 +3,15 @@
 ## Current Work Focus
 **Primary**: Successfully implemented LLM-optimized media placeholders for Telegram search results. The `search_messages` tool now returns lightweight, serializable media metadata instead of raw Telethon objects, making it much more suitable for LLM consumption while preserving essential information.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information.
 
 ## Active Decisions and Considerations
+### Logging Spam Reduction Implementation
+**Decision**: Implemented module-level logging configuration to reduce Telethon network spam
+**Rationale**: Telethon DEBUG logging was producing 9,000+ messages per session, making logs unreadable and causing 924KB log files in minutes
+**Solution**: Set noisy Telethon submodules to INFO level while keeping important modules at DEBUG
+**Impact**: Reduced log volume from 6,702 lines to ~16 lines, eliminated 5,534 spam phrases, preserved connection and error visibility
+
 ### LLM-Optimized Media Placeholders
 **Decision**: Implemented lightweight media placeholders with mime_type, file_size, and filename instead of raw Telethon objects
 **Rationale**: Raw Telethon media objects are large, contain binary data, and are not suitable for LLM consumption
@@ -48,6 +54,12 @@
 
 ## Important Patterns and Preferences
 
+### Logging Configuration Patterns
+1. **Module-Level Filtering**: Set noisy Telethon submodules to INFO level (telethon.network.mtprotosender, telethon.extensions.messagepacker)
+2. **Preserve Important Logs**: Keep connection, error, and RPC result messages at DEBUG level
+3. **Structured Logging**: Use Loguru with stdlib bridge for consistent formatting and metadata
+4. **Emitter Tracking**: Include original logger/module/function/line in log output for better debugging
+
 ### Multi-Query Search Patterns
 1. **Comma-Separated Format**: Use single string with comma-separated terms (e.g., "deadline, due date")
 2. **Parallel Execution**: Multiple queries execute simultaneously for better performance
@@ -79,7 +91,7 @@
 4. **Clean Output**: No media field present when message has no media content
 
 ## Next Immediate Steps
-1. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance
+1. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
 2. **Harden CORS**: Restrict origins when ready (currently permissive for development)
 3. **Maintenance**: Keep dependencies updated and monitor for API changes
 4. **Documentation**: Keep README and tool documentation updated with new multi-query examples

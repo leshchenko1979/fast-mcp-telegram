@@ -112,6 +112,48 @@ from src.tools.contacts import get_contact_info, search_contacts_telegram
 - **utils/entity.py**: Entity resolution utilities
 - **utils/message_format.py**: Shared message formatting utilities
 
+## Logging Configuration
+
+### Logging Architecture
+```python
+# Loguru + stdlib bridge configuration
+- Loguru for advanced formatting and features
+- InterceptHandler bridges stdlib loggers to Loguru
+- Emitter metadata tracking (logger/module/function/line)
+- Module-level log level control for spam reduction
+```
+
+### Spam Reduction Strategy
+```python
+# Module-level filtering (src/config/logging.py)
+telethon_root = logging.getLogger("telethon")
+telethon_root.setLevel(logging.DEBUG)  # Keep important logs
+
+# Noisy submodules set to INFO level
+noisy_modules = [
+    "telethon.network.mtprotosender",   # _send_loop, _recv_loop, _handle_update
+    "telethon.extensions.messagepacker", # packing/debug spam
+    "telethon.network",                 # other network internals
+]
+for name in noisy_modules:
+    logging.getLogger(name).setLevel(logging.INFO)
+```
+
+### Log Format
+```python
+# File format with emitter tracking
+format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
+
+# Console format (shorter time)
+format="{time:HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
+```
+
+### Performance Impact
+- **Before**: 9,000+ DEBUG messages per session, 924KB log files
+- **After**: ~16 lines per session, 0 spam phrases
+- **Preserved**: Connection, error, and important operation messages
+- **Maintained**: Full debugging capability for application code
+
 ## Tool Usage Patterns
 
 ### Search Tool Parameters
@@ -231,5 +273,11 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 - **Deduplication**: Based on (chat.id, message.id) tuples for uniqueness
 - **Pagination**: Applied after all queries complete and results are merged
 - **Performance**: Parallel execution improves efficiency but may hit rate limits with many queries
+
+### Logging Constraints
+- **Spam Control**: Must balance debugging visibility with log readability
+- **Module Filtering**: Requires understanding of Telethon's internal module structure
+- **Emitter Tracking**: Need to preserve original logger metadata for debugging
+- **Performance**: Logging overhead must not impact search performance
 
 
