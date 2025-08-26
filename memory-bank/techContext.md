@@ -6,6 +6,7 @@
 - **FastMCP**: MCP (Modular Control Platform) server framework
 - **Telethon**: Python library for Telegram's MTProto API
 - **Python 3.x**: Primary development language
+- **asyncio**: For parallel query execution and async operations
 
 ### Key Dependencies
 ```python
@@ -13,6 +14,7 @@
 fastmcp          # MCP server framework
 telethon         # Telegram API client
 loguru           # Advanced logging
+asyncio          # Async/await support (built-in)
 ```
 
 ### Development Tools
@@ -37,7 +39,7 @@ tg_mcp/
 └── requirements.txt       # Dependencies
 ```
 
-### MCP Server Configuration
+### MCP Server Configuration (Local stdio)
 ```json
 {
   "mcpServers": {
@@ -52,6 +54,27 @@ tg_mcp/
   }
 }
 ```
+
+### MCP Server Configuration (Cursor over HTTP)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://tg-mcp.redevest.ru/mcp",
+      "headers": {}
+    }
+  }
+}
+```
+
+### Deployment Files
+- `Dockerfile`: FastMCP HTTP server (EXPOSE 8000), `SESSION_NAME=/data/mcp_telegram`
+- `docker-compose.yml`: Traefik labels for `tg-mcp.redevest.ru`, mounts `./mcp_telegram.session -> /data/mcp_telegram.session`, healthcheck via curl, network `traefik-public`
+- `scripts/deploy-mcp.sh`: macOS-friendly deploy over SSH, streams git files, copies `.env`, copies session files, composes up with `--env-file .env`
+
+### Env
+- `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`
+  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`, `SESSION_NAME=/data/mcp_telegram`
 
 ## Technical Constraints
 
@@ -73,6 +96,7 @@ tg_mcp/
 ```python
 # Server imports
 from fastmcp import FastMCP
+import asyncio  # For parallel query execution
 from src.tools.search import search_messages
 from src.tools.messages import send_message, edit_message, read_messages_by_ids
 from src.tools.links import generate_telegram_links
@@ -82,7 +106,7 @@ from src.tools.contacts import get_contact_info, search_contacts_telegram
 
 ### Module Dependencies
 - **server.py**: Orchestrates all tool modules
-- **search.py**: Core search functionality
+- **search.py**: Core search functionality with multi-query support
 - **messages.py**: Message sending, editing, and reading functionality
 - **client/connection.py**: Telegram client management
 - **utils/entity.py**: Entity resolution utilities
@@ -93,7 +117,7 @@ from src.tools.contacts import get_contact_info, search_contacts_telegram
 ### Search Tool Parameters
 ```python
 async def search_messages(
-    query: str,                    # Search query (can be empty for chat_id searches)
+    query: str,                    # Search query (comma-separated for multiple terms)
     chat_id: str = None,           # Target chat ID (for per-chat search)
     limit: int = 50,               # Maximum results (limited to prevent context overflow)
     offset: int = 0,               # Pagination offset
@@ -103,10 +127,30 @@ async def search_messages(
     auto_expand_batches: int = 2,  # Auto-expansion for filtered results
     include_total_count: bool = False,  # Include total count in response
 )
-
-
 ```
 
+### Multi-Query Search Implementation
+```python
+# Query normalization
+queries: List[str] = [q.strip() for q in query.split(',') if q.strip()] if query else []
+
+# Parallel execution for per-chat search
+search_tasks = [
+    _search_chat_messages(client, entity, (q or ""), limit, 0, chat_type, auto_expand_batches)
+    for q in queries
+]
+all_partial_results = await asyncio.gather(*search_tasks)
+
+# Parallel execution for global search
+search_tasks = [
+    _search_global_messages(client, q, limit, min_datetime, max_datetime, 0, chat_type, auto_expand_batches)
+    for q in queries if q and str(q).strip()
+]
+all_partial_results = await asyncio.gather(*search_tasks)
+```
+
+### Message Tool Parameters
+```python
 async def send_or_edit_message(
     chat_id: str,                  # Target chat ID
     message: str,                  # Message text
@@ -119,18 +163,33 @@ async def send_or_edit_message(
 ### Key Usage Scenarios
 1. **Per-chat Search**: `chat_id` provided, `query` optional
 2. **Global Search**: `chat_id` not provided, `query` required
-3. **Date-filtered Search**: Use `min_date` and `max_date` parameters
-4. **Type-filtered Search**: Use `chat_type` parameter
-5. **Message Formatting**: Use `parse_mode` for Markdown or HTML formatting
-6. **Contact Resolution**: Use `search_contacts` for contact name to chat_id resolution
-7. **Message Editing**: Use `message_id` parameter to edit existing messages
-8. **Direct Message Reading**: Use `read_messages` to get specific messages by ID
-9. **Search with Count**: Use `include_total_count=True` in search_messages for per-chat searches
+3. **Multi-Query Search**: Use comma-separated terms in single query string
+4. **Date-filtered Search**: Use `min_date` and `max_date` parameters
+5. **Type-filtered Search**: Use `chat_type` parameter
+6. **Message Formatting**: Use `parse_mode` for Markdown or HTML formatting
+7. **Contact Resolution**: Use `search_contacts` for contact name to chat_id resolution
+8. **Message Editing**: Use `message_id` parameter to edit existing messages
+9. **Direct Message Reading**: Use `read_messages` to get specific messages by ID
+10. **Search with Count**: Use `include_total_count=True` in search_messages for per-chat searches
+
+### Multi-Query Search Examples
+```python
+# Multiple terms in single query
+search_messages(query="deadline, due date", limit=30)
+
+# Russian terms
+search_messages(query="рынок складов, складская недвижимость, warehouse market", limit=50)
+
+# Per-chat multi-query
+search_messages(chat_id="-1001234567890", query="launch, release notes")
+```
 
 ### Performance Considerations
 - **Search Limit**: Default limit is 50 results to prevent LLM context window overflow
 - **Pagination**: Use `offset` parameter for accessing additional results beyond the limit
 - **Auto-expansion**: Limited to 2 additional batches by default to balance completeness with performance
+- **Parallel Execution**: Multi-query searches execute simultaneously for better performance
+- **Deduplication**: Results automatically deduplicated to prevent duplicates across queries
 
 ### LLM Usage Guidelines
 - **Start Small**: Begin searches with limit=10-20 for initial exploration
@@ -139,6 +198,7 @@ async def send_or_edit_message(
 - **Pagination Strategy**: Use offset parameter to access additional results when needed
 - **Contact Searches**: Keep contact search limits at 20 or lower (contact results are typically smaller)
 - **Performance Impact**: Large result sets can cause context overflow and incomplete processing
+- **Multi-Query Efficiency**: Use comma-separated terms for related searches to get unified results
 
 ## Development Workflow
 
@@ -165,5 +225,11 @@ async def send_or_edit_message(
 - **Async Operations**: All Telegram operations must be async
 - **Error Handling**: Errors must be properly propagated to MCP clients
 - **Documentation**: Tool descriptions must be clear for AI model consumption
+
+### Multi-Query Implementation Constraints
+- **Input Format**: Must use comma-separated string format for multiple queries
+- **Deduplication**: Based on (chat.id, message.id) tuples for uniqueness
+- **Pagination**: Applied after all queries complete and results are merged
+- **Performance**: Parallel execution improves efficiency but may hit rate limits with many queries
 
 

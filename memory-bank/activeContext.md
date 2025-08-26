@@ -1,33 +1,58 @@
 
 
 ## Current Work Focus
-**Primary**: Applied DRY principles to connection management by creating `get_connected_client()` function that combines `get_client()` and `ensure_connection()`. This eliminates repetitive connection check patterns across all tools while maintaining the same reliability.
+**Primary**: Successfully implemented LLM-optimized media placeholders for Telegram search results. The `search_messages` tool now returns lightweight, serializable media metadata instead of raw Telethon objects, making it much more suitable for LLM consumption while preserving essential information.
 
-**Current Status**: System is production-ready with comprehensive documentation and testing. All major features are complete and working with improved code maintainability, clean logging, single-source error handling, and minimal code. The codebase now includes robust connection management with DRY principles applied. The standalone `generate_links` MCP tool was removed; links remain included in all message results.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully.
 
 ## Active Decisions and Considerations
+### LLM-Optimized Media Placeholders
+**Decision**: Implemented lightweight media placeholders with mime_type, file_size, and filename instead of raw Telethon objects
+**Rationale**: Raw Telethon media objects are large, contain binary data, and are not suitable for LLM consumption
+**Impact**: Much more efficient for LLMs, cleaner JSON output, preserved essential metadata
+
+### Multi-Query Search Implementation
+**Decision**: Implemented comma-separated query support with parallel execution and deduplication
+**Rationale**: User requested ability to search multiple terms and get unified, deduplicated results
+**Impact**: Enhanced search efficiency and user experience; queries like "рынок, склады" now work seamlessly
+
+### Query Format Simplification
+**Decision**: Changed from JSON array format to comma-separated string for multiple queries
+**Rationale**: LLM clients had difficulty formatting complex JSON arrays correctly
+**Impact**: Simplified input format while maintaining full functionality
+
+### Parallel Execution Strategy
+**Decision**: Use `asyncio.gather()` for parallel query execution
+**Rationale**: Improves performance when searching multiple terms simultaneously
+**Impact**: Faster search results with better resource utilization
+
+### Deduplication Logic
+**Decision**: Implement deduplication based on `(chat.id, message.id)` tuples
+**Rationale**: Ensure unique results when same message matches multiple search terms
+**Impact**: Clean, unified result sets without duplicates
+
+### HTTP Deployment & CORS
+**Decision**: Serve FastMCP over streamable HTTP at `/mcp`, enable permissive CORS for Cursor compatibility
+**Rationale**: Cursor enforces CORS-like policies and expects HTTP/SSE endpoint
+**Impact**: Publicly reachable MCP with secure TLS via Traefik; Cursor connects via `mcp.json`
+
+### Logging Bridge
+**Decision**: Bridge `uvicorn`, `uvicorn.access`, and `telethon` loggers into Loguru with DEBUG
+**Rationale**: Expand error visibility and trace RPC flow when debugging prod issues
+**Impact**: Clear, centralized logs in container and rotating files
 
 ### DRY Connection Management
 **Decision**: Created `get_connected_client()` function to eliminate repetitive connection check patterns
 **Rationale**: All tools were using the same pattern of `get_client()` followed by `ensure_connection()` checks
 **Impact**: Cleaner, more maintainable code with reduced duplication while maintaining the same reliability
 
-### Connection Management Fix
-**Decision**: Added `ensure_connection()` checks to all client operations
-**Rationale**: The "Can't send while disconnected" error occurs when the Telegram client loses connection and operations are attempted without reconnecting
-**Impact**: All tools now automatically reconnect if disconnected, preventing operation failures
-
-### Code Quality Improvements
-**Decision**: Applied connection checks consistently across all tools
-**Rationale**: Ensures reliable operation regardless of network conditions or connection state
-**Impact**: Improved reliability and user experience
-
-### Documentation Maintenance
-**Decision**: Keep documentation updated as new usage patterns emerge
-**Rationale**: Language models may discover new edge cases or usage scenarios
-**Impact**: Ensures continued accuracy of search and messaging functionality
-
 ## Important Patterns and Preferences
+
+### Multi-Query Search Patterns
+1. **Comma-Separated Format**: Use single string with comma-separated terms (e.g., "deadline, due date")
+2. **Parallel Execution**: Multiple queries execute simultaneously for better performance
+3. **Deduplication**: Results automatically deduplicated based on message identity
+4. **Pagination After Merge**: Limit and offset applied after all queries complete and deduplication
 
 ### Connection Management Patterns
 1. **Single Function Pattern**: Use `get_connected_client()` instead of separate `get_client()` + `ensure_connection()` calls
@@ -39,16 +64,22 @@
 1. **Contact-Specific Search**: Use `chat_id` parameter, `query` can be empty or specific
 2. **Content Search**: Use global search with `query` parameter, no `chat_id`
 3. **Hybrid Search**: Use both `chat_id` and `query` for targeted content search
-4. **Exact Message Retrieval**: Use `read_messages(chat_id, message_ids)` when IDs are known
+4. **Multi-Term Search**: Use comma-separated terms in single query string
+5. **Exact Message Retrieval**: Use `read_messages(chat_id, message_ids)` when IDs are known
 
 ### Message Formatting Patterns
 1. **Plain Text**: Default behavior (`parse_mode=None`) for maximum compatibility
 2. **Markdown**: Use `parse_mode='md'` or `'markdown'` for rich text formatting
 3. **HTML**: Use `parse_mode='html'` for HTML-based formatting
 
+### Media Handling Patterns
+1. **LLM-Optimized Placeholders**: Media objects contain mime_type, file_size, and filename instead of raw Telethon objects
+2. **Document Metadata**: Documents show mime_type, approx_size_bytes, and filename when available
+3. **Photo/Video Metadata**: Photos and videos show mime_type and approx_size_bytes when available
+4. **Clean Output**: No media field present when message has no media content
+
 ## Next Immediate Steps
-1. **Test Connection Resilience**: Verify that the connection fixes work under various network conditions
-2. **Monitor System Performance**: Track usage patterns and identify any remaining issues
-3. **Gather User Feedback**: Collect feedback on connection reliability and message sending
-4. **Documentation Updates**: Update docs if new usage patterns emerge
-5. **Maintenance**: Keep dependencies updated and monitor for API changes
+1. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance
+2. **Harden CORS**: Restrict origins when ready (currently permissive for development)
+3. **Maintenance**: Keep dependencies updated and monitor for API changes
+4. **Documentation**: Keep README and tool documentation updated with new multi-query examples
