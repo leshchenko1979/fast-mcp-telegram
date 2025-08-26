@@ -59,13 +59,28 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 ### 1. Authenticate with Telegram (one-time setup)
 
 **Option A: Using uvx (Recommended)**
+
+First, set your Telegram API credentials as environment variables:
 ```bash
-uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+export API_ID="your_api_id"
+export API_HASH="your_api_hash"
+export PHONE_NUMBER="+123456789"
 ```
+
+Then run the setup:
+```bash
+uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
+```
+
+Or run it all in one command:
+```bash
+API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
+```
+
 - Works from any directory
 - Automatically handles all dependencies
 - Session files saved to `~/.config/fast-mcp-telegram/`
-- Provide your Telegram credentials when prompted
+- You'll be prompted for the verification code from Telegram
 
 **Option B: Local development setup**
 1. Clone the repository and install dependencies:
@@ -98,7 +113,7 @@ uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-
     "mcpServers": {
       "mcp-telegram": {
         "command": "uvx",
-        "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git", "fast-mcp-telegram"],
+        "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
         "env": {
           "API_ID": "your_api_id",
           "API_HASH": "your_api_hash",
@@ -151,9 +166,9 @@ export SESSION_DIR="/path/to/your/custom/directory"
 export SESSION_NAME="my_custom_session"
 
 # Example: Multiple accounts
-SESSION_DIR="/Users/myuser/work" SESSION_NAME="work_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+SESSION_DIR="/Users/myuser/work" SESSION_NAME="work_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
 
-SESSION_DIR="/Users/myuser/personal" SESSION_NAME="personal_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+SESSION_DIR="/Users/myuser/personal" SESSION_NAME="personal_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
 ```
 
 **Important:**
@@ -168,7 +183,7 @@ For testing or development, you can run the server directly:
 
 ```bash
 # Using uvx (temporary installation)
-uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram --test-mode
+uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram --test-mode
 
 # Using local installation
 pip install -e .
