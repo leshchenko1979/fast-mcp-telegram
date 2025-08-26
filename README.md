@@ -31,6 +31,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
   - Generate direct links to messages
 - Results
   - Full-fidelity message objects: id, date, chat, text, link, sender, reply_to_msg_id, media, forwarded_from
+  - LLM-optimized media placeholders with mime_type, file_size, and filename (no raw Telethon objects)
   - Consistent result structures across tools
 - Contacts
   - Search contacts
@@ -297,6 +298,11 @@ The server returns full-fidelity, richly structured results to minimize follow-u
 - Search and read responses:
   - Top-level fields: `messages` (list), `has_more` (bool), and `total_count` (int, per-chat searches only when requested).
   - Each message includes: `id`, `date`, `chat`, `text`, `link`, `sender`, and when available `reply_to_msg_id`, `media`, `forwarded_from`.
+  - **Media objects** are LLM-optimized placeholders containing:
+    - `mime_type`: File type (e.g., "application/pdf", "video/mp4", "image/jpeg")
+    - `approx_size_bytes`: File size in bytes (when available)
+    - `filename`: Original filename for documents (when available)
+    - No raw Telethon objects or binary data
 
 Example message object:
 

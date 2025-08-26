@@ -74,16 +74,63 @@ async def get_sender_info(client, message) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _build_media_placeholder(message) -> Optional[Dict[str, Any]]:
+    """Return a lightweight, serializable media placeholder for LLM consumption.
+
+    Avoids returning raw Telethon media objects which are large and not LLM-friendly.
+    """
+    media = getattr(message, 'media', None)
+    if not media:
+        return None
+
+    placeholder: Dict[str, Any] = {}
+
+    media_cls = media.__class__.__name__
+
+    # Extract document-specific information
+    if media_cls == "MessageMediaDocument":
+        document = getattr(media, 'document', None)
+        if document:
+            # Get mime_type and file_size from document object
+            mime_type = getattr(document, 'mime_type', None)
+            if mime_type:
+                placeholder["mime_type"] = mime_type
+
+            file_size = getattr(document, 'size', None)
+            if file_size is not None:
+                placeholder["approx_size_bytes"] = file_size
+
+            # Try to get filename from document attributes
+            if hasattr(document, 'attributes'):
+                for attr in document.attributes:
+                    if hasattr(attr, 'file_name') and attr.file_name:
+                        placeholder["filename"] = attr.file_name
+                        break
+    else:
+        # For other media types (photos, videos, etc.), try to get mime_type and size from media object
+        mime_type = getattr(media, 'mime_type', None)
+        if mime_type:
+            placeholder["mime_type"] = mime_type
+
+        file_size = getattr(media, 'size', None)
+        if file_size is not None:
+            placeholder["approx_size_bytes"] = file_size
+
+    return placeholder
+
+
 async def build_message_result(client, message, entity_or_chat, link: Optional[str]) -> Dict[str, Any]:
     sender = await get_sender_info(client, message)
     chat = build_entity_dict(entity_or_chat)
     forward_info = await _extract_forward_info(message)
 
+    full_text = getattr(message, 'text', None) or getattr(message, 'message', None) or getattr(message, 'caption', None)
+
     result: Dict[str, Any] = {
         "id": message.id,
         "date": message.date.isoformat() if getattr(message, 'date', None) else None,
         "chat": chat,
-        "text": getattr(message, 'text', None) or getattr(message, 'message', None) or getattr(message, 'caption', None),
+        "text": full_text,
         "link": link,
         "sender": sender
     }
@@ -93,7 +140,7 @@ async def build_message_result(client, message, entity_or_chat, link: Optional[s
         result["reply_to_msg_id"] = reply_to_msg_id
 
     if hasattr(message, 'media') and message.media:
-        result["media"] = message.media
+        result["media"] = _build_media_placeholder(message)
 
     if forward_info is not None:
         result["forwarded_from"] = forward_info
