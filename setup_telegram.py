@@ -8,7 +8,8 @@ from src.config.settings import (
 
 async def main():
     print("Starting Telegram session setup...")
-    print(f"Using session file: {SESSION_PATH}")
+    print(f"Session will be saved to: {SESSION_PATH}")
+    print(f"Session directory: {SESSION_PATH.parent}")
 
     # Create the client and connect
     client = TelegramClient(SESSION_PATH, API_ID, API_HASH)

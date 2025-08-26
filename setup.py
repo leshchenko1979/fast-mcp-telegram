@@ -30,6 +30,7 @@ setup(
     entry_points={
         "console_scripts": [
             "fast-mcp-telegram=src.server:main",
+            "fast-mcp-telegram-setup=src.server:setup_telegram",
         ],
     },
     include_package_data=True,
