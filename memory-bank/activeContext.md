@@ -3,7 +3,7 @@
 ## Current Work Focus
 **Primary**: Added new `send_message_to_phone()` tool to enable sending messages to phone numbers not in contacts. Implemented complete workflow: add temporary contact → send message → optionally remove contact. Enhanced MCP server with direct phone messaging capability.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files. **New phone messaging capability**: Added `send_message_to_phone()` tool for contacting users by phone number.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files. **New phone messaging capability**: Added `send_message_to_phone()` tool for contacting users by phone number. **Setup import error fixed**: Resolved ModuleNotFoundError in console script by moving setup_telegram.py into src package structure.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -53,10 +53,10 @@
 **Impact**: Cleaner, more maintainable code with reduced duplication while maintaining the same reliability
 
 ### Logging Robustness Fix
-**Decision**: Fixed `KeyError: 'emitter_logger'` issues in Loguru handlers during server shutdown
-**Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields
-**Solution**: Implemented safe format strings with fallback values and robust error handling in InterceptHandler
-**Impact**: Eliminated logging errors during shutdown, improved system stability and log readability
+**Decision**: Fixed `KeyError: 'emitter_logger'` and `ValueError: Sign not allowed in string format specifier` issues in Loguru handlers
+**Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields, and invalid format string syntax caused additional errors
+**Solution**: Simplified logging format to use standard loguru fields, removed complex format string syntax that caused parsing errors and logging failures
+**Impact**: Eliminated logging errors during shutdown and normal operation, restored logging functionality, improved system stability and log readability
 
 ### Phone Messaging Capability
 **Decision**: Added `send_message_to_phone()` tool to enable messaging users by phone number
@@ -70,9 +70,9 @@
 1. **Module-Level Filtering**: Set noisy Telethon submodules to INFO level (telethon.network.mtprotosender, telethon.extensions.messagepacker)
 2. **Preserve Important Logs**: Keep connection, error, and RPC result messages at DEBUG level
 3. **Structured Logging**: Use Loguru with stdlib bridge for consistent formatting and metadata
-4. **Emitter Tracking**: Include original logger/module/function/line in log output for better debugging
-5. **Robust Error Handling**: Safe format strings with fallback values prevent KeyError during shutdown
-6. **Graceful Degradation**: InterceptHandler includes fallback logging when binding fails
+4. **Standard Fields**: Use loguru's built-in {name}, {function}, {line} fields for reliable logging
+5. **Robust Error Handling**: Simple format strings prevent parsing errors and logging failures
+6. **Graceful Degradation**: InterceptHandler includes fallback logging when standard logging fails
 
 ### Multi-Query Search Patterns
 1. **Comma-Separated Format**: Use single string with comma-separated terms (e.g., "deadline, due date")
