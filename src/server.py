@@ -351,8 +351,8 @@ def shutdown_procedure():
 
 def setup_telegram():
     """Entry point for Telegram session setup console script."""
-    import setup_telegram
-    setup_telegram.main()
+    from src.setup_telegram import main
+    asyncio.run(main())
 
 
 def main():

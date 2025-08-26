@@ -45,6 +45,7 @@
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
 - **Connection Reliability**: Improved with automatic reconnection logic
 - **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
+- **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
