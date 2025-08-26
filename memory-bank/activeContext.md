@@ -55,8 +55,8 @@
 ### Logging Robustness Fix
 **Decision**: Fixed `KeyError: 'emitter_logger'` and `ValueError: Sign not allowed in string format specifier` issues in Loguru handlers
 **Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields, and invalid format string syntax caused additional errors
-**Solution**: Simplified logging format to use standard loguru fields instead of custom extra fields, removed complex format string syntax that caused parsing errors
-**Impact**: Eliminated logging errors during shutdown and normal operation, improved system stability and log readability
+**Solution**: Simplified logging format to use standard loguru fields, removed complex format string syntax that caused parsing errors and logging failures
+**Impact**: Eliminated logging errors during shutdown and normal operation, restored logging functionality, improved system stability and log readability
 
 ### Phone Messaging Capability
 **Decision**: Added `send_message_to_phone()` tool to enable messaging users by phone number
@@ -70,8 +70,8 @@
 1. **Module-Level Filtering**: Set noisy Telethon submodules to INFO level (telethon.network.mtprotosender, telethon.extensions.messagepacker)
 2. **Preserve Important Logs**: Keep connection, error, and RPC result messages at DEBUG level
 3. **Structured Logging**: Use Loguru with stdlib bridge for consistent formatting and metadata
-4. **Standard Fields**: Use loguru's built-in {name}, {function}, {line} fields instead of custom extra fields
-5. **Robust Error Handling**: Simplified format strings prevent parsing errors and KeyError during shutdown
+4. **Standard Fields**: Use loguru's built-in {name}, {function}, {line} fields for reliable logging
+5. **Robust Error Handling**: Simple format strings prevent parsing errors and logging failures
 6. **Graceful Degradation**: InterceptHandler includes fallback logging when standard logging fails
 
 ### Multi-Query Search Patterns
