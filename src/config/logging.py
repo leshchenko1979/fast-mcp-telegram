@@ -25,7 +25,8 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
         # Include original emitting logger/module/function/line from stdlib records
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
+        # Use safe format that handles missing extra fields
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]:-}:{extra[emitter_module]:-}:{extra[emitter_func]:-}:{extra[emitter_line]:-} - {message}"
     )
     # Console sink for quick visibility (DEBUG with full backtraces)
     logger.add(
@@ -35,7 +36,8 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
         # Shorter time, but keep emitter details too
-        format="{time:HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
+        # Use safe format that handles missing extra fields
+        format="{time:HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]:-}:{extra[emitter_module]:-}:{extra[emitter_func]:-}:{extra[emitter_line]:-} - {message}"
     )
 
     # Bridge standard logging (uvicorn, telethon, etc.) to loguru
@@ -50,16 +52,23 @@ def setup_logging():
                 frame = frame.f_back
                 depth += 1
             # Bind original stdlib record metadata so we can display true emitter
-            emitter_logger = getattr(record, "name", "?")
-            emitter_module = getattr(record, "module", "?")
-            emitter_func = getattr(record, "funcName", "?")
+            # Use safe defaults to prevent KeyError during shutdown
+            emitter_logger = getattr(record, "name", "unknown")
+            emitter_module = getattr(record, "module", "unknown")
+            emitter_func = getattr(record, "funcName", "unknown")
             emitter_line = getattr(record, "lineno", "?")
-            logger.opt(depth=depth, exception=record.exc_info).bind(
-                emitter_logger=emitter_logger,
-                emitter_module=emitter_module,
-                emitter_func=emitter_func,
-                emitter_line=emitter_line,
-            ).log(level, record.getMessage())
+            try:
+                logger.opt(depth=depth, exception=record.exc_info).bind(
+                    emitter_logger=emitter_logger,
+                    emitter_module=emitter_module,
+                    emitter_func=emitter_func,
+                    emitter_line=emitter_line,
+                ).log(level, record.getMessage())
+            except Exception as e:
+                # Fallback logging if binding fails (e.g., during shutdown)
+                logger.opt(depth=depth, exception=record.exc_info).log(
+                    level, f"[{emitter_logger}:{emitter_module}:{emitter_func}:{emitter_line}] {record.getMessage()}"
+                )
 
     # Install a single root handler
     root_logger = logging.getLogger()

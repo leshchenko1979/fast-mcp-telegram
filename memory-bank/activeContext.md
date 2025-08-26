@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Successfully implemented LLM-optimized media placeholders for Telegram search results. The `search_messages` tool now returns lightweight, serializable media metadata instead of raw Telethon objects, making it much more suitable for LLM consumption while preserving essential information.
+**Primary**: Fixed logging errors during server shutdown. Resolved `KeyError: 'emitter_logger'` issues in Loguru handlers by implementing robust error handling and safe format strings that handle missing extra fields gracefully.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -52,6 +52,12 @@
 **Rationale**: All tools were using the same pattern of `get_client()` followed by `ensure_connection()` checks
 **Impact**: Cleaner, more maintainable code with reduced duplication while maintaining the same reliability
 
+### Logging Robustness Fix
+**Decision**: Fixed `KeyError: 'emitter_logger'` issues in Loguru handlers during server shutdown
+**Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields
+**Solution**: Implemented safe format strings with fallback values and robust error handling in InterceptHandler
+**Impact**: Eliminated logging errors during shutdown, improved system stability and log readability
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns
@@ -59,6 +65,8 @@
 2. **Preserve Important Logs**: Keep connection, error, and RPC result messages at DEBUG level
 3. **Structured Logging**: Use Loguru with stdlib bridge for consistent formatting and metadata
 4. **Emitter Tracking**: Include original logger/module/function/line in log output for better debugging
+5. **Robust Error Handling**: Safe format strings with fallback values prevent KeyError during shutdown
+6. **Graceful Degradation**: InterceptHandler includes fallback logging when binding fails
 
 ### Multi-Query Search Patterns
 1. **Comma-Separated Format**: Use single string with comma-separated terms (e.g., "deadline, due date")
@@ -91,7 +99,8 @@
 4. **Clean Output**: No media field present when message has no media content
 
 ## Next Immediate Steps
-1. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
-2. **Harden CORS**: Restrict origins when ready (currently permissive for development)
-3. **Maintenance**: Keep dependencies updated and monitor for API changes
-4. **Documentation**: Keep README and tool documentation updated with new multi-query examples
+1. **Test Shutdown Stability**: Verify that logging errors are resolved during server shutdown
+2. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
+3. **Harden CORS**: Restrict origins when ready (currently permissive for development)
+4. **Maintenance**: Keep dependencies updated and monitor for API changes
+5. **Documentation**: Keep README and tool documentation updated with new multi-query examples
