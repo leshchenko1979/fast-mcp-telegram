@@ -20,6 +20,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 - Message search
   - Global and per-chat modes
+  - Multiple query support with comma-separated terms and parallel execution
   - Filters: chat type (private/group/channel), date range, pagination
   - Auto-expansion for filtered results and optional include_total_count (per-chat)
 - Messaging
@@ -163,8 +164,31 @@ The server provides the following MCP tools:
   - Supports date range filtering with `min_date` and `max_date` (ISO format, e.g. `2024-05-15` or `2024-05-15T12:00:00`)
   - Supports `auto_expand_batches` (int, default 2): maximum additional batches to fetch if not enough filtered results are found
   - **Query parameter behavior:**
+    - `query` accepts a single string; use comma-separated terms for multiple queries (e.g., `"deadline, due date"`). The tool searches each term in parallel and returns a single deduplicated set of results.
     - If `chat_id` is provided, you may leave `query` empty to fetch all messages from that chat (optionally filtered by `min_date` and `max_date`).
-    - If `chat_id` is not provided (global search), `query` must not be empty.
+    - If `chat_id` is not provided (global search), at least one non-empty query term is required.
+  - **Examples:**
+    - Multiple queries (global, comma-separated):
+      ```json
+      {
+        "tool": "search_messages",
+        "params": {
+          "query": "deadline, due date",
+          "limit": 30
+        }
+      }
+      ```
+    - Multiple queries (per-chat, comma-separated):
+      ```json
+      {
+        "tool": "search_messages",
+        "params": {
+          "query": "launch, release notes",
+          "chat_id": "-1001234567890",
+          "limit": 20
+        }
+      }
+      ```
   - **Example: Fetch all messages from a chat in a date range:**
     ```json
     {

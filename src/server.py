@@ -62,13 +62,18 @@ async def search_messages(
     1. PER-CHAT: Set chat_id, query optional (gets all messages or searches content)
     2. GLOBAL: No chat_id, query required (searches across all chats)
     
+    MULTIPLE QUERIES:
+    - Use comma-separated terms in a single string
+    - Results are merged and deduplicated across all terms
+    - Example: query="deadline, due date" finds messages containing either term
+    
     COMMON MISTAKE: Don't use contact names as query in global search.
     ✅ Use search_contacts() first to get chat_id, then search_messages(chat_id=...)
     
     TOTAL COUNT: Set include_total_count=True for per-chat searches to get total matching messages.
     
     Args:
-        query: Search query (empty for all messages in per-chat search)
+        query: Search query string (use comma-separated terms for multiple queries). Empty allowed only with chat_id.
         chat_id: Target chat ID (per-chat search) or None (global search)
         limit: Max results (RECOMMENDED: 50 or lower)
         offset: Pagination offset
@@ -77,10 +82,32 @@ async def search_messages(
         max_date: Maximum date (ISO format)
         auto_expand_batches: Additional batches for filtered results (default 2)
         include_total_count: Include total count in response (per-chat only)
+    
+    Examples:
+        # Single query, global search
+        search_messages(query="deadline", limit=20)
+        
+        # Multiple queries, global search (comma-separated)
+        search_messages(query="deadline, due date", limit=30)
+        
+        # Multiple queries with Russian terms (comma-separated)
+        search_messages(query="рынок складов, складская недвижимость, warehouse market", limit=50)
+        
+        # Per-chat search with multiple queries
+        search_messages(chat_id="-1001234567890", query="launch, release notes")
+        
+        # Per-chat search, all messages (empty query)
+        search_messages(chat_id="-1001234567890", query="")
+        
+        # Date-filtered search
+        search_messages(query="warehouse", min_date="2024-01-01", max_date="2024-12-31")
+        
+        # Chat type filtered search
+        search_messages(query="market", chat_type="channel", limit=10)
     """
     try:
         request_id = f"search_{int(time.time())}"
-        logger.info(f"[{request_id}] Searching messages with query: {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}")
+        logger.info(f"[{request_id}] Searching messages with query(s): {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}")
         search_result = await search_messages_impl(
             query,
             chat_id,
