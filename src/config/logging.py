@@ -15,6 +15,7 @@ IS_TEST_MODE = '--test-mode' in sys.argv
 def setup_logging():
     """Configure logging with loguru."""
     logger.remove()
+    
     # File sink with full tracebacks and diagnostics
     logger.add(
         LOG_PATH,
@@ -24,9 +25,8 @@ def setup_logging():
         backtrace=True,
         diagnose=True,
         enqueue=True,
-        # Include original emitting logger/module/function/line from stdlib records
-        # Use safe format that handles missing extra fields
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]:-}:{extra[emitter_module]:-}:{extra[emitter_func]:-}:{extra[emitter_line]:-} - {message}"
+        # Use simple format that doesn't rely on extra fields
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}"
     )
     # Console sink for quick visibility (DEBUG with full backtraces)
     logger.add(
@@ -36,8 +36,7 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
         # Shorter time, but keep emitter details too
-        # Use safe format that handles missing extra fields
-        format="{time:HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]:-}:{extra[emitter_module]:-}:{extra[emitter_func]:-}:{extra[emitter_line]:-} - {message}"
+        format="{time:HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}"
     )
 
     # Bridge standard logging (uvicorn, telethon, etc.) to loguru
@@ -51,23 +50,15 @@ def setup_logging():
             while frame and frame.f_code.co_filename == logging.__file__:
                 frame = frame.f_back
                 depth += 1
-            # Bind original stdlib record metadata so we can display true emitter
-            # Use safe defaults to prevent KeyError during shutdown
-            emitter_logger = getattr(record, "name", "unknown")
-            emitter_module = getattr(record, "module", "unknown")
-            emitter_func = getattr(record, "funcName", "unknown")
-            emitter_line = getattr(record, "lineno", "?")
+            # Use standard loguru fields instead of custom extra fields
             try:
-                logger.opt(depth=depth, exception=record.exc_info).bind(
-                    emitter_logger=emitter_logger,
-                    emitter_module=emitter_module,
-                    emitter_func=emitter_func,
-                    emitter_line=emitter_line,
-                ).log(level, record.getMessage())
-            except Exception as e:
-                # Fallback logging if binding fails (e.g., during shutdown)
                 logger.opt(depth=depth, exception=record.exc_info).log(
-                    level, f"[{emitter_logger}:{emitter_module}:{emitter_func}:{emitter_line}] {record.getMessage()}"
+                    level, record.getMessage()
+                )
+            except Exception as e:
+                # Fallback logging if anything fails (e.g., during shutdown)
+                logger.opt(depth=depth, exception=record.exc_info).log(
+                    level, f"[{getattr(record, 'name', 'unknown')}:{getattr(record, 'funcName', 'unknown')}:{getattr(record, 'lineno', '?')}] {record.getMessage()}"
                 )
 
     # Install a single root handler
