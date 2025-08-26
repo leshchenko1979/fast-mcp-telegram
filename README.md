@@ -289,6 +289,31 @@ The server provides the following MCP tools:
 - `get_contact_details(chat_id: str)`
   - Get detailed information about a specific contact
 
+- `send_message_to_phone(phone_number: str, message: str, first_name: str = "Contact", last_name: str = "Name", remove_if_new: bool = False, reply_to_msg_id: int = None, parse_mode: str = None)`
+  - Send a message to a phone number, safely handling both existing and new contacts
+  - Automatically checks if contact exists, creates new contact only if needed, and optionally removes newly created contacts
+  - **IMPORTANT**: The phone number must be registered on Telegram
+  - **SAFETY**: Never removes existing contacts - only removes contacts that were newly created during this operation
+  - **Returns**: Standard message result plus `phone_number`, `contact_was_new`, and `contact_removed` fields
+  - **parse_mode options:**
+    - `None` (default): Plain text
+    - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
+    - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
+  - **Example:**
+    ```json
+    {
+      "tool": "send_message_to_phone",
+      "params": {
+        "phone_number": "+1234567890",
+        "message": "*Hello!* This is a _test message_ from your MCP server.",
+        "first_name": "John",
+        "last_name": "Doe",
+        "remove_if_new": false,
+        "parse_mode": "markdown"
+      }
+    }
+    ```
+
 - `invoke_mtproto(method_full_name: str, params_json: str)`
   - Dynamically invoke any raw MTProto method supported by Telethon
   - **Parameters:**
@@ -412,6 +437,23 @@ Here are some practical scenarios and example user requests you can make to an A
     }
     ```
 
+
+- **Send a message to a phone number not in contacts**
+  - User: `Send a message to +1234567890 saying "Hello from MCP server!"`
+  - AI Agent action:
+    ```json
+    {
+      "tool": "send_message_to_phone",
+      "params": {
+        "phone_number": "+1234567890",
+        "message": "Hello from MCP server!",
+        "first_name": "Contact",
+        "last_name": "Name",
+        "remove_if_new": false,
+        "parse_mode": null
+      }
+    }
+    ```
 
 These examples illustrate how natural language requests can be mapped to MCP tool calls for powerful Telegram automation and search.
 

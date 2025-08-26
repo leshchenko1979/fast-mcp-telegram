@@ -20,6 +20,7 @@ from src.tools.search import search_messages as search_messages_impl
 from src.tools.messages import send_message, edit_message, read_messages_by_ids
 from src.tools.mtproto import invoke_mtproto_method
 from src.tools.contacts import get_contact_info, search_contacts_telegram
+from src.tools.messages import send_message, edit_message, read_messages_by_ids, send_message_to_phone_impl
 
 IS_TEST_MODE = '--test-mode' in sys.argv
 
@@ -252,6 +253,54 @@ async def get_contact_details(chat_id: str):
         chat_id: The chat ID of the contact
     """
     result = await get_contact_info(chat_id)
+    return result
+
+
+@mcp.tool()
+async def send_message_to_phone(
+    phone_number: str,
+    message: str,
+    first_name: str = "Contact",
+    last_name: str = "Name",
+    remove_if_new: bool = False,
+    reply_to_msg_id: int = None,
+    parse_mode: str = None
+):
+    """
+    Send a message to a phone number, safely handling both existing and new contacts.
+    
+    This tool safely handles phone messaging by checking if the contact already exists,
+    only creating a new contact if needed, and only removing newly created contacts.
+    
+    IMPORTANT: The phone number must be registered on Telegram for this to work.
+    
+    Args:
+        phone_number: The target phone number (with country code, e.g., "+1234567890")
+        message: The text message to send
+        first_name: First name for the contact (used only if creating new contact, default: "Contact")
+        last_name: Last name for the contact (used only if creating new contact, default: "Name")
+        remove_if_new: Whether to remove the contact if it was newly created (default: False)
+        reply_to_msg_id: ID of the message to reply to (optional)
+        parse_mode: Parse mode for message formatting (optional)
+            - None: Plain text (default)
+            - 'md' or 'markdown': Markdown formatting
+            - 'html': HTML formatting
+    
+    Returns:
+        Dictionary with operation results consistent with send_or_edit_message format, plus:
+        - phone_number: The phone number that was messaged
+        - contact_was_new: Whether a new contact was created during this operation
+        - contact_removed: Whether the contact was removed (only if it was newly created)
+    """
+    result = await send_message_to_phone_impl(
+        phone_number=phone_number,
+        message=message,
+        first_name=first_name,
+        last_name=last_name,
+        remove_if_new=remove_if_new,
+        reply_to_msg_id=reply_to_msg_id,
+        parse_mode=parse_mode
+    )
     return result
 
 
