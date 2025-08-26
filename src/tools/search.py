@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 import traceback
 import asyncio
-from ..client.connection import get_connected_client
+from src.client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
 from src.utils.entity import get_entity_by_id, compute_entity_identifier
 from src.utils.message_format import build_message_result

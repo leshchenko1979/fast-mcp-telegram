@@ -4,7 +4,7 @@ import traceback
 from importlib import import_module
 import base64
 import random
-from ..client.connection import get_connected_client
+from src.client.connection import get_connected_client
 
 def _json_safe(value: Any) -> Any:
     """Recursively convert value into a JSON- and UTF-8-safe structure.

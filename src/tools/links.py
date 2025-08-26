@@ -1,8 +1,8 @@
 from typing import Dict, Any, List, Union
 from loguru import logger
 import traceback
-from ..config.logging import format_diagnostic_info
-from ..client.connection import get_connected_client
+from src.config.logging import format_diagnostic_info
+from src.client.connection import get_connected_client
 from src.utils.entity import get_entity_by_id
 
 async def generate_telegram_links(

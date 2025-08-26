@@ -6,7 +6,7 @@ Provides tools to help language models find chat IDs for specific contacts.
 from typing import Dict, List, Any, Optional
 from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
-from ..client.connection import get_connected_client
+from src.client.connection import get_connected_client
 from src.utils.entity import build_entity_dict
 
 

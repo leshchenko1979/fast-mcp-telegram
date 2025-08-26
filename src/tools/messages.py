@@ -2,8 +2,8 @@ from typing import Dict, Any, Optional, List
 from loguru import logger
 import time
 import traceback
-from ..client.connection import get_connected_client
-from ..config.logging import format_diagnostic_info
+from src.client.connection import get_connected_client
+from src.config.logging import format_diagnostic_info
 from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.tools.links import generate_telegram_links
 from src.utils.message_format import (
