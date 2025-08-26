@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Successfully implemented LLM-optimized media placeholders for Telegram search results. The `search_messages` tool now returns lightweight, serializable media metadata instead of raw Telethon objects, making it much more suitable for LLM consumption while preserving essential information.
+**Primary**: Added new `send_message_to_phone()` tool to enable sending messages to phone numbers not in contacts. Implemented complete workflow: add temporary contact → send message → optionally remove contact. Enhanced MCP server with direct phone messaging capability.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files. **New phone messaging capability**: Added `send_message_to_phone()` tool for contacting users by phone number.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -52,6 +52,18 @@
 **Rationale**: All tools were using the same pattern of `get_client()` followed by `ensure_connection()` checks
 **Impact**: Cleaner, more maintainable code with reduced duplication while maintaining the same reliability
 
+### Logging Robustness Fix
+**Decision**: Fixed `KeyError: 'emitter_logger'` issues in Loguru handlers during server shutdown
+**Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields
+**Solution**: Implemented safe format strings with fallback values and robust error handling in InterceptHandler
+**Impact**: Eliminated logging errors during shutdown, improved system stability and log readability
+
+### Phone Messaging Capability
+**Decision**: Added `send_message_to_phone()` tool to enable messaging users by phone number
+**Rationale**: User requested ability to send messages to phone numbers not in contacts
+**Solution**: Implemented complete workflow using Telegram's ImportContactsRequest and DeleteContactsRequest, placed in `messages.py` for logical organization
+**Impact**: Users can now send messages to any phone number registered on Telegram without manual contact management
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns
@@ -59,6 +71,8 @@
 2. **Preserve Important Logs**: Keep connection, error, and RPC result messages at DEBUG level
 3. **Structured Logging**: Use Loguru with stdlib bridge for consistent formatting and metadata
 4. **Emitter Tracking**: Include original logger/module/function/line in log output for better debugging
+5. **Robust Error Handling**: Safe format strings with fallback values prevent KeyError during shutdown
+6. **Graceful Degradation**: InterceptHandler includes fallback logging when binding fails
 
 ### Multi-Query Search Patterns
 1. **Comma-Separated Format**: Use single string with comma-separated terms (e.g., "deadline, due date")
@@ -90,8 +104,18 @@
 3. **Photo/Video Metadata**: Photos and videos show mime_type and approx_size_bytes when available
 4. **Clean Output**: No media field present when message has no media content
 
+### Phone Messaging Patterns
+1. **Contact Management**: Add contact → send message → optionally remove contact workflow
+2. **Error Handling**: Graceful handling when phone number not registered on Telegram
+3. **Optional Contact Retention**: `remove_if_new` parameter controls whether to remove newly created contacts (default: false)
+4. **Consistent Interface**: Uses same logging, error handling, and result format as other message tools
+5. **Formatting Support**: Supports `parse_mode` for Markdown/HTML formatting like other message tools
+6. **Reply Support**: Supports `reply_to_msg_id` for replying to messages
+7. **Clear Result Fields**: `contact_added` and `contact_removed` fields provide clear status information
+
 ## Next Immediate Steps
-1. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
-2. **Harden CORS**: Restrict origins when ready (currently permissive for development)
-3. **Maintenance**: Keep dependencies updated and monitor for API changes
-4. **Documentation**: Keep README and tool documentation updated with new multi-query examples
+1. **Test Phone Messaging**: Verify that `send_message_to_phone()` tool works correctly with various phone numbers
+2. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
+3. **Harden CORS**: Restrict origins when ready (currently permissive for development)
+4. **Maintenance**: Keep dependencies updated and monitor for API changes
+5. **Documentation**: Keep README and tool documentation updated with new phone messaging examples

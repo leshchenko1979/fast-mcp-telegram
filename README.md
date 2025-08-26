@@ -56,99 +56,127 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 ## Quick Start & Usage
 
-1. Use in an MCP-compatible client (Recommended):
+### 1. Authenticate with Telegram (one-time setup)
 
-   Cursor example (`.cursor/mcp.json`):
+**Option A: Using uvx (Recommended)**
+```bash
+uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+```
+- Works from any directory
+- Automatically handles all dependencies
+- Session files saved to `~/.config/fast-mcp-telegram/`
+- Provide your Telegram credentials when prompted
 
-   - Primary (uvx console script):
-
-     ```json
-     {
-       "mcpServers": {
-         "mcp-telegram": {
-           "command": "uvx",
-           "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@main", "fast-mcp-telegram"],
-           "env": {
-             "API_ID": "your_api_id",
-             "API_HASH": "your_api_hash",
-             "PHONE_NUMBER": "+123456789"
-           },
-           "description": "Telegram MCP server with search and messaging tools"
-         }
-       }
-     }
-     ```
-     Note: `uvx` will automatically download and isolate all required dependencies; no local `pip install` is needed.
-
-   - Alternative (local development with python3):
-
-     ```json
-     {
-       "mcpServers": {
-         "mcp-telegram": {
-           "command": "python3",
-           "args": ["/path/to/your/fast-mcp-telegram/src/server.py"],
-           "cwd": "/path/to/your/fast-mcp-telegram",
-           "env": {
-             "PYTHONPATH": "/path/to/your/fast-mcp-telegram"
-           },
-           "description": "Telegram MCP server with search and messaging tools"
-         }
-       }
-     }
-     ```
-
-   Note: Replace `/path/to/your/fast-mcp-telegram` with your actual project path. The JSON above shows Cursor's configuration format; for other MCP clients (e.g., Claude Desktop), adapt to their configuration. 
-   
-   If you modify the server code, reload the server in your MCP client for changes to take effect. See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients).
-
-2. Install dependencies (local development only):
-
+**Option B: Local development setup**
+1. Clone the repository and install dependencies:
    ```bash
+   git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
+   cd fast-mcp-telegram
    pip install -r requirements.txt
    ```
-   Skip this step if you use `uvx` — it resolves and installs dependencies automatically when launching the server.
 
-3. Authenticate with Telegram (one-time):
-
-   If you are not using `uvx` with environment variables, create a `.env` file in the project root containing your Telegram credentials:
-
+2. Create a `.env` file with your credentials:
    ```env
    API_ID=your_api_id
    API_HASH=your_api_hash
    PHONE_NUMBER=+123456789
    ```
 
-   Next, run the setup script:
+3. Run the setup script:
    ```bash
    python setup_telegram.py
    ```
+   Session files will be saved in the project directory.
 
-   The script will prompt you to enter the Telegram verification code and, if necessary, your password.
+### 2. Configure your MCP client
 
-   If the MCP server is already running, reload it to apply the new credentials.
+**Cursor example (`.cursor/mcp.json`):**
 
-4. Run from the console (optional):
+- **Option A: Using uvx (Recommended)**
+  ```json
+  {
+    "mcpServers": {
+      "mcp-telegram": {
+        "command": "uvx",
+        "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git", "fast-mcp-telegram"],
+        "env": {
+          "API_ID": "your_api_id",
+          "API_HASH": "your_api_hash",
+          "PHONE_NUMBER": "+123456789"
+        },
+        "description": "Telegram MCP server with search and messaging tools"
+      }
+    }
+  }
+  ```
 
-   - Console script (installed package):
+- **Option B: Local development**
+  ```json
+  {
+    "mcpServers": {
+      "mcp-telegram": {
+        "command": "python3",
+        "args": ["/path/to/fast-mcp-telegram/src/server.py"],
+        "cwd": "/path/to/fast-mcp-telegram",
+        "env": {
+          "PYTHONPATH": "/path/to/fast-mcp-telegram"
+        },
+        "description": "Telegram MCP server with search and messaging tools"
+      }
+    }
+  }
+  ```
 
-     ```bash
-     fast-mcp-telegram
-     # or HTTP test mode
-     fast-mcp-telegram --test-mode
-     ```
+**Notes:**
+- Replace credential placeholders with your actual Telegram API credentials
+- For other MCP clients (Claude Desktop, etc.), adapt the configuration format
+- See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients)
+- Reload the server in your MCP client after making configuration changes
 
-   - Python module (HTTP test mode):
+### 3. Session File Information
 
-     ```bash
-     python3 -m src.server --test-mode
-     ```
+**Default Locations:**
+- **uvx users:** `~/.config/fast-mcp-telegram/mcp_telegram.session`
+- **Local development:** `mcp_telegram.session` (in project directory)
 
-   - Direct execution (STDIO transport):
+**Environment Variable Controls:**
 
-     ```bash
-     python3 src/server.py
-     ```
+You can customize session file location using environment variables:
+
+```bash
+# Custom session directory
+export SESSION_DIR="/path/to/your/custom/directory"
+
+# Custom session file name (useful for multiple accounts)
+export SESSION_NAME="my_custom_session"
+
+# Example: Multiple accounts
+SESSION_DIR="/Users/myuser/work" SESSION_NAME="work_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+
+SESSION_DIR="/Users/myuser/personal" SESSION_NAME="personal_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram-setup
+```
+
+**Important:**
+- Session files are **persistent** - they survive server restarts and `uvx` cleanup
+- **One-time authentication** - You only need to enter verification codes once
+- **Cross-platform** - Session files work across different machines (if copied)
+- **Multiple accounts** - Use different `SESSION_NAME` values for separate Telegram accounts
+
+### 4. Optional: Direct console usage
+
+For testing or development, you can run the server directly:
+
+```bash
+# Using uvx (temporary installation)
+uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git fast-mcp-telegram --test-mode
+
+# Using local installation
+pip install -e .
+fast-mcp-telegram --test-mode
+
+# Direct Python execution (STDIO transport)
+python3 src/server.py
+```
 
 ## Available Tools
 
@@ -260,6 +288,31 @@ The server provides the following MCP tools:
 
 - `get_contact_details(chat_id: str)`
   - Get detailed information about a specific contact
+
+- `send_message_to_phone(phone_number: str, message: str, first_name: str = "Contact", last_name: str = "Name", remove_if_new: bool = False, reply_to_msg_id: int = None, parse_mode: str = None)`
+  - Send a message to a phone number, safely handling both existing and new contacts
+  - Automatically checks if contact exists, creates new contact only if needed, and optionally removes newly created contacts
+  - **IMPORTANT**: The phone number must be registered on Telegram
+  - **SAFETY**: Never removes existing contacts - only removes contacts that were newly created during this operation
+  - **Returns**: Standard message result plus `phone_number`, `contact_was_new`, and `contact_removed` fields
+  - **parse_mode options:**
+    - `None` (default): Plain text
+    - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
+    - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
+  - **Example:**
+    ```json
+    {
+      "tool": "send_message_to_phone",
+      "params": {
+        "phone_number": "+1234567890",
+        "message": "*Hello!* This is a _test message_ from your MCP server.",
+        "first_name": "John",
+        "last_name": "Doe",
+        "remove_if_new": false,
+        "parse_mode": "markdown"
+      }
+    }
+    ```
 
 - `invoke_mtproto(method_full_name: str, params_json: str)`
   - Dynamically invoke any raw MTProto method supported by Telethon
@@ -384,6 +437,23 @@ Here are some practical scenarios and example user requests you can make to an A
     }
     ```
 
+
+- **Send a message to a phone number not in contacts**
+  - User: `Send a message to +1234567890 saying "Hello from MCP server!"`
+  - AI Agent action:
+    ```json
+    {
+      "tool": "send_message_to_phone",
+      "params": {
+        "phone_number": "+1234567890",
+        "message": "Hello from MCP server!",
+        "first_name": "Contact",
+        "last_name": "Name",
+        "remove_if_new": false,
+        "parse_mode": null
+      }
+    }
+    ```
 
 These examples illustrate how natural language requests can be mapped to MCP tool calls for powerful Telegram automation and search.
 

@@ -6,6 +6,7 @@
 - **Message Search**: Global and per-chat search with multi-query support
 - **Message Operations**: Send, edit, read messages with formatting support
 - **Contact Management**: Search and get contact details
+- **Phone Messaging**: Send messages to phone numbers not in contacts
 - **MTProto Access**: Raw method invocation capability
 - **Connection Management**: Automatic reconnection and error handling
 
@@ -43,6 +44,7 @@
 - **Media Serialization**: Resolved with LLM-optimized placeholders
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
 - **Connection Reliability**: Improved with automatic reconnection logic
+- **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
