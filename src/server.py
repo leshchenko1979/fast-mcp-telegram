@@ -134,7 +134,22 @@ async def search_messages(
                 return {"status": "No results found, custom message."}
             return search_result
     except Exception as e:
-        logger.error(f"[{request_id}] Error searching messages: {str(e)}\n{traceback.format_exc()}")
+        error_text = str(e) if e else ""
+        logger.error(f"[{request_id}] Error searching messages: {error_text}\n{traceback.format_exc()}")
+        # Special handling: duplicated authorization key/session used from two IPs
+        lowered = error_text.lower()
+        if (
+            "authorization key" in lowered and "two different ip" in lowered
+        ) or (
+            "session file" in lowered and "two different ip" in lowered
+        ) or (
+            "auth key" in lowered and "duplicated" in lowered
+        ):
+            return {
+                "ok": False,
+                "error": "Your Telegram session was invalidated due to concurrent use from different IPs. Please run setup to re-authenticate: python3 setup_telegram.py",
+                "action": "run_setup"
+            }
         raise
 
 
