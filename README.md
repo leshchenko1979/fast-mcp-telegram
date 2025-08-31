@@ -195,170 +195,164 @@ python3 src/server.py
 
 ## Available Tools
 
-The server provides the following MCP tools:
+The server provides the following MCP tools with concise, LLM-optimized descriptions:
 
-- `search_messages(query: str, chat_id: str = None, limit: int = 50, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
-  - Search for messages in Telegram chats
-  - Supports both global search and chat-specific search
-  - Supports pagination with `limit` and `offset` parameters
-  - Supports filtering by chat type with the optional `chat_type` parameter:
-    - `"private"` — only personal dialogs (one-to-one)
-    - `"group"` — only group chats
-    - `"channel"` — only channels/supergroups
-    - `None` (default) — all types
-  - Supports date range filtering with `min_date` and `max_date` (ISO format, e.g. `2024-05-15` or `2024-05-15T12:00:00`)
-  - Supports `auto_expand_batches` (int, default 2): maximum additional batches to fetch if not enough filtered results are found
-  - **Query parameter behavior:**
-    - `query` accepts a single string; use comma-separated terms for multiple queries (e.g., `"deadline, due date"`). The tool searches each term in parallel and returns a single deduplicated set of results.
-    - If `chat_id` is provided, you may leave `query` empty to fetch all messages from that chat (optionally filtered by `min_date` and `max_date`).
-    - If `chat_id` is not provided (global search), at least one non-empty query term is required.
-  - **Examples:**
-    - Multiple queries (global, comma-separated):
-      ```json
-      {
-        "tool": "search_messages",
-        "params": {
-          "query": "deadline, due date",
-          "limit": 30
-        }
-      }
-      ```
-    - Multiple queries (per-chat, comma-separated):
-      ```json
-      {
-        "tool": "search_messages",
-        "params": {
-          "query": "launch, release notes",
-          "chat_id": "-1001234567890",
-          "limit": 20
-        }
-      }
-      ```
-  - **Example: Fetch all messages from a chat in a date range:**
-    ```json
-    {
-      "tool": "search_messages",
-      "params": {
-        "query": "",
-        "chat_id": "123456789",
-        "min_date": "2024-05-01",
-        "max_date": "2024-05-31",
-        "limit": 50
-      }
-    }
-    ```
-  - **Note:**
-    - For global search (no `chat_id`), you must provide a non-empty `query`.
-    - For per-chat search, an empty `query` will return all messages in the specified chat (optionally filtered by date).
+### `search_messages(query: str, chat_id: str = None, limit: int = 50, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
 
-- `send_or_edit_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None, message_id: int = None)`
-  - Send messages to Telegram chats or edit existing messages
-  - Supports replying to messages (when sending new messages)
-  - Supports editing existing messages (when message_id is provided)
-  - **parse_mode options:**
-    - `None` (default): Plain text
-    - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
-    - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
-  - **Example sending new message with formatting:**
-    ```json
-    {
-      "tool": "send_or_edit_message",
-      "params": {
-        "chat_id": "123456789",
-        "message": "*Important Update*: The warehouse market is showing _strong growth_ trends. See [detailed report](https://example.com/report) for more information.",
-        "parse_mode": "markdown"
-      }
-    }
-    ```
-  - **Example editing existing message:**
-    ```json
-    {
-      "tool": "send_or_edit_message",
-      "params": {
-        "chat_id": "123456789",
-        "message": "*Updated*: The warehouse market analysis has been revised with new data.",
-        "message_id": 12345,
-        "parse_mode": "markdown"
-      }
-    }
-    ```
+Search Telegram messages with advanced filtering and pagination.
 
-- `read_messages(chat_id: str, message_ids: list[int])`
-  - Read specific messages by their IDs in a given chat
-  - `chat_id` may be `@username`, a numeric user/chat ID, or a channel ID like `-100...`
-  - Returns a list of message objects consistent with `search_messages` output
-  - Example:
-    ```json
-    {
-      "tool": "read_messages",
-      "params": {
-        "chat_id": "@flipping_invest",
-        "message_ids": [993]
-      }
-    }
-    ```
+**MODES:**
+- Per-chat: Set chat_id + optional query (use 'me' for Saved Messages)
+- Global: No chat_id + required query (searches all chats)
 
-- `search_contacts(query: str, limit: int = 20)`
-  - Search contacts using Telegram's native search
+**FEATURES:**
+- Multiple queries: "term1, term2, term3"
+- Date filtering: ISO format (min_date="2024-01-01")
+- Chat type filter: "private", "group", "channel"
+- Pagination: offset + limit (keep limit ≤ 50)
 
-- `get_contact_details(chat_id: str)`
-  - Get detailed information about a specific contact
+**EXAMPLES:**
+```json
+{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}  // Global search
+{"tool": "search_messages", "params": {"chat_id": "me", "limit": 10}}      // Saved Messages
+{"tool": "search_messages", "params": {"chat_id": "-1001234567890", "query": "launch"}}  // Specific chat
+```
 
-- `send_message_to_phone(phone_number: str, message: str, first_name: str = "Contact", last_name: str = "Name", remove_if_new: bool = False, reply_to_msg_id: int = None, parse_mode: str = None)`
-  - Send a message to a phone number, safely handling both existing and new contacts
-  - Automatically checks if contact exists, creates new contact only if needed, and optionally removes newly created contacts
-  - **IMPORTANT**: The phone number must be registered on Telegram
-  - **SAFETY**: Never removes existing contacts - only removes contacts that were newly created during this operation
-  - **Returns**: Standard message result plus `phone_number`, `contact_was_new`, and `contact_removed` fields
-  - **parse_mode options:**
-    - `None` (default): Plain text
-    - `'md'` or `'markdown'`: Markdown formatting (*bold*, _italic_, [link](url), `code`)
-    - `'html'`: HTML formatting (<b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>)
-  - **Example:**
-    ```json
-    {
-      "tool": "send_message_to_phone",
-      "params": {
-        "phone_number": "+1234567890",
-        "message": "*Hello!* This is a _test message_ from your MCP server.",
-        "first_name": "John",
-        "last_name": "Doe",
-        "remove_if_new": false,
-        "parse_mode": "markdown"
-      }
-    }
-    ```
+### `send_or_edit_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None, message_id: int = None)`
 
-- `invoke_mtproto(method_full_name: str, params_json: str)`
-  - Dynamically invoke any raw MTProto method supported by Telethon
-  - **Parameters:**
-    - `method_full_name` (str): Full class name of the MTProto method, e.g., `"messages.GetHistory"`
-    - `params_json` (str): JSON string with method parameters. All required fields must be provided (see Telegram API docs).
-  - **Example:**
-    ```json
-    {
-      "tool": "invoke_mtproto",
-      "params": {
-        "method_full_name": "messages.GetHistory",
-        "params": {
-          "peer": "@flipping_invest",
-          "limit": 1,
-          "offset_id": 0,
-          "offset_date": 0,
-          "add_offset": 0,
-          "max_id": 0,
-          "min_id": 0,
-          "hash": 0
-        }
-      }
-    }
-    ```
-  - **Note:**
-    - You must provide all required parameters for the method. For `messages.GetHistory`, this includes `peer`, `limit`, `offset_id`, `offset_date`, `add_offset`, `max_id`, `min_id`, and `hash` (set `hash` to `0` unless you are using advanced caching).
-    - The result will be a raw dictionary as returned by Telethon, including all message and chat metadata.
-  - **Warning:**
-    - This tool is for advanced users. Incorrect parameters may result in errors from the Telegram API or Telethon.
-    - Refer to the [Telegram API documentation](https://core.telegram.org/methods) and [Telethon docs](https://docs.telethon.dev/en/latest/) for method details and required fields.
+Send new message or edit existing message in Telegram chat.
+
+**MODES:**
+- Send: message_id=None (default)
+- Edit: message_id=<existing_message_id>
+
+**FORMATTING:**
+- parse_mode=None: Plain text
+- parse_mode="markdown": *bold*, _italic_, [link](url), `code`
+- parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
+
+**EXAMPLES:**
+```json
+{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello!"}}  // Send to Saved Messages
+{"tool": "send_or_edit_message", "params": {"chat_id": "-1001234567890", "message": "Updated text", "message_id": 12345}}  // Edit message
+```
+
+### `read_messages(chat_id: str, message_ids: list[int])`
+
+Read specific messages by their IDs from a Telegram chat.
+
+**SUPPORTED CHAT FORMATS:**
+- 'me': Saved Messages
+- Numeric ID: User/chat ID (e.g., 133526395)
+- Username: @channel_name or @username
+- Channel ID: -100xxxxxxxxx
+
+**USAGE:**
+- First use search_messages() to find message IDs
+- Then read specific messages using those IDs
+- Returns full message content with metadata
+
+**EXAMPLES:**
+```json
+{"tool": "read_messages", "params": {"chat_id": "me", "message_ids": [680204, 680205]}}  // Saved Messages
+{"tool": "read_messages", "params": {"chat_id": "-1001234567890", "message_ids": [123, 124]}}  // Channel
+```
+
+### `search_contacts(query: str, limit: int = 20)`
+
+Search Telegram contacts and users by name, username, or phone number.
+
+**SEARCH SCOPE:**
+- Your saved contacts
+- Global Telegram users
+- Public channels and groups
+
+**QUERY TYPES:**
+- Name: "John Doe" or "Иванов"
+- Username: "@username" (without @)
+- Phone: "+1234567890"
+
+**WORKFLOW:**
+1. Search for contact: search_contacts("John Doe")
+2. Get chat_id from results
+3. Search messages: search_messages(chat_id=chat_id, query="topic")
+
+**EXAMPLES:**
+```json
+{"tool": "search_contacts", "params": {"query": "@telegram"}}      // Find user by username
+{"tool": "search_contacts", "params": {"query": "John Smith"}}     // Find by name
+{"tool": "search_contacts", "params": {"query": "+1234567890"}}    // Find by phone
+```
+
+### `get_contact_details(chat_id: str)`
+
+Get detailed profile information for a specific Telegram user or chat.
+
+**USE CASES:**
+- Get full user profile after finding chat_id
+- Retrieve contact details, bio, and status
+- Check if user is online/bot/channel
+
+**SUPPORTED FORMATS:**
+- Numeric user ID: 133526395
+- Username: "telegram" (without @)
+- Channel ID: -100xxxxxxxxx
+
+**EXAMPLES:**
+```json
+{"tool": "get_contact_details", "params": {"chat_id": "133526395"}}      // User by ID
+{"tool": "get_contact_details", "params": {"chat_id": "telegram"}}       // User by username
+{"tool": "get_contact_details", "params": {"chat_id": "-1001234567890"}} // Channel by ID
+```
+
+### `send_message_to_phone(phone_number: str, message: str, first_name: str = "Contact", last_name: str = "Name", remove_if_new: bool = False, reply_to_msg_id: int = None, parse_mode: str = None)`
+
+Send message to phone number, auto-managing Telegram contacts.
+
+**FEATURES:**
+- Auto-creates contact if phone not in contacts
+- Sends message immediately after contact creation
+- Optional contact cleanup after sending
+- Full message formatting support
+
+**CONTACT MANAGEMENT:**
+- Checks existing contacts first
+- Creates temporary contact only if needed
+- Removes temporary contact if remove_if_new=True
+
+**REQUIREMENTS:**
+- Phone number must be registered on Telegram
+- Include country code: "+1234567890"
+
+**EXAMPLES:**
+```json
+{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "Hello from Telegram!"}}  // Basic send
+{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "*Important*", "remove_if_new": true}}  // Auto cleanup
+```
+
+### `invoke_mtproto(method_full_name: str, params_json: str)`
+
+Execute low-level Telegram MTProto API methods directly.
+
+**USE CASES:**
+- Access advanced Telegram API features
+- Custom queries not covered by standard tools
+- Administrative operations
+
+**METHOD FORMAT:**
+- Full class name: "messages.GetHistory", "users.GetFullUser"
+- Telegram API method names with proper casing
+
+**PARAMETERS:**
+- JSON string with method parameters
+- Parameter names match Telegram API documentation
+- Supports complex nested objects
+
+**EXAMPLES:**
+```json
+{"tool": "invoke_mtproto", "params": {"method_full_name": "users.GetFullUser", "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}" }}  // Get self info
+{"tool": "invoke_mtproto", "params": {"method_full_name": "messages.GetHistory", "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"}}  // Get chat history
+```
 
 ## Result Structure & Completeness
 

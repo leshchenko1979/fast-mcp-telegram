@@ -6,10 +6,15 @@ from ..client.connection import get_connected_client
 async def get_entity_by_id(entity_id):
     """
     A wrapper around client.get_entity to handle numeric strings and log errors.
+    Special handling for 'me' identifier for Saved Messages.
     """
     client = await get_connected_client()
     peer = None
     try:
+        # Special handling for 'me' identifier (Saved Messages)
+        if entity_id == 'me':
+            return await client.get_me()
+
         # Try to convert entity_id to an integer if it's a numeric string
         try:
             peer = int(entity_id)

@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Added new `send_message_to_phone()` tool to enable sending messages to phone numbers not in contacts. Implemented complete workflow: add temporary contact → send message → optionally remove contact. Enhanced MCP server with direct phone messaging capability.
+**Primary**: Completed comprehensive LLM optimization of all tool descriptions and enhanced Saved Messages access. System now has concise, LLM-optimized tool descriptions with structured sections, special 'me' identifier support for Saved Messages, and improved error logging with detailed diagnostics.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files. **New phone messaging capability**: Added `send_message_to_phone()` tool for contacting users by phone number. **Setup import error fixed**: Resolved ModuleNotFoundError in console script by moving setup_telegram.py into src package structure.
+**Current Status**: System is fully optimized for LLM consumption with enhanced Saved Messages functionality. **Tool descriptions rewritten**: All tool descriptions now use concise, structured format with clear sections (MODES, FEATURES, EXAMPLES, Args) optimized for LLM comprehension. **'me' identifier support**: Added special handling for Saved Messages access using chat_id='me' for more reliable and consistent API usage. **Error logging enhanced**: Improved error logging for message access failures with detailed diagnostics and request tracking. **README updated**: Documentation now reflects the new concise tool descriptions with practical examples. Production deployment stable with HTTP/SSE endpoint at `https://tg-mcp.redevest.ru/mcp`.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -63,6 +63,24 @@
 **Rationale**: User requested ability to send messages to phone numbers not in contacts
 **Solution**: Implemented complete workflow using Telegram's ImportContactsRequest and DeleteContactsRequest, placed in `messages.py` for logical organization
 **Impact**: Users can now send messages to any phone number registered on Telegram without manual contact management
+
+### LLM Tool Description Optimization
+**Decision**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized
+**Rationale**: Original descriptions were verbose and not structured for efficient LLM consumption
+**Solution**: Implemented structured format with clear sections (MODES, FEATURES, EXAMPLES, Args) and reduced length by ~75%
+**Impact**: LLMs can now quickly understand tool functionality, see practical examples, and make informed decisions
+
+### 'me' Identifier Support
+**Decision**: Added special handling for 'me' identifier in entity resolution for Saved Messages access
+**Rationale**: Numeric user IDs were inconsistent for Saved Messages access, 'me' is the standard Telegram identifier
+**Solution**: Enhanced `get_entity_by_id()` function to recognize 'me' and use `client.get_me()`
+**Impact**: More reliable Saved Messages access with consistent API usage across both reading and searching
+
+### Enhanced Error Logging
+**Decision**: Improved error logging for individual message access failures with detailed diagnostics
+**Rationale**: Silent failures made debugging difficult, needed better traceability for troubleshooting
+**Solution**: Added warning logs with request ID, message ID, chat ID, and diagnostic information
+**Impact**: Better debugging capability and system monitoring with detailed error context
 
 ## Important Patterns and Preferences
 

@@ -242,6 +242,57 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 - **Performance Impact**: Large result sets can cause context overflow and incomplete processing
 - **Multi-Query Efficiency**: Use comma-separated terms for related searches to get unified results
 
+## LLM Optimization Improvements
+
+### Tool Description Optimization (2025-09-01)
+- **Problem**: Original tool descriptions were verbose and not optimized for LLM consumption
+- **Solution**: Completely rewrote all tool descriptions to be concise yet comprehensive
+- **Improvements**:
+  - Reduced description length by ~75% while maintaining comprehensiveness
+  - Added structured sections (MODES, FEATURES, EXAMPLES, Args)
+  - Made examples immediately usable by LLMs
+  - Consistent formatting across all tools
+  - Clear parameter documentation with defaults
+
+### 'me' Identifier Support (2025-09-01)
+- **Enhancement**: Added special handling for 'me' identifier in `get_entity_by_id()` function
+- **Purpose**: Direct access to Saved Messages using `chat_id='me'` instead of numeric user ID
+- **Benefits**:
+  - More reliable Saved Messages access
+  - Consistent with Telegram API conventions
+  - Works for both reading and searching operations
+  - Fallback support for numeric user IDs still available
+
+### Error Logging Improvements (2025-09-01)
+- **Enhancement**: Improved error logging for message access failures
+- **Changes**:
+  - Added detailed warning logs when individual messages are not found
+  - Includes request ID, message ID, and chat ID for debugging
+  - Proper diagnostic information formatting
+  - Better traceability for troubleshooting
+
+### Tool Description Format Standards
+```python
+"""
+TOOL_NAME: Brief description of functionality.
+
+MODES/FORMATS:
+- Key: Value pairs for different operation modes
+- Format: Supported input formats
+- Type: Different operation types
+
+FEATURES/USAGE:
+- Key capability: Brief description
+- Usage pattern: How to use effectively
+
+EXAMPLES:
+Inline JSON examples showing real usage patterns
+
+Args:
+parameter_name: Description with defaults and constraints
+"""
+```
+
 ## Development Workflow
 
 ### Testing

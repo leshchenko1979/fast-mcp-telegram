@@ -46,6 +46,9 @@
 - **Connection Reliability**: Improved with automatic reconnection logic
 - **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
 - **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
+- **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
+- **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
+- **Error Logging**: Enhanced error logging for message access failures with detailed diagnostics (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
