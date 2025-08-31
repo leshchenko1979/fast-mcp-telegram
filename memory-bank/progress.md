@@ -15,6 +15,7 @@
 - **LLM-Optimized Media**: Lightweight placeholders instead of raw Telethon objects
 - **Structured Logging**: Loguru integration with stdlib bridge and emitter tracking
 - **Logging Spam Reduction**: Module-level filtering reduces Telethon noise by 99%
+- **Consistent Error Handling**: All tools return structured error responses instead of raising exceptions
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -53,6 +54,8 @@
 - **Offset Parameter**: Removed unused offset parameter from search functions, eliminating API confusion (2025-09-01)
 - **Pre-commit Hooks**: Removed automated hooks, simplified to manual Ruff formatting (2025-09-01)
 - **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
+- **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
+- **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
@@ -79,3 +82,10 @@
 2. **Serialization Issues**: Discovered LLM incompatibility with binary data
 3. **Placeholders**: Implemented lightweight metadata-only placeholders
 4. **Optimized**: Preserved essential information while eliminating bloat
+
+### Error Handling Evolution
+1. **Initial**: Mixed error handling - some tools raised exceptions, others returned None
+2. **Inconsistent**: get_contact_details returned None, search_messages raised exceptions
+3. **Partial Fix**: get_contact_details updated to return structured errors
+4. **Unified Pattern**: All tools now return structured error responses with consistent format
+5. **Server Integration**: server.py detects and handles error responses appropriately

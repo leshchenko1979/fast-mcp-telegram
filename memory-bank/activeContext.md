@@ -105,6 +105,22 @@
 **Solution**: Keep Ruff available for manual formatting when needed
 **Impact**: Simplified development workflow while maintaining code formatting capability
 
+### Consistent Error Handling Pattern
+**Decision**: Implemented unified structured error responses across all Telegram MCP tools
+**Rationale**: Mixed error handling patterns (some raised exceptions, some returned None) created inconsistent API behavior for LLMs
+**Solution**: All tools now return structured error responses with consistent format: `{"ok": false, "error": "message", "request_id": "id", "operation": "name"}`
+**Implementation**:
+  - `get_contact_details`: Already returned errors for non-existent contacts
+  - `search_contacts`: Updated to return errors instead of empty lists for no results
+  - `search_messages`: Updated to return errors instead of empty message arrays for no results
+  - `read_messages`, `invoke_mtproto`: Already returned structured errors
+**Impact**:
+  - Predictable API responses for all operations
+  - Better LLM compatibility with structured error handling
+  - Improved debugging with request IDs and operation context
+  - Consistent error detection pattern across server.py
+  - No more None returns or exception propagation to MCP layer
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns
@@ -153,6 +169,14 @@
 5. **Formatting Support**: Supports `parse_mode` for Markdown/HTML formatting like other message tools
 6. **Reply Support**: Supports `reply_to_msg_id` for replying to messages
 7. **Clear Result Fields**: `contact_added` and `contact_removed` fields provide clear status information
+
+### Error Handling Patterns
+1. **Structured Error Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
+2. **Consistent Error Format**: Include `request_id`, `operation`, and `params` in error responses
+3. **Server Error Detection**: Check `isinstance(result, dict) and "ok" in result and not result["ok"]`
+4. **Graceful Degradation**: Tools handle errors internally and return structured responses
+5. **Request Tracking**: Each operation gets unique `request_id` for debugging
+6. **Parameter Preservation**: Original parameters included in error responses for context
 
 ## Next Immediate Steps
 1. **Test Phone Messaging**: Verify that `send_message_to_phone()` tool works correctly with various phone numbers

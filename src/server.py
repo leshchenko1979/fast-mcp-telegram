@@ -100,6 +100,17 @@ async def search_messages(
             include_total_count=include_total_count,
         )
 
+        # Check if this is an error response
+        if (
+            isinstance(search_result, dict)
+            and "ok" in search_result
+            and not search_result["ok"]
+        ):
+            logger.error(
+                f"[{request_id}] Search returned error: {search_result.get('error', 'Unknown error')}"
+            )
+            return search_result
+
         # Handle the new response structure
         if isinstance(search_result, dict) and "messages" in search_result:
             messages = search_result["messages"]
@@ -108,8 +119,6 @@ async def search_messages(
                 f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
                 f"auto_expand_batches: {auto_expand_batches})"
             )
-            if not messages:
-                return {"status": "No results found, custom message."}
             return search_result
         # Fallback for old response format
         logger.info(
@@ -178,6 +187,13 @@ async def send_or_edit_message(
         # Send new message
         result = await send_message(chat_id, message, reply_to_msg_id, parse_mode)
 
+    # Check if this is an error response
+    if isinstance(result, dict) and "ok" in result and not result["ok"]:
+        logger.error(
+            f"Message operation failed: {result.get('error', 'Unknown error')}"
+        )
+        return result
+
     return result
 
 
@@ -237,7 +253,22 @@ async def search_contacts(query: str, limit: int = 20):
         query: Search term (name, username without @, or phone with +)
         limit: Max results (default: 20, recommended: ≤50)
     """
-    return await search_contacts_telegram(query, limit)
+    result = await search_contacts_telegram(query, limit)
+
+    # Check if this is an error response (list with error object)
+    if (
+        isinstance(result, list)
+        and len(result) == 1
+        and isinstance(result[0], dict)
+        and "ok" in result[0]
+        and not result[0]["ok"]
+    ):
+        logger.error(
+            f"Contact search failed: {result[0].get('error', 'Unknown error')}"
+        )
+        return result[0]  # Return the error object directly
+
+    return result
 
 
 @mcp.tool()
@@ -364,7 +395,9 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
             (k if isinstance(k, str) else str(k)): v for k, v in params.items()
         }
 
-        return await invoke_mtproto_method(method_full_name, sanitized_params)
+        return await invoke_mtproto_method(
+            method_full_name, sanitized_params, params_json
+        )
     except Exception as e:
         logger.error(f"Error in invoke_mtproto: {e!s}\n{traceback.format_exc()}")
         return {"ok": False, "error": str(e)}

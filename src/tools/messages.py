@@ -47,7 +47,19 @@ async def send_message(
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
-            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
+            log_operation_error(
+                request_id,
+                "sending message",
+                ValueError(f"Cannot find any entity corresponding to '{chat_id}'"),
+                params,
+            )
+            return {
+                "ok": False,
+                "error": f"Cannot find chat with ID '{chat_id}'",
+                "request_id": request_id,
+                "operation": "send_message",
+                "params": params,
+            }
 
         # Send message
         sent_message = await client.send_message(
@@ -63,7 +75,13 @@ async def send_message(
 
     except Exception as e:
         log_operation_error(request_id, "sending message", e, params)
-        raise
+        return {
+            "ok": False,
+            "error": f"Failed to send message: {e!s}",
+            "request_id": request_id,
+            "operation": "send_message",
+            "params": params,
+        }
 
 
 async def edit_message(
@@ -91,7 +109,19 @@ async def edit_message(
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
-            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
+            log_operation_error(
+                request_id,
+                "editing message",
+                ValueError(f"Cannot find any entity corresponding to '{chat_id}'"),
+                params,
+            )
+            return {
+                "ok": False,
+                "error": f"Cannot find chat with ID '{chat_id}'",
+                "request_id": request_id,
+                "operation": "edit_message",
+                "params": params,
+            }
 
         # Edit message
         edited_message = await client.edit_message(
@@ -104,7 +134,13 @@ async def edit_message(
 
     except Exception as e:
         log_operation_error(request_id, "editing message", e, params)
-        raise
+        return {
+            "ok": False,
+            "error": f"Failed to edit message: {e!s}",
+            "request_id": request_id,
+            "operation": "edit_message",
+            "params": params,
+        }
 
 
 async def read_messages_by_ids(
@@ -195,7 +231,15 @@ async def read_messages_by_ids(
 
     except Exception as e:
         log_operation_error(request_id, "reading messages by IDs", e, params)
-        raise
+        return [
+            {
+                "ok": False,
+                "error": f"Failed to read messages: {e!s}",
+                "request_id": request_id,
+                "operation": "read_messages",
+                "params": params,
+            }
+        ]
 
 
 async def send_message_to_phone_impl(

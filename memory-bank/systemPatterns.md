@@ -33,9 +33,10 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 ### 3. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
 - **Async Operations**: All Telegram operations are async for performance
-- **Error Handling**: Comprehensive error logging and propagation
-- **Request Tracking**: Unique request IDs for debugging
+- **Error Handling**: All tools return structured error responses instead of raising exceptions
+- **Request Tracking**: Unique request IDs for debugging and correlation
 - **Parameter Flexibility**: Tools support optional parameters with sensible defaults
+- **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in tool responses
 
 ### 4. Data Flow Patterns
 ```
@@ -134,6 +135,14 @@ else:
 ### 4. Parallel Processing Pattern
 - Multiple query execution using asyncio.gather()
 - Result aggregation and deduplication
+
+### 5. Error Handling Pattern
+- **Structured Error Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions or empty results
+- **Consistent Error Format**: Includes `request_id`, `operation`, `params` fields in all error responses
+- **Server Error Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
+- **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions to MCP layer
+- **Request Tracking**: Each operation gets unique request_id for debugging and correlation
+- **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
 
 ## Critical Implementation Details
 

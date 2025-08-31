@@ -109,7 +109,22 @@ async def search_messages(
     )
 
     if not chat_id and not queries:
-        raise ValueError("Search query must not be empty for global search.")
+        return {
+            "ok": False,
+            "error": "Search query must not be empty for global search",
+            "request_id": f"search_{int(time.time() * 1000)}",
+            "operation": "search_messages",
+            "params": {
+                "query": query,
+                "chat_id": chat_id,
+                "limit": limit,
+                "min_date": min_date,
+                "max_date": max_date,
+                "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
+            },
+        }
 
     request_id = f"search_{int(time.time() * 1000)}"
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
@@ -162,7 +177,22 @@ async def search_messages(
             except Exception as e:
                 logger.error(f"Error searching in specific chat: {e!s}")
                 logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
-                raise
+                return {
+                    "ok": False,
+                    "error": f"Failed to search in chat '{chat_id}': {e!s}",
+                    "request_id": request_id,
+                    "operation": "search_messages",
+                    "params": {
+                        "query": query,
+                        "chat_id": chat_id,
+                        "limit": limit,
+                        "min_date": min_date,
+                        "max_date": max_date,
+                        "chat_type": chat_type,
+                        "auto_expand_batches": auto_expand_batches,
+                        "include_total_count": include_total_count,
+                    },
+                }
         else:
             # Global search across queries (skip empty)
             try:
@@ -184,7 +214,22 @@ async def search_messages(
                 )
             except Exception as e:
                 logger.error(f"Error in global search: {e}")
-                raise
+                return {
+                    "ok": False,
+                    "error": f"Failed to perform global search: {e!s}",
+                    "request_id": request_id,
+                    "operation": "search_messages",
+                    "params": {
+                        "query": query,
+                        "chat_id": chat_id,
+                        "limit": limit,
+                        "min_date": min_date,
+                        "max_date": max_date,
+                        "chat_type": chat_type,
+                        "auto_expand_batches": auto_expand_batches,
+                        "include_total_count": include_total_count,
+                    },
+                }
 
         # Return results up to limit
         window = collected[:limit] if limit is not None else collected
@@ -194,6 +239,25 @@ async def search_messages(
         )
 
         has_more = len(collected) > len(window)
+
+        # If no messages found, return error instead of empty list for consistency
+        if not window:
+            return {
+                "ok": False,
+                "error": f"No messages found matching query '{query}'",
+                "request_id": request_id,
+                "operation": "search_messages",
+                "params": {
+                    "query": query,
+                    "chat_id": chat_id,
+                    "limit": limit,
+                    "min_date": min_date,
+                    "max_date": max_date,
+                    "chat_type": chat_type,
+                    "auto_expand_batches": auto_expand_batches,
+                    "include_total_count": include_total_count,
+                },
+            }
 
         response = {"messages": window, "has_more": has_more}
 
@@ -219,7 +283,22 @@ async def search_messages(
             },
         }
         logger.error(f"[{request_id}] Error searching Telegram", extra=error_info)
-        raise
+        return {
+            "ok": False,
+            "error": f"Search operation failed: {e!s}",
+            "request_id": request_id,
+            "operation": "search_messages",
+            "params": {
+                "query": query,
+                "chat_id": chat_id,
+                "limit": limit,
+                "min_date": min_date,
+                "max_date": max_date,
+                "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
+            },
+        }
 
 
 async def _search_chat_messages(

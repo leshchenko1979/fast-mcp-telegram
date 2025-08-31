@@ -44,7 +44,7 @@ def _json_safe(value: Any) -> Any:
 
 
 async def invoke_mtproto_method(
-    method_full_name: str, params: dict[str, Any]
+    method_full_name: str, params: dict[str, Any], params_json: str = ""
 ) -> dict[str, Any]:
     """
     Dynamically invoke any MTProto method by name and parameters.
@@ -112,7 +112,16 @@ async def invoke_mtproto_method(
         except Exception:
             diag_str = str(error_info)
         logger.error(f"[{request_id}] Error invoking MTProto method\n{diag_str}")
-        return {"ok": False, "error": _json_safe(error_info)}
+        return {
+            "ok": False,
+            "error": f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
+            "request_id": request_id,
+            "operation": "invoke_mtproto",
+            "params": {
+                "method_full_name": method_full_name,
+                "params_json": params_json,
+            },
+        }
 
 
 def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:

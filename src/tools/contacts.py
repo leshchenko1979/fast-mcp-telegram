@@ -3,6 +3,7 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
+import time
 from typing import Any
 
 from loguru import logger
@@ -68,14 +69,41 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str
         logger.info(
             f"Found {len(matches)} contacts using Telegram search for '{query}'"
         )
+
+        # If no contacts found, return error instead of empty list for consistency
+        if not matches:
+            return [
+                {
+                    "ok": False,
+                    "error": f"No contacts found matching query '{query}'",
+                    "request_id": f"contacts_{int(time.time() * 1000)}",
+                    "operation": "search_contacts",
+                    "params": {
+                        "query": query,
+                        "limit": limit,
+                    },
+                }
+            ]
+
         return matches
 
     except Exception as e:
         logger.error(f"Error searching contacts via Telegram: {e!s}")
-        raise
+        return [
+            {
+                "ok": False,
+                "error": f"Failed to search contacts: {e!s}",
+                "request_id": f"contacts_{int(time.time() * 1000)}",
+                "operation": "search_contacts",
+                "params": {
+                    "query": query,
+                    "limit": limit,
+                },
+            }
+        ]
 
 
-async def get_contact_info(chat_id: str) -> dict[str, Any] | None:
+async def get_contact_info(chat_id: str) -> dict[str, Any]:
     """
     Get detailed information about a specific contact.
 
@@ -83,17 +111,33 @@ async def get_contact_info(chat_id: str) -> dict[str, Any] | None:
         chat_id: The chat ID of the contact
 
     Returns:
-        Contact information or None if not found
+        Contact information or error message if not found
     """
     try:
         client = await get_connected_client()
         entity = await client.get_entity(chat_id)
 
         if not entity:
-            return None
+            return {
+                "ok": False,
+                "error": f"Contact with ID '{chat_id}' not found",
+                "request_id": f"contact_{int(time.time() * 1000)}",
+                "operation": "get_contact_details",
+                "params": {
+                    "chat_id": chat_id,
+                },
+            }
 
         return build_entity_dict(entity)
 
     except Exception as e:
         logger.error(f"Error getting contact info for {chat_id}: {e!s}")
-        return None
+        return {
+            "ok": False,
+            "error": f"Failed to get contact info for '{chat_id}': {e!s}",
+            "request_id": f"contact_{int(time.time() * 1000)}",
+            "operation": "get_contact_details",
+            "params": {
+                "chat_id": chat_id,
+            },
+        }

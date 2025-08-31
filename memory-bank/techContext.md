@@ -271,6 +271,22 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
   - Proper diagnostic information formatting
   - Better traceability for troubleshooting
 
+### Consistent Error Handling Pattern (2025-09-01)
+- **Problem**: Mixed error handling patterns across tools (some raised exceptions, others returned None or empty results)
+- **Solution**: Unified structured error response format across all tools
+- **Format**: `{"ok": false, "error": "message", "request_id": "id", "operation": "name", "params": {...}}`
+- **Implementation**:
+  - `get_contact_details`: Returns errors for non-existent contacts
+  - `search_contacts`: Returns errors instead of empty lists for no results
+  - `search_messages`: Returns errors instead of empty message arrays for no results
+  - `read_messages`, `invoke_mtproto`: Already returned structured errors
+- **Benefits**:
+  - Predictable API responses for all operations
+  - Better LLM compatibility with structured error handling
+  - Improved debugging with request IDs and operation context
+  - Consistent error detection pattern across server.py
+  - No more None returns, empty result confusion, or exception propagation to MCP layer
+
 ### Tool Description Format Standards
 ```python
 """
@@ -316,7 +332,8 @@ parameter_name: Description with defaults and constraints
 ### MCP Protocol Constraints
 - **Tool Registration**: All tools must be properly registered with FastMCP
 - **Async Operations**: All Telegram operations must be async
-- **Error Handling**: Errors must be properly propagated to MCP clients
+- **Error Handling**: All tools return structured error responses instead of raising exceptions
+- **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in responses
 - **Documentation**: Tool descriptions must be clear for AI model consumption
 
 ### Multi-Query Implementation Constraints
@@ -330,3 +347,10 @@ parameter_name: Description with defaults and constraints
 - **Module Filtering**: Requires understanding of Telethon's internal module structure
 - **Emitter Tracking**: Need to preserve original logger metadata for debugging
 - **Performance**: Logging overhead must not impact search performance
+
+### Error Handling Constraints
+- **Structured Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
+- **Consistent Format**: Error responses include `request_id`, `operation`, and `params` fields
+- **Server Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
+- **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions
+- **Request Tracking**: Each operation gets unique request_id for debugging and correlation
