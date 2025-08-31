@@ -3,47 +3,13 @@
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://badge.fury.io/py/fast-mcp-telegram.svg)](https://pypi.org/project/fast-mcp-telegram/)
-[![Telegram](https://img.shields.io/badge/Telegram-API-blue?logo=telegram)](https://t.me/mcp_telegram)
+[![Telegram](https://img.shields.io/badge/Telegram-Community-blue?logo=telegram)](https://t.me/mcp_telegram)
 
 A powerful MCP server for Telegram automation with search, messaging, and contact management capabilities. Built with FastMCP for seamless AI agent integration.
 
 **🚀 2-minute setup • 📱 Full Telegram API • 🤖 AI-ready • ⚡ FastMCP powered**
 
-[Quick Start](#quick-start) • [Documentation](#available-tools) • [Community](https://t.me/mcp_telegram)
-
----
-
-## 🔥 Quick Start (2 minutes)
-
-### 1. Install & Authenticate
-```bash
-# Install dependencies
-uv sync
-
-# Set up Telegram authentication
-API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
-python src/setup_telegram.py
-```
-
-### 2. Configure MCP Client
-```json
-{
-  "mcpServers": {
-    "mcp-telegram": {
-      "command": "python3",
-      "args": ["/path/to/fast-mcp-telegram/src/server.py"],
-      "cwd": "/path/to/fast-mcp-telegram",
-      "description": "Telegram MCP server"
-    }
-  }
-}
-```
-
-### 3. Start Using!
-```json
-{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
-{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
-```
+[uvx Installation (2-min setup)](#-uvx-path-recommended) • [Local Installation](#-local-installation-path) • [Available Tools](#-available-tools) • [Community](https://t.me/mcp_telegram)
 
 ---
 
@@ -65,79 +31,95 @@ python src/setup_telegram.py
 - **Telegram API credentials** ([get them here](https://my.telegram.org/auth))
 - **MCP-compatible client** (Cursor, Claude Desktop, etc.)
 
-## Table of Contents
+## 🚀 Choose Your Installation Path
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Available Tools](#available-tools)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
-- [Development](#development)
-- [Contributing](#contributing)
+| Path | Best For | Complexity | Maintenance |
+|------|----------|------------|-------------|
+| **🚀 uvx (Recommended)** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | ✅ Auto-updates |
+| **💻 Local Installation** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
 
-## 🛠️ Installation
+**Choose your path below:**
+- [uvx Path (2-minute setup)](#-uvx-path-recommended)
+- [Local Installation Path](#-local-installation-path)
 
-### Option A: uvx (Recommended)
+---
+
+## 🚀 uvx Path (Recommended)
+
+### 1. One-Time Telegram Authentication
 ```bash
-# Install and setup in one command
 API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
 uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
 ```
 
-### Option B: Local Development
+### 2. Configure Your MCP Client
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
+      }
+    }
+  }
+}
+```
+
+### 3. Start Using!
+```json
+{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
+```
+
+**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
+
+**✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
+
+---
+
+## 💻 Local Installation Path
+
+### 1. Install Locally
 ```bash
-# Clone and install
 git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
 cd fast-mcp-telegram
-uv sync
+uv sync  # Install dependencies
+```
 
-# Authenticate with Telegram
+### 2. Authenticate with Telegram
+```bash
 API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
 python src/setup_telegram.py
 ```
 
-## ⚙️ Configuration
-
-### Cursor IDE (`.cursor/mcp.json`)
+### 3. Configure Your MCP Client
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
-      "env": {
-        "API_ID": "your_api_id",
-        "API_HASH": "your_api_hash",
-        "PHONE_NUMBER": "+123456789"
-      }
+      "command": "python3",
+      "args": ["/path/to/fast-mcp-telegram/src/server.py"],
+      "cwd": "/path/to/fast-mcp-telegram"
     }
   }
 }
 ```
 
-### Claude Desktop (`claude_desktop_config.json`)
+### 4. Start Using!
 ```json
-{
-  "mcpServers": {
-    "telegram": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
-      "env": {
-        "API_ID": "your_api_id",
-        "API_HASH": "your_api_hash",
-        "PHONE_NUMBER": "+123456789"
-      }
-    }
-  }
-}
+{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
-### Session Management
-- **Default location**: `~/.config/fast-mcp-telegram/mcp_telegram.session`
-- **Custom location**: Set `SESSION_DIR` and `SESSION_NAME` environment variables
-- **Multiple accounts**: Use different `SESSION_NAME` values
+**ℹ️ Session Info:** Your Telegram session is saved to `mcp_telegram.session` in the project directory (one-time setup)
 
-## 🧪 Development
+**✅ You're all set!** Continue below for development tools.
+
+## 🛠️ Development (Local Installation Only)
 
 ### Code Quality
 ```bash
@@ -148,12 +130,11 @@ uv run ruff check .  # Lint code
 
 ### Testing the Server
 ```bash
-# Direct console usage
-python3 src/server.py
-
-# With test mode
-uv run fast-mcp-telegram --test-mode
+python3 src/server.py                    # Direct execution
+uv run fast-mcp-telegram --test-mode     # With test mode
 ```
+
+---
 
 ## 🔧 Available Tools
 
