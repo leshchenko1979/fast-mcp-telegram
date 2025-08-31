@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fast-mcp-telegram"
+version = "0.0.1"
+description = "MCP server with Telegram search and messaging capabilities"
+authors = [
+    {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "loguru",
+    "aiohttp",
+    "fastmcp",
+    "telethon",
+    "python-dotenv"
+]
+
+[project.scripts]
+fast-mcp-telegram = "src.server:main"
+fast-mcp-telegram-setup = "src.server:setup_telegram"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.md"]

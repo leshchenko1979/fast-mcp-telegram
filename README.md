@@ -48,7 +48,7 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 ## Prerequisites
 
-- Python 3.x
+- Python 3.10 or higher
 - Telegram API credentials (API ID, API Hash)
 - MCP-compatible environment (e.g., Cursor IDE, Claude Desktop)
 
@@ -87,7 +87,7 @@ API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" uvx --fr
    ```bash
    git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
    cd fast-mcp-telegram
-   pip install -r requirements.txt
+   uv sync
    ```
 
 2. Create a `.env` file with your credentials:
@@ -186,8 +186,8 @@ For testing or development, you can run the server directly:
 uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram --test-mode
 
 # Using local installation
-pip install -e .
-fast-mcp-telegram --test-mode
+uv sync
+uv run fast-mcp-telegram --test-mode
 
 # Direct Python execution (STDIO transport)
 python3 src/server.py
@@ -476,34 +476,36 @@ These examples illustrate how natural language requests can be mapped to MCP too
 
 ```
 fast-mcp-telegram/
-├── src/                # Source code directory
+├── src/               # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
 │   ├── tools/         # MCP tool implementations
 │   ├── utils/         # Utility functions
 │   ├── __init__.py    # Package initialization
-│   └── server.py      # Main server implementation
+│   ├── server.py      # Main server implementation
+│   └── setup_telegram.py  # Telegram setup script
 ├── logs/              # Log files directory
-├── setup_telegram.py  # Telegram setup script
-├── setup.py          # Package setup configuration
-├── requirements.txt  # Project dependencies
-├── .env             # Environment variables (create this)
-├── .gitignore       # Git ignore patterns
-└── LICENSE          # MIT License
+├── pyproject.toml     # Package setup configuration
+├── uv.lock            # Dependency lock file
+├── .env               # Environment variables (create this)
+├── .gitignore         # Git ignore patterns
+└── LICENSE            # MIT License
 
 Note: *.session and *.session-journal files will be created after authentication
 ```
 
 ## Dependencies
 
-The project relies on the following main packages:
+The project uses [uv](https://github.com/astral-sh/uv) for dependency management and relies on the following main packages:
 ```
 fastmcp         # FastMCP framework for MCP servers
 loguru          # Logging
 aiohttp         # Async HTTP
-telethon  # Telegram client
-python-dotenv  # Environment management
+telethon        # Telegram client
+python-dotenv   # Environment management
 ```
+
+Dependencies are managed through `pyproject.toml` and locked in `uv.lock`.
 
 ## License
 
