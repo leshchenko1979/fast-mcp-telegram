@@ -466,7 +466,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "ruff", specifier = ">=0.12.11" }]
+dev = [{ name = "ruff" }]
 
 [[package]]
 name = "fastmcp"
