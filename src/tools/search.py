@@ -5,101 +5,19 @@ from datetime import datetime
 from typing import Any
 
 from loguru import logger
-from telethon.tl.functions.messages import GetSearchCountersRequest, SearchGlobalRequest
+from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
 from src.client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import compute_entity_identifier, get_entity_by_id
-from src.utils.message_format import build_message_result
-
-
-async def _get_chat_message_count(chat_id: str) -> int | None:
-    """
-    Get total message count for a specific chat.
-    """
-    try:
-        client = await get_connected_client()
-        entity = await get_entity_by_id(chat_id)
-        if not entity:
-            return None
-
-        result = await client(
-            GetSearchCountersRequest(peer=entity, filters=[InputMessagesFilterEmpty()])
-        )
-
-        if hasattr(result, "counters") and result.counters:
-            for counter in result.counters:
-                if hasattr(counter, "filter") and isinstance(
-                    counter.filter, InputMessagesFilterEmpty
-                ):
-                    return getattr(counter, "count", 0)
-
-        return 0
-
-    except Exception as e:
-        logger.warning(f"Error getting search count for chat {chat_id}: {str(e)}")
-        return None
-
-
-def _append_dedup_until_limit(
-    collected: list[dict[str, Any]],
-    seen_keys: set,
-    new_messages: list[dict[str, Any]],
-    target_total: int,
-) -> None:
-    """Append messages into collected with deduplication until target_total is reached.
-
-    Deduplicates by (chat.id, message.id) pair.
-    """
-    for msg in new_messages:
-        key = (msg.get("chat", {}).get("id"), msg.get("id"))
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        collected.append(msg)
-        if len(collected) >= target_total:
-            break
-
-
-def _has_any_media(message) -> bool:
-    """Check if message contains any type of media content."""
-    if not hasattr(message, "media") or message.media is None:
-        return False
-
-    media = message.media
-    media_class = media.__class__.__name__
-
-    # Check for all known media types
-    return media_class in [
-        "MessageMediaPhoto",  # Photos
-        "MessageMediaDocument",  # Documents, files, audio, video files
-        "MessageMediaAudio",  # Audio files
-        "MessageMediaVoice",  # Voice messages
-        "MessageMediaVideo",  # Videos
-        "MessageMediaWebPage",  # Link previews
-        "MessageMediaGeo",  # Location
-        "MessageMediaContact",  # Contact cards
-        "MessageMediaPoll",  # Polls
-        "MessageMediaDice",  # Dice animations
-        "MessageMediaVenue",  # Venue/location with name
-        "MessageMediaGame",  # Games
-        "MessageMediaInvoice",  # Payments/invoices
-        "MessageMediaUnsupported",  # Unsupported media types
-    ]
-
-
-def _matches_chat_type(entity, chat_type: str) -> bool:
-    """Check if entity matches the specified chat type filter."""
-    if not chat_type:
-        return True
-
-    entity_class = entity.__class__.__name__
-    return (
-        (chat_type == "private" and entity_class == "User")
-        or (chat_type == "group" and entity_class == "Chat")
-        or (chat_type == "channel" and entity_class in ["Channel", "ChannelForbidden"])
-    )
+from src.utils.entity import (
+    _get_chat_message_count,
+    _matches_chat_type,
+    compute_entity_identifier,
+    get_entity_by_id,
+)
+from src.utils.helpers import _append_dedup_until_limit
+from src.utils.message_format import _has_any_media, build_message_result
 
 
 async def _process_message_for_results(

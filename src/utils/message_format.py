@@ -1,17 +1,39 @@
 import time
-import traceback
 from typing import Any
 
-from loguru import logger
-
 from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
-
-from ..config.logging import format_diagnostic_info
 
 
 def generate_request_id(prefix: str) -> str:
     """Generate a unique request ID with timestamp."""
     return f"{prefix}_{int(time.time() * 1000)}"
+
+
+def _has_any_media(message) -> bool:
+    """Check if message contains any type of media content."""
+    if not hasattr(message, "media") or message.media is None:
+        return False
+
+    media = message.media
+    media_class = media.__class__.__name__
+
+    # Check for all known media types
+    return media_class in [
+        "MessageMediaPhoto",  # Photos
+        "MessageMediaDocument",  # Documents, files, audio, video files
+        "MessageMediaAudio",  # Audio files
+        "MessageMediaVoice",  # Voice messages
+        "MessageMediaVideo",  # Videos
+        "MessageMediaWebPage",  # Link previews
+        "MessageMediaGeo",  # Location
+        "MessageMediaContact",  # Contact cards
+        "MessageMediaPoll",  # Polls
+        "MessageMediaDice",  # Dice animations
+        "MessageMediaVenue",  # Venue/location with name
+        "MessageMediaGame",  # Games
+        "MessageMediaInvoice",  # Payments/invoices
+        "MessageMediaUnsupported",  # Unsupported media types
+    ]
 
 
 def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
@@ -33,38 +55,6 @@ def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
         result["edit_date"] = message.edit_date.isoformat()
 
     return result
-
-
-def log_operation_start(request_id: str, operation: str, params: dict[str, Any]):
-    """Log the start of an operation with consistent format."""
-    logger.debug(f"[{request_id}] {operation}", extra={"params": params})
-
-
-def log_operation_success(request_id: str, operation: str, chat_id: str = None):
-    """Log successful completion of an operation."""
-    if chat_id:
-        logger.info(f"[{request_id}] {operation} successfully in chat {chat_id}")
-    else:
-        logger.info(f"[{request_id}] {operation} successfully")
-
-
-def log_operation_error(
-    request_id: str, operation: str, error: Exception, params: dict[str, Any]
-):
-    """Log operation errors with consistent format."""
-    error_info = {
-        "request_id": request_id,
-        "error": {
-            "type": type(error).__name__,
-            "message": str(error),
-            "traceback": traceback.format_exc(),
-        },
-        "params": params,
-    }
-    logger.error(
-        f"[{request_id}] Error {operation}",
-        extra={"diagnostic_info": format_diagnostic_info(error_info)},
-    )
 
 
 async def get_sender_info(client, message) -> dict[str, Any] | None:

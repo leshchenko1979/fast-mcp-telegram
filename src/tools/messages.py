@@ -5,15 +5,17 @@ from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContacts
 from telethon.tl.types import InputPhoneContact
 
 from src.client.connection import get_connected_client
+from src.config.logging import (
+    log_operation_error,
+    log_operation_start,
+    log_operation_success,
+)
 from src.tools.links import generate_telegram_links
 from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.message_format import (
     build_message_result,
     build_send_edit_result,
     generate_request_id,
-    log_operation_error,
-    log_operation_start,
-    log_operation_success,
 )
 
 
