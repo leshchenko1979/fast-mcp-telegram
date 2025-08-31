@@ -56,44 +56,33 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 
 ### Code Quality Tools
 
-This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://github.com/astral-sh/ruff) for automated Python code formatting.
+This project uses [Ruff](https://github.com/astral-sh/ruff) for Python code formatting.
 
-#### Initial Setup
+#### Development Setup
 
-1. Install development dependencies:
-   ```bash
-   uv sync --all-extras
-   ```
+Install development dependencies for code formatting:
+```bash
+uv sync --all-extras
+```
 
-2. Install pre-commit hooks:
-   ```bash
-   uv run pre-commit install
-   ```
+#### Manual Code Formatting
 
-#### Development Workflow
-
-The pre-commit hooks will automatically run on every commit and include:
-
-- **Ruff formatting**: Automatically formats Python code to maintain consistent style
-
-#### Manual Quality Checks
-
-You can run formatting checks manually:
+You can format your code manually using:
 
 ```bash
-# Run all pre-commit hooks (formatting only)
-uv run pre-commit run --all-files
+# Format all Python files in the project
+uv run ruff format .
 
-# Run only formatting on specific files
+# Format specific files
 uv run ruff format <filename>
 
-# Run formatting on all Python files
-uv run ruff format .
+# Check formatting without making changes
+uv run ruff format --check .
 ```
 
 #### Configuration
 
-- **Ruff formatting**: Configured in `.pre-commit-config.yaml` and `pyproject.toml`
+- **Ruff settings**: Configured in `pyproject.toml` under `[tool.ruff]`
 - **Line length**: 88 characters (Black compatible)
 - **Python version**: 3.10+
 

@@ -28,12 +28,6 @@ dependencies = [
     "python-dotenv"
 ]
 
-[project.optional-dependencies]
-dev = [
-    "ruff>=0.6.0",
-    "pre-commit>=3.0.0"
-]
-
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
 fast-mcp-telegram-setup = "src.server:setup_telegram"
