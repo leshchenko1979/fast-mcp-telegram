@@ -54,7 +54,7 @@ Execute with asyncio.gather()
      ↓
 Merge and deduplicate results
      ↓
-Apply pagination (offset/limit)
+Apply limit (no pagination)
      ↓
 Return unified result set
 ```
@@ -89,7 +89,7 @@ if chat_id:
     # Per-chat search: Search within specific chat
     entity = await get_entity_by_id(chat_id)
     search_tasks = [
-        _search_chat_messages(client, entity, (q or ""), limit, 0, chat_type, auto_expand_batches)
+        _search_chat_messages(client, entity, (q or ""), limit, chat_type, auto_expand_batches)
         for q in queries
     ]
     all_partial_results = await asyncio.gather(*search_tasks)
@@ -97,7 +97,7 @@ if chat_id:
 else:
     # Global search: Search across all chats
     search_tasks = [
-        _search_global_messages(client, q, limit, min_datetime, max_datetime, 0, chat_type, auto_expand_batches)
+        _search_global_messages(client, q, limit, min_datetime, max_datetime, chat_type, auto_expand_batches)
         for q in queries if q and str(q).strip()
     ]
     all_partial_results = await asyncio.gather(*search_tasks)

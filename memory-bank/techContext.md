@@ -20,7 +20,8 @@ asyncio          # Async/await support (built-in)
 ### Development Tools
 - **Cursor IDE**: Primary development environment
 - **Git**: Version control
-- **Python venv**: Virtual environment management
+- **Ruff**: Manual code formatting and linting
+- **uv**: Package management and virtual environment
 
 ## Development Setup
 
@@ -162,7 +163,6 @@ async def search_messages(
     query: str,                    # Search query (comma-separated for multiple terms)
     chat_id: str = None,           # Target chat ID (for per-chat search)
     limit: int = 50,               # Maximum results (limited to prevent context overflow)
-    offset: int = 0,               # Pagination offset
     chat_type: str = None,         # Filter by chat type
     min_date: str = None,          # Date range filter
     max_date: str = None,          # Date range filter
@@ -178,14 +178,14 @@ queries: List[str] = [q.strip() for q in query.split(',') if q.strip()] if query
 
 # Parallel execution for per-chat search
 search_tasks = [
-    _search_chat_messages(client, entity, (q or ""), limit, 0, chat_type, auto_expand_batches)
+    _search_chat_messages(client, entity, (q or ""), limit, chat_type, auto_expand_batches)
     for q in queries
 ]
 all_partial_results = await asyncio.gather(*search_tasks)
 
 # Parallel execution for global search
 search_tasks = [
-    _search_global_messages(client, q, limit, min_datetime, max_datetime, 0, chat_type, auto_expand_batches)
+    _search_global_messages(client, q, limit, min_datetime, max_datetime, chat_type, auto_expand_batches)
     for q in queries if q and str(q).strip()
 ]
 all_partial_results = await asyncio.gather(*search_tasks)
@@ -228,7 +228,7 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 
 ### Performance Considerations
 - **Search Limit**: Default limit is 50 results to prevent LLM context window overflow
-- **Pagination**: Use `offset` parameter for accessing additional results beyond the limit
+- **Result Limiting**: Use `limit` parameter to control the number of results returned
 - **Auto-expansion**: Limited to 2 additional batches by default to balance completeness with performance
 - **Parallel Execution**: Multi-query searches execute simultaneously for better performance
 - **Deduplication**: Results automatically deduplicated to prevent duplicates across queries
@@ -237,7 +237,7 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 - **Start Small**: Begin searches with limit=10-20 for initial exploration
 - **Use Filters**: Apply date ranges and chat type filters before increasing limits
 - **Avoid Large Limits**: Never request more than 50 results in a single search
-- **Pagination Strategy**: Use offset parameter to access additional results when needed
+- **Result Strategy**: Use limit parameter to control result set size for optimal performance
 - **Contact Searches**: Keep contact search limits at 20 or lower (contact results are typically smaller)
 - **Performance Impact**: Large result sets can cause context overflow and incomplete processing
 - **Multi-Query Efficiency**: Use comma-separated terms for related searches to get unified results

@@ -49,6 +49,10 @@
 - **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
 - **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
 - **Error Logging**: Enhanced error logging for message access failures with detailed diagnostics (2025-09-01)
+- **Function Organization**: Completed major refactoring - moved misplaced functions to appropriate modules (2025-09-01)
+- **Offset Parameter**: Removed unused offset parameter from search functions, eliminating API confusion (2025-09-01)
+- **Pre-commit Hooks**: Removed automated hooks, simplified to manual Ruff formatting (2025-09-01)
+- **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

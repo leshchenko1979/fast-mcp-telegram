@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Completed comprehensive LLM optimization of all tool descriptions and enhanced Saved Messages access. System now has concise, LLM-optimized tool descriptions with structured sections, special 'me' identifier support for Saved Messages, and improved error logging with detailed diagnostics.
+**Primary**: Completed major code refactoring and quality improvements. System now has optimized code organization with functions moved to appropriate modules, simplified search logic, and enhanced maintainability.
 
-**Current Status**: System is fully optimized for LLM consumption with enhanced Saved Messages functionality. **Tool descriptions rewritten**: All tool descriptions now use concise, structured format with clear sections (MODES, FEATURES, EXAMPLES, Args) optimized for LLM comprehension. **'me' identifier support**: Added special handling for Saved Messages access using chat_id='me' for more reliable and consistent API usage. **Error logging enhanced**: Improved error logging for message access failures with detailed diagnostics and request tracking. **README updated**: Documentation now reflects the new concise tool descriptions with practical examples. Production deployment stable with HTTP/SSE endpoint at `https://tg-mcp.redevest.ru/mcp`.
+**Current Status**: System has been comprehensively refactored for better code organization and maintainability. **Function reorganization**: Moved misplaced functions to appropriate modules (entity operations to `utils/entity.py`, media detection to `utils/message_format.py`, logging utilities to `config/logging.py`, generic helpers to `utils/helpers.py`). **Search simplification**: Removed unused `offset` parameter from search functions, eliminating confusion and API impedance mismatch. **Pre-commit removal**: Eliminated pre-commit hooks in favor of manual code formatting with Ruff. **Code quality**: Fixed all linter errors and improved overall code structure.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -81,6 +81,29 @@
 **Rationale**: Silent failures made debugging difficult, needed better traceability for troubleshooting
 **Solution**: Added warning logs with request ID, message ID, chat ID, and diagnostic information
 **Impact**: Better debugging capability and system monitoring with detailed error context
+
+### Function Organization Refactoring
+**Decision**: Moved misplaced functions to appropriate modules based on responsibility and usage patterns
+**Rationale**: Code was scattered across modules with functions performing operations outside their logical scope
+**Solution**: Systematic reorganization following single responsibility principle
+**Impact**:
+  - `_get_chat_message_count()` and `_matches_chat_type()` → `utils/entity.py`
+  - `_has_any_media()` → `utils/message_format.py`
+  - `log_operation_*()` functions → `config/logging.py`
+  - `_append_dedup_until_limit()` → new `utils/helpers.py`
+  - Cleaner module boundaries and improved maintainability
+
+### Offset Parameter Removal
+**Decision**: Removed unused `offset` parameter from search functions
+**Rationale**: Parameter existed in signature but was ignored, creating API confusion and documentation mismatch
+**Solution**: Simplified function signatures and removed pagination logic that wasn't supported by Telegram API
+**Impact**: Cleaner API, eliminated confusion, reduced code complexity, better alignment with actual Telegram API capabilities
+
+### Pre-commit Hooks Removal
+**Decision**: Removed automated pre-commit hooks in favor of manual Ruff formatting
+**Rationale**: Pre-commit hooks added complexity without significant benefit for current workflow
+**Solution**: Keep Ruff available for manual formatting when needed
+**Impact**: Simplified development workflow while maintaining code formatting capability
 
 ## Important Patterns and Preferences
 
