@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-mcp-telegram"
-version = "1.0.0"
+version = "0.0.1"
 description = "MCP server with Telegram search and messaging capabilities"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.10"
