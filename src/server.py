@@ -47,11 +47,11 @@ setup_logging()
 @mcp.tool()
 async def search_messages(
     query: str,
-    chat_id: str = None,
+    chat_id: str | None = None,
     limit: int = 50,
-    chat_type: str = None,
-    min_date: str = None,
-    max_date: str = None,
+    chat_type: str | None = None,
+    min_date: str | None = None,
+    max_date: str | None = None,
     auto_expand_batches: int = 2,
     include_total_count: bool = False,
 ):
@@ -111,16 +111,15 @@ async def search_messages(
             if not messages:
                 return {"status": "No results found, custom message."}
             return search_result
-        else:
-            # Fallback for old response format
-            logger.info(
-                f"[{request_id}] Found {len(search_result)} messages "
-                f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
-                f"auto_expand_batches: {auto_expand_batches})"
-            )
-            if not search_result:
-                return {"status": "No results found, custom message."}
-            return search_result
+        # Fallback for old response format
+        logger.info(
+            f"[{request_id}] Found {len(search_result)} messages "
+            f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
+            f"auto_expand_batches: {auto_expand_batches})"
+        )
+        if not search_result:
+            return {"status": "No results found, custom message."}
+        return search_result
     except Exception as e:
         error_text = str(e) if e else ""
         logger.error(
@@ -145,9 +144,9 @@ async def search_messages(
 async def send_or_edit_message(
     chat_id: str,
     message: str,
-    reply_to_msg_id: int = None,
-    parse_mode: str = None,
-    message_id: int = None,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
+    message_id: int | None = None,
 ):
     """
     Send new message or edit existing message in Telegram chat.
@@ -206,8 +205,7 @@ async def read_messages(chat_id: str, message_ids: list[int]):
         chat_id: Target chat identifier (use 'me' for Saved Messages)
         message_ids: List of message IDs to retrieve (from search results)
     """
-    results = await read_messages_by_ids(chat_id, message_ids)
-    return results
+    return await read_messages_by_ids(chat_id, message_ids)
 
 
 @mcp.tool()
@@ -239,8 +237,7 @@ async def search_contacts(query: str, limit: int = 20):
         query: Search term (name, username without @, or phone with +)
         limit: Max results (default: 20, recommended: ≤50)
     """
-    result = await search_contacts_telegram(query, limit)
-    return result
+    return await search_contacts_telegram(query, limit)
 
 
 @mcp.tool()
@@ -266,8 +263,7 @@ async def get_contact_details(chat_id: str):
     Args:
         chat_id: Target chat/user identifier (numeric ID, username, or channel ID)
     """
-    result = await get_contact_info(chat_id)
-    return result
+    return await get_contact_info(chat_id)
 
 
 @mcp.tool()
@@ -277,8 +273,8 @@ async def send_message_to_phone(
     first_name: str = "Contact",
     last_name: str = "Name",
     remove_if_new: bool = False,
-    reply_to_msg_id: int = None,
-    parse_mode: str = None,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
 ):
     """
     Send message to phone number, auto-managing Telegram contacts.
@@ -314,7 +310,7 @@ async def send_message_to_phone(
     Returns:
         Message send result + contact management info (contact_was_new, contact_removed)
     """
-    result = await send_message_to_phone_impl(
+    return await send_message_to_phone_impl(
         phone_number=phone_number,
         message=message,
         first_name=first_name,
@@ -323,7 +319,6 @@ async def send_message_to_phone(
         reply_to_msg_id=reply_to_msg_id,
         parse_mode=parse_mode,
     )
-    return result
 
 
 @mcp.tool()
@@ -369,10 +364,9 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
             (k if isinstance(k, str) else str(k)): v for k, v in params.items()
         }
 
-        result = await invoke_mtproto_method(method_full_name, sanitized_params)
-        return result
+        return await invoke_mtproto_method(method_full_name, sanitized_params)
     except Exception as e:
-        logger.error(f"Error in invoke_mtproto: {str(e)}\n{traceback.format_exc()}")
+        logger.error(f"Error in invoke_mtproto: {e!s}\n{traceback.format_exc()}")
         return {"ok": False, "error": str(e)}
 
 

@@ -103,7 +103,7 @@ def format_diagnostic_info(info: dict) -> str:
 
         return json.dumps(info, indent=2, default=str)
     except Exception as e:
-        return f"Error formatting diagnostic info: {str(e)}"
+        return f"Error formatting diagnostic info: {e!s}"
 
 
 def log_operation_start(request_id: str, operation: str, params: dict):
@@ -112,7 +112,7 @@ def log_operation_start(request_id: str, operation: str, params: dict):
     logger.debug(f"[{request_id}] {operation}", extra={"params": params})
 
 
-def log_operation_success(request_id: str, operation: str, chat_id: str = None):
+def log_operation_success(request_id: str, operation: str, chat_id: str | None = None):
     """Log successful completion of an operation."""
 
     if chat_id:

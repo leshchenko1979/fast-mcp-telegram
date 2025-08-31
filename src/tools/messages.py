@@ -20,7 +20,10 @@ from src.utils.message_format import (
 
 
 async def send_message(
-    chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None
+    chat_id: str,
+    message: str,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
 ) -> dict[str, Any]:
     """
     Send a message to a Telegram chat.
@@ -64,7 +67,7 @@ async def send_message(
 
 
 async def edit_message(
-    chat_id: str, message_id: int, new_text: str, parse_mode: str = None
+    chat_id: str, message_id: int, new_text: str, parse_mode: str | None = None
 ) -> dict[str, Any]:
     """
     Edit an existing message in a Telegram chat.
@@ -201,8 +204,8 @@ async def send_message_to_phone_impl(
     first_name: str = "Contact",
     last_name: str = "Name",
     remove_if_new: bool = False,
-    reply_to_msg_id: int = None,
-    parse_mode: str = None,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
 ) -> dict[str, Any]:
     """
     Send a message to a phone number, handling both existing and new contacts safely.

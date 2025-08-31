@@ -71,11 +71,11 @@ async def _execute_parallel_searches(
 
 async def search_messages(
     query: str,
-    chat_id: str = None,
+    chat_id: str | None = None,
     limit: int = 20,
-    min_date: str = None,  # ISO format date string
-    max_date: str = None,  # ISO format date string
-    chat_type: str = None,  # 'private', 'group', 'channel', or None
+    min_date: str | None = None,  # ISO format date string
+    max_date: str | None = None,  # ISO format date string
+    chat_type: str | None = None,  # 'private', 'group', 'channel', or None
     auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
     include_total_count: bool = False,  # Whether to include total count in response
 ) -> dict[str, Any]:
@@ -108,9 +108,8 @@ async def search_messages(
         [q.strip() for q in query.split(",") if q.strip()] if query else []
     )
 
-    if not chat_id:
-        if not queries:
-            raise ValueError("Search query must not be empty for global search.")
+    if not chat_id and not queries:
+        raise ValueError("Search query must not be empty for global search.")
 
     request_id = f"search_{int(time.time() * 1000)}"
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
@@ -161,7 +160,7 @@ async def search_messages(
                     total_count = await _get_chat_message_count(chat_id)
 
             except Exception as e:
-                logger.error(f"Error searching in specific chat: {str(e)}")
+                logger.error(f"Error searching in specific chat: {e!s}")
                 logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
                 raise
         else:
@@ -245,11 +244,13 @@ async def _search_chat_messages(
             break
 
         for message in batch:
-            if await _process_message_for_results(
-                client, message, entity, chat_type, results, limit
+            if (
+                await _process_message_for_results(
+                    client, message, entity, chat_type, results, limit
+                )
+                and len(results) >= limit
             ):
-                if len(results) >= limit:
-                    break
+                break
 
         if batch:
             next_offset_id = batch[-1].id
@@ -299,11 +300,13 @@ async def _search_global_messages(
                     )
                     continue
 
-                if await _process_message_for_results(
-                    client, message, chat, chat_type, results, limit
+                if (
+                    await _process_message_for_results(
+                        client, message, chat, chat_type, results, limit
+                    )
+                    and len(results) >= limit
                 ):
-                    if len(results) >= limit:
-                        break
+                    break
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue

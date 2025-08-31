@@ -71,7 +71,7 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str
         return matches
 
     except Exception as e:
-        logger.error(f"Error searching contacts via Telegram: {str(e)}")
+        logger.error(f"Error searching contacts via Telegram: {e!s}")
         raise
 
 
@@ -95,5 +95,5 @@ async def get_contact_info(chat_id: str) -> dict[str, Any] | None:
         return build_entity_dict(entity)
 
     except Exception as e:
-        logger.error(f"Error getting contact info for {chat_id}: {str(e)}")
+        logger.error(f"Error getting contact info for {chat_id}: {e!s}")
         return None

@@ -242,7 +242,7 @@ async def _get_chat_message_count(chat_id: str) -> int | None:
         return 0
 
     except Exception as e:
-        logger.warning(f"Error getting search count for chat {chat_id}: {str(e)}")
+        logger.warning(f"Error getting search count for chat {chat_id}: {e!s}")
         return None
 
 

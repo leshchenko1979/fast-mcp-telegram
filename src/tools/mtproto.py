@@ -87,10 +87,7 @@ async def invoke_mtproto_method(
         client = await get_connected_client()
         result = await client(method_obj)
         # Try to convert result to dict (if possible)
-        if hasattr(result, "to_dict"):
-            result_dict = result.to_dict()
-        else:
-            result_dict = str(result)
+        result_dict = result.to_dict() if hasattr(result, "to_dict") else str(result)
         safe_result = _json_safe(result_dict)
         logger.info(
             f"[{request_id}] MTProto method {method_full_name} invoked successfully"
