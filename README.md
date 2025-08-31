@@ -1,503 +1,598 @@
 # fast-mcp-telegram
 
-A powerful MCP server implementation built with FastMCP that provides Telegram functionality through a clean API interface, including search and messaging capabilities.
+[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/fast-mcp-telegram.svg)](https://pypi.org/project/fast-mcp-telegram/)
+[![Telegram](https://img.shields.io/badge/Telegram-API-blue?logo=telegram)](https://t.me/mcp_telegram)
 
-Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, updates, and community discussions.
+A powerful MCP server for Telegram automation with search, messaging, and contact management capabilities. Built with FastMCP for seamless AI agent integration.
+
+**🚀 2-minute setup • 📱 Full Telegram API • 🤖 AI-ready • ⚡ FastMCP powered**
+
+[Quick Start](#quick-start) • [Documentation](#available-tools) • [Community](https://t.me/mcp_telegram)
+
+---
+
+## 🔥 Quick Start (2 minutes)
+
+### 1. Install & Authenticate
+```bash
+# Install dependencies
+uv sync
+
+# Set up Telegram authentication
+API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
+python src/setup_telegram.py
+```
+
+### 2. Configure MCP Client
+```json
+{
+  "mcpServers": {
+    "mcp-telegram": {
+      "command": "python3",
+      "args": ["/path/to/fast-mcp-telegram/src/server.py"],
+      "cwd": "/path/to/fast-mcp-telegram",
+      "description": "Telegram MCP server"
+    }
+  }
+}
+```
+
+### 3. Start Using!
+```json
+{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
+```
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔍 **Smart Search** | Global & per-chat message search with filters |
+| 💬 **Messaging** | Send, edit, reply with formatting support |
+| 👥 **Contacts** | Search users, get profiles, manage contacts |
+| 📱 **Phone Integration** | Message by phone number, auto-contact management |
+| 🔧 **Low-level API** | Direct MTProto access for advanced operations |
+| ⚡ **Performance** | Async operations, connection pooling, caching |
+| 🛡️ **Reliability** | Auto-reconnect, structured logging, error handling |
+
+## 📋 Prerequisites
+
+- **Python 3.10+**
+- **Telegram API credentials** ([get them here](https://my.telegram.org/auth))
+- **MCP-compatible client** (Cursor, Claude Desktop, etc.)
 
 ## Table of Contents
 
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Quick Start & Usage](#quick-start--usage)
+- [Installation](#installation)
+- [Configuration](#configuration)
 - [Available Tools](#available-tools)
-- [Result Structure & Completeness](#result-structure--completeness)
 - [Examples](#examples)
-- [Project Structure](#project-structure)
-- [Dependencies](#dependencies)
-- [License](#license)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Contributing](#contributing)
 
-## Features
+## 🛠️ Installation
 
-- Message search
-  - Global and per-chat modes
-  - Multiple query support with comma-separated terms and parallel execution
-  - Filters: chat type (private/group/channel), date range, pagination
-  - Auto-expansion for filtered results and optional include_total_count (per-chat)
-- Messaging
-  - Send new messages and edit existing ones
-  - Replies and Markdown/HTML formatting
-- Message access
-  - Read specific messages by IDs
-  - Generate direct links to messages
-- Results
-  - Full-fidelity message objects: id, date, chat, text, link, sender, reply_to_msg_id, media, forwarded_from
-  - LLM-optimized media placeholders with mime_type, file_size, and filename (no raw Telethon objects)
-  - Consistent result structures across tools
-- Contacts
-  - Search contacts
-  - Get contact details
-- MTProto access
-  - Invoke raw MTProto methods via JSON parameters
-- Reliability and logging
-  - Automatic reconnect and consistent error handling
-  - Structured logging with request IDs
-  - Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information
-- MCP integration
-  - Works with MCP-compatible clients (e.g., Cursor IDE, Claude Desktop); Cursor example provided
-  - STDIO transport and HTTP test mode
-
-## Prerequisites
-
-- Python 3.10 or higher
-- Telegram API credentials (API ID, API Hash)
-- MCP-compatible environment (e.g., Cursor IDE, Claude Desktop)
-
-## Development Setup
-
-### Code Quality Tools
-
-This project uses [Ruff](https://github.com/astral-sh/ruff) for Python code formatting.
-
-#### Development Setup
-
-Install development dependencies for code formatting:
+### Option A: uvx (Recommended)
 ```bash
-uv sync --all-extras
-```
-
-#### Manual Code Formatting
-
-You can format your code manually using:
-
-```bash
-# Format all Python files in the project
-uv run ruff format .
-
-# Format specific files
-uv run ruff format <filename>
-
-# Check formatting without making changes
-uv run ruff format --check .
-```
-
-#### Configuration
-
-- **Ruff settings**: Configured in `pyproject.toml` under `[tool.ruff]`
-- **Line length**: 88 characters (Black compatible)
-- **Python version**: 3.10+
-
-## Quick Start & Usage
-
-### 1. Authenticate with Telegram (one-time setup)
-
-**Option A: Using uvx (Recommended)**
-
-First, set your Telegram API credentials as environment variables:
-```bash
-export API_ID="your_api_id"
-export API_HASH="your_api_hash"
-export PHONE_NUMBER="+123456789"
-```
-
-Then run the setup:
-```bash
+# Install and setup in one command
+API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
 uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
 ```
 
-Or run it all in one command:
+### Option B: Local Development
 ```bash
-API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
-```
-
-- Works from any directory
-- Automatically handles all dependencies
-- Session files saved to `~/.config/fast-mcp-telegram/`
-- You'll be prompted for the verification code from Telegram
-
-**Option B: Local development setup**
-1. Clone the repository and install dependencies:
-   ```bash
-   git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
-   cd fast-mcp-telegram
-   uv sync
-   ```
-
-2. Create a `.env` file with your credentials:
-   ```env
-   API_ID=your_api_id
-   API_HASH=your_api_hash
-   PHONE_NUMBER=+123456789
-   ```
-
-3. Run the setup script:
-   ```bash
-   python setup_telegram.py
-   ```
-   Session files will be saved in the project directory.
-
-### 2. Configure your MCP client
-
-**Cursor example (`.cursor/mcp.json`):**
-
-- **Option A: Using uvx (Recommended)**
-  ```json
-  {
-    "mcpServers": {
-      "mcp-telegram": {
-        "command": "uvx",
-        "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
-        "env": {
-          "API_ID": "your_api_id",
-          "API_HASH": "your_api_hash",
-          "PHONE_NUMBER": "+123456789"
-        },
-        "description": "Telegram MCP server with search and messaging tools"
-      }
-    }
-  }
-  ```
-
-- **Option B: Local development**
-  ```json
-  {
-    "mcpServers": {
-      "mcp-telegram": {
-        "command": "python3",
-        "args": ["/path/to/fast-mcp-telegram/src/server.py"],
-        "cwd": "/path/to/fast-mcp-telegram",
-        "env": {
-          "PYTHONPATH": "/path/to/fast-mcp-telegram"
-        },
-        "description": "Telegram MCP server with search and messaging tools"
-      }
-    }
-  }
-  ```
-
-**Notes:**
-- Replace credential placeholders with your actual Telegram API credentials
-- For other MCP clients (Claude Desktop, etc.), adapt the configuration format
-- See supported clients at [modelcontextprotocol.io](https://modelcontextprotocol.io/clients)
-- Reload the server in your MCP client after making configuration changes
-
-### 3. Session File Information
-
-**Default Locations:**
-- **uvx users:** `~/.config/fast-mcp-telegram/mcp_telegram.session`
-- **Local development:** `mcp_telegram.session` (in project directory)
-
-**Environment Variable Controls:**
-
-You can customize session file location using environment variables:
-
-```bash
-# Custom session directory
-export SESSION_DIR="/path/to/your/custom/directory"
-
-# Custom session file name (useful for multiple accounts)
-export SESSION_NAME="my_custom_session"
-
-# Example: Multiple accounts
-SESSION_DIR="/Users/myuser/work" SESSION_NAME="work_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
-
-SESSION_DIR="/Users/myuser/personal" SESSION_NAME="personal_telegram" uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
-```
-
-**Important:**
-- Session files are **persistent** - they survive server restarts and `uvx` cleanup
-- **One-time authentication** - You only need to enter verification codes once
-- **Cross-platform** - Session files work across different machines (if copied)
-- **Multiple accounts** - Use different `SESSION_NAME` values for separate Telegram accounts
-
-### 4. Optional: Direct console usage
-
-For testing or development, you can run the server directly:
-
-```bash
-# Using uvx (temporary installation)
-uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram --test-mode
-
-# Using local installation
+# Clone and install
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
+cd fast-mcp-telegram
 uv sync
-uv run fast-mcp-telegram --test-mode
 
-# Direct Python execution (STDIO transport)
+# Authenticate with Telegram
+API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
+python src/setup_telegram.py
+```
+
+## ⚙️ Configuration
+
+### Cursor IDE (`.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop (`claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
+      }
+    }
+  }
+}
+```
+
+### Session Management
+- **Default location**: `~/.config/fast-mcp-telegram/mcp_telegram.session`
+- **Custom location**: Set `SESSION_DIR` and `SESSION_NAME` environment variables
+- **Multiple accounts**: Use different `SESSION_NAME` values
+
+## 🧪 Development
+
+### Code Quality
+```bash
+uv sync --all-extras  # Install dev dependencies
+uv run ruff format . # Format code
+uv run ruff check .  # Lint code
+```
+
+### Testing the Server
+```bash
+# Direct console usage
 python3 src/server.py
+
+# With test mode
+uv run fast-mcp-telegram --test-mode
 ```
 
-## Available Tools
+## 🔧 Available Tools
 
-The server provides the following MCP tools with concise, LLM-optimized descriptions:
+| Tool | Purpose | Key Features |
+|------|---------|--------------|
+| `search_messages` | Search messages globally or in specific chats | Filters by date, chat type, multiple queries |
+| `send_or_edit_message` | Send new messages or edit existing ones | Markdown/HTML formatting, replies |
+| `read_messages` | Read specific messages by ID | Bulk reading, full metadata |
+| `search_contacts` | Find users and contacts | By name, username, or phone |
+| `get_contact_details` | Get user/chat profile information | Bio, status, online state |
+| `send_message_to_phone` | Message by phone number | Auto-contact management |
+| `invoke_mtproto` | Direct Telegram API access | Advanced operations |
 
-### `search_messages(query: str, chat_id: str = None, limit: int = 50, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
+### 📍 search_messages
+**Search messages with advanced filtering**
 
-Search Telegram messages with advanced filtering.
+```typescript
+search_messages(
+  query: str,                    // Search terms (comma-separated)
+  chat_id?: str,                 // Specific chat ID ('me' for Saved Messages)
+  limit?: number = 50,          // Max results
+  chat_type?: 'private'|'group'|'channel', // Filter by chat type
+  min_date?: string,            // ISO date format
+  max_date?: string             // ISO date format
+)
+```
 
-**MODES:**
-- Per-chat: Set chat_id + optional query (use 'me' for Saved Messages)
-- Global: No chat_id + required query (searches all chats)
-
-**FEATURES:**
-- Multiple queries: "term1, term2, term3"
-- Date filtering: ISO format (min_date="2024-01-01")
-- Chat type filter: "private", "group", "channel"
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}  // Global search
-{"tool": "search_messages", "params": {"chat_id": "me", "limit": 10}}      // Saved Messages
-{"tool": "search_messages", "params": {"chat_id": "-1001234567890", "query": "launch"}}  // Specific chat
+// Global search
+{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}
+
+// Chat-specific search
+{"tool": "search_messages", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+
+// Filtered by date and type
+{"tool": "search_messages", "params": {
+  "query": "project",
+  "chat_type": "private",
+  "min_date": "2024-01-01"
+}}
 ```
 
-### `send_or_edit_message(chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None, message_id: int = None)`
+### 💬 send_or_edit_message
+**Send or edit messages with formatting**
 
-Send new message or edit existing message in Telegram chat.
+```typescript
+send_or_edit_message(
+  chat_id: str,                  // Target chat ID ('me', username, or numeric ID)
+  message: str,                  // Message content
+  reply_to_msg_id?: number,      // Reply to specific message
+  parse_mode?: 'markdown'|'html', // Text formatting
+  message_id?: number            // Edit existing message (omit for new)
+)
+```
 
-**MODES:**
-- Send: message_id=None (default)
-- Edit: message_id=<existing_message_id>
-
-**FORMATTING:**
-- parse_mode=None: Plain text
-- parse_mode="markdown": *bold*, _italic_, [link](url), `code`
-- parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello!"}}  // Send to Saved Messages
-{"tool": "send_or_edit_message", "params": {"chat_id": "-1001234567890", "message": "Updated text", "message_id": 12345}}  // Edit message
+// Send new message
+{"tool": "send_or_edit_message", "params": {
+  "chat_id": "me",
+  "message": "Hello from AI! 🚀"
+}}
+
+// Edit existing message
+{"tool": "send_or_edit_message", "params": {
+  "chat_id": "-1001234567890",
+  "message": "Updated: Project deadline extended",
+  "message_id": 12345
+}}
+
+// Reply with formatting
+{"tool": "send_or_edit_message", "params": {
+  "chat_id": "@username",
+  "message": "*Important:* Meeting at 3 PM",
+  "parse_mode": "markdown",
+  "reply_to_msg_id": 67890
+}}
 ```
 
-### `read_messages(chat_id: str, message_ids: list[int])`
+### 📖 read_messages
+**Read specific messages by ID**
 
-Read specific messages by their IDs from a Telegram chat.
+```typescript
+read_messages(
+  chat_id: str,                  // Chat identifier ('me', username, or numeric ID)
+  message_ids: number[]          // Array of message IDs to retrieve
+)
+```
 
-**SUPPORTED CHAT FORMATS:**
-- 'me': Saved Messages
-- Numeric ID: User/chat ID (e.g., 133526395)
-- Username: @channel_name or @username
-- Channel ID: -100xxxxxxxxx
+**Supported chat formats:**
+- `'me'` - Saved Messages
+- `@username` - Username
+- `123456789` - User ID
+- `-1001234567890` - Channel ID
 
-**USAGE:**
-- First use search_messages() to find message IDs
-- Then read specific messages using those IDs
-- Returns full message content with metadata
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "read_messages", "params": {"chat_id": "me", "message_ids": [680204, 680205]}}  // Saved Messages
-{"tool": "read_messages", "params": {"chat_id": "-1001234567890", "message_ids": [123, 124]}}  // Channel
+// Read multiple messages from Saved Messages
+{"tool": "read_messages", "params": {
+  "chat_id": "me",
+  "message_ids": [680204, 680205, 680206]
+}}
+
+// Read from a channel
+{"tool": "read_messages", "params": {
+  "chat_id": "-1001234567890",
+  "message_ids": [123, 124, 125]
+}}
 ```
 
-### `search_contacts(query: str, limit: int = 20)`
+### 👥 search_contacts
+**Find users and contacts**
 
-Search Telegram contacts and users by name, username, or phone number.
+```typescript
+search_contacts(
+  query: str,                  // Search term (name, username, or phone)
+  limit?: number = 20          // Max results to return
+)
+```
 
-**SEARCH SCOPE:**
-- Your saved contacts
-- Global Telegram users
-- Public channels and groups
+**Search capabilities:**
+- **Saved contacts** - Your Telegram contacts
+- **Global users** - Public Telegram users
+- **Channels & groups** - Public channels and groups
 
-**QUERY TYPES:**
-- Name: "John Doe" or "Иванов"
-- Username: "@username" (without @)
-- Phone: "+1234567890"
+**Query formats:**
+- Name: `"John Doe"`
+- Username: `"telegram"` (without @)
+- Phone: `"+1234567890"`
 
-**WORKFLOW:**
-1. Search for contact: search_contacts("John Doe")
-2. Get chat_id from results
-3. Search messages: search_messages(chat_id=chat_id, query="topic")
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "search_contacts", "params": {"query": "@telegram"}}      // Find user by username
-{"tool": "search_contacts", "params": {"query": "John Smith"}}     // Find by name
-{"tool": "search_contacts", "params": {"query": "+1234567890"}}    // Find by phone
+// Find by username
+{"tool": "search_contacts", "params": {"query": "telegram"}}
+
+// Find by name
+{"tool": "search_contacts", "params": {"query": "John Smith"}}
+
+// Find by phone
+{"tool": "search_contacts", "params": {"query": "+1234567890"}}
 ```
 
-### `get_contact_details(chat_id: str)`
+### ℹ️ get_contact_details
+**Get user/chat profile information**
 
-Get detailed profile information for a specific Telegram user or chat.
+```typescript
+get_contact_details(
+  chat_id: str                  // User/channel identifier
+)
+```
 
-**USE CASES:**
-- Get full user profile after finding chat_id
-- Retrieve contact details, bio, and status
-- Check if user is online/bot/channel
+**Returns:** Bio, status, online state, profile photos, and more
 
-**SUPPORTED FORMATS:**
-- Numeric user ID: 133526395
-- Username: "telegram" (without @)
-- Channel ID: -100xxxxxxxxx
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "get_contact_details", "params": {"chat_id": "133526395"}}      // User by ID
-{"tool": "get_contact_details", "params": {"chat_id": "telegram"}}       // User by username
-{"tool": "get_contact_details", "params": {"chat_id": "-1001234567890"}} // Channel by ID
+// Get user details by ID
+{"tool": "get_contact_details", "params": {"chat_id": "133526395"}}
+
+// Get details by username
+{"tool": "get_contact_details", "params": {"chat_id": "telegram"}}
+
+// Get channel information
+{"tool": "get_contact_details", "params": {"chat_id": "-1001234567890"}}
 ```
 
-### `send_message_to_phone(phone_number: str, message: str, first_name: str = "Contact", last_name: str = "Name", remove_if_new: bool = False, reply_to_msg_id: int = None, parse_mode: str = None)`
+### 📱 send_message_to_phone
+**Message by phone number (auto-contact management)**
 
-Send message to phone number, auto-managing Telegram contacts.
+```typescript
+send_message_to_phone(
+  phone_number: str,           // Phone with country code (+1234567890)
+  message: str,                // Message content
+  first_name?: str = "Contact", // For new contacts
+  last_name?: str = "Name",    // For new contacts
+  remove_if_new?: boolean = false, // Remove temp contact after send
+  parse_mode?: 'markdown'|'html'   // Text formatting
+)
+```
 
-**FEATURES:**
+**Features:**
 - Auto-creates contact if phone not in contacts
-- Sends message immediately after contact creation
 - Optional contact cleanup after sending
-- Full message formatting support
+- Full formatting support
 
-**CONTACT MANAGEMENT:**
-- Checks existing contacts first
-- Creates temporary contact only if needed
-- Removes temporary contact if remove_if_new=True
-
-**REQUIREMENTS:**
-- Phone number must be registered on Telegram
-- Include country code: "+1234567890"
-
-**EXAMPLES:**
+**Examples:**
 ```json
-{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "Hello from Telegram!"}}  // Basic send
-{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "*Important*", "remove_if_new": true}}  // Auto cleanup
+// Basic message to new contact
+{"tool": "send_message_to_phone", "params": {
+  "phone_number": "+1234567890",
+  "message": "Hello from AI! 🤖"
+}}
+
+// Message with formatting and cleanup
+{"tool": "send_message_to_phone", "params": {
+  "phone_number": "+1234567890",
+  "message": "*Urgent:* Meeting rescheduled to 4 PM",
+  "parse_mode": "markdown",
+  "remove_if_new": true
+}}
 ```
 
-### `invoke_mtproto(method_full_name: str, params_json: str)`
+### 🔧 invoke_mtproto
+**Direct Telegram API access**
 
-Execute low-level Telegram MTProto API methods directly.
-
-**USE CASES:**
-- Access advanced Telegram API features
-- Custom queries not covered by standard tools
-- Administrative operations
-
-**METHOD FORMAT:**
-- Full class name: "messages.GetHistory", "users.GetFullUser"
-- Telegram API method names with proper casing
-
-**PARAMETERS:**
-- JSON string with method parameters
-- Parameter names match Telegram API documentation
-- Supports complex nested objects
-
-**EXAMPLES:**
-```json
-{"tool": "invoke_mtproto", "params": {"method_full_name": "users.GetFullUser", "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}" }}  // Get self info
-{"tool": "invoke_mtproto", "params": {"method_full_name": "messages.GetHistory", "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"}}  // Get chat history
+```typescript
+invoke_mtproto(
+  method_full_name: str,       // Full API method name (e.g., "messages.GetHistory")
+  params_json: str            // JSON string of method parameters
+)
 ```
 
-## Result Structure & Completeness
+**Use cases:** Advanced operations not covered by standard tools
 
-The server returns full-fidelity, richly structured results to minimize follow-up queries and preserve important Telegram context.
+**Examples:**
+```json
+// Get your own user information
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "users.GetFullUser",
+  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}"
+}}
 
-- Search and read responses:
-  - Top-level fields: `messages` (list), `has_more` (bool), and `total_count` (int, per-chat searches only when requested).
-  - Each message includes: `id`, `date`, `chat`, `text`, `link`, `sender`, and when available `reply_to_msg_id`, `media`, `forwarded_from`.
-  - **Media objects** are LLM-optimized placeholders containing:
-    - `mime_type`: File type (e.g., "application/pdf", "video/mp4", "image/jpeg")
-    - `approx_size_bytes`: File size in bytes (when available)
-    - `filename`: Original filename for documents (when available)
-    - No raw Telethon objects or binary data
+// Get chat message history
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.GetHistory",
+  "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"
+}}
+```
 
-Example message object:
 
+
+## 💡 Examples
+
+### 🔍 **Message Search & Analysis**
+
+**Find recent project mentions in team chats:**
 ```json
 {
-  "id": 123,
-  "date": "2025-08-25T12:34:56",
-  "chat": { "id": 123456, "type": "Channel", "title": "Example" },
-  "text": "Hello",
-  "link": "https://t.me/c/123456/123",
-  "sender": { "id": 111, "username": "alice" },
-  "reply_to_msg_id": 100,
-  "media": { },
-  "forwarded_from": { }
+  "tool": "search_messages",
+  "params": {
+    "query": "deadline, milestone, blocker",
+    "chat_type": "group",
+    "min_date": "2024-01-01",
+    "limit": 25
+  }
 }
 ```
 
-- Send/edit responses:
-  - Include `message_id`, `date`, `chat`, `text`, `status` (e.g., `sent` or `edited`), `sender`, and optional `edit_date` when edited.
-
-Example send/edit result:
-
+**Monitor competitor mentions across channels:**
 ```json
 {
-  "message_id": 456,
-  "date": "2025-08-25T12:35:10",
-  "chat": { "id": 123456, "type": "Channel", "title": "Example" },
-  "text": "Updated content",
-  "status": "edited",
-  "sender": { "id": 111, "username": "alice" },
-  "edit_date": "2025-08-25T12:36:00"
+  "tool": "search_messages",
+  "params": {
+    "query": "competitor_name",
+    "chat_type": "channel",
+    "limit": 50
+  }
 }
 ```
 
-## Examples
+### 💬 **Automated Communication**
 
-Here are some practical scenarios and example user requests you can make to an AI Agent using this MCP Telegram server:
+**Daily standup summary to team:**
+```json
+{
+  "tool": "send_or_edit_message",
+  "params": {
+    "chat_id": "@team_chat",
+    "message": "*Daily Standup - Today*\n\n✅ Completed: API optimization\n🚧 In Progress: UI improvements\n❓ Blockers: None\n\n*Tomorrow:* Database migration",
+    "parse_mode": "markdown"
+  }
+}
+```
 
+**Smart reply to customer inquiry:**
+```json
+{
+  "tool": "send_or_edit_message",
+  "params": {
+    "chat_id": "customer_chat_id",
+    "message": "Thanks for reaching out! I'll look into this right away and get back to you within 2 hours.",
+    "reply_to_msg_id": 12345
+  }
+}
+```
 
-- **Find all private conversations about warehouses since a specific date**
-  - User: `Find all private chats about warehouses since May 1, 2025.`
-  - AI Agent action:
-    ```json
-    {
-      "tool": "search_messages",
-      "params": {
-        "query": "warehouse",
-        "chat_type": "private",
-        "min_date": "2025-05-01"
-      }
-    }
-    ```
+### 👥 **Contact Management**
 
-- **Get the latest warehouse market analytics from broker channels**
-  - User: `Find the latest warehouse market analytics from broker channels.`
-  - AI Agent action:
-    ```json
-    {
-      "tool": "search_messages",
-      "params": {
-        "query": "warehouse market analytics",
-        "chat_type": "channel",
-        "limit": 10
-      }
-    }
-    ```
+**Find team member for collaboration:**
+```json
+{
+  "tool": "search_contacts",
+  "params": {
+    "query": "john developer"
+  }
+}
+```
 
-- **Summarize the current warehouse market and send to an assistant**
-  - User: `Summarize the current state of the warehouse market and send it to my assistant, Jane Smith.`
-  - AI Agent action (after resolving the chat_id for Jane Smith):
-    ```json
-    {
-      "tool": "send_or_edit_message",
-      "params": {
-        "chat_id": "123456789",
-        "message": "Summary of the current warehouse market situation (2025):\n\n- The volume of new warehouse construction in Russia reached a record 1.2 million sq.m in Q1 2025, a 12% increase year-over-year, mainly due to high demand in previous years. However, forecasts indicate a 29% year-over-year decrease in new warehouse supply in Moscow and the region by the end of 2026, down to 1.2 million sq.m, due to high financing costs and rising construction expenses.\n- Developers are increasingly shifting from speculative projects to build-to-suit and owner-occupied warehouses, with many taking a wait-and-see approach.\n- The share of e-commerce companies among tenants has dropped sharply (from 57% to 15-34%), while the share of logistics, transport, and distribution companies is growing.\n- Despite a drop in demand and a slight increase in vacancy (up to 2-4%), rental rates for class A warehouses continue to rise.\n- Regional expansion of retailers has led to record-high new supply, with the Moscow region remaining the leader (44% of new supply in Q1 2025).\n- The market is experiencing a cooling after several years of rapid growth, but there is potential for renewed activity if monetary policy eases.\n\nIf you need more details or analytics, let me know!"
-      }
-    }
-    ```
+**Get colleague's availability:**
+```json
+{
+  "tool": "get_contact_details",
+  "params": {
+    "chat_id": "@john_dev"
+  }
+}
+```
 
+### 📱 **Phone Integration**
 
-- **Send a message to a phone number not in contacts**
-  - User: `Send a message to +1234567890 saying "Hello from MCP server!"`
-  - AI Agent action:
-    ```json
-    {
-      "tool": "send_message_to_phone",
-      "params": {
-        "phone_number": "+1234567890",
-        "message": "Hello from MCP server!",
-        "first_name": "Contact",
-        "last_name": "Name",
-        "remove_if_new": false,
-        "parse_mode": null
-      }
-    }
-    ```
+**Emergency notification:**
+```json
+{
+  "tool": "send_message_to_phone",
+  "params": {
+    "phone_number": "+1234567890",
+    "message": "🚨 ALERT: Server down in production. Team notified.",
+    "remove_if_new": false
+  }
+}
+```
 
-These examples illustrate how natural language requests can be mapped to MCP tool calls for powerful Telegram automation and search.
+### 🤖 **Advanced Automation**
 
-## Project Structure
+**Content moderation workflow:**
+```json
+// 1. Search for flagged content
+{
+  "tool": "search_messages",
+  "params": {
+    "query": "inappropriate_content",
+    "chat_type": "channel",
+    "limit": 10
+  }
+}
+
+// 2. Get message details
+{
+  "tool": "read_messages",
+  "params": {
+    "chat_id": "channel_id",
+    "message_ids": [123, 124, 125]
+  }
+}
+
+// 3. Notify moderators
+{
+  "tool": "send_or_edit_message",
+  "params": {
+    "chat_id": "@moderators",
+    "message": "⚠️ Content flagged for review in #general",
+    "parse_mode": "markdown"
+  }
+}
+```
+
+### 📊 **Data Export & Reporting**
+
+**Weekly activity report:**
+```json
+{
+  "tool": "invoke_mtproto",
+  "params": {
+    "method_full_name": "messages.GetHistory",
+    "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 100, \"offset_date\": 1704067200}"
+  }
+}
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**❌ "Authentication failed"**
+```bash
+# Check your credentials
+echo "API_ID: $API_ID"
+echo "API_HASH: $API_HASH"
+echo "PHONE_NUMBER: $PHONE_NUMBER"
+
+# Re-run setup if credentials changed
+python src/setup_telegram.py
+```
+
+**❌ "Session file not found"**
+- **uvx users:** Check `~/.config/fast-mcp-telegram/`
+- **Local dev:** Check project root for `mcp_telegram.session`
+- **Multiple accounts:** Use different `SESSION_NAME` values
+
+**❌ "Rate limited"**
+- Telegram API has rate limits (30 requests/second for most operations)
+- Add delays between bulk operations
+- Consider using `invoke_mtproto` for large data exports
+
+**❌ "Phone verification code expired"**
+```bash
+# Delete session and re-authenticate
+rm ~/.config/fast-mcp-telegram/mcp_telegram.session
+python src/setup_telegram.py
+```
+
+**❌ "Chat not found"**
+- Verify chat ID format:
+  - `me` for Saved Messages
+  - `@username` for public chats
+  - Numeric ID for private chats
+  - `-100xxxxxxxxx` for channels
+
+### Debug Mode
+
+Enable detailed logging:
+```bash
+export LOG_LEVEL=DEBUG
+python src/server.py
+```
+
+### Network Issues
+
+**Proxy configuration:**
+```bash
+export HTTP_PROXY=http://proxy.company.com:8080
+export HTTPS_PROXY=http://proxy.company.com:8080
+```
+
+**DNS issues:**
+```bash
+# Force IPv4
+export TELETHON_FORCE_IPV4=true
+```
+
+### Getting Help
+
+- 📖 **Documentation:** [modelcontextprotocol.io](https://modelcontextprotocol.io)
+- 💬 **Community:** [Telegram Discussion Group](https://t.me/mcp_telegram)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues)
+
+---
+
+## 📁 Project Structure
 
 ```
 fast-mcp-telegram/
@@ -519,19 +614,55 @@ fast-mcp-telegram/
 Note: *.session and *.session-journal files will be created after authentication
 ```
 
-## Dependencies
+## 📦 Dependencies
 
-The project uses [uv](https://github.com/astral-sh/uv) for dependency management and relies on the following main packages:
+| Package | Purpose |
+|---------|---------|
+| **fastmcp** | MCP server framework |
+| **telethon** | Telegram API client |
+| **loguru** | Structured logging |
+| **aiohttp** | Async HTTP client |
+| **python-dotenv** | Environment management |
+
+**Installation:** `uv sync` (dependencies managed via `pyproject.toml`)
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+**Development setup:**
+```bash
+uv sync --all-extras  # Install dev dependencies
+uv run ruff format . # Format code
+uv run ruff check .  # Lint code
 ```
-fastmcp         # FastMCP framework for MCP servers
-loguru          # Logging
-aiohttp         # Async HTTP
-telethon        # Telegram client
-python-dotenv   # Environment management
-```
 
-Dependencies are managed through `pyproject.toml` and locked in `uv.lock`.
+---
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- [FastMCP](https://github.com/jlowin/fastmcp) - MCP server framework
+- [Telethon](https://github.com/LonamiWebs/Telethon) - Telegram API library
+- [Model Context Protocol](https://modelcontextprotocol.io) - Protocol specification
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the AI automation community**
+
+[⭐ Star us on GitHub](https://github.com/leshchenko1979/fast-mcp-telegram) • [💬 Join our community](https://t.me/mcp_telegram)
+
+</div>
