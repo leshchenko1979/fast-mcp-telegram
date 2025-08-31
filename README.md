@@ -229,9 +229,9 @@ python3 src/server.py
 
 The server provides the following MCP tools with concise, LLM-optimized descriptions:
 
-### `search_messages(query: str, chat_id: str = None, limit: int = 50, offset: int = 0, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
+### `search_messages(query: str, chat_id: str = None, limit: int = 50, chat_type: str = None, min_date: str = None, max_date: str = None, auto_expand_batches: int = 2, include_total_count: bool = False)`
 
-Search Telegram messages with advanced filtering and pagination.
+Search Telegram messages with advanced filtering.
 
 **MODES:**
 - Per-chat: Set chat_id + optional query (use 'me' for Saved Messages)
@@ -241,7 +241,6 @@ Search Telegram messages with advanced filtering and pagination.
 - Multiple queries: "term1, term2, term3"
 - Date filtering: ISO format (min_date="2024-01-01")
 - Chat type filter: "private", "group", "channel"
-- Pagination: offset + limit (keep limit ≤ 50)
 
 **EXAMPLES:**
 ```json

@@ -59,14 +59,13 @@ async def _execute_parallel_searches(
     search_tasks: list,
     collected: list[dict[str, Any]],
     seen_keys: set,
-    offset: int,
     limit: int,
 ) -> None:
     """Execute multiple search tasks in parallel and collect results with deduplication."""
     results_lists = await asyncio.gather(*search_tasks)
     for partial in results_lists:
-        _append_dedup_until_limit(collected, seen_keys, partial, offset + limit)
-        if len(collected) >= (offset + limit):
+        _append_dedup_until_limit(collected, seen_keys, partial, limit)
+        if len(collected) >= limit:
             break
 
 
@@ -76,13 +75,12 @@ async def search_messages(
     limit: int = 20,
     min_date: str = None,  # ISO format date string
     max_date: str = None,  # ISO format date string
-    offset: int = 0,  # Offset for pagination
     chat_type: str = None,  # 'private', 'group', 'channel', or None
     auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
     include_total_count: bool = False,  # Whether to include total count in response
 ) -> dict[str, Any]:
     """
-    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
+    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with optional chat type filtering and auto-expansion for filtered results.
 
     Args:
         query: Search query string (use comma-separated terms for multiple queries). For per-chat, may be empty; for global, must not be empty. Results are merged and deduplicated.
@@ -90,7 +88,6 @@ async def search_messages(
         limit: Maximum number of results to return
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
-        offset: Number of messages to skip (for pagination)
         chat_type: Optional filter for chat type ('private', 'group', 'channel')
         auto_expand_batches: Maximum additional batches to fetch if not enough filtered results (default 2)
         include_total_count: Whether to include total count of matching messages in response (default False)
@@ -127,7 +124,6 @@ async def search_messages(
                 "limit": limit,
                 "min_date": min_date,
                 "max_date": max_date,
-                "offset": offset,
                 "chat_type": chat_type,
             }
         },
@@ -152,14 +148,13 @@ async def search_messages(
                         entity,
                         (q or ""),
                         limit,
-                        0,
                         chat_type,
                         auto_expand_batches,
                     )
                     for q in per_chat_queries
                 ]
                 await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, offset, limit
+                    search_tasks, collected, seen_keys, limit
                 )
 
                 if include_total_count:
@@ -179,7 +174,6 @@ async def search_messages(
                         limit,
                         min_datetime,
                         max_datetime,
-                        0,
                         chat_type,
                         auto_expand_batches,
                     )
@@ -187,24 +181,20 @@ async def search_messages(
                     if q and str(q).strip()
                 ]
                 await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, offset, limit
+                    search_tasks, collected, seen_keys, limit
                 )
             except Exception as e:
                 logger.error(f"Error in global search: {e}")
                 raise
 
-        # Apply pagination window after deduplication
-        window = (
-            collected[offset : offset + limit]
-            if limit is not None
-            else collected[offset:]
-        )
+        # Return results up to limit
+        window = collected[:limit] if limit is not None else collected
 
         logger.info(
             f"[{request_id}] Found {len(window)} messages matching query: {query}"
         )
 
-        has_more = len(collected) > (offset + len(window))
+        has_more = len(collected) > len(window)
 
         response = {"messages": window, "has_more": has_more}
 
@@ -226,7 +216,6 @@ async def search_messages(
                 "limit": limit,
                 "min_date": min_date,
                 "max_date": max_date,
-                "offset": offset,
                 "chat_type": chat_type,
             },
         }
@@ -235,10 +224,9 @@ async def search_messages(
 
 
 async def _search_chat_messages(
-    client, entity, query, limit, offset, chat_type, auto_expand_batches
+    client, entity, query, limit, chat_type, auto_expand_batches
 ):
     results = []
-    count = 0
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
@@ -249,9 +237,6 @@ async def _search_chat_messages(
             entity, search=query, offset_id=next_offset_id
         ):
             if not message:
-                continue
-            if count < offset:
-                count += 1
                 continue
             batch.append(message)
             if len(batch) >= limit * 2:
@@ -279,7 +264,6 @@ async def _search_global_messages(
     limit,
     min_datetime,
     max_datetime,
-    offset,
     chat_type,
     auto_expand_batches,
 ):

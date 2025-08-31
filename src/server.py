@@ -49,7 +49,6 @@ async def search_messages(
     query: str,
     chat_id: str = None,
     limit: int = 50,
-    offset: int = 0,
     chat_type: str = None,
     min_date: str = None,
     max_date: str = None,
@@ -57,7 +56,7 @@ async def search_messages(
     include_total_count: bool = False,
 ):
     """
-    Search Telegram messages with advanced filtering and pagination.
+    Search Telegram messages with advanced filtering.
 
     MODES:
     - Per-chat: Set chat_id + optional query (use 'me' for Saved Messages)
@@ -67,7 +66,6 @@ async def search_messages(
     - Multiple queries: "term1, term2, term3"
     - Date filtering: ISO format (min_date="2024-01-01")
     - Chat type filter: "private", "group", "channel"
-    - Pagination: offset + limit (keep limit ≤ 50)
 
     EXAMPLES:
     search_messages(query="deadline", limit=20)  # Global search
@@ -78,7 +76,6 @@ async def search_messages(
         query: Search terms (comma-separated). Required for global search, optional for per-chat
         chat_id: Target chat ID ('me' for Saved Messages) or None for global search
         limit: Max results (recommended: ≤50)
-        offset: Pagination offset (0-based)
         chat_type: Filter by chat type ("private"/"group"/"channel")
         min_date: Min date filter (ISO format: "2024-01-01")
         max_date: Max date filter (ISO format: "2024-12-31")
@@ -89,7 +86,7 @@ async def search_messages(
         request_id = f"search_{int(time.time())}"
         logger.info(
             f"[{request_id}] Searching messages with query(s): "
-            f"{query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, "
+            f"{query}, chat_id: {chat_id}, limit: {limit}, chat_type: {chat_type}, "
             f"min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}"
         )
         search_result = await search_messages_impl(
@@ -98,7 +95,6 @@ async def search_messages(
             limit,
             min_date=min_date,
             max_date=max_date,
-            offset=offset,
             chat_type=chat_type,
             auto_expand_batches=auto_expand_batches,
             include_total_count=include_total_count,
@@ -109,7 +105,7 @@ async def search_messages(
             messages = search_result["messages"]
             logger.info(
                 f"[{request_id}] Found {len(messages)} messages "
-                f"(offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
+                f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
                 f"auto_expand_batches: {auto_expand_batches})"
             )
             if not messages:
@@ -119,7 +115,7 @@ async def search_messages(
             # Fallback for old response format
             logger.info(
                 f"[{request_id}] Found {len(search_result)} messages "
-                f"(offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
+                f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
                 f"auto_expand_batches: {auto_expand_batches})"
             )
             if not search_result:
