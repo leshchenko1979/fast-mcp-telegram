@@ -60,6 +60,33 @@ def _append_dedup_until_limit(
             break
 
 
+def _has_any_media(message) -> bool:
+    """Check if message contains any type of media content."""
+    if not hasattr(message, "media") or message.media is None:
+        return False
+
+    media = message.media
+    media_class = media.__class__.__name__
+
+    # Check for all known media types
+    return media_class in [
+        "MessageMediaPhoto",      # Photos
+        "MessageMediaDocument",   # Documents, files, audio, video files
+        "MessageMediaAudio",      # Audio files
+        "MessageMediaVoice",      # Voice messages
+        "MessageMediaVideo",      # Videos
+        "MessageMediaWebPage",    # Link previews
+        "MessageMediaGeo",        # Location
+        "MessageMediaContact",    # Contact cards
+        "MessageMediaPoll",       # Polls
+        "MessageMediaDice",       # Dice animations
+        "MessageMediaVenue",      # Venue/location with name
+        "MessageMediaGame",       # Games
+        "MessageMediaInvoice",    # Payments/invoices
+        "MessageMediaUnsupported", # Unsupported media types
+    ]
+
+
 def _matches_chat_type(entity, chat_type: str) -> bool:
     """Check if entity matches the specified chat type filter."""
     if not chat_type:
@@ -85,11 +112,16 @@ async def _process_message_for_results(
 
     Returns True if the message was added, False otherwise.
     """
-    if (
-        not message
-        or not (hasattr(message, "message") and message.message)
-        or (hasattr(message, "text") and message.text)
-    ):
+    if not message:
+        return False
+
+    # Check if message has content (text or any type of media)
+    has_content = (
+        (hasattr(message, "text") and message.text) or
+        _has_any_media(message)
+    )
+
+    if not has_content:
         return False
 
     if not _matches_chat_type(chat_entity, chat_type):
@@ -299,7 +331,7 @@ async def _search_chat_messages(
         async for message in client.iter_messages(
             entity, search=query, offset_id=next_offset_id
         ):
-            if not message or not getattr(message, "text", None):
+            if not message:
                 continue
             if count < offset:
                 count += 1
