@@ -45,17 +45,26 @@ deploy() {
   ssh "$VDS_USER@$VDS_HOST" "rm -rf $VDS_PROJECT_PATH && mkdir -p $VDS_PROJECT_PATH"
 
   log "$BLUE" "Transferring project files..."
-  git ls-files | tar -czf - --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
+  # Create a temporary file list excluding deleted files
+  git ls-files | xargs ls -d 2>/dev/null | tar -czf - --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
   scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
   
   log "$BLUE" "Copying session files..."
-  scp -C *.session* "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/" 2>/dev/null || log "$BLUE" "No session files to copy"
+  # Copy session files if they exist
+  if ls *.session* 1>/dev/null 2>&1; then
+    scp -C *.session* "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/" || log "$RED" "Failed to copy session files"
+  else
+    log "$BLUE" "No session files to copy"
+  fi
 
   log "$BLUE" "Starting containers..."
-  ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --env-file .env up --build -d"
+  if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --env-file .env up --build -d"; then
+    log "$RED" "Failed to start containers"
+    exit 1
+  fi
 
   log "$BLUE" "Checking health..."
-  ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && docker compose logs --since=1m tg-mcp | tail -n 100 | cat"
+  ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && echo '=== Recent logs ===' && docker compose logs --since=1m tg-mcp | tail -n 20 | cat"
 }
 
 validate

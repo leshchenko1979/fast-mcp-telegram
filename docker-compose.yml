@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+      target: runtime
     env_file:
       - ./.env
     environment:
