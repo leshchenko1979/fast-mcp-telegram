@@ -1,9 +1,12 @@
-from typing import Dict, Any, List, Union
-from loguru import logger
 import traceback
-from src.config.logging import format_diagnostic_info
+from typing import Any, Dict, List
+
+from loguru import logger
+
 from src.client.connection import get_connected_client
+from src.config.logging import format_diagnostic_info
 from src.utils.entity import get_entity_by_id
+
 
 async def generate_telegram_links(
     chat_id: str,
@@ -11,7 +14,7 @@ async def generate_telegram_links(
     username: str = None,
     thread_id: int = None,
     comment_id: int = None,
-    media_timestamp: int = None
+    media_timestamp: int = None,
 ) -> Dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
@@ -25,9 +28,9 @@ async def generate_telegram_links(
                 "username": username,
                 "thread_id": thread_id,
                 "comment_id": comment_id,
-                "media_timestamp": media_timestamp
+                "media_timestamp": media_timestamp,
             }
-        }
+        },
     )
 
     try:
@@ -49,20 +52,20 @@ async def generate_telegram_links(
         real_username = None
         is_public = False
         entity = None
-        client = await get_connected_client()
+        await get_connected_client()
 
         entity = await get_entity_by_id(chat_id)
 
         if entity is None and username:
             entity = await get_entity_by_id(username)
 
-        if entity is not None and hasattr(entity, 'username') and entity.username:
+        if entity is not None and hasattr(entity, "username") and entity.username:
             real_username = entity.username
             is_public = True
 
         # --- Link generation ---
         if is_public and real_username:
-            clean_username = real_username.lstrip('@')
+            clean_username = real_username.lstrip("@")
             result["public_chat_link"] = f"https://t.me/{clean_username}"
             if message_ids:
                 result["message_links"] = []
@@ -75,7 +78,7 @@ async def generate_telegram_links(
         elif entity is not None:
             # Private chat
             channel_id = str(entity.id)
-            if channel_id.startswith('-100'):
+            if channel_id.startswith("-100"):
                 channel_id = channel_id[4:]
             result["private_chat_link"] = f"https://t.me/c/{channel_id}"
             if message_ids:
@@ -89,7 +92,10 @@ async def generate_telegram_links(
         else:
             result["note"] = "Cannot resolve chat entity. Check chat_id or username."
 
-        result["note"] = result.get("note") or "Private chat links only work for chat members. Public links work for anyone."
+        result["note"] = (
+            result.get("note")
+            or "Private chat links only work for chat members. Public links work for anyone."
+        )
         logger.info(f"Successfully generated Telegram links for chat_id: {chat_id}")
         return result
 
@@ -98,7 +104,7 @@ async def generate_telegram_links(
             "error": {
                 "type": type(e).__name__,
                 "message": str(e),
-                "traceback": traceback.format_exc()
+                "traceback": traceback.format_exc(),
             },
             "params": {
                 "chat_id": chat_id,
@@ -106,11 +112,15 @@ async def generate_telegram_links(
                 "username": username,
                 "thread_id": thread_id,
                 "comment_id": comment_id,
-                "media_timestamp": media_timestamp
-            }
+                "media_timestamp": media_timestamp,
+            },
         }
-        logger.error("Error generating Telegram links", extra={"diagnostic_info": format_diagnostic_info(error_info)})
+        logger.error(
+            "Error generating Telegram links",
+            extra={"diagnostic_info": format_diagnostic_info(error_info)},
+        )
         raise
+
 
 def format_chat_link(chat_id: str, is_private: bool = False) -> str:
     """
@@ -120,9 +130,10 @@ def format_chat_link(chat_id: str, is_private: bool = False) -> str:
     For public chats: t.me/username
     """
     if is_private:
-        channel_id = chat_id[4:] if chat_id.startswith('-100') else chat_id
+        channel_id = chat_id[4:] if chat_id.startswith("-100") else chat_id
         return f"https://t.me/c/{channel_id}"
     return f"https://t.me/{chat_id.lstrip('@')}"
+
 
 def format_message_link(
     chat_id: str,
@@ -130,7 +141,7 @@ def format_message_link(
     is_private: bool = False,
     thread_id: int = None,
     comment_id: int = None,
-    media_timestamp: int = None
+    media_timestamp: int = None,
 ) -> str:
     """
     Format a message link based on chat ID and message ID.
@@ -149,12 +160,12 @@ def format_message_link(
         query_string = "?" + query_string
 
     if is_private:
-        channel_id = chat_id[4:] if chat_id.startswith('-100') else chat_id
+        channel_id = chat_id[4:] if chat_id.startswith("-100") else chat_id
         if thread_id:
             return f"https://t.me/c/{channel_id}/{thread_id}/{message_id}{query_string}"
         return f"https://t.me/c/{channel_id}/{message_id}{query_string}"
     else:
-        username = chat_id.lstrip('@')
+        username = chat_id.lstrip("@")
         if thread_id:
             return f"https://t.me/{username}/{thread_id}/{message_id}{query_string}"
         return f"https://t.me/{username}/{message_id}{query_string}"

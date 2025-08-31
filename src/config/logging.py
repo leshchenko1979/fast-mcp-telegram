@@ -1,21 +1,22 @@
-from datetime import datetime
-from loguru import logger
-from .settings import LOG_DIR
-import sys
-import os
 import logging
+import sys
+from datetime import datetime
+
+from loguru import logger
+
+from .settings import LOG_DIR
 
 # Get current timestamp for log file name
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_PATH = LOG_DIR / f"mcp_server_{current_time}.log"
 
-IS_TEST_MODE = '--test-mode' in sys.argv
+IS_TEST_MODE = "--test-mode" in sys.argv
 
 
 def setup_logging():
     """Configure logging with loguru."""
     logger.remove()
-    
+
     # File sink with full tracebacks and diagnostics
     logger.add(
         LOG_PATH,
@@ -26,7 +27,7 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
         # Clean format - emitter info is now in the message
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}"
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}",
     )
     # Console sink for quick visibility (DEBUG with full backtraces)
     logger.add(
@@ -36,7 +37,7 @@ def setup_logging():
         diagnose=True,
         enqueue=True,
         # Clean format - emitter info is now in the message
-        format="{time:HH:mm:ss.SSS} | {level:<8} | {message}"
+        format="{time:HH:mm:ss.SSS} | {level:<8} | {message}",
     )
 
     # Bridge standard logging (uvicorn, telethon, etc.) to loguru
@@ -54,15 +55,19 @@ def setup_logging():
             emitter_logger = getattr(record, "name", "unknown")
             emitter_func = getattr(record, "funcName", "unknown")
             emitter_line = getattr(record, "lineno", "?")
-            
+
             # Keep full logger name for proper debugging context
             formatted_message = f"{emitter_logger}:{emitter_func}:{emitter_line} - {record.getMessage()}"
-            
+
             try:
-                logger.opt(depth=depth, exception=record.exc_info).log(level, formatted_message)
-            except Exception as e:
+                logger.opt(depth=depth, exception=record.exc_info).log(
+                    level, formatted_message
+                )
+            except Exception:
                 # Fallback if anything fails
-                logger.opt(depth=depth, exception=record.exc_info).log(level, f"[logging_error] {record.getMessage()}")
+                logger.opt(depth=depth, exception=record.exc_info).log(
+                    level, f"[logging_error] {record.getMessage()}"
+                )
 
     # Install a single root handler
     root_logger = logging.getLogger()
@@ -82,9 +87,9 @@ def setup_logging():
 
     # Noisy submodules lowered to INFO (suppress their DEBUG flood)
     noisy_modules = [
-        "telethon.network.mtprotosender",   # _send_loop, _recv_loop, _handle_update, etc.
-        "telethon.extensions.messagepacker", # packing/debug spam
-        "telethon.network",                 # any other network internals
+        "telethon.network.mtprotosender",  # _send_loop, _recv_loop, _handle_update, etc.
+        "telethon.extensions.messagepacker",  # packing/debug spam
+        "telethon.network",  # any other network internals
     ]
     for name in noisy_modules:
         logging.getLogger(name).setLevel(logging.INFO)
@@ -94,6 +99,7 @@ def format_diagnostic_info(info: dict) -> str:
     """Format diagnostic information for logging."""
     try:
         import json
+
         return json.dumps(info, indent=2, default=str)
     except Exception as e:
         return f"Error formatting diagnostic info: {str(e)}"

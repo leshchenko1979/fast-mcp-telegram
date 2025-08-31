@@ -3,26 +3,26 @@ Main server module for the Telegram bot functionality.
 Provides API endpoints and core bot features.
 """
 
-import os
-import time
-from loguru import logger
-from fastmcp import FastMCP
-import traceback
 import asyncio
-import sys
 import os
+import sys
+import time
+import traceback
+
+from fastmcp import FastMCP
+from loguru import logger
 
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config.logging import setup_logging
-from src.tools.search import search_messages as search_messages_impl
-from src.tools.messages import send_message, edit_message, read_messages_by_ids
-from src.tools.mtproto import invoke_mtproto_method
 from src.tools.contacts import get_contact_info, search_contacts_telegram
-from src.tools.messages import send_message, edit_message, read_messages_by_ids, send_message_to_phone_impl
+from src.tools.messages import edit_message, read_messages_by_ids, send_message
+from src.tools.messages import send_message_to_phone_impl
+from src.tools.mtproto import invoke_mtproto_method
+from src.tools.search import search_messages as search_messages_impl
 
-IS_TEST_MODE = '--test-mode' in sys.argv
+IS_TEST_MODE = "--test-mode" in sys.argv
 
 if IS_TEST_MODE:
     transport = "http"
@@ -54,23 +54,23 @@ async def search_messages(
 ):
     """
     Search Telegram messages with pagination, filters, and auto-expansion.
-    
+
     ⚠️ PERFORMANCE: Keep limit at 50 or lower to prevent context overflow.
-    
+
     SEARCH MODES:
     1. PER-CHAT: Set chat_id, query optional (gets all messages or searches content)
     2. GLOBAL: No chat_id, query required (searches across all chats)
-    
+
     MULTIPLE QUERIES:
     - Use comma-separated terms in a single string
     - Results are merged and deduplicated across all terms
     - Example: query="deadline, due date" finds messages containing either term
-    
+
     COMMON MISTAKE: Don't use contact names as query in global search.
     ✅ Use search_contacts() first to get chat_id, then search_messages(chat_id=...)
-    
+
     TOTAL COUNT: Set include_total_count=True for per-chat searches to get total matching messages.
-    
+
     Args:
         query: Search query string (use comma-separated terms for multiple queries). Empty allowed only with chat_id.
         chat_id: Target chat ID (per-chat search) or None (global search)
@@ -81,32 +81,36 @@ async def search_messages(
         max_date: Maximum date (ISO format)
         auto_expand_batches: Additional batches for filtered results (default 2)
         include_total_count: Include total count in response (per-chat only)
-    
+
     Examples:
         # Single query, global search
         search_messages(query="deadline", limit=20)
-        
+
         # Multiple queries, global search (comma-separated)
         search_messages(query="deadline, due date", limit=30)
-        
+
         # Multiple queries with Russian terms (comma-separated)
         search_messages(query="рынок складов, складская недвижимость, warehouse market", limit=50)
-        
+
         # Per-chat search with multiple queries
         search_messages(chat_id="-1001234567890", query="launch, release notes")
-        
+
         # Per-chat search, all messages (empty query)
         search_messages(chat_id="-1001234567890", query="")
-        
+
         # Date-filtered search
         search_messages(query="warehouse", min_date="2024-01-01", max_date="2024-12-31")
-        
+
         # Chat type filtered search
         search_messages(query="market", chat_type="channel", limit=10)
     """
     try:
         request_id = f"search_{int(time.time())}"
-        logger.info(f"[{request_id}] Searching messages with query(s): {query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}")
+        logger.info(
+            f"[{request_id}] Searching messages with query(s): "
+            f"{query}, chat_id: {chat_id}, limit: {limit}, offset: {offset}, chat_type: {chat_type}, "
+            f"min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}"
+        )
         search_result = await search_messages_impl(
             query,
             chat_id,
@@ -116,53 +120,61 @@ async def search_messages(
             offset=offset,
             chat_type=chat_type,
             auto_expand_batches=auto_expand_batches,
-            include_total_count=include_total_count
+            include_total_count=include_total_count,
         )
-        
+
         # Handle the new response structure
-        if isinstance(search_result, dict) and 'messages' in search_result:
-            messages = search_result['messages']
-            logger.info(f"[{request_id}] Found {len(messages)} messages (offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches})")
+        if isinstance(search_result, dict) and "messages" in search_result:
+            messages = search_result["messages"]
+            logger.info(
+                f"[{request_id}] Found {len(messages)} messages "
+                f"(offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
+                f"auto_expand_batches: {auto_expand_batches})"
+            )
             if not messages:
                 return {"status": "No results found, custom message."}
             return search_result
         else:
             # Fallback for old response format
-            logger.info(f"[{request_id}] Found {len(search_result)} messages (offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches})")
+            logger.info(
+                f"[{request_id}] Found {len(search_result)} messages "
+                f"(offset: {offset}, chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
+                f"auto_expand_batches: {auto_expand_batches})"
+            )
             if not search_result:
                 return {"status": "No results found, custom message."}
             return search_result
     except Exception as e:
         error_text = str(e) if e else ""
-        logger.error(f"[{request_id}] Error searching messages: {error_text}\n{traceback.format_exc()}")
+        logger.error(
+            f"[{request_id}] Error searching messages: {error_text}\n{traceback.format_exc()}"
+        )
         # Special handling: duplicated authorization key/session used from two IPs
         lowered = error_text.lower()
         if (
-            "authorization key" in lowered and "two different ip" in lowered
-        ) or (
-            "session file" in lowered and "two different ip" in lowered
-        ) or (
-            "auth key" in lowered and "duplicated" in lowered
+            ("authorization key" in lowered and "two different ip" in lowered)
+            or ("session file" in lowered and "two different ip" in lowered)
+            or ("auth key" in lowered and "duplicated" in lowered)
         ):
             return {
                 "ok": False,
                 "error": "Your Telegram session was invalidated due to concurrent use from different IPs. Please run setup to re-authenticate: python3 setup_telegram.py",
-                "action": "run_setup"
+                "action": "run_setup",
             }
         raise
 
 
 @mcp.tool()
 async def send_or_edit_message(
-    chat_id: str, 
-    message: str, 
+    chat_id: str,
+    message: str,
     reply_to_msg_id: int = None,
     parse_mode: str = None,
-    message_id: int = None
+    message_id: int = None,
 ):
     """
     Send a message to a Telegram chat, optionally as a reply, or edit an existing message.
-    
+
     Args:
         chat_id: The ID of the chat to send the message to
         message: The text message to send or new text for editing
@@ -172,7 +184,7 @@ async def send_or_edit_message(
             - 'md' or 'markdown': Markdown formatting
             - 'html': HTML formatting
         message_id: ID of the message to edit (optional). If provided, edits the message instead of sending a new one.
-    
+
     Formatting Examples:
         Markdown: *bold*, _italic_, [link](url), `code`
         HTML: <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
@@ -183,7 +195,7 @@ async def send_or_edit_message(
     else:
         # Send new message
         result = await send_message(chat_id, message, reply_to_msg_id, parse_mode)
-    
+
     return result
 
 
@@ -191,7 +203,7 @@ async def send_or_edit_message(
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
     Read specific messages by their IDs in a given chat.
-    
+
     Args:
         chat_id: Target chat identifier (username like '@channel', numeric ID, or '-100...' form)
         message_ids: List of message IDs to fetch
@@ -200,40 +212,37 @@ async def read_messages(chat_id: str, message_ids: list[int]):
     return results
 
 
-
-
-
 @mcp.tool()
 async def search_contacts(query: str, limit: int = 20):
     """
     Search contacts using Telegram's native search functionality.
-    
+
     This tool uses Telegram's built-in contacts.SearchRequest method to find
     users and chats by name, username, or phone number. This searches through your contacts and global Telegram users.
-    
-    ⚠️ PERFORMANCE NOTE: 
+
+    ⚠️ PERFORMANCE NOTE:
     - Contact searches typically return fewer results than message searches
     - Default limit of 20 is usually sufficient for contact resolution
     - Only increase limit if you need to find contacts with very common names
-    
+
     IMPORTANT: This is the recommended method for finding specific contacts.
-    
+
     FEATURES:
     - Searches through your contacts and global Telegram users
     - Supports search by name, username, or phone number
     - Returns detailed contact information including chat_id, username, phone
-    
+
     WORKFLOW:
     1. User asks: "Find messages from @username or John Doe"
     2. Use this tool: search_contacts(query="username") or search_contacts(query="John Doe")
     3. Get the chat_id from the result
     4. Use search_messages(chat_id=chat_id, query="your_search_term")
-    
+
     Example:
     - search_contacts("Евдокимов") → finds all contacts with "Евдокимов" in name
     - search_contacts("@username") → finds specific user by username
     - search_contacts("+1234567890") → finds contact by phone number
-    
+
     Args:
         query: The search query (name, username, or phone number)
         limit: Maximum number of results to return (RECOMMENDED: 20 or lower)
@@ -246,9 +255,9 @@ async def search_contacts(query: str, limit: int = 20):
 async def get_contact_details(chat_id: str):
     """
     Get detailed information about a specific contact.
-    
+
     Use this tool to get more information about a contact after finding their chat_id.
-    
+
     Args:
         chat_id: The chat ID of the contact
     """
@@ -264,16 +273,16 @@ async def send_message_to_phone(
     last_name: str = "Name",
     remove_if_new: bool = False,
     reply_to_msg_id: int = None,
-    parse_mode: str = None
+    parse_mode: str = None,
 ):
     """
     Send a message to a phone number, safely handling both existing and new contacts.
-    
+
     This tool safely handles phone messaging by checking if the contact already exists,
     only creating a new contact if needed, and only removing newly created contacts.
-    
+
     IMPORTANT: The phone number must be registered on Telegram for this to work.
-    
+
     Args:
         phone_number: The target phone number (with country code, e.g., "+1234567890")
         message: The text message to send
@@ -285,7 +294,7 @@ async def send_message_to_phone(
             - None: Plain text (default)
             - 'md' or 'markdown': Markdown formatting
             - 'html': HTML formatting
-    
+
     Returns:
         Dictionary with operation results consistent with send_or_edit_message format, plus:
         - phone_number: The phone number that was messaged
@@ -299,17 +308,16 @@ async def send_message_to_phone(
         last_name=last_name,
         remove_if_new=remove_if_new,
         reply_to_msg_id=reply_to_msg_id,
-        parse_mode=parse_mode
+        parse_mode=parse_mode,
     )
     return result
-
 
 
 @mcp.tool()
 async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     Dynamically invoke any MTProto method by name and parameters.
-    
+
     Args:
         method_full_name: Full class name of the MTProto method, e.g., 'messages.GetHistory'
         params_json: JSON string with parameters for the method
@@ -318,13 +326,16 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     try:
         import json
+
         try:
             params = json.loads(params_json)
         except Exception as e:
             return {"ok": False, "error": f"Invalid JSON in params_json: {e}"}
 
         # Convert any non-string keys to strings
-        sanitized_params = { (k if isinstance(k, str) else str(k)): v for k, v in params.items() }
+        sanitized_params = {
+            (k if isinstance(k, str) else str(k)): v for k, v in params.items()
+        }
 
         result = await invoke_mtproto_method(method_full_name, sanitized_params)
         return result
@@ -352,6 +363,7 @@ def shutdown_procedure():
 def setup_telegram():
     """Entry point for Telegram session setup console script."""
     from src.setup_telegram import main
+
     asyncio.run(main())
 
 
