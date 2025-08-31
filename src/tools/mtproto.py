@@ -1,8 +1,8 @@
 import base64
-from importlib import import_module
 import random
 import traceback
-from typing import Any, Dict
+from importlib import import_module
+from typing import Any
 
 from loguru import logger
 
@@ -19,7 +19,7 @@ def _json_safe(value: Any) -> Any:
     - ensure all strings are UTF-8 encodable (replace errors if needed)
     """
     try:
-        if value is None or isinstance(value, (bool, int, float)):
+        if value is None or isinstance(value, bool | int | float):
             return value
         if isinstance(value, bytes):
             return base64.b64encode(value).decode("ascii")
@@ -31,9 +31,9 @@ def _json_safe(value: Any) -> Any:
                 return value.encode("utf-8", "replace").decode("utf-8")
         if isinstance(value, dict):
             return {str(k): _json_safe(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple, set)):
+        if isinstance(value, list | tuple | set):
             return [_json_safe(v) for v in value]
-        if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
+        if hasattr(value, "to_dict") and callable(value.to_dict):
             try:
                 return _json_safe(value.to_dict())
             except Exception:
@@ -44,8 +44,8 @@ def _json_safe(value: Any) -> Any:
 
 
 async def invoke_mtproto_method(
-    method_full_name: str, params: Dict[str, Any]
-) -> Dict[str, Any]:
+    method_full_name: str, params: dict[str, Any]
+) -> dict[str, Any]:
     """
     Dynamically invoke any MTProto method by name and parameters.
 
@@ -118,7 +118,7 @@ async def invoke_mtproto_method(
         return {"ok": False, "error": _json_safe(error_info)}
 
 
-def _sanitize_mtproto_params(params: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize and validate MTProto method parameters for security.
 
@@ -136,7 +136,7 @@ def _sanitize_mtproto_params(params: Dict[str, Any]) -> Dict[str, Any]:
         hash_value = sanitized["hash"]
 
         # Validate hash is a valid integer
-        if not isinstance(hash_value, (int, str)):
+        if not isinstance(hash_value, int | str):
             logger.warning(f"Invalid hash type: {type(hash_value)}, setting to 0")
             sanitized["hash"] = 0
         else:

@@ -17,8 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config.logging import setup_logging
 from src.tools.contacts import get_contact_info, search_contacts_telegram
-from src.tools.messages import edit_message, read_messages_by_ids, send_message
-from src.tools.messages import send_message_to_phone_impl
+from src.tools.messages import (
+    edit_message,
+    read_messages_by_ids,
+    send_message,
+    send_message_to_phone_impl,
+)
 from src.tools.mtproto import invoke_mtproto_method
 from src.tools.search import search_messages as search_messages_impl
 

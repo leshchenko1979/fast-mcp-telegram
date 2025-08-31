@@ -1,18 +1,20 @@
-from typing import Dict, List, Any, Optional
-from telethon.tl.functions.messages import SearchGlobalRequest, GetSearchCountersRequest
-from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
-from loguru import logger
-import time
-from datetime import datetime
-import traceback
 import asyncio
+import time
+import traceback
+from datetime import datetime
+from typing import Any
+
+from loguru import logger
+from telethon.tl.functions.messages import GetSearchCountersRequest, SearchGlobalRequest
+from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
+
 from src.client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import get_entity_by_id, compute_entity_identifier
+from src.utils.entity import compute_entity_identifier, get_entity_by_id
 from src.utils.message_format import build_message_result
 
 
-async def _get_chat_message_count(chat_id: str) -> Optional[int]:
+async def _get_chat_message_count(chat_id: str) -> int | None:
     """
     Get total message count for a specific chat.
     """
@@ -41,9 +43,9 @@ async def _get_chat_message_count(chat_id: str) -> Optional[int]:
 
 
 def _append_dedup_until_limit(
-    collected: List[Dict[str, Any]],
+    collected: list[dict[str, Any]],
     seen_keys: set,
-    new_messages: List[Dict[str, Any]],
+    new_messages: list[dict[str, Any]],
     target_total: int,
 ) -> None:
     """Append messages into collected with deduplication until target_total is reached.
@@ -70,20 +72,20 @@ def _has_any_media(message) -> bool:
 
     # Check for all known media types
     return media_class in [
-        "MessageMediaPhoto",      # Photos
-        "MessageMediaDocument",   # Documents, files, audio, video files
-        "MessageMediaAudio",      # Audio files
-        "MessageMediaVoice",      # Voice messages
-        "MessageMediaVideo",      # Videos
-        "MessageMediaWebPage",    # Link previews
-        "MessageMediaGeo",        # Location
-        "MessageMediaContact",    # Contact cards
-        "MessageMediaPoll",       # Polls
-        "MessageMediaDice",       # Dice animations
-        "MessageMediaVenue",      # Venue/location with name
-        "MessageMediaGame",       # Games
-        "MessageMediaInvoice",    # Payments/invoices
-        "MessageMediaUnsupported", # Unsupported media types
+        "MessageMediaPhoto",  # Photos
+        "MessageMediaDocument",  # Documents, files, audio, video files
+        "MessageMediaAudio",  # Audio files
+        "MessageMediaVoice",  # Voice messages
+        "MessageMediaVideo",  # Videos
+        "MessageMediaWebPage",  # Link previews
+        "MessageMediaGeo",  # Location
+        "MessageMediaContact",  # Contact cards
+        "MessageMediaPoll",  # Polls
+        "MessageMediaDice",  # Dice animations
+        "MessageMediaVenue",  # Venue/location with name
+        "MessageMediaGame",  # Games
+        "MessageMediaInvoice",  # Payments/invoices
+        "MessageMediaUnsupported",  # Unsupported media types
     ]
 
 
@@ -105,7 +107,7 @@ async def _process_message_for_results(
     message,
     chat_entity,
     chat_type: str,
-    results: List[Dict[str, Any]],
+    results: list[dict[str, Any]],
     limit: int,
 ) -> bool:
     """Process a single message and add it to results if it matches criteria.
@@ -116,10 +118,7 @@ async def _process_message_for_results(
         return False
 
     # Check if message has content (text or any type of media)
-    has_content = (
-        (hasattr(message, "text") and message.text) or
-        _has_any_media(message)
-    )
+    has_content = (hasattr(message, "text") and message.text) or _has_any_media(message)
 
     if not has_content:
         return False
@@ -139,8 +138,8 @@ async def _process_message_for_results(
 
 
 async def _execute_parallel_searches(
-    search_tasks: List,
-    collected: List[Dict[str, Any]],
+    search_tasks: list,
+    collected: list[dict[str, Any]],
     seen_keys: set,
     offset: int,
     limit: int,
@@ -163,7 +162,7 @@ async def search_messages(
     chat_type: str = None,  # 'private', 'group', 'channel', or None
     auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
     include_total_count: bool = False,  # Whether to include total count in response
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search for messages in Telegram chats using Telegram's global or per-chat search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
 
@@ -190,7 +189,7 @@ async def search_messages(
         - Total count is only available for per-chat searches, not global searches.
     """
     # Normalize and validate queries
-    queries: List[str] = (
+    queries: list[str] = (
         [q.strip() for q in query.split(",") if q.strip()] if query else []
     )
 
@@ -218,7 +217,7 @@ async def search_messages(
     client = await get_connected_client()
     try:
         total_count = None
-        collected: List[Dict[str, Any]] = []
+        collected: list[dict[str, Any]] = []
         seen_keys = set()
 
         if chat_id:

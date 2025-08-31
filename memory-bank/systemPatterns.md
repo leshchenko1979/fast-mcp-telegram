@@ -164,5 +164,3 @@ else:
 - `src/utils/message_format.py`: `build_message_result`, `get_sender_info`, `build_send_edit_result`, `generate_request_id`, `log_operation_start`, `log_operation_success`, `log_operation_error`
 - `src/utils/entity.py`: `compute_entity_identifier`
 These are used by both `search.py` and `messages.py` to avoid duplication and ensure consistent output. The message formatting utilities now include comprehensive logging and error handling patterns.
-
-

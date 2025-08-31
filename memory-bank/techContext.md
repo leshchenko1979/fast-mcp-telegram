@@ -330,5 +330,3 @@ parameter_name: Description with defaults and constraints
 - **Module Filtering**: Requires understanding of Telethon's internal module structure
 - **Emitter Tracking**: Need to preserve original logger metadata for debugging
 - **Performance**: Logging overhead must not impact search performance
-
-

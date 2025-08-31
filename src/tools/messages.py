@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
@@ -19,7 +19,7 @@ from src.utils.message_format import (
 
 async def send_message(
     chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Send a message to a Telegram chat.
 
@@ -63,7 +63,7 @@ async def send_message(
 
 async def edit_message(
     chat_id: str, message_id: int, new_text: str, parse_mode: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Edit an existing message in a Telegram chat.
 
@@ -103,8 +103,8 @@ async def edit_message(
 
 
 async def read_messages_by_ids(
-    chat_id: str, message_ids: List[int]
-) -> List[Dict[str, Any]]:
+    chat_id: str, message_ids: list[int]
+) -> list[dict[str, Any]]:
     """
     Read specific messages by their IDs from a given chat.
 
@@ -149,7 +149,7 @@ async def read_messages_by_ids(
             id_to_link = {}
 
         chat_dict = build_entity_dict(entity)
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for idx, requested_id in enumerate(message_ids):
             msg = None
             # Telethon may return None for missing messages; map by index if lengths match, else search
@@ -201,7 +201,7 @@ async def send_message_to_phone_impl(
     remove_if_new: bool = False,
     reply_to_msg_id: int = None,
     parse_mode: str = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Send a message to a phone number, handling both existing and new contacts safely.
 
@@ -267,7 +267,7 @@ async def send_message_to_phone_impl(
                 log_operation_error(
                     request_id, "adding contact", ValueError(error_msg), params
                 )
-                raise ValueError(error_msg)
+                raise ValueError(error_msg) from None
 
             user = result.users[0]
             contact_was_new = True

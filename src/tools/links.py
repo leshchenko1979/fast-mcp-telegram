@@ -1,5 +1,5 @@
 import traceback
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -10,12 +10,12 @@ from src.utils.entity import get_entity_by_id
 
 async def generate_telegram_links(
     chat_id: str,
-    message_ids: List[int] = None,
+    message_ids: list[int] = None,
     username: str = None,
     thread_id: int = None,
     comment_id: int = None,
     media_timestamp: int = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
     """

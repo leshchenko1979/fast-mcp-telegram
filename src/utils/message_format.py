@@ -1,6 +1,6 @@
 import time
 import traceback
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -14,7 +14,7 @@ def generate_request_id(prefix: str) -> str:
     return f"{prefix}_{int(time.time() * 1000)}"
 
 
-def build_send_edit_result(message, chat, status: str) -> Dict[str, Any]:
+def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
     """Build a consistent result dictionary for send/edit operations."""
     chat_dict = build_entity_dict(chat)
     sender_dict = build_entity_dict(getattr(message, "sender", None))
@@ -35,7 +35,7 @@ def build_send_edit_result(message, chat, status: str) -> Dict[str, Any]:
     return result
 
 
-def log_operation_start(request_id: str, operation: str, params: Dict[str, Any]):
+def log_operation_start(request_id: str, operation: str, params: dict[str, Any]):
     """Log the start of an operation with consistent format."""
     logger.debug(f"[{request_id}] {operation}", extra={"params": params})
 
@@ -49,7 +49,7 @@ def log_operation_success(request_id: str, operation: str, chat_id: str = None):
 
 
 def log_operation_error(
-    request_id: str, operation: str, error: Exception, params: Dict[str, Any]
+    request_id: str, operation: str, error: Exception, params: dict[str, Any]
 ):
     """Log operation errors with consistent format."""
     error_info = {
@@ -67,7 +67,7 @@ def log_operation_error(
     )
 
 
-async def get_sender_info(client, message) -> Optional[Dict[str, Any]]:
+async def get_sender_info(client, message) -> dict[str, Any] | None:
     if hasattr(message, "sender_id") and message.sender_id:
         try:
             sender = await get_entity_by_id(message.sender_id)
@@ -79,7 +79,7 @@ async def get_sender_info(client, message) -> Optional[Dict[str, Any]]:
     return None
 
 
-def _build_media_placeholder(message) -> Optional[Dict[str, Any]]:
+def _build_media_placeholder(message) -> dict[str, Any] | None:
     """Return a lightweight, serializable media placeholder for LLM consumption.
 
     Avoids returning raw Telethon media objects which are large and not LLM-friendly.
@@ -88,7 +88,7 @@ def _build_media_placeholder(message) -> Optional[Dict[str, Any]]:
     if not media:
         return None
 
-    placeholder: Dict[str, Any] = {}
+    placeholder: dict[str, Any] = {}
 
     media_cls = media.__class__.__name__
 
@@ -125,8 +125,8 @@ def _build_media_placeholder(message) -> Optional[Dict[str, Any]]:
 
 
 async def build_message_result(
-    client, message, entity_or_chat, link: Optional[str]
-) -> Dict[str, Any]:
+    client, message, entity_or_chat, link: str | None
+) -> dict[str, Any]:
     sender = await get_sender_info(client, message)
     chat = build_entity_dict(entity_or_chat)
     forward_info = await _extract_forward_info(message)
@@ -137,7 +137,7 @@ async def build_message_result(
         or getattr(message, "caption", None)
     )
 
-    result: Dict[str, Any] = {
+    result: dict[str, Any] = {
         "id": message.id,
         "date": message.date.isoformat() if getattr(message, "date", None) else None,
         "chat": chat,

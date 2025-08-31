@@ -52,7 +52,50 @@ Join our [Telegram Discussion Group](https://t.me/mcp_telegram) for support, upd
 - Telegram API credentials (API ID, API Hash)
 - MCP-compatible environment (e.g., Cursor IDE, Claude Desktop)
 
- 
+## Development Setup
+
+### Code Quality Tools
+
+This project uses [pre-commit](https://pre-commit.com/) with [Ruff](https://github.com/astral-sh/ruff) for automated Python code formatting.
+
+#### Initial Setup
+
+1. Install development dependencies:
+   ```bash
+   uv sync --all-extras
+   ```
+
+2. Install pre-commit hooks:
+   ```bash
+   uv run pre-commit install
+   ```
+
+#### Development Workflow
+
+The pre-commit hooks will automatically run on every commit and include:
+
+- **Ruff formatting**: Automatically formats Python code to maintain consistent style
+
+#### Manual Quality Checks
+
+You can run formatting checks manually:
+
+```bash
+# Run all pre-commit hooks (formatting only)
+uv run pre-commit run --all-files
+
+# Run only formatting on specific files
+uv run ruff format <filename>
+
+# Run formatting on all Python files
+uv run ruff format .
+```
+
+#### Configuration
+
+- **Ruff formatting**: Configured in `.pre-commit-config.yaml` and `pyproject.toml`
+- **Line length**: 88 characters (Black compatible)
+- **Python version**: 3.10+
 
 ## Quick Start & Usage
 

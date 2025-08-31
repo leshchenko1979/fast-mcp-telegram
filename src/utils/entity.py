@@ -12,7 +12,7 @@ async def get_entity_by_id(entity_id):
     peer = None
     try:
         # Special handling for 'me' identifier (Saved Messages)
-        if entity_id == 'me':
+        if entity_id == "me":
             return await client.get_me()
 
         # Try to convert entity_id to an integer if it's a numeric string

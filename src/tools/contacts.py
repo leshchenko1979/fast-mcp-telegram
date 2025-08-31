@@ -3,7 +3,7 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
@@ -12,7 +12,7 @@ from src.client.connection import get_connected_client
 from src.utils.entity import build_entity_dict
 
 
-async def search_contacts_telegram(query: str, limit: int = 20) -> List[Dict[str, Any]]:
+async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str, Any]]:
     """
     Search contacts using Telegram's native contacts.SearchRequest method.
 
@@ -75,7 +75,7 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> List[Dict[str
         raise
 
 
-async def get_contact_info(chat_id: str) -> Optional[Dict[str, Any]]:
+async def get_contact_info(chat_id: str) -> dict[str, Any] | None:
     """
     Get detailed information about a specific contact.
 

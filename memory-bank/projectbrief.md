@@ -22,5 +22,3 @@ fast-mcp-telegram is a Python-based MCP (Modular Control Platform) server that p
 - Need to handle both global and per-chat search scenarios
 - Must provide clear documentation for AI model usage patterns
 - Should maintain backward compatibility with existing implementations
-
-
