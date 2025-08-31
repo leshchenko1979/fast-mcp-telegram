@@ -5,7 +5,7 @@
 [![PyPI version](https://badge.fury.io/py/fast-mcp-telegram.svg)](https://pypi.org/project/fast-mcp-telegram/)
 [![Telegram](https://img.shields.io/badge/Telegram-Community-blue?logo=telegram)](https://t.me/mcp_telegram)
 
-A powerful MCP server for Telegram automation with search, messaging, and contact management capabilities. Built with FastMCP for seamless AI agent integration.
+🚀 AI-powered Telegram automation via MCP protocol. Search messages, send automated replies, manage contacts - enable your AI assistant with full Telegram API access through FastMCP.
 
 **🚀 2-minute setup • 📱 Full Telegram API • 🤖 AI-ready • ⚡ FastMCP powered**
 
