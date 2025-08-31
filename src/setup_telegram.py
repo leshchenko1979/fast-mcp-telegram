@@ -1,10 +1,10 @@
+import asyncio
+
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
-import asyncio
-from src.config.settings import (
-    API_ID, API_HASH, PHONE_NUMBER,
-    SESSION_PATH
-)
+
+from src.config.settings import API_HASH, API_ID, PHONE_NUMBER, SESSION_PATH
+
 
 async def main():
     print("Starting Telegram session setup...")
@@ -37,5 +37,6 @@ async def main():
     await client.disconnect()
     print("Setup complete! You can now use the Telegram search functionality.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
