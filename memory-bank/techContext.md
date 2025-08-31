@@ -10,12 +10,14 @@
 
 ### Key Dependencies
 ```python
-# Core dependencies from requirements.txt
+# Core dependencies from pyproject.toml (managed by uv)
 fastmcp          # MCP server framework
 telethon         # Telegram API client
 loguru           # Advanced logging
 asyncio          # Async/await support (built-in)
 ```
+
+**Dependency Management**: uv with pyproject.toml and uv.lock for reproducible builds
 
 ### Development Tools
 - **Cursor IDE**: Primary development environment
@@ -36,7 +38,9 @@ tg_mcp/
 │   └── utils/             # Utility functions
 ├── tests/                 # Test suite
 ├── memory-bank/           # Project documentation
-└── requirements.txt       # Dependencies
+├── pyproject.toml         # UV dependency configuration
+├── uv.lock               # Locked dependencies for reproducible builds
+└── .dockerignore         # Docker build exclusions
 ```
 
 ### MCP Server Configuration (Local stdio)
@@ -68,7 +72,9 @@ tg_mcp/
 ```
 
 ### Deployment Files
-- `Dockerfile`: FastMCP HTTP server (EXPOSE 8000), `SESSION_NAME=/data/mcp_telegram`
+- `Dockerfile`: Multi-stage uv-based build with builder/runtime stages for optimized images
+- `pyproject.toml`: UV dependency configuration with project metadata
+- `uv.lock`: Locked dependencies for reproducible builds
 - `docker-compose.yml`: Traefik labels for `tg-mcp.redevest.ru`, mounts `./mcp_telegram.session -> /data/mcp_telegram.session`, healthcheck via curl, network `traefik-public`
 - `scripts/deploy-mcp.sh`: macOS-friendly deploy over SSH, streams git files, copies `.env`, copies session files, composes up with `--env-file .env`
 

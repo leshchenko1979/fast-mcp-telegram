@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Added new `send_message_to_phone()` tool to enable sending messages to phone numbers not in contacts. Implemented complete workflow: add temporary contact → send message → optionally remove contact. Enhanced MCP server with direct phone messaging capability.
+**Primary**: Successfully migrated project to use uv for dependency management. Implemented multi-stage Docker build with uv optimization. System is production-ready with uv-based deployment.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. Logging expanded (Loguru + stdlib bridge) for detailed Telethon/Uvicorn traces. LLM-optimized media placeholders implemented and tested successfully. **Logging spam reduction implemented**: Module-level filtering reduces Telethon network spam by 99% while preserving important connection and error information. **Logging robustness improved**: Fixed shutdown logging errors and cleaned up old log files. **New phone messaging capability**: Added `send_message_to_phone()` tool for contacting users by phone number. **Setup import error fixed**: Resolved ModuleNotFoundError in console script by moving setup_telegram.py into src package structure.
+**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. **UV Migration Complete**: Converted from pip to uv with pyproject.toml, uv.lock, and optimized multi-stage Dockerfile. **Multi-stage Build**: Implemented uv-based builder/runtime stages for smaller images and faster builds. **Dependency Management**: Switched from requirements.txt to uv with locked dependencies for reproducible builds.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -57,6 +57,12 @@
 **Rationale**: During shutdown with exceptions, logging system tried to format messages without required extra fields, and invalid format string syntax caused additional errors
 **Solution**: Simplified logging format to use standard loguru fields, removed complex format string syntax that caused parsing errors and logging failures
 **Impact**: Eliminated logging errors during shutdown and normal operation, restored logging functionality, improved system stability and log readability
+
+### UV Migration and Optimization
+**Decision**: Migrated from pip to uv for dependency management with multi-stage Docker builds
+**Rationale**: uv provides faster installs, better caching, and reproducible builds compared to pip
+**Solution**: Created pyproject.toml, generated uv.lock, implemented uv-based multi-stage Dockerfile with builder/runtime stages
+**Impact**: Faster builds, smaller images, reproducible deployments, and better dependency management
 
 ### Phone Messaging Capability
 **Decision**: Added `send_message_to_phone()` tool to enable messaging users by phone number
@@ -114,8 +120,8 @@
 7. **Clear Result Fields**: `contact_added` and `contact_removed` fields provide clear status information
 
 ## Next Immediate Steps
-1. **Test Phone Messaging**: Verify that `send_message_to_phone()` tool works correctly with various phone numbers
-2. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
-3. **Harden CORS**: Restrict origins when ready (currently permissive for development)
-4. **Maintenance**: Keep dependencies updated and monitor for API changes
-5. **Documentation**: Keep README and tool documentation updated with new phone messaging examples
+1. **Monitor UV Performance**: Track build times and deployment efficiency with uv-based setup
+2. **Test Phone Messaging**: Verify that `send_message_to_phone()` tool works correctly with various phone numbers
+3. **Monitor Prod Logs**: Ensure Telethon connection stability and search performance with reduced spam
+4. **Dependency Updates**: Keep uv.lock updated with latest compatible versions
+5. **Documentation**: Update README with uv setup instructions and new deployment workflow

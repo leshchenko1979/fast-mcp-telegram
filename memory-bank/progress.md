@@ -21,6 +21,8 @@
 - **Cursor Integration**: Verified working with Cursor IDE
 - **Production Deployment**: VDS deployment with Traefik and TLS
 - **Environment Management**: Proper credential handling and session management
+- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds
+- **Dependency Locking**: uv.lock provides reproducible builds and faster deployments
 
 ## What's Left to Build (Remaining Work)
 
@@ -45,6 +47,8 @@
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
 - **Connection Reliability**: Improved with automatic reconnection logic
 - **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
+- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds (2025-08-31)
+- **Deploy Script**: Fixed file transfer issues and improved error handling for uv-based deployments
 - **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
 
 ### Current Limitations
@@ -66,6 +70,12 @@
 2. **Multi-Query**: Added JSON array support for multiple terms
 3. **Simplified**: Changed to comma-separated string format for better LLM compatibility
 4. **Optimized**: Added parallel execution and deduplication
+
+### Dependency Management Evolution
+1. **pip + requirements.txt**: Initial setup with pip and requirements file
+2. **UV Migration**: Migrated to uv for faster installs and better caching
+3. **Multi-stage Docker**: Implemented uv-based multi-stage builds for optimized images
+4. **Locked Dependencies**: uv.lock provides reproducible builds and faster deployments
 
 ### Media Handling Evolution
 1. **Raw Objects**: Initially returned raw Telethon media objects
