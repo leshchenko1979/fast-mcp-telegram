@@ -60,6 +60,8 @@
 - **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
 - **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
 - **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
+- **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
+- **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

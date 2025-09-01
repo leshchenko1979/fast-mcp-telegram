@@ -127,6 +127,20 @@
   - Consistent error detection pattern across server.py
   - No more None returns or exception propagation to MCP layer
 
+### Docker Volume Permissions Fix
+**Decision**: Fixed readonly database error by changing Docker volume mount from `/data` to `/app` directory
+**Rationale**: SQLite session files needed write permissions, but `/data` directory had restrictive filesystem permissions that prevented the `appuser` from writing
+**Solution**: Changed volume mount from `./mcp_telegram.session:/data/mcp_telegram.session` to `./mcp_telegram.session:/app/mcp_telegram.session` and SESSION_NAME from absolute to relative path
+**Implementation**:
+  - Updated docker-compose.yml with corrected volume mount and SESSION_NAME
+  - Updated deploy script with automatic permission fixes for future deployments
+  - Ensured session files have proper write permissions (666)
+**Impact**:
+  - Eliminated "attempt to write a readonly database" errors
+  - MCP server now works reliably with all Telegram tools
+  - Future deployments automatically prevent permission issues
+  - Container has proper write access to SQLite session files
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns

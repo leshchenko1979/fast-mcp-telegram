@@ -53,6 +53,10 @@ deploy() {
   # Copy session files if they exist
   if ls *.session* 1>/dev/null 2>&1; then
     scp -C *.session* "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/" || log "$RED" "Failed to copy session files"
+    # Fix permissions for session files to prevent readonly database errors
+    ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && chmod 666 *.session* 2>/dev/null || true"
+    # Also ensure the project directory has proper permissions
+    ssh "$VDS_USER@$VDS_HOST" "chmod 755 $VDS_PROJECT_PATH 2>/dev/null || true"
   else
     log "$BLUE" "No session files to copy"
   fi

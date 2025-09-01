@@ -10,9 +10,9 @@ services:
       - MCP_TRANSPORT=http
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
-      - SESSION_NAME=/data/mcp_telegram
+      - SESSION_NAME=mcp_telegram
     volumes:
-      - ./mcp_telegram.session:/data/mcp_telegram.session
+      - ./mcp_telegram.session:/app/mcp_telegram.session
     networks:
       - traefik-public
     labels:
