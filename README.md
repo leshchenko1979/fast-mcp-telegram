@@ -529,17 +529,7 @@ invoke_mtproto(
   "method_full_name": "messages.GetHistory",
   "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"
 }}
-## 💡 Examples
-
-**Search messages:** `{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}`
-
-**Send message:** `{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}`
-
-**Find contacts:** `{"tool": "search_contacts", "params": {"query": "john"}}`
-
-**Message by phone:** `{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "Alert!"}}`
-
-
+```
 
 ## 📁 Project Structure
 
