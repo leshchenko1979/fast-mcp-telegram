@@ -24,19 +24,19 @@
 
 ## 📖 Table of Contents
 
-- [✨ Features](#-features)
-- [📋 Prerequisites](#-prerequisites)
-- [🚀 Choose Your Installation Path](#-choose-your-installation-path)
-- [🚀 uvx Path (Recommended)](#-uvx-path-recommended)
-- [💻 Local Installation Path](#-local-installation-path)
-- [🐳 Docker Deployment (Production)](#-docker-deployment-production)
-- [🔧 Available Tools](#-available-tools)
-- [📁 Project Structure](#-project-structure)
-- [📦 Dependencies](#-dependencies)
-- [🔒 Security Considerations](#-security-considerations)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
-- [🙏 Acknowledgments](#-acknowledgments)
+- [✨ Features](#features)
+- [📋 Prerequisites](#prerequisites)
+- [🚀 Choose Your Installation Path](#choose-your-installation-path)
+- [🚀 uvx Path (Recommended)](#uvx-path-recommended)
+- [💻 Local Installation Path](#local-installation-path)
+- [🐳 Docker Deployment (Production)](#docker-deployment-production)
+- [🔧 Available Tools](#available-tools)
+- [📁 Project Structure](#project-structure)
+- [📦 Dependencies](#dependencies)
+- [🔒 Security Considerations](#security-considerations)
+- [🤝 Contributing](#contributing)
+- [📄 License](#license)
+- [🙏 Acknowledgments](#acknowledgments)
 
 ---
 
@@ -67,9 +67,9 @@
 | **💻 Local Installation** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
 
 **Choose your path below:**
-- [uvx Path (2-minute setup)](#-uvx-path-recommended)
-- [Local Installation Path](#-local-installation-path)
-- [🐳 Docker Deployment (Production)](#-docker-deployment-production)
+- [uvx Path (2-minute setup)](#uvx-path-recommended)
+- [Local Installation Path](#local-installation-path)
+- [🐳 Docker Deployment (Production)](#docker-deployment-production)
 
 ---
 
