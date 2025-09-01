@@ -3,10 +3,10 @@ description:
 globs:
 alwaysApply: true
 ---
+You are running in Cursor IDE. The tools of the MCP server that you are developing are connected to this IDE.
 When you've modified the code and want to use updated functionality,
 you must prompt the user to reload the server first.
 
-The server uses FastMCP framework and imports are configured to work with both direct execution and module execution.
-The server automatically adds the project root to sys.path for proper import resolution.
+All comments, docstrings, and documentation must be in English only. Do not use any other non-English language in code comments, docstrings, or documentation.
 
-All comments, docstrings, and documentation must be in English only. Do not use Russian or any other non-English language in code comments, docstrings, or documentation.
+Always use the DRY principle.

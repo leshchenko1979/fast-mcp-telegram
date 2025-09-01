@@ -28,5 +28,3 @@ The fast-mcp-telegram project addresses the need for AI assistants and language 
 1. **Contact-Specific Search**: "Find messages from John" → Use chat_id with John's chat ID
 2. **Content Search**: "Find messages about project X" → Use global search with query "project X"
 3. **Hybrid Search**: "Find messages about project X from John" → Use chat_id + query combination
-
-

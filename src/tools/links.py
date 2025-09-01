@@ -1,5 +1,5 @@
 import traceback
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -10,12 +10,12 @@ from src.utils.entity import get_entity_by_id
 
 async def generate_telegram_links(
     chat_id: str,
-    message_ids: List[int] = None,
-    username: str = None,
-    thread_id: int = None,
-    comment_id: int = None,
-    media_timestamp: int = None,
-) -> Dict[str, Any]:
+    message_ids: list[int] | None = None,
+    username: str | None = None,
+    thread_id: int | None = None,
+    comment_id: int | None = None,
+    media_timestamp: int | None = None,
+) -> dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
     """
@@ -139,9 +139,9 @@ def format_message_link(
     chat_id: str,
     message_id: int,
     is_private: bool = False,
-    thread_id: int = None,
-    comment_id: int = None,
-    media_timestamp: int = None,
+    thread_id: int | None = None,
+    comment_id: int | None = None,
+    media_timestamp: int | None = None,
 ) -> str:
     """
     Format a message link based on chat ID and message ID.
@@ -164,8 +164,7 @@ def format_message_link(
         if thread_id:
             return f"https://t.me/c/{channel_id}/{thread_id}/{message_id}{query_string}"
         return f"https://t.me/c/{channel_id}/{message_id}{query_string}"
-    else:
-        username = chat_id.lstrip("@")
-        if thread_id:
-            return f"https://t.me/{username}/{thread_id}/{message_id}{query_string}"
-        return f"https://t.me/{username}/{message_id}{query_string}"
+    username = chat_id.lstrip("@")
+    if thread_id:
+        return f"https://t.me/{username}/{thread_id}/{message_id}{query_string}"
+    return f"https://t.me/{username}/{message_id}{query_string}"

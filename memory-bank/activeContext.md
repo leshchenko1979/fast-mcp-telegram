@@ -1,9 +1,9 @@
 
 
 ## Current Work Focus
-**Primary**: Successfully migrated project to use uv for dependency management. Implemented multi-stage Docker build with uv optimization. System is production-ready with uv-based deployment.
+**Primary**: Completed major code refactoring and quality improvements. System now has optimized code organization with functions moved to appropriate modules, simplified search logic, and enhanced maintainability.
 
-**Current Status**: System is production-ready and deployed to VDS behind Traefik. Public HTTP/SSE endpoint exposed at `https://tg-mcp.redevest.ru/mcp`. Cursor integration verified; server lists tools and executes searches remotely. **UV Migration Complete**: Converted from pip to uv with pyproject.toml, uv.lock, and optimized multi-stage Dockerfile. **Multi-stage Build**: Implemented uv-based builder/runtime stages for smaller images and faster builds. **Dependency Management**: Switched from requirements.txt to uv with locked dependencies for reproducible builds.
+**Current Status**: System has been comprehensively refactored for better code organization and maintainability. **Function reorganization**: Moved misplaced functions to appropriate modules (entity operations to `utils/entity.py`, media detection to `utils/message_format.py`, logging utilities to `config/logging.py`, generic helpers to `utils/helpers.py`). **Search simplification**: Removed unused `offset` parameter from search functions, eliminating confusion and API impedance mismatch. **Pre-commit removal**: Eliminated pre-commit hooks in favor of manual code formatting with Ruff. **Code quality**: Fixed all linter errors and improved overall code structure.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -70,6 +70,63 @@
 **Solution**: Implemented complete workflow using Telegram's ImportContactsRequest and DeleteContactsRequest, placed in `messages.py` for logical organization
 **Impact**: Users can now send messages to any phone number registered on Telegram without manual contact management
 
+### LLM Tool Description Optimization
+**Decision**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized
+**Rationale**: Original descriptions were verbose and not structured for efficient LLM consumption
+**Solution**: Implemented structured format with clear sections (MODES, FEATURES, EXAMPLES, Args) and reduced length by ~75%
+**Impact**: LLMs can now quickly understand tool functionality, see practical examples, and make informed decisions
+
+### 'me' Identifier Support
+**Decision**: Added special handling for 'me' identifier in entity resolution for Saved Messages access
+**Rationale**: Numeric user IDs were inconsistent for Saved Messages access, 'me' is the standard Telegram identifier
+**Solution**: Enhanced `get_entity_by_id()` function to recognize 'me' and use `client.get_me()`
+**Impact**: More reliable Saved Messages access with consistent API usage across both reading and searching
+
+### Enhanced Error Logging
+**Decision**: Improved error logging for individual message access failures with detailed diagnostics
+**Rationale**: Silent failures made debugging difficult, needed better traceability for troubleshooting
+**Solution**: Added warning logs with request ID, message ID, chat ID, and diagnostic information
+**Impact**: Better debugging capability and system monitoring with detailed error context
+
+### Function Organization Refactoring
+**Decision**: Moved misplaced functions to appropriate modules based on responsibility and usage patterns
+**Rationale**: Code was scattered across modules with functions performing operations outside their logical scope
+**Solution**: Systematic reorganization following single responsibility principle
+**Impact**:
+  - `_get_chat_message_count()` and `_matches_chat_type()` → `utils/entity.py`
+  - `_has_any_media()` → `utils/message_format.py`
+  - `log_operation_*()` functions → `config/logging.py`
+  - `_append_dedup_until_limit()` → new `utils/helpers.py`
+  - Cleaner module boundaries and improved maintainability
+
+### Offset Parameter Removal
+**Decision**: Removed unused `offset` parameter from search functions
+**Rationale**: Parameter existed in signature but was ignored, creating API confusion and documentation mismatch
+**Solution**: Simplified function signatures and removed pagination logic that wasn't supported by Telegram API
+**Impact**: Cleaner API, eliminated confusion, reduced code complexity, better alignment with actual Telegram API capabilities
+
+### Pre-commit Hooks Removal
+**Decision**: Removed automated pre-commit hooks in favor of manual Ruff formatting
+**Rationale**: Pre-commit hooks added complexity without significant benefit for current workflow
+**Solution**: Keep Ruff available for manual formatting when needed
+**Impact**: Simplified development workflow while maintaining code formatting capability
+
+### Consistent Error Handling Pattern
+**Decision**: Implemented unified structured error responses across all Telegram MCP tools
+**Rationale**: Mixed error handling patterns (some raised exceptions, some returned None) created inconsistent API behavior for LLMs
+**Solution**: All tools now return structured error responses with consistent format: `{"ok": false, "error": "message", "request_id": "id", "operation": "name"}`
+**Implementation**:
+  - `get_contact_details`: Already returned errors for non-existent contacts
+  - `search_contacts`: Updated to return errors instead of empty lists for no results
+  - `search_messages`: Updated to return errors instead of empty message arrays for no results
+  - `read_messages`, `invoke_mtproto`: Already returned structured errors
+**Impact**:
+  - Predictable API responses for all operations
+  - Better LLM compatibility with structured error handling
+  - Improved debugging with request IDs and operation context
+  - Consistent error detection pattern across server.py
+  - No more None returns or exception propagation to MCP layer
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns
@@ -118,6 +175,14 @@
 5. **Formatting Support**: Supports `parse_mode` for Markdown/HTML formatting like other message tools
 6. **Reply Support**: Supports `reply_to_msg_id` for replying to messages
 7. **Clear Result Fields**: `contact_added` and `contact_removed` fields provide clear status information
+
+### Error Handling Patterns
+1. **Structured Error Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
+2. **Consistent Error Format**: Include `request_id`, `operation`, and `params` in error responses
+3. **Server Error Detection**: Check `isinstance(result, dict) and "ok" in result and not result["ok"]`
+4. **Graceful Degradation**: Tools handle errors internally and return structured responses
+5. **Request Tracking**: Each operation gets unique `request_id` for debugging
+6. **Parameter Preservation**: Original parameters included in error responses for context
 
 ## Next Immediate Steps
 1. **Monitor UV Performance**: Track build times and deployment efficiency with uv-based setup

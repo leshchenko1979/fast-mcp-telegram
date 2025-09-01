@@ -15,6 +15,7 @@
 - **LLM-Optimized Media**: Lightweight placeholders instead of raw Telethon objects
 - **Structured Logging**: Loguru integration with stdlib bridge and emitter tracking
 - **Logging Spam Reduction**: Module-level filtering reduces Telethon noise by 99%
+- **Consistent Error Handling**: All tools return structured error responses instead of raising exceptions
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -50,6 +51,15 @@
 - **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds (2025-08-31)
 - **Deploy Script**: Fixed file transfer issues and improved error handling for uv-based deployments
 - **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
+- **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
+- **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
+- **Error Logging**: Enhanced error logging for message access failures with detailed diagnostics (2025-09-01)
+- **Function Organization**: Completed major refactoring - moved misplaced functions to appropriate modules (2025-09-01)
+- **Offset Parameter**: Removed unused offset parameter from search functions, eliminating API confusion (2025-09-01)
+- **Pre-commit Hooks**: Removed automated hooks, simplified to manual Ruff formatting (2025-09-01)
+- **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
+- **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
+- **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
@@ -82,3 +92,10 @@
 2. **Serialization Issues**: Discovered LLM incompatibility with binary data
 3. **Placeholders**: Implemented lightweight metadata-only placeholders
 4. **Optimized**: Preserved essential information while eliminating bloat
+
+### Error Handling Evolution
+1. **Initial**: Mixed error handling - some tools raised exceptions, others returned None
+2. **Inconsistent**: get_contact_details returned None, search_messages raised exceptions
+3. **Partial Fix**: get_contact_details updated to return structured errors
+4. **Unified Pattern**: All tools now return structured error responses with consistent format
+5. **Server Integration**: server.py detects and handles error responses appropriately

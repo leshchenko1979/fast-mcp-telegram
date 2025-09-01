@@ -1,12 +1,12 @@
 import base64
-from importlib import import_module
 import random
-import traceback
-from typing import Any, Dict
+from importlib import import_module
+from typing import Any
 
 from loguru import logger
 
 from src.client.connection import get_connected_client
+from src.utils.error_handling import log_and_build_error
 
 
 def _json_safe(value: Any) -> Any:
@@ -19,7 +19,7 @@ def _json_safe(value: Any) -> Any:
     - ensure all strings are UTF-8 encodable (replace errors if needed)
     """
     try:
-        if value is None or isinstance(value, (bool, int, float)):
+        if value is None or isinstance(value, bool | int | float):
             return value
         if isinstance(value, bytes):
             return base64.b64encode(value).decode("ascii")
@@ -31,9 +31,9 @@ def _json_safe(value: Any) -> Any:
                 return value.encode("utf-8", "replace").decode("utf-8")
         if isinstance(value, dict):
             return {str(k): _json_safe(v) for k, v in value.items()}
-        if isinstance(value, (list, tuple, set)):
+        if isinstance(value, list | tuple | set):
             return [_json_safe(v) for v in value]
-        if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
+        if hasattr(value, "to_dict") and callable(value.to_dict):
             try:
                 return _json_safe(value.to_dict())
             except Exception:
@@ -44,8 +44,8 @@ def _json_safe(value: Any) -> Any:
 
 
 async def invoke_mtproto_method(
-    method_full_name: str, params: Dict[str, Any]
-) -> Dict[str, Any]:
+    method_full_name: str, params: dict[str, Any], params_json: str = ""
+) -> dict[str, Any]:
     """
     Dynamically invoke any MTProto method by name and parameters.
 
@@ -87,38 +87,26 @@ async def invoke_mtproto_method(
         client = await get_connected_client()
         result = await client(method_obj)
         # Try to convert result to dict (if possible)
-        if hasattr(result, "to_dict"):
-            result_dict = result.to_dict()
-        else:
-            result_dict = str(result)
+        result_dict = result.to_dict() if hasattr(result, "to_dict") else str(result)
         safe_result = _json_safe(result_dict)
         logger.info(
             f"[{request_id}] MTProto method {method_full_name} invoked successfully"
         )
         return {"ok": True, "result": safe_result}
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc(),
+        return log_and_build_error(
+            request_id=request_id,
+            operation="invoke_mtproto",
+            error_message=f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
+            params={
+                "method_full_name": method_full_name,
+                "params_json": params_json,
             },
-            "method_full_name": method_full_name,
-            "params": params,
-        }
-        # Inline the diagnostics to guarantee visibility in logs
-        try:
-            import json
-
-            diag_str = json.dumps(error_info, indent=2, default=str)
-        except Exception:
-            diag_str = str(error_info)
-        logger.error(f"[{request_id}] Error invoking MTProto method\n{diag_str}")
-        return {"ok": False, "error": _json_safe(error_info)}
+            exception=e,
+        )
 
 
-def _sanitize_mtproto_params(params: Dict[str, Any]) -> Dict[str, Any]:
+def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize and validate MTProto method parameters for security.
 
@@ -136,7 +124,7 @@ def _sanitize_mtproto_params(params: Dict[str, Any]) -> Dict[str, Any]:
         hash_value = sanitized["hash"]
 
         # Validate hash is a valid integer
-        if not isinstance(hash_value, (int, str)):
+        if not isinstance(hash_value, int | str):
             logger.warning(f"Invalid hash type: {type(hash_value)}, setting to 0")
             sanitized["hash"] = 0
         else:

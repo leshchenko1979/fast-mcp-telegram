@@ -1,4 +1,6 @@
 from loguru import logger
+from telethon.tl.functions.messages import GetSearchCountersRequest
+from telethon.tl.types import InputMessagesFilterEmpty
 
 from ..client.connection import get_connected_client
 
@@ -6,10 +8,15 @@ from ..client.connection import get_connected_client
 async def get_entity_by_id(entity_id):
     """
     A wrapper around client.get_entity to handle numeric strings and log errors.
+    Special handling for 'me' identifier for Saved Messages.
     """
     client = await get_connected_client()
     peer = None
     try:
+        # Special handling for 'me' identifier (Saved Messages)
+        if entity_id == "me":
+            return await client.get_me()
+
         # Try to convert entity_id to an integer if it's a numeric string
         try:
             peer = int(entity_id)
@@ -209,3 +216,44 @@ def compute_entity_identifier(entity) -> str:
     if entity_type in ["Channel", "Chat", "ChannelForbidden"]:
         return f"-100{entity_id}"
     return entity_id_str
+
+
+async def _get_chat_message_count(chat_id: str) -> int | None:
+    """
+    Get total message count for a specific chat.
+    """
+    try:
+        client = await get_connected_client()
+        entity = await get_entity_by_id(chat_id)
+        if not entity:
+            return None
+
+        result = await client(
+            GetSearchCountersRequest(peer=entity, filters=[InputMessagesFilterEmpty()])
+        )
+
+        if hasattr(result, "counters") and result.counters:
+            for counter in result.counters:
+                if hasattr(counter, "filter") and isinstance(
+                    counter.filter, InputMessagesFilterEmpty
+                ):
+                    return getattr(counter, "count", 0)
+
+        return 0
+
+    except Exception as e:
+        logger.warning(f"Error getting search count for chat {chat_id}: {e!s}")
+        return None
+
+
+def _matches_chat_type(entity, chat_type: str) -> bool:
+    """Check if entity matches the specified chat type filter."""
+    if not chat_type:
+        return True
+
+    entity_class = entity.__class__.__name__
+    return (
+        (chat_type == "private" and entity_class == "User")
+        or (chat_type == "group" and entity_class == "Chat")
+        or (chat_type == "channel" and entity_class in ["Channel", "ChannelForbidden"])
+    )

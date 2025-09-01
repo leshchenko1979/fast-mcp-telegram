@@ -1,76 +1,23 @@
-from typing import Dict, List, Any, Optional
-from telethon.tl.functions.messages import SearchGlobalRequest, GetSearchCountersRequest
-from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
-from loguru import logger
+import asyncio
 import time
 from datetime import datetime
-import traceback
-import asyncio
+from typing import Any
+
+from loguru import logger
+from telethon.tl.functions.messages import SearchGlobalRequest
+from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
+
 from src.client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
-from src.utils.entity import get_entity_by_id, compute_entity_identifier
-from src.utils.message_format import build_message_result
-
-
-async def _get_chat_message_count(chat_id: str) -> Optional[int]:
-    """
-    Get total message count for a specific chat.
-    """
-    try:
-        client = await get_connected_client()
-        entity = await get_entity_by_id(chat_id)
-        if not entity:
-            return None
-
-        result = await client(
-            GetSearchCountersRequest(peer=entity, filters=[InputMessagesFilterEmpty()])
-        )
-
-        if hasattr(result, "counters") and result.counters:
-            for counter in result.counters:
-                if hasattr(counter, "filter") and isinstance(
-                    counter.filter, InputMessagesFilterEmpty
-                ):
-                    return getattr(counter, "count", 0)
-
-        return 0
-
-    except Exception as e:
-        logger.warning(f"Error getting search count for chat {chat_id}: {str(e)}")
-        return None
-
-
-def _append_dedup_until_limit(
-    collected: List[Dict[str, Any]],
-    seen_keys: set,
-    new_messages: List[Dict[str, Any]],
-    target_total: int,
-) -> None:
-    """Append messages into collected with deduplication until target_total is reached.
-
-    Deduplicates by (chat.id, message.id) pair.
-    """
-    for msg in new_messages:
-        key = (msg.get("chat", {}).get("id"), msg.get("id"))
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        collected.append(msg)
-        if len(collected) >= target_total:
-            break
-
-
-def _matches_chat_type(entity, chat_type: str) -> bool:
-    """Check if entity matches the specified chat type filter."""
-    if not chat_type:
-        return True
-
-    entity_class = entity.__class__.__name__
-    return (
-        (chat_type == "private" and entity_class == "User")
-        or (chat_type == "group" and entity_class == "Chat")
-        or (chat_type == "channel" and entity_class in ["Channel", "ChannelForbidden"])
-    )
+from src.utils.entity import (
+    _get_chat_message_count,
+    _matches_chat_type,
+    compute_entity_identifier,
+    get_entity_by_id,
+)
+from src.utils.error_handling import log_and_build_error
+from src.utils.helpers import _append_dedup_until_limit
+from src.utils.message_format import _has_any_media, build_message_result
 
 
 async def _process_message_for_results(
@@ -78,18 +25,20 @@ async def _process_message_for_results(
     message,
     chat_entity,
     chat_type: str,
-    results: List[Dict[str, Any]],
+    results: list[dict[str, Any]],
     limit: int,
 ) -> bool:
     """Process a single message and add it to results if it matches criteria.
 
     Returns True if the message was added, False otherwise.
     """
-    if (
-        not message
-        or not (hasattr(message, "message") and message.message)
-        or (hasattr(message, "text") and message.text)
-    ):
+    if not message:
+        return False
+
+    # Check if message has content (text or any type of media)
+    has_content = (hasattr(message, "text") and message.text) or _has_any_media(message)
+
+    if not has_content:
         return False
 
     if not _matches_chat_type(chat_entity, chat_type):
@@ -107,33 +56,31 @@ async def _process_message_for_results(
 
 
 async def _execute_parallel_searches(
-    search_tasks: List,
-    collected: List[Dict[str, Any]],
+    search_tasks: list,
+    collected: list[dict[str, Any]],
     seen_keys: set,
-    offset: int,
     limit: int,
 ) -> None:
     """Execute multiple search tasks in parallel and collect results with deduplication."""
     results_lists = await asyncio.gather(*search_tasks)
     for partial in results_lists:
-        _append_dedup_until_limit(collected, seen_keys, partial, offset + limit)
-        if len(collected) >= (offset + limit):
+        _append_dedup_until_limit(collected, seen_keys, partial, limit)
+        if len(collected) >= limit:
             break
 
 
 async def search_messages(
     query: str,
-    chat_id: str = None,
+    chat_id: str | None = None,
     limit: int = 20,
-    min_date: str = None,  # ISO format date string
-    max_date: str = None,  # ISO format date string
-    offset: int = 0,  # Offset for pagination
-    chat_type: str = None,  # 'private', 'group', 'channel', or None
+    min_date: str | None = None,  # ISO format date string
+    max_date: str | None = None,  # ISO format date string
+    chat_type: str | None = None,  # 'private', 'group', 'channel', or None
     auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
     include_total_count: bool = False,  # Whether to include total count in response
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
-    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with pagination, optional chat type filtering, and auto-expansion for filtered results.
+    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with optional chat type filtering and auto-expansion for filtered results.
 
     Args:
         query: Search query string (use comma-separated terms for multiple queries). For per-chat, may be empty; for global, must not be empty. Results are merged and deduplicated.
@@ -141,7 +88,6 @@ async def search_messages(
         limit: Maximum number of results to return
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
-        offset: Number of messages to skip (for pagination)
         chat_type: Optional filter for chat type ('private', 'group', 'channel')
         auto_expand_batches: Maximum additional batches to fetch if not enough filtered results (default 2)
         include_total_count: Whether to include total count of matching messages in response (default False)
@@ -158,13 +104,27 @@ async def search_messages(
         - Total count is only available for per-chat searches, not global searches.
     """
     # Normalize and validate queries
-    queries: List[str] = (
+    queries: list[str] = (
         [q.strip() for q in query.split(",") if q.strip()] if query else []
     )
 
-    if not chat_id:
-        if not queries:
-            raise ValueError("Search query must not be empty for global search.")
+    if not chat_id and not queries:
+        return log_and_build_error(
+            request_id=f"search_{int(time.time() * 1000)}",
+            operation="search_messages",
+            error_message="Search query must not be empty for global search",
+            params={
+                "query": query,
+                "chat_id": chat_id,
+                "limit": limit,
+                "min_date": min_date,
+                "max_date": max_date,
+                "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
+            },
+            exception=ValueError("Search query must not be empty for global search"),
+        )
 
     request_id = f"search_{int(time.time() * 1000)}"
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
@@ -178,7 +138,6 @@ async def search_messages(
                 "limit": limit,
                 "min_date": min_date,
                 "max_date": max_date,
-                "offset": offset,
                 "chat_type": chat_type,
             }
         },
@@ -186,7 +145,7 @@ async def search_messages(
     client = await get_connected_client()
     try:
         total_count = None
-        collected: List[Dict[str, Any]] = []
+        collected: list[dict[str, Any]] = []
         seen_keys = set()
 
         if chat_id:
@@ -203,23 +162,35 @@ async def search_messages(
                         entity,
                         (q or ""),
                         limit,
-                        0,
                         chat_type,
                         auto_expand_batches,
                     )
                     for q in per_chat_queries
                 ]
                 await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, offset, limit
+                    search_tasks, collected, seen_keys, limit
                 )
 
                 if include_total_count:
                     total_count = await _get_chat_message_count(chat_id)
 
             except Exception as e:
-                logger.error(f"Error searching in specific chat: {str(e)}")
-                logger.debug(f"Full error details for chat {chat_id}:", exc_info=True)
-                raise
+                return log_and_build_error(
+                    request_id=request_id,
+                    operation="search_messages",
+                    error_message=f"Failed to search in chat '{chat_id}': {e!s}",
+                    params={
+                        "query": query,
+                        "chat_id": chat_id,
+                        "limit": limit,
+                        "min_date": min_date,
+                        "max_date": max_date,
+                        "chat_type": chat_type,
+                        "auto_expand_batches": auto_expand_batches,
+                        "include_total_count": include_total_count,
+                    },
+                    exception=e,
+                )
         else:
             # Global search across queries (skip empty)
             try:
@@ -230,7 +201,6 @@ async def search_messages(
                         limit,
                         min_datetime,
                         max_datetime,
-                        0,
                         chat_type,
                         auto_expand_batches,
                     )
@@ -238,24 +208,53 @@ async def search_messages(
                     if q and str(q).strip()
                 ]
                 await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, offset, limit
+                    search_tasks, collected, seen_keys, limit
                 )
             except Exception as e:
-                logger.error(f"Error in global search: {e}")
-                raise
+                return log_and_build_error(
+                    request_id=request_id,
+                    operation="search_messages",
+                    error_message=f"Failed to perform global search: {e!s}",
+                    params={
+                        "query": query,
+                        "chat_id": chat_id,
+                        "limit": limit,
+                        "min_date": min_date,
+                        "max_date": max_date,
+                        "chat_type": chat_type,
+                        "auto_expand_batches": auto_expand_batches,
+                        "include_total_count": include_total_count,
+                    },
+                    exception=e,
+                )
 
-        # Apply pagination window after deduplication
-        window = (
-            collected[offset : offset + limit]
-            if limit is not None
-            else collected[offset:]
-        )
+        # Return results up to limit
+        window = collected[:limit] if limit is not None else collected
 
         logger.info(
             f"[{request_id}] Found {len(window)} messages matching query: {query}"
         )
 
-        has_more = len(collected) > (offset + len(window))
+        has_more = len(collected) > len(window)
+
+        # If no messages found, return error instead of empty list for consistency
+        if not window:
+            return log_and_build_error(
+                request_id=request_id,
+                operation="search_messages",
+                error_message=f"No messages found matching query '{query}'",
+                params={
+                    "query": query,
+                    "chat_id": chat_id,
+                    "limit": limit,
+                    "min_date": min_date,
+                    "max_date": max_date,
+                    "chat_type": chat_type,
+                    "auto_expand_batches": auto_expand_batches,
+                    "include_total_count": include_total_count,
+                },
+                exception=ValueError(f"No messages found matching query '{query}'"),
+            )
 
         response = {"messages": window, "has_more": has_more}
 
@@ -264,32 +263,28 @@ async def search_messages(
 
         return response
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc(),
-            },
-            "search_params": {
+        return log_and_build_error(
+            request_id=request_id,
+            operation="search_messages",
+            error_message=f"Search operation failed: {e!s}",
+            params={
                 "query": query,
                 "chat_id": chat_id,
                 "limit": limit,
                 "min_date": min_date,
                 "max_date": max_date,
-                "offset": offset,
                 "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
             },
-        }
-        logger.error(f"[{request_id}] Error searching Telegram", extra=error_info)
-        raise
+            exception=e,
+        )
 
 
 async def _search_chat_messages(
-    client, entity, query, limit, offset, chat_type, auto_expand_batches
+    client, entity, query, limit, chat_type, auto_expand_batches
 ):
     results = []
-    count = 0
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
@@ -299,10 +294,7 @@ async def _search_chat_messages(
         async for message in client.iter_messages(
             entity, search=query, offset_id=next_offset_id
         ):
-            if not message or not getattr(message, "text", None):
-                continue
-            if count < offset:
-                count += 1
+            if not message:
                 continue
             batch.append(message)
             if len(batch) >= limit * 2:
@@ -311,11 +303,13 @@ async def _search_chat_messages(
             break
 
         for message in batch:
-            if await _process_message_for_results(
-                client, message, entity, chat_type, results, limit
+            if (
+                await _process_message_for_results(
+                    client, message, entity, chat_type, results, limit
+                )
+                and len(results) >= limit
             ):
-                if len(results) >= limit:
-                    break
+                break
 
         if batch:
             next_offset_id = batch[-1].id
@@ -330,7 +324,6 @@ async def _search_global_messages(
     limit,
     min_datetime,
     max_datetime,
-    offset,
     chat_type,
     auto_expand_batches,
 ):
@@ -366,11 +359,13 @@ async def _search_global_messages(
                     )
                     continue
 
-                if await _process_message_for_results(
-                    client, message, chat, chat_type, results, limit
+                if (
+                    await _process_message_for_results(
+                        client, message, chat, chat_type, results, limit
+                    )
+                    and len(results) >= limit
                 ):
-                    if len(results) >= limit:
-                        break
+                    break
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue

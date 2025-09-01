@@ -1,25 +1,29 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
 
 from src.client.connection import get_connected_client
+from src.config.logging import (
+    log_operation_start,
+    log_operation_success,
+)
 from src.tools.links import generate_telegram_links
 from src.utils.entity import build_entity_dict, get_entity_by_id
+from src.utils.error_handling import generate_request_id, log_and_build_error
 from src.utils.message_format import (
     build_message_result,
     build_send_edit_result,
-    generate_request_id,
-    log_operation_error,
-    log_operation_start,
-    log_operation_success,
 )
 
 
 async def send_message(
-    chat_id: str, message: str, reply_to_msg_id: int = None, parse_mode: str = None
-) -> Dict[str, Any]:
+    chat_id: str,
+    message: str,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
+) -> dict[str, Any]:
     """
     Send a message to a Telegram chat.
 
@@ -42,7 +46,15 @@ async def send_message(
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
-            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
+            return log_and_build_error(
+                request_id=request_id,
+                operation="send_message",
+                error_message=f"Cannot find chat with ID '{chat_id}'",
+                params=params,
+                exception=ValueError(
+                    f"Cannot find any entity corresponding to '{chat_id}'"
+                ),
+            )
 
         # Send message
         sent_message = await client.send_message(
@@ -57,13 +69,18 @@ async def send_message(
         return result
 
     except Exception as e:
-        log_operation_error(request_id, "sending message", e, params)
-        raise
+        return log_and_build_error(
+            request_id=request_id,
+            operation="send_message",
+            error_message=f"Failed to send message: {e!s}",
+            params=params,
+            exception=e,
+        )
 
 
 async def edit_message(
-    chat_id: str, message_id: int, new_text: str, parse_mode: str = None
-) -> Dict[str, Any]:
+    chat_id: str, message_id: int, new_text: str, parse_mode: str | None = None
+) -> dict[str, Any]:
     """
     Edit an existing message in a Telegram chat.
 
@@ -86,7 +103,15 @@ async def edit_message(
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
-            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
+            return log_and_build_error(
+                request_id=request_id,
+                operation="edit_message",
+                error_message=f"Cannot find chat with ID '{chat_id}'",
+                params=params,
+                exception=ValueError(
+                    f"Cannot find any entity corresponding to '{chat_id}'"
+                ),
+            )
 
         # Edit message
         edited_message = await client.edit_message(
@@ -98,13 +123,18 @@ async def edit_message(
         return result
 
     except Exception as e:
-        log_operation_error(request_id, "editing message", e, params)
-        raise
+        return log_and_build_error(
+            request_id=request_id,
+            operation="edit_message",
+            error_message=f"Failed to edit message: {e!s}",
+            params=params,
+            exception=e,
+        )
 
 
 async def read_messages_by_ids(
-    chat_id: str, message_ids: List[int]
-) -> List[Dict[str, Any]]:
+    chat_id: str, message_ids: list[int]
+) -> list[dict[str, Any]]:
     """
     Read specific messages by their IDs from a given chat.
 
@@ -149,7 +179,7 @@ async def read_messages_by_ids(
             id_to_link = {}
 
         chat_dict = build_entity_dict(entity)
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
         for idx, requested_id in enumerate(message_ids):
             msg = None
             # Telethon may return None for missing messages; map by index if lengths match, else search
@@ -189,8 +219,14 @@ async def read_messages_by_ids(
         return results
 
     except Exception as e:
-        log_operation_error(request_id, "reading messages by IDs", e, params)
-        raise
+        error_response = log_and_build_error(
+            request_id=request_id,
+            operation="read_messages",
+            error_message=f"Failed to read messages: {e!s}",
+            params=params,
+            exception=e,
+        )
+        return [error_response]
 
 
 async def send_message_to_phone_impl(
@@ -199,9 +235,9 @@ async def send_message_to_phone_impl(
     first_name: str = "Contact",
     last_name: str = "Name",
     remove_if_new: bool = False,
-    reply_to_msg_id: int = None,
-    parse_mode: str = None,
-) -> Dict[str, Any]:
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
+) -> dict[str, Any]:
     """
     Send a message to a phone number, handling both existing and new contacts safely.
 
@@ -264,10 +300,13 @@ async def send_message_to_phone_impl(
 
             if not result.users:
                 error_msg = f"Failed to add contact. Phone number '{phone_number}' might not be registered on Telegram."
-                log_operation_error(
-                    request_id, "adding contact", ValueError(error_msg), params
+                return log_and_build_error(
+                    request_id=request_id,
+                    operation="send_message_to_phone",
+                    error_message=error_msg,
+                    params=params,
+                    exception=ValueError(error_msg),
                 )
-                raise ValueError(error_msg)
 
             user = result.users[0]
             contact_was_new = True
@@ -315,5 +354,10 @@ async def send_message_to_phone_impl(
         return result
 
     except Exception as e:
-        log_operation_error(request_id, "sending message to phone number", e, params)
-        raise
+        return log_and_build_error(
+            request_id=request_id,
+            operation="send_message_to_phone",
+            error_message=f"Failed to send message to phone number: {e!s}",
+            params=params,
+            exception=e,
+        )
