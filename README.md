@@ -545,6 +545,9 @@ invoke_mtproto(
 
 ```
 fast-mcp-telegram/
+├── sessions/          # 🆕 Dedicated session storage
+│   ├── mcp_telegram.session  # Authenticated Telegram session
+│   └── .gitkeep       # Maintains directory structure
 ├── src/               # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
@@ -553,11 +556,15 @@ fast-mcp-telegram/
 │   ├── __init__.py    # Package initialization
 │   ├── server.py      # Main server implementation
 │   └── setup_telegram.py  # Telegram setup script
+├── scripts/           # Deployment and utility scripts
+│   └── deploy-mcp.sh  # Enhanced deployment script
 ├── logs/              # Log files directory
 ├── pyproject.toml     # Package setup configuration
 ├── uv.lock            # Dependency lock file
+├── docker-compose.yml # Production Docker configuration
+├── Dockerfile         # Multi-stage UV build
 ├── .env               # Environment variables (create this)
-├── .gitignore         # Git ignore patterns
+├── .gitignore         # Git ignore patterns (includes sessions/)
 └── LICENSE            # MIT License
 
 Note: After authentication, `mcp_telegram.session` will be created in your project root directory. This file contains your authenticated Telegram session and should be kept secure.

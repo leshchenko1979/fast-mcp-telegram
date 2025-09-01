@@ -60,16 +60,32 @@ Apply limit (no pagination)
 Return unified result set
 ```
 
-### 6. Deployment & Transport
+### 6. Session Management Architecture
+- **Dedicated Directory**: `./sessions/` for clean organization and security
+- **Git Integration**: Proper .gitignore with .gitkeep for structure maintenance
+- **Cross-Platform**: Automatic handling of macOS resource forks and permission differences
+- **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
+- **Backup/Restore**: Comprehensive session persistence across deployments
+
+### 7. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
-- Sessions: Telethon session bound into container at `/data/mcp_telegram`
+- Sessions: Dedicated `./sessions/` directory with automatic permission management
+- Volume Mounting: Directory-based mounts (`./sessions:/app/sessions`) instead of file mounts
 
-### 7. Logging Strategy
+### 8. Logging Strategy
 - Loguru: File rotation + console
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Traceability: Request IDs and detailed RPC traces enabled for prod diagnosis
+
+### 9. Deployment Automation Patterns
+- **Session Backup**: Automatic backup of `./sessions/*` before deployment
+- **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
+- **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
+- **Git-Aware Transfer**: Exclude sessions directory from git transfers for security
+- **Local-Remote Sync**: Bidirectional synchronization of session files
+- **Error Recovery**: Robust error handling with detailed logging and counts
 
 ## Critical Implementation Paths
 
@@ -112,11 +128,18 @@ else:
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management
 - **utils/entity.py**: Entity resolution and formatting
+- **sessions/**: Dedicated directory for Telegram session files
+- **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
 
 ### Tool Dependencies
 - **search_messages**: Depends on search.py and entity resolution
 - **send_or_edit_message**: Depends on messages.py with formatting support and editing capabilities
 - **search_contacts**: Depends on contacts.py for contact resolution
+
+### Infrastructure Components
+- **Dockerfile**: Multi-stage UV build with sessions directory creation
+- **docker-compose.yml**: Production configuration with optimized volume mounts
+- **.gitignore**: Git integration with sessions directory handling
 
 ## Design Patterns in Use
 

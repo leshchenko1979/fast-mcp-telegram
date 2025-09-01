@@ -10,10 +10,11 @@ services:
       - MCP_TRANSPORT=http
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
-      - SESSION_NAME=mcp_telegram.session
+      - SESSION_NAME=sessions/mcp_telegram.session
       - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
-      - ./mcp_telegram.session:/app/mcp_telegram.session
+      - ./src:/app/src
+      - ./sessions:/app/sessions
     networks:
       - traefik-public
     labels:
@@ -29,6 +30,7 @@ services:
       retries: 3
       start_period: 10s
     restart: always
+    command: python -m src.server
 
   setup:
     build:
@@ -38,9 +40,10 @@ services:
     env_file:
       - ./.env
     environment:
-      - SESSION_NAME=mcp_telegram.session
+      - SESSION_NAME=sessions/mcp_telegram.session
     volumes:
-      - ./mcp_telegram.session:/app/mcp_telegram.session
+      - ./src:/app/src
+      - ./sessions:/app/sessions
     profiles:
       - setup
     command: python -m src.setup_telegram --overwrite

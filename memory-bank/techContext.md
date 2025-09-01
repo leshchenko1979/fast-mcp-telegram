@@ -15,9 +15,13 @@ fastmcp          # MCP server framework
 telethon         # Telegram API client
 loguru           # Advanced logging
 asyncio          # Async/await support (built-in)
+aiohttp          # HTTP transport for MCP
+python-dotenv    # Environment variable management
 ```
 
 **Dependency Management**: uv with pyproject.toml and uv.lock for reproducible builds
+**Session Management**: Dedicated `./sessions/` directory with automatic permission management
+**Cross-Platform Support**: Automatic handling of macOS resource forks and permission differences
 
 ### Development Tools
 - **Cursor IDE**: Primary development environment
@@ -31,17 +35,26 @@ asyncio          # Async/await support (built-in)
 ```bash
 # Project structure
 tg_mcp/
-├── src/                    # Source code
-│   ├── server.py          # MCP server entry point
-│   ├── tools/             # Tool implementations
-│   ├── client/            # Telegram client management
-│   ├── config/            # Configuration and logging
-│   └── utils/             # Utility functions
-├── tests/                 # Test suite
-├── memory-bank/           # Project documentation
-├── pyproject.toml         # UV dependency configuration
-├── uv.lock               # Locked dependencies for reproducible builds
-└── .dockerignore         # Docker build exclusions
+├── sessions/              # 🆕 Dedicated session storage
+│   ├── mcp_telegram.session  # Authenticated Telegram session
+│   └── .gitkeep          # Maintains directory structure
+├── src/                   # Source code
+│   ├── server.py         # MCP server entry point
+│   ├── tools/            # Tool implementations
+│   ├── client/           # Telegram client management
+│   ├── config/           # Configuration and logging
+│   └── utils/            # Utility functions
+├── scripts/               # 🆕 Deployment and utility scripts
+│   └── deploy-mcp.sh     # Enhanced deployment script
+├── tests/                # Test suite
+├── memory-bank/          # Project documentation
+├── pyproject.toml        # UV dependency configuration
+├── uv.lock              # Locked dependencies for reproducible builds
+├── docker-compose.yml   # Production Docker configuration
+├── Dockerfile          # Multi-stage UV build
+├── .env                # Environment variables (create this)
+├── .gitignore          # Git ignore patterns (includes sessions/)
+└── .dockerignore       # Docker build exclusions
 ```
 
 ### MCP Server Configuration (Local stdio)
@@ -73,15 +86,18 @@ tg_mcp/
 ```
 
 ### Deployment Files
-- `Dockerfile`: Multi-stage uv-based build with builder/runtime stages for optimized images
+- `Dockerfile`: Multi-stage uv-based build with builder/runtime stages, sessions directory creation, and proper user permissions
 - `pyproject.toml`: UV dependency configuration with project metadata
 - `uv.lock`: Locked dependencies for reproducible builds
-- `docker-compose.yml`: Traefik labels with configurable DOMAIN (defaults to `your-domain.com`), mounts `./mcp_telegram.session -> /data/mcp_telegram.session`, healthcheck via curl, network `traefik-public`
-- `scripts/deploy-mcp.sh`: macOS-friendly deploy over SSH, streams git files, copies `.env`, copies session files, composes up with `--env-file .env`
+- `docker-compose.yml`: Production configuration with optimized directory volume mounts (`./sessions:/app/sessions`), Traefik labels, and health checks
+- `scripts/deploy-mcp.sh`: Enhanced deployment script with session backup/restore, permission auto-fixing, macOS resource fork cleanup, and detailed progress logging
+- `sessions/`: Dedicated directory for Telegram session files with proper .gitignore handling
+- `.gitignore`: Excludes sessions directory while maintaining .gitkeep structure
 
 ### Env
 - `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`
-  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`, `SESSION_NAME=/data/mcp_telegram`
+  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`, `SESSION_NAME=sessions/mcp_telegram.session`
+  - Session files stored in dedicated `./sessions/` directory with automatic permission management
 
 ## Technical Constraints
 
@@ -90,6 +106,13 @@ tg_mcp/
 - **Session Management**: Requires proper session handling and authentication
 - **Search Limitations**: Global search has different capabilities than per-chat search
 - **Entity Resolution**: Chat IDs can be in multiple formats (username, numeric ID, channel ID)
+
+### Session Management Architecture
+- **Dedicated Directory**: `./sessions/` for clean organization and security
+- **Automatic Permissions**: Container user (1000:1000) access automatically configured
+- **Cross-Platform Support**: Handles macOS resource forks and permission differences
+- **Deployment Persistence**: Sessions automatically backed up and restored across deployments
+- **Git Security**: Session files excluded from version control for security
 
 ### MCP Protocol Constraints
 - **Tool Registration**: All tools must be properly registered with FastMCP

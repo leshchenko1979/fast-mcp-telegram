@@ -71,6 +71,12 @@
 - **README Streamlining**: Removed troubleshooting section, added Table of Contents, and reorganized content for better user experience (2025-09-01)
 - **Container Isolation**: Solved Docker volume mount conflicts using isolated container approach instead of complex manual file operations (2025-09-01)
 - **Production-Ready Documentation**: Created complete, professional documentation with security warnings, clear setup instructions, and troubleshooting guidance (2025-09-01)
+- **Dedicated Sessions Directory**: Implemented clean session file architecture with `./sessions/` directory for better organization and security (2025-09-01)
+- **Enhanced Deployment Script**: Added comprehensive session file backup/restore, permission auto-fixing, and macOS resource fork cleanup (2025-09-01)
+- **Git Integration**: Updated .gitignore to properly handle sessions directory while maintaining structure with .gitkeep (2025-09-01)
+- **Dockerfile Enhancement**: Added sessions directory creation with proper ownership for container user access (2025-09-01)
+- **Volume Mount Optimization**: Replaced file-specific mounts with directory mounts to eliminate permission conflicts (2025-09-01)
+- **Production Session Management**: Implemented complete session persistence across deployments with automatic permission management (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

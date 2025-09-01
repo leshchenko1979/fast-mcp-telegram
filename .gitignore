@@ -67,3 +67,8 @@ coverage.xml
 # OS specific
 .DS_Store
 Thumbs.db
+# Session files (but keep directory structure)
+sessions/
+!sessions/.gitkeep
+# macOS resource fork files
+._*

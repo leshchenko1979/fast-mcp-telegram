@@ -14,17 +14,15 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 # Set the working directory
 WORKDIR /app
 
-# Copy dependency files
+# Copy only dependency files first (for better layer caching)
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies in venv first, then copy to system
-RUN uv sync --frozen --no-install-project
+# Install dependencies only (this layer caches when dependencies don't change)
+RUN uv sync --frozen --no-install-project && \
+    uv sync --frozen
 
-# Copy application source code
-COPY . .
-
-# Install the project
-RUN uv sync --frozen
+# Copy only necessary source files after dependencies are installed
+COPY src/ ./src/
 
 # Stage 2: Runtime
 FROM python:3-alpine AS runtime
@@ -48,6 +46,9 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy only necessary application source files
 COPY src/ ./src/
 
+# Create sessions directory for Telegram session files
+RUN mkdir -p /app/sessions && chown appuser:appuser /app/sessions
+
 # Set PATH to use venv binaries directly
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -58,10 +59,10 @@ ENV MCP_TRANSPORT=http \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Default: store Telethon session in a mounted volume under /data
+# Default: store Telethon session in mounted volume under /app
+# Matches docker-compose.yml SESSION_NAME=mcp_telegram.session
 # settings.py computes SESSION_PATH = PROJECT_DIR / SESSION_NAME
-# By setting SESSION_NAME absolute, it will not join with PROJECT_DIR
-ENV SESSION_NAME=/data/mcp_telegram
+ENV SESSION_NAME=mcp_telegram.session
 
 # Expose the application's port
 EXPOSE 8000
