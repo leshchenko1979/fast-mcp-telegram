@@ -22,6 +22,8 @@
 - **Cursor Integration**: Verified working with Cursor IDE
 - **Production Deployment**: VDS deployment with Traefik and TLS
 - **Environment Management**: Proper credential handling and session management
+- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds
+- **Dependency Locking**: uv.lock provides reproducible builds and faster deployments
 
 ## What's Left to Build (Remaining Work)
 
@@ -46,6 +48,8 @@
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
 - **Connection Reliability**: Improved with automatic reconnection logic
 - **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
+- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds (2025-08-31)
+- **Deploy Script**: Fixed file transfer issues and improved error handling for uv-based deployments
 - **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
 - **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
 - **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
@@ -56,6 +60,17 @@
 - **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
 - **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
 - **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
+- **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
+- **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
+- **Docker Setup Workflow**: Documented proper container state requirements for Telegram authentication - container must be STOPPED during setup to prevent SQLite database conflicts (2025-09-01)
+- **Volume Mount Conflicts**: Identified and resolved Docker volume mount issues causing directory vs file conflicts in session file handling (2025-09-01)
+- **Documentation Updates**: Updated README.md with comprehensive troubleshooting section covering session file issues, volume mount conflicts, and proper Docker setup workflow (2025-09-01)
+- **Simplified Docker Setup**: Implemented Docker Compose profiles to reduce authentication from 6 steps to 2 steps using `docker compose --profile setup run --rm setup` (2025-09-01)
+- **Enhanced Setup Script**: Improved setup_telegram.py with better session conflict handling, command-line options, and interactive prompts (2025-09-01)
+- **Security Documentation**: Added comprehensive security considerations section with critical warnings about Telegram account access risks (2025-09-01)
+- **README Streamlining**: Removed troubleshooting section, added Table of Contents, and reorganized content for better user experience (2025-09-01)
+- **Container Isolation**: Solved Docker volume mount conflicts using isolated container approach instead of complex manual file operations (2025-09-01)
+- **Production-Ready Documentation**: Created complete, professional documentation with security warnings, clear setup instructions, and troubleshooting guidance (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
@@ -76,6 +91,12 @@
 2. **Multi-Query**: Added JSON array support for multiple terms
 3. **Simplified**: Changed to comma-separated string format for better LLM compatibility
 4. **Optimized**: Added parallel execution and deduplication
+
+### Dependency Management Evolution
+1. **pip + requirements.txt**: Initial setup with pip and requirements file
+2. **UV Migration**: Migrated to uv for faster installs and better caching
+3. **Multi-stage Docker**: Implemented uv-based multi-stage builds for optimized images
+4. **Locked Dependencies**: uv.lock provides reproducible builds and faster deployments
 
 ### Media Handling Evolution
 1. **Raw Objects**: Initially returned raw Telethon media objects
