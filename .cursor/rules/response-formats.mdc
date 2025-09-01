@@ -106,7 +106,8 @@ All error responses follow this exact format:
     "exception": {
         "type": "ExceptionClass",
         "message": "Detailed exception message"
-    }
+    },
+    "action": "run_setup"  // Optional action to suggest to user (e.g., for session invalidation)
 }
 ```
 
