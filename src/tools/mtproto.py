@@ -1,12 +1,12 @@
 import base64
 import random
-import traceback
 from importlib import import_module
 from typing import Any
 
 from loguru import logger
 
 from src.client.connection import get_connected_client
+from src.utils.error_handling import log_and_build_error
 
 
 def _json_safe(value: Any) -> Any:
@@ -94,34 +94,16 @@ async def invoke_mtproto_method(
         )
         return {"ok": True, "result": safe_result}
     except Exception as e:
-        error_info = {
-            "request_id": request_id,
-            "error": {
-                "type": type(e).__name__,
-                "message": str(e),
-                "traceback": traceback.format_exc(),
-            },
-            "method_full_name": method_full_name,
-            "params": params,
-        }
-        # Inline the diagnostics to guarantee visibility in logs
-        try:
-            import json
-
-            diag_str = json.dumps(error_info, indent=2, default=str)
-        except Exception:
-            diag_str = str(error_info)
-        logger.error(f"[{request_id}] Error invoking MTProto method\n{diag_str}")
-        return {
-            "ok": False,
-            "error": f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
-            "request_id": request_id,
-            "operation": "invoke_mtproto",
-            "params": {
+        return log_and_build_error(
+            request_id=request_id,
+            operation="invoke_mtproto",
+            error_message=f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
+            params={
                 "method_full_name": method_full_name,
                 "params_json": params_json,
             },
-        }
+            exception=e,
+        )
 
 
 def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:

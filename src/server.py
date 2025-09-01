@@ -25,6 +25,11 @@ from src.tools.messages import (
 )
 from src.tools.mtproto import invoke_mtproto_method
 from src.tools.search import search_messages as search_messages_impl
+from src.utils.error_handling import (
+    check_connection_error,
+    handle_tool_error,
+    log_and_build_error,
+)
 
 IS_TEST_MODE = "--test-mode" in sys.argv
 
@@ -101,15 +106,23 @@ async def search_messages(
         )
 
         # Check if this is an error response
-        if (
-            isinstance(search_result, dict)
-            and "ok" in search_result
-            and not search_result["ok"]
-        ):
-            logger.error(
-                f"[{request_id}] Search returned error: {search_result.get('error', 'Unknown error')}"
-            )
-            return search_result
+        error_response = handle_tool_error(
+            search_result,
+            "search_messages",
+            request_id,
+            {
+                "query": query,
+                "chat_id": chat_id,
+                "limit": limit,
+                "min_date": min_date,
+                "max_date": max_date,
+                "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
+            },
+        )
+        if error_response:
+            return error_response
 
         # Handle the new response structure
         if isinstance(search_result, dict) and "messages" in search_result:
@@ -131,22 +144,29 @@ async def search_messages(
         return search_result
     except Exception as e:
         error_text = str(e) if e else ""
-        logger.error(
-            f"[{request_id}] Error searching messages: {error_text}\n{traceback.format_exc()}"
+
+        # Check for connection-specific errors
+        connection_error = check_connection_error(error_text)
+        if connection_error:
+            return connection_error
+
+        # Generic error handling
+        return log_and_build_error(
+            request_id=request_id,
+            operation="search_messages",
+            error_message=f"Error searching messages: {error_text}",
+            params={
+                "query": query,
+                "chat_id": chat_id,
+                "limit": limit,
+                "min_date": min_date,
+                "max_date": max_date,
+                "chat_type": chat_type,
+                "auto_expand_batches": auto_expand_batches,
+                "include_total_count": include_total_count,
+            },
+            exception=e,
         )
-        # Special handling: duplicated authorization key/session used from two IPs
-        lowered = error_text.lower()
-        if (
-            ("authorization key" in lowered and "two different ip" in lowered)
-            or ("session file" in lowered and "two different ip" in lowered)
-            or ("auth key" in lowered and "duplicated" in lowered)
-        ):
-            return {
-                "ok": False,
-                "error": "Your Telegram session was invalidated due to concurrent use from different IPs. Please run setup to re-authenticate: python3 setup_telegram.py",
-                "action": "run_setup",
-            }
-        raise
 
 
 @mcp.tool()
@@ -188,11 +208,20 @@ async def send_or_edit_message(
         result = await send_message(chat_id, message, reply_to_msg_id, parse_mode)
 
     # Check if this is an error response
-    if isinstance(result, dict) and "ok" in result and not result["ok"]:
-        logger.error(
-            f"Message operation failed: {result.get('error', 'Unknown error')}"
-        )
-        return result
+    error_response = handle_tool_error(
+        result,
+        "send_or_edit_message",
+        f"msg_op_{int(time.time())}",
+        {
+            "chat_id": chat_id,
+            "message": message,
+            "reply_to_msg_id": reply_to_msg_id,
+            "parse_mode": parse_mode,
+            "message_id": message_id,
+        },
+    )
+    if error_response:
+        return error_response
 
     return result
 
@@ -255,18 +284,18 @@ async def search_contacts(query: str, limit: int = 20):
     """
     result = await search_contacts_telegram(query, limit)
 
-    # Check if this is an error response (list with error object)
-    if (
-        isinstance(result, list)
-        and len(result) == 1
-        and isinstance(result[0], dict)
-        and "ok" in result[0]
-        and not result[0]["ok"]
-    ):
-        logger.error(
-            f"Contact search failed: {result[0].get('error', 'Unknown error')}"
-        )
-        return result[0]  # Return the error object directly
+    # Check if this is an error response
+    error_response = handle_tool_error(
+        result,
+        "search_contacts",
+        f"contact_search_{int(time.time())}",
+        {
+            "query": query,
+            "limit": limit,
+        },
+    )
+    if error_response:
+        return error_response
 
     return result
 
@@ -388,19 +417,51 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
         try:
             params = json.loads(params_json)
         except Exception as e:
-            return {"ok": False, "error": f"Invalid JSON in params_json: {e}"}
+            return log_and_build_error(
+                request_id=f"mtproto_json_{int(time.time())}",
+                operation="invoke_mtproto",
+                error_message=f"Invalid JSON in params_json: {e}",
+                params={
+                    "method_full_name": method_full_name,
+                    "params_json": params_json,
+                },
+                exception=e,
+            )
 
         # Convert any non-string keys to strings
         sanitized_params = {
             (k if isinstance(k, str) else str(k)): v for k, v in params.items()
         }
 
-        return await invoke_mtproto_method(
+        result = await invoke_mtproto_method(
             method_full_name, sanitized_params, params_json
         )
+
+        # Check if this is an error response
+        error_response = handle_tool_error(
+            result,
+            "invoke_mtproto",
+            f"mtproto_{int(time.time())}",
+            {
+                "method_full_name": method_full_name,
+                "params_json": params_json,
+            },
+        )
+        if error_response:
+            return error_response
+
+        return result
     except Exception as e:
-        logger.error(f"Error in invoke_mtproto: {e!s}\n{traceback.format_exc()}")
-        return {"ok": False, "error": str(e)}
+        return log_and_build_error(
+            request_id=f"mtproto_{int(time.time())}",
+            operation="invoke_mtproto",
+            error_message=f"Error in invoke_mtproto: {e!s}",
+            params={
+                "method_full_name": method_full_name,
+                "params_json": params_json,
+            },
+            exception=e,
+        )
 
 
 def shutdown_procedure():

@@ -11,6 +11,7 @@ from telethon.tl.functions.contacts import SearchRequest
 
 from src.client.connection import get_connected_client
 from src.utils.entity import build_entity_dict
+from src.utils.error_handling import log_and_build_error
 
 
 async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -72,35 +73,32 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str
 
         # If no contacts found, return error instead of empty list for consistency
         if not matches:
-            return [
-                {
-                    "ok": False,
-                    "error": f"No contacts found matching query '{query}'",
-                    "request_id": f"contacts_{int(time.time() * 1000)}",
-                    "operation": "search_contacts",
-                    "params": {
-                        "query": query,
-                        "limit": limit,
-                    },
-                }
-            ]
+            error_response = log_and_build_error(
+                request_id=f"contacts_{int(time.time() * 1000)}",
+                operation="search_contacts",
+                error_message=f"No contacts found matching query '{query}'",
+                params={
+                    "query": query,
+                    "limit": limit,
+                },
+                exception=ValueError(f"No contacts found matching query '{query}'"),
+            )
+            return [error_response]
 
         return matches
 
     except Exception as e:
-        logger.error(f"Error searching contacts via Telegram: {e!s}")
-        return [
-            {
-                "ok": False,
-                "error": f"Failed to search contacts: {e!s}",
-                "request_id": f"contacts_{int(time.time() * 1000)}",
-                "operation": "search_contacts",
-                "params": {
-                    "query": query,
-                    "limit": limit,
-                },
-            }
-        ]
+        error_response = log_and_build_error(
+            request_id=f"contacts_{int(time.time() * 1000)}",
+            operation="search_contacts",
+            error_message=f"Failed to search contacts: {e!s}",
+            params={
+                "query": query,
+                "limit": limit,
+            },
+            exception=e,
+        )
+        return [error_response]
 
 
 async def get_contact_info(chat_id: str) -> dict[str, Any]:
@@ -118,26 +116,25 @@ async def get_contact_info(chat_id: str) -> dict[str, Any]:
         entity = await client.get_entity(chat_id)
 
         if not entity:
-            return {
-                "ok": False,
-                "error": f"Contact with ID '{chat_id}' not found",
-                "request_id": f"contact_{int(time.time() * 1000)}",
-                "operation": "get_contact_details",
-                "params": {
+            return log_and_build_error(
+                request_id=f"contact_{int(time.time() * 1000)}",
+                operation="get_contact_details",
+                error_message=f"Contact with ID '{chat_id}' not found",
+                params={
                     "chat_id": chat_id,
                 },
-            }
+                exception=ValueError(f"Contact with ID '{chat_id}' not found"),
+            )
 
         return build_entity_dict(entity)
 
     except Exception as e:
-        logger.error(f"Error getting contact info for {chat_id}: {e!s}")
-        return {
-            "ok": False,
-            "error": f"Failed to get contact info for '{chat_id}': {e!s}",
-            "request_id": f"contact_{int(time.time() * 1000)}",
-            "operation": "get_contact_details",
-            "params": {
+        return log_and_build_error(
+            request_id=f"contact_{int(time.time() * 1000)}",
+            operation="get_contact_details",
+            error_message=f"Failed to get contact info for '{chat_id}': {e!s}",
+            params={
                 "chat_id": chat_id,
             },
-        }
+            exception=e,
+        )

@@ -4,11 +4,6 @@ from typing import Any
 from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
 
 
-def generate_request_id(prefix: str) -> str:
-    """Generate a unique request ID with timestamp."""
-    return f"{prefix}_{int(time.time() * 1000)}"
-
-
 def _has_any_media(message) -> bool:
     """Check if message contains any type of media content."""
     if not hasattr(message, "media") or message.media is None:
