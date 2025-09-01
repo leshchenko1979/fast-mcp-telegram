@@ -76,6 +76,7 @@ def build_error_response(
     request_id: str | None = None,
     params: dict[str, Any] | None = None,
     exception: Exception | None = None,
+    action: str | None = None,
 ) -> dict[str, Any]:
     """
     Build a standardized error response dictionary.
@@ -86,6 +87,7 @@ def build_error_response(
         request_id: Unique request identifier (auto-generated if None)
         params: Original parameters for context
         exception: Exception that caused the error (for logging)
+        action: Optional action to suggest to the user (e.g., "run_setup")
 
     Returns:
         Standardized error response dictionary
@@ -109,6 +111,9 @@ def build_error_response(
             "message": str(exception),
         }
 
+    if action:
+        error_response["action"] = action
+
     return error_response
 
 
@@ -119,6 +124,7 @@ def log_and_build_error(
     params: dict[str, Any],
     exception: Exception | None = None,
     log_level: str = "error",
+    action: str | None = None,
 ) -> dict[str, Any]:
     """
     Log an error and build a standardized error response.
@@ -130,6 +136,7 @@ def log_and_build_error(
         params: Original parameters for context
         exception: Exception that caused the error
         log_level: Logging level ('error', 'warning', 'info', etc.)
+        action: Optional action to suggest to the user (e.g., "run_setup")
 
     Returns:
         Standardized error response dictionary
@@ -160,6 +167,7 @@ def log_and_build_error(
         request_id=request_id,
         params=params,
         exception=exception,
+        action=action,
     )
 
 
