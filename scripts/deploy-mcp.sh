@@ -49,17 +49,7 @@ deploy() {
   git ls-files | xargs ls -d 2>/dev/null | tar -czf - --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
   scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
   
-  log "$BLUE" "Copying session files..."
-  # Copy session files if they exist
-  if ls *.session* 1>/dev/null 2>&1; then
-    scp -C *.session* "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/" || log "$RED" "Failed to copy session files"
-    # Fix permissions for session files to prevent readonly database errors
-    ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && chmod 666 *.session* 2>/dev/null || true"
-    # Also ensure the project directory has proper permissions
-    ssh "$VDS_USER@$VDS_HOST" "chmod 755 $VDS_PROJECT_PATH 2>/dev/null || true"
-  else
-    log "$BLUE" "No session files to copy"
-  fi
+
 
   log "$BLUE" "Starting containers..."
   if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --env-file .env up --build -d"; then

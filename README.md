@@ -240,9 +240,8 @@ export VDS_PROJECT_PATH=/path/to/deployment
 
 The script will:
 - Transfer project files to your server
-- Copy environment and session files
+- Copy environment file
 - Build and start the Docker containers
-- Set up proper permissions for session files
 
 ### 6. Configure Your MCP Client
 
@@ -562,6 +561,8 @@ fast-mcp-telegram/
 └── LICENSE            # MIT License
 
 Note: After authentication, `mcp_telegram.session` will be created in your project root directory. This file contains your authenticated Telegram session and should be kept secure.
+
+**Important:** When deploying remotely, you must authenticate with Telegram on the remote server after deployment. Session files are not transferred during deployment for security reasons.
 ```
 
 ## 📦 Dependencies
