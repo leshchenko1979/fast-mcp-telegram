@@ -10,7 +10,7 @@ from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
 
 from src.client.connection import get_connected_client
-from src.utils.entity import build_entity_dict
+from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import log_and_build_error
 
 
@@ -112,8 +112,7 @@ async def get_contact_info(chat_id: str) -> dict[str, Any]:
         Contact information or error message if not found
     """
     try:
-        client = await get_connected_client()
-        entity = await client.get_entity(chat_id)
+        entity = await get_entity_by_id(chat_id)
 
         if not entity:
             return log_and_build_error(
