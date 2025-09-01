@@ -65,7 +65,7 @@ tg_mcp/
 {
   "mcpServers": {
     "telegram": {
-      "url": "https://tg-mcp.redevest.ru/mcp",
+      "url": "https://your-domain.com/mcp",
       "headers": {}
     }
   }
@@ -76,7 +76,7 @@ tg_mcp/
 - `Dockerfile`: Multi-stage uv-based build with builder/runtime stages for optimized images
 - `pyproject.toml`: UV dependency configuration with project metadata
 - `uv.lock`: Locked dependencies for reproducible builds
-- `docker-compose.yml`: Traefik labels for `tg-mcp.redevest.ru`, mounts `./mcp_telegram.session -> /data/mcp_telegram.session`, healthcheck via curl, network `traefik-public`
+- `docker-compose.yml`: Traefik labels with configurable DOMAIN (defaults to `your-domain.com`), mounts `./mcp_telegram.session -> /data/mcp_telegram.session`, healthcheck via curl, network `traefik-public`
 - `scripts/deploy-mcp.sh`: macOS-friendly deploy over SSH, streams git files, copies `.env`, copies session files, composes up with `--env-file .env`
 
 ### Env

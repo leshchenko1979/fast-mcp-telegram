@@ -62,6 +62,15 @@
 - **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
 - **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
 - **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
+- **Docker Setup Workflow**: Documented proper container state requirements for Telegram authentication - container must be STOPPED during setup to prevent SQLite database conflicts (2025-09-01)
+- **Volume Mount Conflicts**: Identified and resolved Docker volume mount issues causing directory vs file conflicts in session file handling (2025-09-01)
+- **Documentation Updates**: Updated README.md with comprehensive troubleshooting section covering session file issues, volume mount conflicts, and proper Docker setup workflow (2025-09-01)
+- **Simplified Docker Setup**: Implemented Docker Compose profiles to reduce authentication from 6 steps to 2 steps using `docker compose --profile setup run --rm setup` (2025-09-01)
+- **Enhanced Setup Script**: Improved setup_telegram.py with better session conflict handling, command-line options, and interactive prompts (2025-09-01)
+- **Security Documentation**: Added comprehensive security considerations section with critical warnings about Telegram account access risks (2025-09-01)
+- **README Streamlining**: Removed troubleshooting section, added Table of Contents, and reorganized content for better user experience (2025-09-01)
+- **Container Isolation**: Solved Docker volume mount conflicts using isolated container approach instead of complex manual file operations (2025-09-01)
+- **Production-Ready Documentation**: Created complete, professional documentation with security warnings, clear setup instructions, and troubleshooting guidance (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

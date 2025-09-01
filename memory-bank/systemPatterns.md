@@ -62,7 +62,7 @@ Return unified result set
 
 ### 6. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
-- Ingress: Traefik `websecure` with Let's Encrypt, router `tg-mcp.redevest.ru`
+- Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
 - Sessions: Telethon session bound into container at `/data/mcp_telegram`
 
