@@ -1,8 +1,9 @@
-# Multi-stage Dockerfile using uv for dependency management
-# Based on best practices from uv optimization examples
+# Production-optimized Dockerfile using uv for dependency management
+# Uses Alpine Linux for minimal size and global installation for production efficiency
+# No virtual environment needed - container provides isolation
 
 # Stage 1: Builder
-FROM python:3-slim AS builder
+FROM python:3-alpine AS builder
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
@@ -16,34 +17,38 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies in a virtual environment
+# Install dependencies in venv first, then copy to system
 RUN uv sync --frozen --no-install-project
 
 # Copy application source code
 COPY . .
 
-# Install the project itself
+# Install the project
 RUN uv sync --frozen
 
 # Stage 2: Runtime
-FROM python:3-slim AS runtime
+FROM python:3-alpine AS runtime
 
-# Install curl for healthchecks in runtime stage
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home appuser
+# Install only essential runtime dependencies
+RUN apk add --no-cache curl
 
-# Switch to non-root user for security
+# Create non-root user for security
+RUN addgroup -g 1000 appuser && \
+    adduser -D -s /bin/sh -u 1000 -G appuser appuser
+
+# Switch to non-root user
 USER appuser
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the virtual environment and application from the builder stage
-COPY --from=builder /app /app
+# Copy venv from builder (single efficient copy operation)
+COPY --from=builder /app/.venv /app/.venv
 
-# Add the virtual environment's binary directory to PATH
+# Copy only necessary application source files
+COPY src/ ./src/
+
+# Set PATH to use venv binaries directly
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Environment for FastMCP HTTP

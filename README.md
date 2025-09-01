@@ -1,15 +1,44 @@
-# fast-mcp-telegram
+# 🚀 fast-mcp-telegram
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PyPI version](https://badge.fury.io/py/fast-mcp-telegram.svg)](https://pypi.org/project/fast-mcp-telegram/)
+[![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 [![Telegram](https://img.shields.io/badge/Telegram-Community-blue?logo=telegram)](https://t.me/mcp_telegram)
 
-🚀 AI-powered Telegram automation via MCP protocol. Search messages, send automated replies, manage contacts - enable your AI assistant with full Telegram API access through FastMCP.
+<div align="center">
 
-**🚀 2-minute setup • 📱 Full Telegram API • 🤖 AI-ready • ⚡ FastMCP powered**
+# 🤖 AI-Powered Telegram Automation
 
-[uvx Installation (2-min setup)](#-uvx-path-recommended) • [Local Installation](#-local-installation-path) • [Available Tools](#-available-tools) • [Community](https://t.me/mcp_telegram)
+**Transform your AI assistant into a Telegram power user with full API access**
+
+*Search messages, send automated replies, manage contacts, and control Telegram through any MCP-compatible AI client*
+
+[![Quick Start](https://img.shields.io/badge/🚀_Quick_Start-2_min_setup-brightgreen?style=for-the-badge&logo=lightning)](#-uvx-path-recommended)
+[![Docker](https://img.shields.io/badge/🐳_Docker-Production_ready-blue?style=for-the-badge&logo=docker)](#-docker-deployment-production)
+[![Community](https://img.shields.io/badge/💬_Community-Join_us-blue?style=for-the-badge&logo=telegram)](https://t.me/mcp_telegram)
+
+**⚡ Lightning-fast setup • 🔍 Smart search • 💬 Auto-messaging • 📱 Phone integration • 🐳 Production-ready**
+
+</div>
+
+---
+
+## 📖 Table of Contents
+
+- [✨ Features](#-features)
+- [📋 Prerequisites](#-prerequisites)
+- [🚀 Choose Your Installation Path](#-choose-your-installation-path)
+- [🚀 uvx Path (Recommended)](#-uvx-path-recommended)
+- [💻 Local Installation Path](#-local-installation-path)
+- [🐳 Docker Deployment (Production)](#-docker-deployment-production)
+- [🔧 Available Tools](#-available-tools)
+- [📁 Project Structure](#-project-structure)
+- [📦 Dependencies](#-dependencies)
+- [🔒 Security Considerations](#-security-considerations)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
+- [🙏 Acknowledgments](#-acknowledgments)
 
 ---
 
@@ -36,11 +65,13 @@
 | Path | Best For | Complexity | Maintenance |
 |------|----------|------------|-------------|
 | **🚀 uvx (Recommended)** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | ✅ Auto-updates |
+| **🐳 Docker (Production)** | Production deployment | ⭐⭐⭐⭐ Easy | 🐳 Container updates |
 | **💻 Local Installation** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
 
 **Choose your path below:**
 - [uvx Path (2-minute setup)](#-uvx-path-recommended)
 - [Local Installation Path](#-local-installation-path)
+- [🐳 Docker Deployment (Production)](#-docker-deployment-production)
 
 ---
 
@@ -118,6 +149,209 @@ python src/setup_telegram.py
 **ℹ️ Session Info:** Your Telegram session is saved to `mcp_telegram.session` in the project directory (one-time setup)
 
 **✅ You're all set!** Continue below for development tools.
+
+---
+
+## 🐳 Docker Deployment (Production)
+
+### Prerequisites
+
+- **Docker & Docker Compose** installed
+- **Telegram API credentials** ([get them here](https://my.telegram.org/auth))
+- **Domain name** (for Traefik reverse proxy setup)
+
+### 1. Environment Setup
+
+Create a `.env` file in your project directory:
+
+```bash
+# Telegram API Credentials
+API_ID=your_api_id
+API_HASH=your_api_hash
+PHONE_NUMBER=+1234567890
+
+# MCP Server Configuration
+MCP_TRANSPORT=http
+MCP_HOST=0.0.0.0
+MCP_PORT=8000
+SESSION_NAME=mcp_telegram
+
+# Domain Configuration (optional - defaults to your-domain.com)
+DOMAIN=your-domain.com
+
+# Optional: Logging
+LOG_LEVEL=INFO
+```
+
+### 2. Telegram Authentication (One-Time Setup)
+
+**Important:** The setup process creates an authenticated Telegram session file at `./mcp_telegram.session` in your project directory.
+
+```bash
+# 1. Run authentication setup
+docker compose --profile setup run --rm setup
+
+# 2. Start the main MCP server
+docker compose up -d
+```
+
+**What happens:**
+- Setup container runs with interactive authentication
+- Session file is created at `./mcp_telegram.session`
+- Container is automatically cleaned up
+- Main service starts with authenticated session
+
+### 3. Domain Configuration (Optional)
+
+The default domain is `your-domain.com`. To use your own domain:
+
+1. **Set up DNS**: Point your domain to your server
+2. **Configure environment**: Add `DOMAIN=your-domain.com` to your `.env` file
+3. **Traefik network**: Ensure `traefik-public` network exists on your host
+
+**Example:**
+```bash
+# In your .env file
+DOMAIN=my-telegram-bot.example.com
+```
+
+### 4. Local Docker Deployment
+
+```bash
+# Build and start the service
+docker compose up --build -d
+
+# Check logs
+docker compose logs -f fast-mcp-telegram
+
+# Check health
+docker compose ps
+```
+
+The service will be available at `http://localhost:8000` (internal) and through Traefik if configured.
+
+### 5. Remote Server Deployment
+
+For production deployment on a remote server:
+
+```bash
+# Set up environment variables for remote deployment
+export VDS_USER=your_server_user
+export VDS_HOST=your.server.com
+export VDS_PROJECT_PATH=/path/to/deployment
+
+# Run the deployment script
+./scripts/deploy-mcp.sh
+```
+
+The script will:
+- Transfer project files to your server
+- Copy environment and session files
+- Build and start the Docker containers
+- Set up proper permissions for session files
+
+### 6. Configure Your MCP Client
+
+For HTTP-based MCP clients:
+
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "curl",
+      "args": ["-X", "POST", "https://your-domain.com/mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+Or for direct HTTP connection:
+
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-domain.com"
+    }
+  }
+}
+```
+
+### 7. Verify Deployment
+
+```bash
+# Check container status
+docker compose ps
+
+# View logs
+docker compose logs fast-mcp-telegram
+
+# Test health endpoint
+curl -s https://your-domain.com/health
+```
+
+### Docker Configuration Details
+
+| Component | Purpose | Configuration |
+|-----------|---------|---------------|
+| **Multi-stage Build** | Optimized image size | Python slim + uv |
+| **Traefik Integration** | Reverse proxy with TLS | Automatic HTTPS certificates |
+| **Session Persistence** | Telegram authentication | Mounted volume |
+| **Health Checks** | Container monitoring | HTTP endpoint checks |
+| **Non-root User** | Security best practice | appuser with minimal permissions |
+
+### Troubleshooting Docker Deployment
+
+**❌ "Session file permission denied"**
+```bash
+# Fix permissions on host
+chmod 666 mcp_telegram.session
+
+# Or recreate session
+rm mcp_telegram.session
+docker compose run --rm fast-mcp-telegram python -m src.setup_telegram
+```
+
+**❌ "Container won't start"**
+```bash
+# Check logs for errors
+docker compose logs fast-mcp-telegram
+
+# Validate environment file
+docker compose config
+```
+
+**❌ "Health check failing"**
+```bash
+# Check if service is responding
+curl -s http://localhost:8000
+
+# View detailed logs
+docker compose logs --tail=50 fast-mcp-telegram
+```
+
+**❌ "Traefik routing issues"**
+```bash
+# Verify Traefik network exists
+docker network ls | grep traefik
+
+# Check Traefik logs
+docker logs traefik
+```
+
+**Environment Variables:**
+- `MCP_TRANSPORT=http` - HTTP transport mode
+- `MCP_HOST=0.0.0.0` - Bind to all interfaces
+- `MCP_PORT=8000` - Service port
+- `SESSION_NAME=mcp_telegram` - Telegram session name
+
+**Session Management:**
+- Session files are stored in `./mcp_telegram.session` (host) and `/app/mcp_telegram.session` (container)
+- Always backup session files before redeployment
+- Session files contain sensitive authentication data
+
+---
 
 ## 🛠️ Development (Local Installation Only)
 
@@ -592,7 +826,7 @@ fast-mcp-telegram/
 ├── .gitignore         # Git ignore patterns
 └── LICENSE            # MIT License
 
-Note: *.session and *.session-journal files will be created after authentication
+Note: After authentication, `mcp_telegram.session` will be created in your project root directory. This file contains your authenticated Telegram session and should be kept secure.
 ```
 
 ## 📦 Dependencies
@@ -606,6 +840,50 @@ Note: *.session and *.session-journal files will be created after authentication
 | **python-dotenv** | Environment management |
 
 **Installation:** `uv sync` (dependencies managed via `pyproject.toml`)
+
+---
+
+## 🔒 Security Considerations
+
+**🚨 CRITICAL SECURITY WARNING:** Once authenticated, anyone with access to this MCP server can perform **ANY action** on your Telegram account including:
+- Reading all your messages and chats
+- Sending messages on your behalf
+- Joining/leaving groups and channels
+- Deleting messages
+- Accessing your contact list
+- Performing any Telegram API operation
+
+**You MUST implement proper access controls before deploying this server.**
+
+### Authentication Security
+- **Session File Protection**: The `mcp_telegram.session` file contains your complete Telegram access
+  - Keep this file secure and never commit it to version control
+  - Use restrictive file permissions: `chmod 600 mcp_telegram.session`
+  - Store in secure locations (not web-accessible directories)
+- **Access Control**: Implement authentication/authorization before exposing the MCP server
+
+### Network Security
+- **IP Whitelisting**: Restrict access to specific IP addresses using firewall rules
+- **Reverse Proxy**: Use nginx/Traefik/Caddy with authentication
+- **VPN**: Only allow access through VPN connections
+- **Private Network**: Deploy on private networks only
+
+### Authentication Security
+- **Session File Protection**: The `mcp_telegram.session` file contains your Telegram credentials
+  - Keep this file secure and never commit it to version control
+  - Use restrictive file permissions: `chmod 600 mcp_telegram.session`
+  - Store in secure locations (not web-accessible directories)
+
+### Container Security
+- **No Host Networking**: Avoid `--network host` to prevent container breakout
+- **Read-only Filesystems**: Consider read-only root filesystems where possible
+- **Minimal Images**: Use Alpine-based images for smaller attack surface
+- **Regular Updates**: Keep base images and dependencies updated
+
+### Monitoring
+- **Access Logging**: Monitor who accesses the MCP server
+- **Rate Limiting**: Implement rate limiting to prevent abuse
+- **Audit Logs**: Log all Telegram API operations for security review
 
 ---
 

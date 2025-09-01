@@ -1,5 +1,5 @@
 services:
-  tg-mcp:
+  fast-mcp-telegram:
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -10,17 +10,18 @@ services:
       - MCP_TRANSPORT=http
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
-      - SESSION_NAME=mcp_telegram
+      - SESSION_NAME=mcp_telegram.session
+      - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
       - ./mcp_telegram.session:/app/mcp_telegram.session
     networks:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.tg-mcp.rule=Host(`tg-mcp.redevest.ru`)"
-      - "traefik.http.routers.tg-mcp.entrypoints=websecure"
-      - "traefik.http.services.tg-mcp.loadbalancer.server.port=8000"
-      - "traefik.http.routers.tg-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.fast-mcp-telegram.rule=Host(`${DOMAIN:-your-domain.com}`)"
+      - "traefik.http.routers.fast-mcp-telegram.entrypoints=websecure"
+      - "traefik.http.services.fast-mcp-telegram.loadbalancer.server.port=8000"
+      - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=letsencrypt"
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sS -o /dev/null http://localhost:8000 || exit 1"]
       interval: 5s
@@ -28,6 +29,21 @@ services:
       retries: 3
       start_period: 10s
     restart: always
+
+  setup:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: runtime
+    env_file:
+      - ./.env
+    environment:
+      - SESSION_NAME=mcp_telegram.session
+    volumes:
+      - ./mcp_telegram.session:/app/mcp_telegram.session
+    profiles:
+      - setup
+    command: python -m src.setup_telegram --overwrite
 
 networks:
   traefik-public:
