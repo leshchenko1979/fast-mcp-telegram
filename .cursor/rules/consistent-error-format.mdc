@@ -1,0 +1,29 @@
+---
+description: Standardized error response format for all Telegram MCP tools
+globs: *.py
+alwaysApply: true
+---
+# Error Response Format
+
+All tools return structured error responses instead of exceptions or empty results.
+
+## Format:
+```json
+{
+  "ok": false,
+  "error": "Human-readable message",
+  "request_id": "unique_id",
+  "operation": "tool_name",
+  "params": { /* original params */ }
+}
+```
+
+## Detection:
+```python
+if isinstance(result, dict) and "ok" in result and not result["ok"]:
+    return result  # Error response
+```
+
+## Examples:
+- No results: `{"ok": false, "error": "No messages found", ...}`
+- Invalid chat: `{"ok": false, "error": "Cannot find chat", ...}`

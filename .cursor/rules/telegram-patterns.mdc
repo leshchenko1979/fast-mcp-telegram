@@ -1,0 +1,153 @@
+---
+description: Telegram-specific patterns and Telethon library usage
+globs: *.py
+alwaysApply: false
+---
+# Telegram-Specific Patterns
+
+## Entity Resolution
+
+Always resolve chat/user entities using the utility functions:
+
+```python
+from src.utils.entity import get_entity_by_id
+
+# ✅ Correct - handles all entity types (users, chats, channels)
+entity = await get_entity_by_id(chat_id)
+if not entity:
+    raise ValueError(f"Could not find chat with ID '{chat_id}'")
+
+# ❌ Wrong - don't use client.get_entity directly
+entity = await client.get_entity(chat_id)  # Missing error handling
+```
+
+## Special Chat Identifiers
+
+Use these special identifiers for common chats:
+
+```python
+# Saved Messages (your own messages)
+chat_id = "me"
+
+# Channel IDs (always start with -100)
+channel_id = "-1001234567890"
+
+# User IDs (numeric strings)
+user_id = "123456789"
+
+# Usernames (without @)
+username = "telegram"
+```
+
+## Message Content Detection
+
+Check for various types of message content:
+
+```python
+# Check for text content
+has_text = message.text and message.text.strip()
+
+# Check for media content (photos, documents, etc.)
+has_media = hasattr(message, "media") and message.media is not None
+
+# Check for specific media types
+is_photo = hasattr(message, "photo") and message.photo is not None
+is_document = hasattr(message, "document") and message.document is not None
+is_voice = hasattr(message, "voice") and message.voice is not None
+```
+
+## Message Iteration
+
+Use proper patterns for iterating through messages:
+
+```python
+# ✅ Correct - limit results and handle empty messages
+async for message in client.iter_messages(entity, limit=50):
+    if not message:
+        continue
+    # Process message
+    await process_message(message)
+
+# ❌ Wrong - no limit can cause performance issues
+async for message in client.iter_messages(entity):  # No limit!
+    pass
+```
+
+## Forwarded Message Handling
+
+Handle forwarded messages properly:
+
+```python
+# Check if message is forwarded
+if hasattr(message, "forward") and message.forward:
+    forward_info = await _extract_forward_info(message)
+    original_sender = forward_info.get("sender")
+    original_chat = forward_info.get("chat")
+    forward_date = forward_info.get("date")
+```
+
+## Peer ID Handling
+
+Work with different peer ID types:
+
+```python
+# User peer
+user_peer = {"_": "inputPeerUser", "user_id": 123456, "access_hash": 123456789}
+
+# Channel peer
+channel_peer = {"_": "inputPeerChannel", "channel_id": 123456, "access_hash": 123456789}
+
+# Chat peer
+chat_peer = {"_": "inputPeerChat", "chat_id": 123456}
+
+# Self peer (Saved Messages)
+self_peer = {"_": "inputPeerSelf"}
+```
+
+## Session Management
+
+Handle Telegram session files properly:
+
+```python
+# Session files are managed automatically by the framework
+# Don't manually create or delete session files
+# Use setup_telegram.py for initial authentication
+
+# Session file location is determined by environment:
+# - Local development: project root
+# - Production/ephemeral: ~/.config/fast-mcp-telegram/
+```
+
+## Rate Limiting Awareness
+
+Be aware of Telegram API limits:
+
+```python
+# Respect rate limits
+import asyncio
+await asyncio.sleep(1)  # Rate limiting between requests
+
+# Use reasonable limits for bulk operations
+MAX_MESSAGES = 100  # Don't fetch thousands at once
+BATCH_SIZE = 50     # Process in reasonable batches
+```
+
+## Error Pattern Recognition
+
+Recognize common Telegram errors:
+
+```python
+error_text = str(e).lower()
+
+# Channel access errors
+if "channel" in error_text and "access" in error_text:
+    return {"error": "Cannot access this channel"}
+
+# Flood wait errors
+if "flood" in error_text and "wait" in error_text:
+    return {"error": "Rate limited, please wait before retrying"}
+
+# Authentication errors
+if "auth" in error_text or "session" in error_text:
+    return {"error": "Authentication required, run setup_telegram.py"}
+```
