@@ -2,9 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://badge.fury.io/py/fast-mcp-telegram.svg)](https://pypi.org/project/fast-mcp-telegram/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
-[![Telegram](https://img.shields.io/badge/Telegram-Community-blue?logo=telegram)](https://t.me/mcp_telegram)
 
 <div align="center">
 
@@ -195,11 +193,7 @@ docker compose --profile setup run --rm setup
 docker compose up -d
 ```
 
-**What happens:**
-- Setup container runs with interactive authentication
-- Session file is created at `./mcp_telegram.session`
-- Container is automatically cleaned up
-- Main service starts with authenticated session
+**Creates authenticated session file at `./mcp_telegram.session`**
 
 ### 3. Domain Configuration (Optional)
 
@@ -291,81 +285,21 @@ docker compose logs fast-mcp-telegram
 curl -s https://your-domain.com/health
 ```
 
-### Docker Configuration Details
-
-| Component | Purpose | Configuration |
-|-----------|---------|---------------|
-| **Multi-stage Build** | Optimized image size | Python slim + uv |
-| **Traefik Integration** | Reverse proxy with TLS | Automatic HTTPS certificates |
-| **Session Persistence** | Telegram authentication | Mounted volume |
-| **Health Checks** | Container monitoring | HTTP endpoint checks |
-| **Non-root User** | Security best practice | appuser with minimal permissions |
-
-### Troubleshooting Docker Deployment
-
-**❌ "Session file permission denied"**
-```bash
-# Fix permissions on host
-chmod 666 mcp_telegram.session
-
-# Or recreate session
-rm mcp_telegram.session
-docker compose run --rm fast-mcp-telegram python -m src.setup_telegram
-```
-
-**❌ "Container won't start"**
-```bash
-# Check logs for errors
-docker compose logs fast-mcp-telegram
-
-# Validate environment file
-docker compose config
-```
-
-**❌ "Health check failing"**
-```bash
-# Check if service is responding
-curl -s http://localhost:8000
-
-# View detailed logs
-docker compose logs --tail=50 fast-mcp-telegram
-```
-
-**❌ "Traefik routing issues"**
-```bash
-# Verify Traefik network exists
-docker network ls | grep traefik
-
-# Check Traefik logs
-docker logs traefik
-```
-
 **Environment Variables:**
 - `MCP_TRANSPORT=http` - HTTP transport mode
 - `MCP_HOST=0.0.0.0` - Bind to all interfaces
 - `MCP_PORT=8000` - Service port
 - `SESSION_NAME=mcp_telegram` - Telegram session name
 
-**Session Management:**
-- Session files are stored in `./mcp_telegram.session` (host) and `/app/mcp_telegram.session` (container)
-- Always backup session files before redeployment
-- Session files contain sensitive authentication data
-
 ---
 
-## 🛠️ Development (Local Installation Only)
+## 🛠️ Development
 
-### Code Quality
 ```bash
 uv sync --all-extras  # Install dev dependencies
 uv run ruff format . # Format code
 uv run ruff check .  # Lint code
-```
-
-### Testing the Server
-```bash
-python3 src/server.py                    # Direct execution
-uv run fast-mcp-telegram --test-mode     # With test mode
+python src/server.py # Test server
 ```
 
 ---
@@ -596,216 +530,17 @@ invoke_mtproto(
   "method_full_name": "messages.GetHistory",
   "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"
 }}
-```
-
-
-
 ## 💡 Examples
 
-### 🔍 **Message Search & Analysis**
+**Search messages:** `{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}`
 
-**Find recent project mentions in team chats:**
-```json
-{
-  "tool": "search_messages",
-  "params": {
-    "query": "deadline, milestone, blocker",
-    "chat_type": "group",
-    "min_date": "2024-01-01",
-    "limit": 25
-  }
-}
-```
+**Send message:** `{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}`
 
-**Monitor competitor mentions across channels:**
-```json
-{
-  "tool": "search_messages",
-  "params": {
-    "query": "competitor_name",
-    "chat_type": "channel",
-    "limit": 50
-  }
-}
-```
+**Find contacts:** `{"tool": "search_contacts", "params": {"query": "john"}}`
 
-### 💬 **Automated Communication**
+**Message by phone:** `{"tool": "send_message_to_phone", "params": {"phone_number": "+1234567890", "message": "Alert!"}}`
 
-**Daily standup summary to team:**
-```json
-{
-  "tool": "send_or_edit_message",
-  "params": {
-    "chat_id": "@team_chat",
-    "message": "*Daily Standup - Today*\n\n✅ Completed: API optimization\n🚧 In Progress: UI improvements\n❓ Blockers: None\n\n*Tomorrow:* Database migration",
-    "parse_mode": "markdown"
-  }
-}
-```
 
-**Smart reply to customer inquiry:**
-```json
-{
-  "tool": "send_or_edit_message",
-  "params": {
-    "chat_id": "customer_chat_id",
-    "message": "Thanks for reaching out! I'll look into this right away and get back to you within 2 hours.",
-    "reply_to_msg_id": 12345
-  }
-}
-```
-
-### 👥 **Contact Management**
-
-**Find team member for collaboration:**
-```json
-{
-  "tool": "search_contacts",
-  "params": {
-    "query": "john developer"
-  }
-}
-```
-
-**Get colleague's availability:**
-```json
-{
-  "tool": "get_contact_details",
-  "params": {
-    "chat_id": "@john_dev"
-  }
-}
-```
-
-### 📱 **Phone Integration**
-
-**Emergency notification:**
-```json
-{
-  "tool": "send_message_to_phone",
-  "params": {
-    "phone_number": "+1234567890",
-    "message": "🚨 ALERT: Server down in production. Team notified.",
-    "remove_if_new": false
-  }
-}
-```
-
-### 🤖 **Advanced Automation**
-
-**Content moderation workflow:**
-```json
-// 1. Search for flagged content
-{
-  "tool": "search_messages",
-  "params": {
-    "query": "inappropriate_content",
-    "chat_type": "channel",
-    "limit": 10
-  }
-}
-
-// 2. Get message details
-{
-  "tool": "read_messages",
-  "params": {
-    "chat_id": "channel_id",
-    "message_ids": [123, 124, 125]
-  }
-}
-
-// 3. Notify moderators
-{
-  "tool": "send_or_edit_message",
-  "params": {
-    "chat_id": "@moderators",
-    "message": "⚠️ Content flagged for review in #general",
-    "parse_mode": "markdown"
-  }
-}
-```
-
-### 📊 **Data Export & Reporting**
-
-**Weekly activity report:**
-```json
-{
-  "tool": "invoke_mtproto",
-  "params": {
-    "method_full_name": "messages.GetHistory",
-    "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 100, \"offset_date\": 1704067200}"
-  }
-}
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**❌ "Authentication failed"**
-```bash
-# Check your credentials
-echo "API_ID: $API_ID"
-echo "API_HASH: $API_HASH"
-echo "PHONE_NUMBER: $PHONE_NUMBER"
-
-# Re-run setup if credentials changed
-python src/setup_telegram.py
-```
-
-**❌ "Session file not found"**
-- **uvx users:** Check `~/.config/fast-mcp-telegram/`
-- **Local dev:** Check project root for `mcp_telegram.session`
-- **Multiple accounts:** Use different `SESSION_NAME` values
-
-**❌ "Rate limited"**
-- Telegram API has rate limits (30 requests/second for most operations)
-- Add delays between bulk operations
-- Consider using `invoke_mtproto` for large data exports
-
-**❌ "Phone verification code expired"**
-```bash
-# Delete session and re-authenticate
-rm ~/.config/fast-mcp-telegram/mcp_telegram.session
-python src/setup_telegram.py
-```
-
-**❌ "Chat not found"**
-- Verify chat ID format:
-  - `me` for Saved Messages
-  - `@username` for public chats
-  - Numeric ID for private chats
-  - `-100xxxxxxxxx` for channels
-
-### Debug Mode
-
-Enable detailed logging:
-```bash
-export LOG_LEVEL=DEBUG
-python src/server.py
-```
-
-### Network Issues
-
-**Proxy configuration:**
-```bash
-export HTTP_PROXY=http://proxy.company.com:8080
-export HTTPS_PROXY=http://proxy.company.com:8080
-```
-
-**DNS issues:**
-```bash
-# Force IPv4
-export TELETHON_FORCE_IPV4=true
-```
-
-### Getting Help
-
-- 📖 **Documentation:** [modelcontextprotocol.io](https://modelcontextprotocol.io)
-- 💬 **Community:** [Telegram Discussion Group](https://t.me/mcp_telegram)
-- 🐛 **Issues:** [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues)
-
----
 
 ## 📁 Project Structure
 
@@ -843,47 +578,11 @@ Note: After authentication, `mcp_telegram.session` will be created in your proje
 
 ---
 
-## 🔒 Security Considerations
+## 🔒 Security
 
-**🚨 CRITICAL SECURITY WARNING:** Once authenticated, anyone with access to this MCP server can perform **ANY action** on your Telegram account including:
-- Reading all your messages and chats
-- Sending messages on your behalf
-- Joining/leaving groups and channels
-- Deleting messages
-- Accessing your contact list
-- Performing any Telegram API operation
+**🚨 CRITICAL SECURITY WARNING:** Once authenticated, anyone with access to this MCP server can perform **ANY action** on your Telegram account. Implement proper access controls before deployment.
 
-**You MUST implement proper access controls before deploying this server.**
-
-### Authentication Security
-- **Session File Protection**: The `mcp_telegram.session` file contains your complete Telegram access
-  - Keep this file secure and never commit it to version control
-  - Use restrictive file permissions: `chmod 600 mcp_telegram.session`
-  - Store in secure locations (not web-accessible directories)
-- **Access Control**: Implement authentication/authorization before exposing the MCP server
-
-### Network Security
-- **IP Whitelisting**: Restrict access to specific IP addresses using firewall rules
-- **Reverse Proxy**: Use nginx/Traefik/Caddy with authentication
-- **VPN**: Only allow access through VPN connections
-- **Private Network**: Deploy on private networks only
-
-### Authentication Security
-- **Session File Protection**: The `mcp_telegram.session` file contains your Telegram credentials
-  - Keep this file secure and never commit it to version control
-  - Use restrictive file permissions: `chmod 600 mcp_telegram.session`
-  - Store in secure locations (not web-accessible directories)
-
-### Container Security
-- **No Host Networking**: Avoid `--network host` to prevent container breakout
-- **Read-only Filesystems**: Consider read-only root filesystems where possible
-- **Minimal Images**: Use Alpine-based images for smaller attack surface
-- **Regular Updates**: Keep base images and dependencies updated
-
-### Monitoring
-- **Access Logging**: Monitor who accesses the MCP server
-- **Rate Limiting**: Implement rate limiting to prevent abuse
-- **Audit Logs**: Log all Telegram API operations for security review
+**Session files contain your complete Telegram access - keep them secure and never commit to version control.**
 
 ---
 
