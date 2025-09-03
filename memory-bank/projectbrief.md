@@ -21,7 +21,7 @@ fast-mcp-telegram is a production-ready Python-based MCP (Modular Control Platfo
 - ✅ **Performance Optimized**: UV-based dependency management with multi-stage Docker builds
 
 ## Architecture Highlights
-- **Session Management**: Dedicated `./sessions/` directory with automatic permission fixing
+- **Session Management**: Streamlined session management using `~/.config/fast-mcp-telegram/` for cross-platform compatibility
 - **Deployment Automation**: Enhanced `deploy-mcp.sh` with backup/restore and cross-platform support
 - **Docker Optimization**: Multi-stage UV builds with directory-based volume mounting
 - **Error Resilience**: Structured error handling with request tracking and graceful degradation

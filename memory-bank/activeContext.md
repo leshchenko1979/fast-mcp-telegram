@@ -3,7 +3,7 @@
 ## Current Work Focus
 **Primary**: **PRODUCTION-READY SYSTEM** - Completed comprehensive session management and deployment enhancements. System now features enterprise-grade deployment with automatic session persistence, permission management, and robust production infrastructure.
 
-**Current Status**: **FULLY PRODUCTION-READY** with advanced session management architecture. **Dedicated sessions directory**: Clean `./sessions/` structure for better organization and security. **Enhanced deployment script**: Comprehensive backup/restore, permission auto-fixing, and macOS resource fork cleanup. **Docker optimization**: Multi-stage builds with proper volume mounting and user permissions. **Git integration**: Proper .gitignore handling with .gitkeep structure maintenance.
+**Current Status**: **FULLY PRODUCTION-READY** with streamlined session management architecture. **Standard session location**: Uses `~/.config/fast-mcp-telegram/` for cross-platform compatibility. **Enhanced deployment script**: Comprehensive backup/restore, permission auto-fixing, and macOS resource fork cleanup. **Docker optimization**: Single-stage builds with proper volume mounting and user permissions. **Git integration**: Proper .gitignore handling for session files.
 
 ## Active Decisions and Considerations
 ### Logging Spam Reduction Implementation
@@ -219,19 +219,20 @@ setup:
   - Reduces likelihood of insecure deployments
   - Sets appropriate security expectations for production use
 
-### Dedicated Sessions Directory Architecture
-**Decision**: Implemented clean session file architecture with `./sessions/` directory for better organization and security
-**Rationale**: Session files were mixed with source code, creating deployment complexity and potential security issues
-**Solution**: Created dedicated `./sessions/` directory with proper .gitignore handling and .gitkeep for structure maintenance
+### Streamlined Session Management Architecture
+**Decision**: Implemented streamlined session file architecture using standard user config directory
+**Rationale**: Complex session directory management created deployment overhead and maintenance complexity
+**Solution**: Uses standard `~/.config/fast-mcp-telegram/` directory for cross-platform compatibility
 **Implementation**:
-  - `mkdir sessions/ && touch sessions/.gitkeep`
-  - Updated .gitignore to ignore session files but keep directory structure
-  - Moved existing session file to dedicated location
-  - Updated all configurations to use new session path
+  - Session files stored in: `~/.config/fast-mcp-telegram/telegram.session`
+  - Updated .gitignore to properly ignore session files
+  - Simplified Docker configuration with proper volume mounts
+  - Streamlined deployment script to handle standard session location
 **Impact**:
-  - Clean separation of session files from application code
-  - Improved security by keeping sensitive files organized
-  - Better Git integration with proper ignore patterns
+  - Simplified deployment and maintenance
+  - Cross-platform compatibility
+  - Reduced configuration complexity
+  - Better alignment with standard practices
   - Simplified deployment and backup processes
 
 ### Enhanced Deployment Script with Session Management
@@ -258,16 +259,16 @@ setup:
 ### Docker Volume Mount Optimization
 **Decision**: Replaced file-specific volume mounts with directory mounts to eliminate permission conflicts and improve reliability
 **Rationale**: File-specific mounts created permission conflicts and directory/file type mismatches in Docker containers
-**Solution**: Changed from file mounts to directory mounts:
-  - Before: `./telegram.session:/app/telegram.session`
-  - After: `./sessions:/app/sessions`
-  - Updated SESSION_NAME to use relative paths
-  - Enhanced Dockerfile with sessions directory creation
+**Solution**: Simplified to use standard session location with proper volume mounts:
+  - Session files stored in: `~/.config/fast-mcp-telegram/telegram.session`
+  - Volume mount: `~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`
+  - Removed complex session directory management
+  - Streamlined Dockerfile configuration
 **Implementation**:
-  - Modified docker-compose.yml volume mounts
-  - Updated SESSION_NAME environment variable
-  - Added Dockerfile sessions directory creation with proper ownership
-  - Enhanced setup and main service commands for directory handling
+  - Simplified docker-compose.yml with standard volume mounts
+  - Removed SESSION_NAME environment variable (uses default)
+  - Streamlined Dockerfile to single-stage build
+  - Enhanced deployment script for standard session handling
 **Impact**:
   - Eliminated Docker volume mount permission conflicts
   - More reliable session file access in containers

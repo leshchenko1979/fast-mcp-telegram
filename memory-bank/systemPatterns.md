@@ -61,7 +61,7 @@ Return unified result set
 ```
 
 ### 6. Session Management Architecture
-- **Dedicated Directory**: `./sessions/` for clean organization and security
+- **Session Location**: `~/.config/fast-mcp-telegram/` for cross-platform compatibility
 - **Git Integration**: Proper .gitignore with .gitkeep for structure maintenance
 - **Cross-Platform**: Automatic handling of macOS resource forks and permission differences
 - **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
@@ -71,8 +71,8 @@ Return unified result set
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
-- Sessions: Dedicated `./sessions/` directory with automatic permission management
-- Volume Mounting: Directory-based mounts (`./sessions:/app/sessions`) instead of file mounts
+- Sessions: Standard `~/.config/fast-mcp-telegram/` directory with automatic permission management
+- Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
 
 ### 8. Logging Strategy
 - Loguru: File rotation + console
@@ -80,7 +80,7 @@ Return unified result set
 - Traceability: Request IDs and detailed RPC traces enabled for prod diagnosis
 
 ### 9. Deployment Automation Patterns
-- **Session Backup**: Automatic backup of `./sessions/*` before deployment
+- **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
 - **Git-Aware Transfer**: Exclude sessions directory from git transfers for security
@@ -128,7 +128,7 @@ else:
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management
 - **utils/entity.py**: Entity resolution and formatting
-- **sessions/**: Dedicated directory for Telegram session files
+- **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files
 - **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
 
 ### Tool Dependencies

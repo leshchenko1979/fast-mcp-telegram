@@ -549,9 +549,6 @@ invoke_mtproto(
 
 ```
 fast-mcp-telegram/
-├── sessions/          # Session storage directory (for reference)
-│   ├── .gitkeep       # Maintains directory structure
-│   └── README.md      # Documentation about session files
 ├── src/               # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
@@ -565,15 +562,15 @@ fast-mcp-telegram/
 ├── logs/              # Log files directory
 ├── pyproject.toml     # Project configuration and dependencies
 ├── docker-compose.yml # Production Docker configuration
-├── Dockerfile         # Multi-stage pip build
+├── Dockerfile         # Single-stage pip build
 ├── .env               # Environment variables (create this)
-├── .gitignore         # Git ignore patterns (includes sessions/)
+├── .gitignore         # Git ignore patterns
 └── LICENSE            # MIT License
 
-**Session Files:** After authentication, session files are always created in the persistent user config directory:
+**Session Management:** Session files are stored in the standard user config directory:
 - **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)
 
-**Important:** When deploying remotely, you must authenticate with Telegram on the remote server after deployment. Session files are not transferred during deployment for security reasons.
+**Security Note:** Session files contain sensitive authentication data and are never committed to version control. Each environment (local, Docker, remote server) maintains its own authenticated session.
 ```
 
 ## 📦 Dependencies

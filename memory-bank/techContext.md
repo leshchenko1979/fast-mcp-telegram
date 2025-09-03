@@ -84,7 +84,7 @@ tg_mcp/
 ```
 
 ### Deployment Files
-- `Dockerfile`: Multi-stage pip-based build with builder/runtime stages and proper user permissions
+- `Dockerfile`: Single-stage pip-based build with proper user permissions
 - `pyproject.toml`: pip dependency configuration with project metadata
 - `docker-compose.yml`: Production configuration with Traefik labels, health checks, and session persistence
 - `scripts/deploy-mcp.sh`: Enhanced deployment script with session backup/restore, permission auto-fixing, macOS resource fork cleanup, and detailed progress logging
