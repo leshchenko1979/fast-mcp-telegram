@@ -62,7 +62,7 @@
 
 | Path | Best For | Complexity | Maintenance |
 |------|----------|------------|-------------|
-| **📦 PyPI** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | ✅ Auto-updates |
+| **📦 PyPI** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | 🔧 Manual updates |
 | **🐳 Docker (Production)** | Production deployment | ⭐⭐⭐⭐ Easy | 🐳 Container updates |
 | **💻 Local Development** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
 
