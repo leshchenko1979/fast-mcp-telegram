@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-mcp-telegram"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server with Telegram search and messaging capabilities"
 authors = [
     {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}
