@@ -114,7 +114,7 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
-**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
+**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/telegram.session` (one-time setup)
 
 **✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
 
@@ -142,7 +142,7 @@ PHONE_NUMBER=+1234567890
 MCP_TRANSPORT=http
 MCP_HOST=0.0.0.0
 MCP_PORT=8000
-SESSION_NAME=mcp_telegram
+SESSION_NAME=telegram
 
 # Domain Configuration (optional - defaults to your-domain.com)
 DOMAIN=your-domain.com
@@ -163,7 +163,7 @@ docker compose --profile setup run --rm setup
 docker compose up -d
 ```
 
-**Creates authenticated session file at `~/.config/fast-mcp-telegram/mcp_telegram.session`**
+**Creates authenticated session file at `~/.config/fast-mcp-telegram/telegram.session`**
 
 ### 3. Domain Configuration (Optional)
 
@@ -258,7 +258,7 @@ curl -s https://your-domain.com/health
 - `MCP_TRANSPORT=http` - HTTP transport mode
 - `MCP_HOST=0.0.0.0` - Bind to all interfaces
 - `MCP_PORT=8000` - Service port
-- `SESSION_NAME=mcp_telegram` - Telegram session name
+- `SESSION_NAME=telegram` - Telegram session name
 
 ---
 
@@ -300,7 +300,7 @@ python src/setup_telegram.py
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
-**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
+**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/telegram.session` (one-time setup)
 
 **✅ You're all set!** Continue below for development tools.
 
@@ -571,7 +571,7 @@ fast-mcp-telegram/
 └── LICENSE            # MIT License
 
 **Session Files:** After authentication, session files are always created in the persistent user config directory:
-- **All installations:** `~/.config/fast-mcp-telegram/mcp_telegram.session` (persistent storage)
+- **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)
 
 **Important:** When deploying remotely, you must authenticate with Telegram on the remote server after deployment. Session files are not transferred during deployment for security reasons.
 ```

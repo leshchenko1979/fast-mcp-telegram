@@ -20,7 +20,7 @@ python-dotenv    # Environment variable management
 ```
 
 **Dependency Management**: pip with pyproject.toml for package management
-**Session Management**: Dedicated `./sessions/` directory with automatic permission management
+**Session Management**: Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/)
 **Cross-Platform Support**: Automatic handling of macOS resource forks and permission differences
 
 ### Development Tools
@@ -35,9 +35,6 @@ python-dotenv    # Environment variable management
 ```bash
 # Project structure
 tg_mcp/
-├── sessions/              # 🆕 Dedicated session storage
-│   ├── mcp_telegram.session  # Authenticated Telegram session
-│   └── .gitkeep          # Maintains directory structure
 ├── src/                   # Source code
 │   ├── server.py         # MCP server entry point
 │   ├── tools/            # Tool implementations
@@ -52,9 +49,11 @@ tg_mcp/
 ├── docker-compose.yml   # Production Docker configuration
 ├── Dockerfile          # Multi-stage pip build
 ├── .env                # Environment variables (create this)
-├── .gitignore          # Git ignore patterns (includes sessions/)
+├── .gitignore          # Git ignore patterns
 └── .dockerignore       # Docker build exclusions
 ```
+
+
 
 ### MCP Server Configuration (Local stdio)
 ```json
@@ -85,17 +84,16 @@ tg_mcp/
 ```
 
 ### Deployment Files
-- `Dockerfile`: Multi-stage pip-based build with builder/runtime stages, sessions directory creation, and proper user permissions
+- `Dockerfile`: Multi-stage pip-based build with builder/runtime stages and proper user permissions
 - `pyproject.toml`: pip dependency configuration with project metadata
-- `docker-compose.yml`: Production configuration with optimized directory volume mounts (`./sessions:/app/sessions`), Traefik labels, and health checks
+- `docker-compose.yml`: Production configuration with Traefik labels, health checks, and session persistence
 - `scripts/deploy-mcp.sh`: Enhanced deployment script with session backup/restore, permission auto-fixing, macOS resource fork cleanup, and detailed progress logging
-- `sessions/`: Dedicated directory for Telegram session files with proper .gitignore handling
-- `.gitignore`: Excludes sessions directory while maintaining .gitkeep structure
+- `.gitignore`: Git ignore patterns for logs, cache files, and environment variables
 
 ### Env
 - `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`
-  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`, `SESSION_NAME=sessions/mcp_telegram.session`
-  - Session files stored in dedicated `./sessions/` directory with automatic permission management
+  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`
+  - Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
 
 ## Technical Constraints
 
@@ -106,7 +104,7 @@ tg_mcp/
 - **Entity Resolution**: Chat IDs can be in multiple formats (username, numeric ID, channel ID)
 
 ### Session Management Architecture
-- **Dedicated Directory**: `./sessions/` for clean organization and security
+- **Storage Location**: Persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
 - **Automatic Permissions**: Container user (1000:1000) access automatically configured
 - **Cross-Platform Support**: Handles macOS resource forks and permission differences
 - **Deployment Persistence**: Sessions automatically backed up and restored across deployments

@@ -1,26 +1,9 @@
-# Production-optimized Dockerfile using pip for dependency management
-# Uses Alpine Linux for minimal size and global installation for production efficiency
-# No virtual environment needed - container provides isolation
+# Simplified single-stage Dockerfile for reliable builds
+# Uses Alpine Linux with direct pip installation
 
-# Stage 1: Builder
-FROM python:3-alpine AS builder
+FROM python:3-alpine
 
-# Set the working directory
-WORKDIR /app
-
-# Copy only dependency files first (for better layer caching)
-COPY pyproject.toml ./
-
-# Install dependencies only (this layer caches when dependencies don't change)
-RUN pip install --no-cache-dir -e .
-
-# Copy only necessary source files after dependencies are installed
-COPY src/ ./src/
-
-# Stage 2: Runtime
-FROM python:3-alpine AS runtime
-
-# Install only essential runtime dependencies
+# Install essential runtime dependencies
 RUN apk add --no-cache curl
 
 # Create non-root user for security
@@ -33,15 +16,14 @@ USER appuser
 # Set the working directory
 WORKDIR /app
 
-# Copy installed packages from builder (global installation)
-COPY --from=builder /usr/local/lib/python*/site-packages /usr/local/lib/python*/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# Copy only necessary application source files
+# Copy project files
+COPY pyproject.toml ./
 COPY src/ ./src/
 
-# Create sessions directory for Telegram session files
-RUN mkdir -p /app/sessions
+# Install dependencies
+RUN pip install --no-cache-dir -e .
+
+
 
 # Environment for FastMCP HTTP
 ENV MCP_TRANSPORT=http \
@@ -50,10 +32,8 @@ ENV MCP_TRANSPORT=http \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Default: store Telethon session in mounted volume under /app
-# Matches docker-compose.yml SESSION_NAME=mcp_telegram.session
-# settings.py computes SESSION_PATH = PROJECT_DIR / SESSION_NAME
-ENV SESSION_NAME=mcp_telegram.session
+# Session files stored in user config directory (~/.config/fast-mcp-telegram/)
+# as determined by settings.py logic for cross-platform compatibility
 
 # Expose the application's port
 EXPOSE 8000

@@ -3,18 +3,19 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-      target: runtime
+
     env_file:
       - ./.env
     environment:
       - MCP_TRANSPORT=http
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8000
-      - SESSION_NAME=sessions/mcp_telegram.session
+
       - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
       - ./src:/app/src
-      - ./sessions:/app/sessions
+      - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
+
     networks:
       - traefik-public
     labels:
@@ -36,14 +37,13 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-      target: runtime
+
     env_file:
       - ./.env
-    environment:
-      - SESSION_NAME=sessions/mcp_telegram.session
     volumes:
       - ./src:/app/src
-      - ./sessions:/app/sessions
+      - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
+
     profiles:
       - setup
     command: python -m src.setup_telegram --overwrite

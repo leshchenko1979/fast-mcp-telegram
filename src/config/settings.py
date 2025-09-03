@@ -35,7 +35,7 @@ SESSION_DIR.mkdir(parents=True, exist_ok=True)
 API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 PHONE_NUMBER = os.getenv("PHONE_NUMBER")
-SESSION_NAME = os.getenv("SESSION_NAME", "mcp_telegram")
+SESSION_NAME = os.getenv("SESSION_NAME", "telegram")
 SESSION_PATH = SESSION_DIR / SESSION_NAME
 
 # Connection pool settings

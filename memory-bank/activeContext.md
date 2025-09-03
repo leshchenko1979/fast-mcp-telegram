@@ -130,7 +130,7 @@
 ### Docker Volume Permissions Fix
 **Decision**: Fixed readonly database error by changing Docker volume mount from `/data` to `/app` directory
 **Rationale**: SQLite session files needed write permissions, but `/data` directory had restrictive filesystem permissions that prevented the `appuser` from writing
-**Solution**: Changed volume mount from `./mcp_telegram.session:/data/mcp_telegram.session` to `./mcp_telegram.session:/app/mcp_telegram.session` and SESSION_NAME from absolute to relative path
+**Solution**: Changed volume mount from `./telegram.session:/data/telegram.session` to `./telegram.session:/app/telegram.session` and SESSION_NAME from absolute to relative path
 **Implementation**:
   - Updated docker-compose.yml with corrected volume mount and SESSION_NAME
   - Updated deploy script with automatic permission fixes for future deployments
@@ -259,7 +259,7 @@ setup:
 **Decision**: Replaced file-specific volume mounts with directory mounts to eliminate permission conflicts and improve reliability
 **Rationale**: File-specific mounts created permission conflicts and directory/file type mismatches in Docker containers
 **Solution**: Changed from file mounts to directory mounts:
-  - Before: `./mcp_telegram.session:/app/mcp_telegram.session`
+  - Before: `./telegram.session:/app/telegram.session`
   - After: `./sessions:/app/sessions`
   - Updated SESSION_NAME to use relative paths
   - Enhanced Dockerfile with sessions directory creation
