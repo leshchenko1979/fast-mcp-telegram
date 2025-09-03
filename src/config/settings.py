@@ -11,28 +11,17 @@ SCRIPT_DIR = Path(__file__).parent.parent.parent
 PROJECT_DIR = SCRIPT_DIR
 
 
-# Determine session directory - use persistent location for uvx, project dir for local development
+# Always use persistent directory for session storage
 def get_session_directory():
-    """Get appropriate session directory based on execution context."""
-    # If SESSION_DIR is explicitly set, use it
+    """Get persistent session directory for all installation methods."""
+    # If SESSION_DIR is explicitly set, use it (for advanced users)
     if session_dir := os.getenv("SESSION_DIR"):
         return Path(session_dir)
 
-    # Check if we're running in a temporary/ephemeral environment (like uvx)
-    script_path_str = str(SCRIPT_DIR)
-    if (
-        "tmp" in script_path_str
-        or "temp" in script_path_str
-        or ".cache/uv" in script_path_str
-        or "site-packages" in script_path_str
-    ):
-        # Use persistent user config directory
-        config_dir = Path.home() / ".config" / "fast-mcp-telegram"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        return config_dir
-
-    # Use project directory for local development
-    return PROJECT_DIR
+    # Always use persistent user config directory for consistency, security, and cross-installation compatibility
+    config_dir = Path.home() / ".config" / "fast-mcp-telegram"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
 
 
 SESSION_DIR = get_session_directory()

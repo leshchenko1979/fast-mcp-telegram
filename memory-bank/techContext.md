@@ -10,7 +10,7 @@
 
 ### Key Dependencies
 ```python
-# Core dependencies from pyproject.toml (managed by uv)
+# Core dependencies from pyproject.toml (managed by pip)
 fastmcp          # MCP server framework
 telethon         # Telegram API client
 loguru           # Advanced logging
@@ -19,7 +19,7 @@ aiohttp          # HTTP transport for MCP
 python-dotenv    # Environment variable management
 ```
 
-**Dependency Management**: uv with pyproject.toml and uv.lock for reproducible builds
+**Dependency Management**: pip with pyproject.toml for package management
 **Session Management**: Dedicated `./sessions/` directory with automatic permission management
 **Cross-Platform Support**: Automatic handling of macOS resource forks and permission differences
 
@@ -27,7 +27,7 @@ python-dotenv    # Environment variable management
 - **Cursor IDE**: Primary development environment
 - **Git**: Version control
 - **Ruff**: Manual code formatting and linting
-- **uv**: Package management and virtual environment
+- **pip**: Package management and installation
 
 ## Development Setup
 
@@ -48,10 +48,9 @@ tg_mcp/
 │   └── deploy-mcp.sh     # Enhanced deployment script
 ├── tests/                # Test suite
 ├── memory-bank/          # Project documentation
-├── pyproject.toml        # UV dependency configuration
-├── uv.lock              # Locked dependencies for reproducible builds
+├── pyproject.toml       # Project configuration and dependencies
 ├── docker-compose.yml   # Production Docker configuration
-├── Dockerfile          # Multi-stage UV build
+├── Dockerfile          # Multi-stage pip build
 ├── .env                # Environment variables (create this)
 ├── .gitignore          # Git ignore patterns (includes sessions/)
 └── .dockerignore       # Docker build exclusions
@@ -86,9 +85,8 @@ tg_mcp/
 ```
 
 ### Deployment Files
-- `Dockerfile`: Multi-stage uv-based build with builder/runtime stages, sessions directory creation, and proper user permissions
-- `pyproject.toml`: UV dependency configuration with project metadata
-- `uv.lock`: Locked dependencies for reproducible builds
+- `Dockerfile`: Multi-stage pip-based build with builder/runtime stages, sessions directory creation, and proper user permissions
+- `pyproject.toml`: pip dependency configuration with project metadata
 - `docker-compose.yml`: Production configuration with optimized directory volume mounts (`./sessions:/app/sessions`), Traefik labels, and health checks
 - `scripts/deploy-mcp.sh`: Enhanced deployment script with session backup/restore, permission auto-fixing, macOS resource fork cleanup, and detailed progress logging
 - `sessions/`: Dedicated directory for Telegram session files with proper .gitignore handling

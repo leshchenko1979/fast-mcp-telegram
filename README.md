@@ -12,7 +12,7 @@
 
 *Search messages, send automated replies, manage contacts, and control Telegram through any MCP-compatible AI client*
 
-[![Quick Start](https://img.shields.io/badge/🚀_Quick_Start-2_min_setup-brightgreen?style=for-the-badge&logo=lightning)](#-uvx-path-recommended)
+[![Quick Start](https://img.shields.io/badge/🚀_Quick_Start-2_min_setup-brightgreen?style=for-the-badge&logo=lightning)](#-pypi-installation)
 [![Docker](https://img.shields.io/badge/🐳_Docker-Production_ready-blue?style=for-the-badge&logo=docker)](#-docker-deployment-production)
 [![Community](https://img.shields.io/badge/💬_Community-Join_us-blue?style=for-the-badge&logo=telegram)](https://t.me/mcp_telegram)
 
@@ -27,9 +27,9 @@
 - [✨ Features](#-features)
 - [📋 Prerequisites](#-prerequisites)
 - [🚀 Choose Your Installation Path](#-choose-your-installation-path)
-- [🚀 uvx Path (Recommended)](#-uvx-path-recommended)
-- [💻 Local Installation Path](#-local-installation-path)
+- [📦 PyPI Installation](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
+- [💻 Local Development](#-local-development)
 - [🔧 Available Tools](#-available-tools)
 - [📁 Project Structure](#-project-structure)
 - [📦 Dependencies](#-dependencies)
@@ -62,67 +62,34 @@
 
 | Path | Best For | Complexity | Maintenance |
 |------|----------|------------|-------------|
-| **🚀 uvx (Recommended)** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | ✅ Auto-updates |
+| **📦 PyPI** | Most users, quick setup | ⭐⭐⭐⭐⭐ Easy | ✅ Auto-updates |
 | **🐳 Docker (Production)** | Production deployment | ⭐⭐⭐⭐ Easy | 🐳 Container updates |
-| **💻 Local Installation** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
+| **💻 Local Development** | Developers, contributors | ⭐⭐⭐ Medium | 🔧 Manual updates |
 
 **Choose your path below:**
-- [uvx Path (2-minute setup)](#-uvx-path-recommended)
-- [Local Installation Path](#-local-installation-path)
+- [📦 PyPI Installation (2-minute setup)](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
+- [💻 Local Development](#-local-development)
 
 ---
 
-## 🚀 uvx Path (Recommended)
+## 📦 PyPI Installation
 
-### 1. One-Time Telegram Authentication
+### 1. Install from PyPI
 ```bash
-API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
-uvx --from git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master fast-mcp-telegram-setup
+pip install fast-mcp-telegram
 ```
 
-### 2. Configure Your MCP Client
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "command": "uvx",
-      "args": ["--from", "git+https://github.com/leshchenko1979/fast-mcp-telegram.git@master", "fast-mcp-telegram"],
-      "env": {
-        "API_ID": "your_api_id",
-        "API_HASH": "your_api_hash",
-        "PHONE_NUMBER": "+123456789"
-      }
-    }
-  }
-}
-```
+### 2. One-Time Telegram Authentication
 
-### 3. Start Using!
-```json
-{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
-{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
-```
-
-**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
-
-**✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
-
----
-
-## 💻 Local Installation Path
-
-### 1. Install Locally
+**Setup Command Options:**
 ```bash
-git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
-cd fast-mcp-telegram
-uv sync  # Install dependencies
-```
+# Using CLI arguments
+fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
 
-### 2. Authenticate with Telegram
-```bash
-API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
-python src/setup_telegram.py
+# Additional options available:
+# --overwrite          # Auto-overwrite existing session
+# --session-name NAME  # Use custom session name
 ```
 
 ### 3. Configure Your MCP Client
@@ -130,9 +97,12 @@ python src/setup_telegram.py
 {
   "mcpServers": {
     "telegram": {
-      "command": "python3",
-      "args": ["/path/to/fast-mcp-telegram/src/server.py"],
-      "cwd": "/path/to/fast-mcp-telegram"
+      "command": "fast-mcp-telegram",
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
+      }
     }
   }
 }
@@ -144,9 +114,9 @@ python src/setup_telegram.py
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
-**ℹ️ Session Info:** Your Telegram session is saved to `mcp_telegram.session` in the project directory (one-time setup)
+**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
 
-**✅ You're all set!** Continue below for development tools.
+**✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
 
 ---
 
@@ -183,7 +153,7 @@ LOG_LEVEL=INFO
 
 ### 2. Telegram Authentication (One-Time Setup)
 
-**Important:** The setup process creates an authenticated Telegram session file at `./mcp_telegram.session` in your project directory.
+**Important:** The setup process creates an authenticated Telegram session file in the persistent user config directory.
 
 ```bash
 # 1. Run authentication setup
@@ -193,7 +163,7 @@ docker compose --profile setup run --rm setup
 docker compose up -d
 ```
 
-**Creates authenticated session file at `./mcp_telegram.session`**
+**Creates authenticated session file at `~/.config/fast-mcp-telegram/mcp_telegram.session`**
 
 ### 3. Domain Configuration (Optional)
 
@@ -292,13 +262,57 @@ curl -s https://your-domain.com/health
 
 ---
 
+## 💻 Local Development
+
+### 1. Clone and Setup
+```bash
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
+cd fast-mcp-telegram
+pip install -e .[dev]  # Install all dependencies including dev tools
+```
+
+### 2. Authenticate with Telegram
+```bash
+# Using CLI arguments
+python src/setup_telegram.py --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
+
+# Or using environment variables
+API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
+python src/setup_telegram.py
+```
+
+### 3. Configure Your MCP Client
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "python3",
+      "args": ["src/server.py"],
+      "cwd": "/path/to/fast-mcp-telegram"
+    }
+  }
+}
+```
+
+### 4. Start Using!
+```json
+{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
+```
+
+**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/mcp_telegram.session` (one-time setup)
+
+**✅ You're all set!** Continue below for development tools.
+
+---
+
 ## 🛠️ Development
 
 ```bash
-uv sync --all-extras  # Install dev dependencies
-uv run ruff format . # Format code
-uv run ruff check .  # Lint code
-python src/server.py # Test server
+pip install -e .[dev]  # Install dev dependencies
+ruff format .         # Format code
+ruff check .          # Lint code
+python src/server.py  # Test server
 ```
 
 ---
@@ -535,9 +549,9 @@ invoke_mtproto(
 
 ```
 fast-mcp-telegram/
-├── sessions/          # 🆕 Dedicated session storage
-│   ├── mcp_telegram.session  # Authenticated Telegram session
-│   └── .gitkeep       # Maintains directory structure
+├── sessions/          # Session storage directory (for reference)
+│   ├── .gitkeep       # Maintains directory structure
+│   └── README.md      # Documentation about session files
 ├── src/               # Source code directory
 │   ├── client/        # Telegram client management
 │   ├── config/        # Configuration settings
@@ -549,15 +563,15 @@ fast-mcp-telegram/
 ├── scripts/           # Deployment and utility scripts
 │   └── deploy-mcp.sh  # Enhanced deployment script
 ├── logs/              # Log files directory
-├── pyproject.toml     # Package setup configuration
-├── uv.lock            # Dependency lock file
+├── pyproject.toml     # Project configuration and dependencies
 ├── docker-compose.yml # Production Docker configuration
-├── Dockerfile         # Multi-stage UV build
+├── Dockerfile         # Multi-stage pip build
 ├── .env               # Environment variables (create this)
 ├── .gitignore         # Git ignore patterns (includes sessions/)
 └── LICENSE            # MIT License
 
-Note: After authentication, `mcp_telegram.session` will be created in your project root directory. This file contains your authenticated Telegram session and should be kept secure.
+**Session Files:** After authentication, session files are always created in the persistent user config directory:
+- **All installations:** `~/.config/fast-mcp-telegram/mcp_telegram.session` (persistent storage)
 
 **Important:** When deploying remotely, you must authenticate with Telegram on the remote server after deployment. Session files are not transferred during deployment for security reasons.
 ```
@@ -572,7 +586,7 @@ Note: After authentication, `mcp_telegram.session` will be created in your proje
 | **aiohttp** | Async HTTP client |
 | **python-dotenv** | Environment management |
 
-**Installation:** `uv sync` (dependencies managed via `pyproject.toml`)
+**Installation:** `pip install -e .` (dependencies managed via `pyproject.toml`)
 
 ---
 
@@ -594,9 +608,9 @@ Note: After authentication, `mcp_telegram.session` will be created in your proje
 
 **Development setup:**
 ```bash
-uv sync --all-extras  # Install dev dependencies
-uv run ruff format . # Format code
-uv run ruff check .  # Lint code
+pip install -e .[dev]  # Install dev dependencies
+ruff format .         # Format code
+ruff check .          # Lint code
 ```
 
 ---

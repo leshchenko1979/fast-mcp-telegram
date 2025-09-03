@@ -480,13 +480,6 @@ def shutdown_procedure():
         logger.error(f"Error during cleanup: {e}\n{traceback.format_exc()}")
 
 
-def setup_telegram():
-    """Entry point for Telegram session setup console script."""
-    from src.setup_telegram import main
-
-    asyncio.run(main())
-
-
 def main():
     """Entry point for console script; runs the MCP server and ensures cleanup."""
     if transport == "http":

@@ -18,6 +18,21 @@ def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Telegram MCP Server Setup")
     parser.add_argument(
+        "--api-id",
+        type=str,
+        help="Telegram API ID (can also be set via API_ID environment variable)",
+    )
+    parser.add_argument(
+        "--api-hash",
+        type=str,
+        help="Telegram API Hash (can also be set via API_HASH environment variable)",
+    )
+    parser.add_argument(
+        "--phone",
+        type=str,
+        help="Phone number with country code (can also be set via PHONE_NUMBER environment variable)",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Automatically overwrite existing session without prompting",
@@ -37,7 +52,31 @@ async def main():
     # Parse command line arguments
     args = parse_args()
 
+    # Use CLI arguments if provided, otherwise fall back to environment variables
+    api_id = args.api_id or API_ID
+    api_hash = args.api_hash or API_HASH
+    phone_number = args.phone or PHONE_NUMBER
+
+    # Validate required credentials
+    if not api_id:
+        print(
+            "❌ Error: API ID is required. Provide via --api-id argument or API_ID environment variable."
+        )
+        return
+    if not api_hash:
+        print(
+            "❌ Error: API Hash is required. Provide via --api-hash argument or API_HASH environment variable."
+        )
+        return
+    if not phone_number:
+        print(
+            "❌ Error: Phone number is required. Provide via --phone argument or PHONE_NUMBER environment variable."
+        )
+        return
+
     print("Starting Telegram session setup...")
+    print(f"API ID: {api_id}")
+    print(f"Phone: {phone_number}")
     print(f"Session will be saved to: {SESSION_PATH}")
     print(f"Session directory: {SESSION_PATH.parent}")
 
@@ -106,18 +145,18 @@ async def main():
     print(f"\n🔐 Authenticating with session: {SESSION_PATH}")
 
     # Create the client and connect
-    client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+    client = TelegramClient(SESSION_PATH, api_id, api_hash)
     await client.connect()
 
     if not await client.is_user_authorized():
-        print(f"Sending code to {PHONE_NUMBER}...")
-        await client.send_code_request(PHONE_NUMBER)
+        print(f"Sending code to {phone_number}...")
+        await client.send_code_request(phone_number)
 
         # Get verification code (interactive only)
         code = input("Enter the code you received: ")
 
         try:
-            await client.sign_in(PHONE_NUMBER, code)
+            await client.sign_in(phone_number, code)
         except SessionPasswordNeededError:
             # In case you have two-step verification enabled
             password = getpass.getpass("Please enter your 2FA password: ")

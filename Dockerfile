@@ -1,25 +1,18 @@
-# Production-optimized Dockerfile using uv for dependency management
+# Production-optimized Dockerfile using pip for dependency management
 # Uses Alpine Linux for minimal size and global installation for production efficiency
 # No virtual environment needed - container provides isolation
 
 # Stage 1: Builder
 FROM python:3-alpine AS builder
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-
-# Set environment variables for uv optimizations
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-
 # Set the working directory
 WORKDIR /app
 
 # Copy only dependency files first (for better layer caching)
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 
 # Install dependencies only (this layer caches when dependencies don't change)
-RUN uv sync --frozen --no-install-project && \
-    uv sync --frozen
+RUN pip install --no-cache-dir -e .
 
 # Copy only necessary source files after dependencies are installed
 COPY src/ ./src/
@@ -40,17 +33,15 @@ USER appuser
 # Set the working directory
 WORKDIR /app
 
-# Copy venv from builder (single efficient copy operation)
-COPY --from=builder /app/.venv /app/.venv
+# Copy installed packages from builder (global installation)
+COPY --from=builder /usr/local/lib/python*/site-packages /usr/local/lib/python*/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy only necessary application source files
 COPY src/ ./src/
 
 # Create sessions directory for Telegram session files
-RUN mkdir -p /app/sessions && chown appuser:appuser /app/sessions
-
-# Set PATH to use venv binaries directly
-ENV PATH="/app/.venv/bin:$PATH"
+RUN mkdir -p /app/sessions
 
 # Environment for FastMCP HTTP
 ENV MCP_TRANSPORT=http \
