@@ -1,6 +1,6 @@
 ---
 description: Standardized response formats for Telegram MCP tools
-globs: src/tools/*.py
+globs: src/tools/*.py,server.py
 alwaysApply: false
 ---
 # Response Format Standards
