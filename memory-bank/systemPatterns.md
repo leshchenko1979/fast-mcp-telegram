@@ -128,6 +128,7 @@ else:
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management
 - **utils/entity.py**: Entity resolution and formatting
+- **config/settings.py**: Configuration management with dynamic version reading from pyproject.toml
 - **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files
 - **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
 

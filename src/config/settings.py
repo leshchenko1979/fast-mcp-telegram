@@ -52,6 +52,7 @@ SESSION_PATH = SESSION_DIR / SESSION_NAME
 # Connection pool settings
 MAX_CONCURRENT_CONNECTIONS = 10
 
+
 def get_version_from_pyproject():
     """Read version from pyproject.toml."""
     pyproject_path = PROJECT_DIR / "pyproject.toml"

@@ -77,6 +77,7 @@
 - **Dockerfile Enhancement**: Added sessions directory creation with proper ownership for container user access (2025-09-01)
 - **Volume Mount Optimization**: Replaced file-specific mounts with directory mounts to eliminate permission conflicts (2025-09-01)
 - **Production Session Management**: Implemented complete session persistence across deployments with automatic permission management (2025-09-01)
+- **Dynamic Version Management**: Implemented automatic version reading from pyproject.toml in settings.py (2025-09-01)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
@@ -116,3 +117,10 @@
 3. **Partial Fix**: get_contact_details updated to return structured errors
 4. **Unified Pattern**: All tools now return structured error responses with consistent format
 5. **Server Integration**: server.py detects and handles error responses appropriately
+
+### Version Management Evolution
+1. **Initial**: Hardcoded version in settings.py requiring manual synchronization
+2. **Manual Sync**: Had to update both pyproject.toml and settings.py manually
+3. **Version Bump Script**: Created script to update both files simultaneously
+4. **Dynamic Reading**: Implemented automatic reading from pyproject.toml using tomllib/tomli
+5. **Single Source**: Now only pyproject.toml needs updating, settings.py reads dynamically

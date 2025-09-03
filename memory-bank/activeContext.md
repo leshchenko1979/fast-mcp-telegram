@@ -297,6 +297,21 @@ setup:
   - Production-ready deployment workflow
   - Cross-platform deployment compatibility
 
+### Dynamic Version Management System
+**Decision**: Implemented dynamic version reading from pyproject.toml in settings.py
+**Rationale**: Previously had hardcoded version in settings.py that required manual synchronization with pyproject.toml
+**Solution**: Modified settings.py to automatically read version from pyproject.toml at runtime using tomllib/tomli
+**Implementation**:
+  - Added `get_version_from_pyproject()` function with Python version compatibility
+  - Added tomli dependency for Python < 3.11
+  - Updated `SERVER_VERSION` to use dynamic reading
+  - Removed manual version bumping script as it's no longer needed
+**Impact**:
+  - Single source of truth for version information
+  - Automatic synchronization between package and server versions
+  - Simplified maintenance - only update pyproject.toml
+  - GitHub Actions automatically uses correct version for publishing
+
 ## Important Patterns and Preferences
 
 ### Logging Configuration Patterns
@@ -361,3 +376,5 @@ setup:
 4. **Monitor Docker Performance**: Track container startup times and resource usage with new volume mounting
 5. **User Feedback Integration**: Monitor for any session management or deployment issues in production use
 6. **Documentation Maintenance**: Keep README and deployment guides updated with any production learnings
+7. **Version Management Validation**: Test that the dynamic version reading works correctly in production environment
+8. **GitHub Actions Integration**: Verify that version bumping triggers automatic PyPI publishing correctly

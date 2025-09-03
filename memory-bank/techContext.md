@@ -10,16 +10,18 @@
 
 ### Key Dependencies
 ```python
-# Core dependencies from pyproject.toml (managed by pip)
+# Core dependencies from pyproject.toml (managed by uv)
 fastmcp          # MCP server framework
 telethon         # Telegram API client
 loguru           # Advanced logging
 asyncio          # Async/await support (built-in)
 aiohttp          # HTTP transport for MCP
 python-dotenv    # Environment variable management
+tomli            # TOML parsing for Python < 3.11 (conditional)
 ```
 
 **Dependency Management**: pip with pyproject.toml for package management
+**Version Management**: Dynamic reading from pyproject.toml with Python version compatibility
 **Session Management**: Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/)
 **Cross-Platform Support**: Automatic handling of macOS resource forks and permission differences
 
