@@ -6,7 +6,7 @@ from typing import Any
 from loguru import logger
 
 from src.client.connection import get_connected_client
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import generate_request_id, log_and_build_error
 
 
 def _json_safe(value: Any) -> Any:
@@ -55,7 +55,7 @@ async def invoke_mtproto_method(
     Returns:
         Result of the method call as a dict, or error info
     """
-    request_id = f"mtproto_{method_full_name}_{params.get('peer', '')}"
+    request_id = generate_request_id("mtproto")
     logger.debug(
         f"[{request_id}] Invoking MTProto method: {method_full_name} with params: {params}"
     )

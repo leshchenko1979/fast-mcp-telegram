@@ -26,7 +26,6 @@ from src.tools.messages import (
 from src.tools.mtproto import invoke_mtproto_method
 from src.tools.search import search_messages as search_messages_impl
 from src.utils.error_handling import (
-    check_connection_error,
     handle_tool_error,
     log_and_build_error,
 )
@@ -87,86 +86,37 @@ async def search_messages(
         auto_expand_batches: Extra result batches for filtered searches
         include_total_count: Include total matching messages count (per-chat only)
     """
-    try:
-        request_id = f"search_{int(time.time())}"
-        logger.info(
-            f"[{request_id}] Searching messages with query(s): "
-            f"{query}, chat_id: {chat_id}, limit: {limit}, chat_type: {chat_type}, "
-            f"min_date: {min_date}, max_date: {max_date}, auto_expand_batches: {auto_expand_batches}"
-        )
-        search_result = await search_messages_impl(
-            query,
-            chat_id,
-            limit,
-            min_date=min_date,
-            max_date=max_date,
-            chat_type=chat_type,
-            auto_expand_batches=auto_expand_batches,
-            include_total_count=include_total_count,
-        )
+    search_result = await search_messages_impl(
+        query,
+        chat_id,
+        limit,
+        min_date=min_date,
+        max_date=max_date,
+        chat_type=chat_type,
+        auto_expand_batches=auto_expand_batches,
+        include_total_count=include_total_count,
+    )
 
-        # Check if this is an error response
-        error_response = handle_tool_error(
-            search_result,
-            "search_messages",
-            request_id,
-            {
-                "query": query,
-                "chat_id": chat_id,
-                "limit": limit,
-                "min_date": min_date,
-                "max_date": max_date,
-                "chat_type": chat_type,
-                "auto_expand_batches": auto_expand_batches,
-                "include_total_count": include_total_count,
-            },
-        )
-        if error_response:
-            return error_response
+    # Check if this is an error response
+    error_response = handle_tool_error(
+        search_result,
+        "search_messages",
+        f"search_{int(time.time())}",
+        {
+            "query": query,
+            "chat_id": chat_id,
+            "limit": limit,
+            "min_date": min_date,
+            "max_date": max_date,
+            "chat_type": chat_type,
+            "auto_expand_batches": auto_expand_batches,
+            "include_total_count": include_total_count,
+        },
+    )
+    if error_response:
+        return error_response
 
-        # Handle the new response structure
-        if isinstance(search_result, dict) and "messages" in search_result:
-            messages = search_result["messages"]
-            logger.info(
-                f"[{request_id}] Found {len(messages)} messages "
-                f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
-                f"auto_expand_batches: {auto_expand_batches})"
-            )
-            return search_result
-        # Fallback for old response format
-        logger.info(
-            f"[{request_id}] Found {len(search_result)} messages "
-            f"(chat_type: {chat_type}, min_date: {min_date}, max_date: {max_date}, "
-            f"auto_expand_batches: {auto_expand_batches})"
-        )
-        if not search_result:
-            return {"status": "No results found, custom message."}
-        return search_result
-    except Exception as e:
-        error_text = str(e) if e else ""
-
-        # Check for connection-specific errors
-        connection_error = check_connection_error(error_text)
-        if connection_error:
-            return connection_error
-
-        # Generic error handling
-        return log_and_build_error(
-            request_id=request_id,
-            operation="search_messages",
-            error_message=f"Error searching messages: {error_text}",
-            params={
-                "query": query,
-                "chat_id": chat_id,
-                "limit": limit,
-                "min_date": min_date,
-                "max_date": max_date,
-                "chat_type": chat_type,
-                "auto_expand_batches": auto_expand_batches,
-                "include_total_count": include_total_count,
-            },
-            exception=e,
-        )
+    return search_result
 
 
 @mcp.tool()

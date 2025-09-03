@@ -5,7 +5,7 @@ from datetime import datetime
 
 from loguru import logger
 
-from .settings import LOG_DIR
+from .settings import LOG_DIR, SERVER_VERSION, SESSION_PATH
 
 # Get current timestamp for log file name
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -79,6 +79,7 @@ def setup_logging():
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("mcp.server.lowlevel.server").setLevel(logging.WARNING)
 
     # Keep Telethon visible but reduce noise by module-level levels
     # Default Telethon at DEBUG for diagnostics
@@ -94,6 +95,13 @@ def setup_logging():
     ]
     for name in noisy_modules:
         logging.getLogger(name).setLevel(logging.INFO)
+
+    # Log server startup information
+    logger.info("=== Telegram MCP Server Starting ===")
+    logger.info(f"Version: {SERVER_VERSION}")
+    logger.info(f"Session file path: {SESSION_PATH.absolute()}")
+    logger.info(f"Log file path: {LOG_PATH.absolute()}")
+    logger.info("=====================================")
 
 
 def format_diagnostic_info(info: dict) -> str:

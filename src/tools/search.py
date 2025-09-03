@@ -15,7 +15,7 @@ from src.utils.entity import (
     compute_entity_identifier,
     get_entity_by_id,
 )
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import generate_request_id, log_and_build_error
 from src.utils.helpers import _append_dedup_until_limit
 from src.utils.message_format import _has_any_media, build_message_result
 
@@ -110,7 +110,7 @@ async def search_messages(
 
     if not chat_id and not queries:
         return log_and_build_error(
-            request_id=f"search_{int(time.time() * 1000)}",
+            request_id=generate_request_id("search"),
             operation="search_messages",
             error_message="Search query must not be empty for global search",
             params={
@@ -126,7 +126,7 @@ async def search_messages(
             exception=ValueError("Search query must not be empty for global search"),
         )
 
-    request_id = f"search_{int(time.time() * 1000)}"
+    request_id = generate_request_id("search")
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
     max_datetime = datetime.fromisoformat(max_date) if max_date else None
     logger.debug(

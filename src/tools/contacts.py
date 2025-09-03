@@ -11,7 +11,7 @@ from telethon.tl.functions.contacts import SearchRequest
 
 from src.client.connection import get_connected_client
 from src.utils.entity import build_entity_dict, get_entity_by_id
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import generate_request_id, log_and_build_error
 
 
 async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str, Any]]:
@@ -74,7 +74,7 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str
         # If no contacts found, return error instead of empty list for consistency
         if not matches:
             error_response = log_and_build_error(
-                request_id=f"contacts_{int(time.time() * 1000)}",
+                request_id=generate_request_id("contacts"),
                 operation="search_contacts",
                 error_message=f"No contacts found matching query '{query}'",
                 params={
@@ -89,7 +89,7 @@ async def search_contacts_telegram(query: str, limit: int = 20) -> list[dict[str
 
     except Exception as e:
         error_response = log_and_build_error(
-            request_id=f"contacts_{int(time.time() * 1000)}",
+            request_id=generate_request_id("contacts"),
             operation="search_contacts",
             error_message=f"Failed to search contacts: {e!s}",
             params={
@@ -116,7 +116,7 @@ async def get_contact_info(chat_id: str) -> dict[str, Any]:
 
         if not entity:
             return log_and_build_error(
-                request_id=f"contact_{int(time.time() * 1000)}",
+                request_id=generate_request_id("contact"),
                 operation="get_contact_details",
                 error_message=f"Contact with ID '{chat_id}' not found",
                 params={
@@ -129,7 +129,7 @@ async def get_contact_info(chat_id: str) -> dict[str, Any]:
 
     except Exception as e:
         return log_and_build_error(
-            request_id=f"contact_{int(time.time() * 1000)}",
+            request_id=generate_request_id("contact"),
             operation="get_contact_details",
             error_message=f"Failed to get contact info for '{chat_id}': {e!s}",
             params={
