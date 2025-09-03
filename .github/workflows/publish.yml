@@ -40,3 +40,20 @@ jobs:
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
         print-hash: true
+
+    - name: Debug Trusted Publishing Failure
+      if: failure() && steps.trusted-publish.outcome == 'failure'
+      run: |
+        echo "Trusted Publishing failed. This is likely due to:"
+        echo "1. PyPI trusted publisher not configured for tags"
+        echo "2. Environment name mismatch"
+        echo "3. Repository name mismatch"
+        echo ""
+        echo "Current claims from GitHub:"
+        echo "Repository: leshchenko1979/fast-mcp-telegram"
+        echo "Environment: release"
+        echo "Workflow: .github/workflows/publish.yml"
+        echo "Ref: ${{ github.ref }}"
+        echo ""
+        echo "Make sure PyPI trusted publisher matches these values."
+        echo "If publishing on tags, configure PyPI for 'refs/tags/*' instead of 'refs/heads/main'"
