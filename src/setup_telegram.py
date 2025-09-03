@@ -58,7 +58,9 @@ async def main():
         load_dotenv(env_file)
         print(f"✓ Loaded environment variables from: {env_file}")
     else:
-        print("⚠️  No .env file found. Using environment variables or command line arguments.")
+        print(
+            "⚠️  No .env file found. Using environment variables or command line arguments."
+        )
 
     # Parse command line arguments
     args = parse_args()
