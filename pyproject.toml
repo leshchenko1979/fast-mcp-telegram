@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-mcp-telegram"
-version = "0.1.1"
+version = "0.1.2"
 description = "MCP server with Telegram search and messaging capabilities"
 authors = [
     {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}
@@ -35,7 +35,7 @@ dependencies = [
 
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
-fast-mcp-telegram-setup = "src.setup_telegram:main"
+fast-mcp-telegram-setup = "src.setup_telegram:sync_main"
 
 [tool.setuptools.packages.find]
 where = ["."]

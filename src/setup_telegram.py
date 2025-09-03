@@ -174,5 +174,10 @@ async def main():
     print("You can now use the Telegram search functionality.")
 
 
-if __name__ == "__main__":
+def sync_main():
+    """Synchronous entry point for console script."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    sync_main()
