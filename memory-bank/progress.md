@@ -78,6 +78,7 @@
 - **Volume Mount Optimization**: Replaced file-specific mounts with directory mounts to eliminate permission conflicts (2025-09-01)
 - **Production Session Management**: Implemented complete session persistence across deployments with automatic permission management (2025-09-01)
 - **Dynamic Version Management**: Implemented automatic version reading from pyproject.toml in settings.py (2025-09-01)
+- **.env File Auto-loading**: Enhanced setup_telegram.py to automatically load .env files for seamless authentication (2025-09-02)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

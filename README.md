@@ -82,15 +82,16 @@ pip install fast-mcp-telegram
 
 ### 2. One-Time Telegram Authentication
 
-**Setup Command Options:**
+
 ```bash
-# Using CLI arguments
 fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
 
 # Additional options available:
 # --overwrite          # Auto-overwrite existing session
 # --session-name NAME  # Use custom session name
 ```
+
+**📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless.
 
 ### 3. Configure Your MCP Client
 ```json
@@ -272,14 +273,29 @@ pip install -e .[dev]  # Install all dependencies including dev tools
 ```
 
 ### 2. Authenticate with Telegram
+
+**Setup Command Options:**
+
 ```bash
+# Automatic .env file loading (recommended)
+echo "API_ID=your_api_id" > .env
+echo "API_HASH=your_api_hash" >> .env
+echo "PHONE_NUMBER=+123456789" >> .env
+python src/setup_telegram.py
+
 # Using CLI arguments
 python src/setup_telegram.py --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
 
-# Or using environment variables
+# Using environment variables
 API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
 python src/setup_telegram.py
+
+# Additional options available:
+# --overwrite          # Auto-overwrite existing session
+# --session-name NAME  # Use custom session name
 ```
+
+**📝 Note:** The setup script automatically loads `.env` files from the project directory if they exist, making authentication seamless.
 
 ### 3. Configure Your MCP Client
 ```json

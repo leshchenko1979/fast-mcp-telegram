@@ -1,7 +1,10 @@
 import argparse
 import asyncio
 import getpass
+import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 
@@ -48,6 +51,14 @@ def parse_args():
 
 async def main():
     global SESSION_PATH  # Declare global for session path modification
+
+    # Load environment variables from .env file
+    env_file = Path(__file__).parent.parent.parent / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+        print(f"✓ Loaded environment variables from: {env_file}")
+    else:
+        print("⚠️  No .env file found. Using environment variables or command line arguments.")
 
     # Parse command line arguments
     args = parse_args()

@@ -94,6 +94,10 @@ tg_mcp/
 
 ### Env
 - `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`
+  - **Automatic Loading**: setup_telegram.py automatically loads .env files from the project directory
+  - **Seamless Authentication**: Users can create .env files and run setup without manual credential entry
+  - **Path Resolution**: Script searches for .env files relative to the project root directory
+  - **User Feedback**: Provides confirmation when .env file is successfully loaded
   - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`
   - Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
 
@@ -280,6 +284,20 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
   - Made examples immediately usable by LLMs
   - Consistent formatting across all tools
   - Clear parameter documentation with defaults
+
+### .env File Auto-loading (2025-09-02)
+- **Enhancement**: Added automatic .env file loading to setup_telegram.py
+- **Purpose**: Seamless authentication without manual credential entry
+- **Implementation**:
+  - Script automatically searches for .env file in project directory
+  - Loads environment variables before prompting for credentials
+  - Provides user feedback when .env file is successfully loaded
+  - Falls back gracefully if no .env file exists
+- **Benefits**:
+  - Simplified setup process for users with existing .env files
+  - Eliminates manual credential copying during setup
+  - Maintains security by not storing credentials in version control
+  - Provides clear feedback about configuration loading status
 
 ### 'me' Identifier Support (2025-09-01)
 - **Enhancement**: Added special handling for 'me' identifier in `get_entity_by_id()` function

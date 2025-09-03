@@ -187,16 +187,19 @@ setup:
   - Command-line options (`--overwrite`, `--session-name`)
   - Directory vs file conflict handling
   - Better error messages and validation
+  - **Automatic .env file loading**: Script now automatically loads .env files from the project directory
 **Implementation**:
   - Session file existence checking with user choice prompts
   - Directory conflict resolution (rmtree for directories, unlink for files)
   - Command-line argument parsing with help text
   - Graceful error handling and user feedback
+  - Added dotenv loading with proper path resolution and user feedback
 **Impact**:
   - Handles all Docker volume mount edge cases automatically
   - Provides both interactive and automated setup options
   - Eliminates common setup failures and user confusion
   - Professional-grade setup experience
+  - **Seamless authentication**: Users can create .env files and run setup without manual credential entry
 
 ### Security-First Documentation
 **Decision**: Added comprehensive security documentation with critical warnings about Telegram account access risks
