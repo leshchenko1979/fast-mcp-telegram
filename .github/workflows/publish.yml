@@ -19,43 +19,15 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install build dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install build twine
+        pip install build
 
     - name: Build package
       run: python -m build
 
-    - name: Publish to PyPI (Trusted Publishing)
-      id: trusted-publish
+    - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         print-hash: true
-      continue-on-error: true
-
-    - name: Publish to PyPI (API Token Fallback)
-      if: failure() && steps.trusted-publish.outcome == 'failure'
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        echo "Trusted Publishing failed, falling back to API token..."
-        twine upload dist/* --verbose
-
-    - name: Debug Trusted Publishing Failure
-      if: failure() && steps.trusted-publish.outcome == 'failure'
-      run: |
-        echo "Trusted Publishing failed. This is likely due to:"
-        echo "1. PyPI trusted publisher not configured for tags"
-        echo "2. Environment name mismatch"
-        echo "3. Repository name mismatch"
-        echo ""
-        echo "Current claims from GitHub:"
-        echo "Repository: leshchenko1979/fast-mcp-telegram"
-        echo "Environment: release"
-        echo "Workflow: .github/workflows/publish.yml"
-        echo "Ref: ${{ github.ref }}"
-        echo ""
-        echo "Make sure PyPI trusted publisher matches these values."
-        echo "If publishing on tags, configure PyPI for 'refs/tags/*' instead of 'refs/heads/main'"
