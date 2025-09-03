@@ -11,12 +11,16 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Communications :: Chat",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -77,4 +81,4 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [dependency-groups]
-dev = ["ruff"]
+dev = ["ruff", "pytest", "pytest-asyncio"]
