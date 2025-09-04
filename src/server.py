@@ -8,13 +8,22 @@ import os
 import sys
 import time
 import traceback
+from collections.abc import Callable
+from functools import wraps
 
 from fastmcp import FastMCP
 from loguru import logger
+from starlette.responses import JSONResponse
 
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.client.connection import (
+    MAX_ACTIVE_SESSIONS,
+    _session_cache,
+    generate_bearer_token,
+    set_request_token,
+)
 from src.config.logging import setup_logging
 from src.tools.contacts import get_contact_info, search_contacts_telegram
 from src.tools.messages import (
@@ -41,14 +50,186 @@ else:
     host = os.environ.get("MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("MCP_PORT", "8000"))
 
+# Authentication configuration
+DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
+
+
+def extract_bearer_token() -> str | None:
+    """
+    Extract Bearer token from HTTP Authorization header.
+
+    This function accesses HTTP headers from the current request context
+    when running in HTTP transport mode. For stdio transport, it returns None.
+
+    Note: For HTTP transport, authentication is mandatory when DISABLE_AUTH is False.
+    This function only extracts the token - validation is handled by with_auth_context.
+
+    Returns:
+        Bearer token string if found and valid, None otherwise
+    """
+    try:
+        # Only extract headers in HTTP transport mode
+        if transport != "http":
+            return None
+
+        # Import here to avoid issues when not running in HTTP mode
+        from fastmcp.server.dependencies import get_http_headers
+
+        headers = get_http_headers()
+        auth_header = headers.get("authorization", "")
+
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return None
+
+        # Extract token from "Bearer <token>"
+        token = auth_header[7:].strip()  # Remove "Bearer " prefix
+
+        if not token:
+            return None
+
+        return token
+
+    except Exception as e:
+        logger.warning(f"Error extracting bearer token: {e}")
+        return None
+
+
+def with_auth_context(func: Callable) -> Callable:
+    """
+    Decorator that extracts Bearer token from request headers and sets it in the context.
+
+    This decorator should be applied to all MCP tool functions to enable
+    token-based session management. When DISABLE_AUTH is True, authentication
+    is bypassed for development purposes.
+
+    For HTTP transport: Bearer token authentication is mandatory when DISABLE_AUTH is False.
+    For stdio transport: Falls back to singleton behavior for backward compatibility.
+
+    Args:
+        func: The MCP tool function to wrap
+
+    Returns:
+        Wrapped function with authentication context
+
+    Raises:
+        Exception: When no valid Bearer token is provided for HTTP transport
+    """
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        if DISABLE_AUTH:
+            # Skip authentication for development mode
+            set_request_token(None)
+            return await func(*args, **kwargs)
+
+        # Extract token from current request
+        token = extract_bearer_token()
+
+        if not token:
+            # For HTTP transport, authentication is mandatory when DISABLE_AUTH is false
+            if transport == "http":
+                from fastmcp.server.dependencies import get_http_headers
+
+                headers = get_http_headers()
+                auth_header = headers.get("authorization", "")
+
+                if auth_header:
+                    error_msg = f"Invalid authorization header format. Expected 'Bearer <token>' but got: {auth_header[:20]}..."
+                else:
+                    error_msg = (
+                        "Missing Bearer token in Authorization header. "
+                        "HTTP requests require authentication. Use: "
+                        "'Authorization: Bearer <your-token>' header. "
+                        "Generate a token using the generate_bearer_token_tool."
+                    )
+
+                logger.warning(f"Authentication failed: {error_msg}")
+                raise Exception(error_msg)
+
+            # For stdio transport, fall back to singleton behavior (backward compatibility)
+            set_request_token(None)
+            logger.info("No Bearer token provided, using default session")
+
+        # Token provided - set it in context for token-based sessions
+        set_request_token(token)
+        logger.info(f"Bearer token extracted for request: {token[:8]}...")
+
+        # Call the original function
+        return await func(*args, **kwargs)
+
+    return wrapper
+
+
+def generate_dev_token() -> str:
+    """
+    Generate a Bearer token for development/testing purposes.
+
+    This function creates a cryptographically secure token that can be used
+    for testing the authentication middleware when DISABLE_AUTH is False.
+
+    Returns:
+        A new Bearer token string
+    """
+    token = generate_bearer_token()
+    logger.info(f"Generated development token: {token}")
+    return token
+
+
+# Development token generation for testing
+if DISABLE_AUTH:
+    logger.info("🔓 Authentication DISABLED for development mode")
+else:
+    logger.info("🔐 Authentication ENABLED")
+    if transport == "http":
+        logger.info("🚨 HTTP transport: Bearer token authentication is MANDATORY")
+        logger.info(
+            "💡 For development, you can generate a token by calling generate_dev_token()"
+        )
+    else:
+        logger.info(
+            "📝 Stdio transport: Bearer token optional (fallback to default session)"
+        )
+
+
 mcp = FastMCP("Telegram MCP Server")
 
 # Set up logging
 setup_logging()
 
 
+# Add health check endpoint
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    """Health check endpoint for monitoring and load balancers."""
+    current_time = time.time()
+    session_info = []
+
+    for token, (client, last_access) in _session_cache.items():
+        hours_since_access = (current_time - last_access) / 3600
+        session_info.append(
+            {
+                "token_prefix": token[:8] + "...",
+                "hours_since_access": round(hours_since_access, 2),
+                "is_connected": client.is_connected() if client else False,
+                "last_access": time.ctime(last_access),
+            }
+        )
+
+    return JSONResponse(
+        {
+            "status": "healthy",
+            "service": "telegram-mcp-server",
+            "transport": transport,
+            "active_sessions": len(_session_cache),
+            "max_sessions": MAX_ACTIVE_SESSIONS,
+            "sessions": session_info,
+        }
+    )
+
+
 # Register tools with the MCP server
 @mcp.tool()
+@with_auth_context
 async def search_messages(
     query: str,
     chat_id: str | None = None,
@@ -120,6 +301,7 @@ async def search_messages(
 
 
 @mcp.tool()
+@with_auth_context
 async def send_or_edit_message(
     chat_id: str,
     message: str,
@@ -177,6 +359,7 @@ async def send_or_edit_message(
 
 
 @mcp.tool()
+@with_auth_context
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
     Read specific messages by their IDs from a Telegram chat.
@@ -204,6 +387,7 @@ async def read_messages(chat_id: str, message_ids: list[int]):
 
 
 @mcp.tool()
+@with_auth_context
 async def search_contacts(query: str, limit: int = 20):
     """
     Search Telegram contacts and users by name, username, or phone number.
@@ -251,6 +435,7 @@ async def search_contacts(query: str, limit: int = 20):
 
 
 @mcp.tool()
+@with_auth_context
 async def get_contact_details(chat_id: str):
     """
     Get detailed profile information for a specific Telegram user or chat.
@@ -277,6 +462,7 @@ async def get_contact_details(chat_id: str):
 
 
 @mcp.tool()
+@with_auth_context
 async def send_message_to_phone(
     phone_number: str,
     message: str,
@@ -332,6 +518,7 @@ async def send_message_to_phone(
 
 
 @mcp.tool()
+@with_auth_context
 async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     Execute low-level Telegram MTProto API methods directly.
@@ -417,6 +604,7 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
 def shutdown_procedure():
     """Synchronously performs async cleanup."""
     logger.info("Starting cleanup procedure.")
+
     from src.client.connection import cleanup_client
 
     # Create a new event loop for cleanup to avoid conflicts.
@@ -432,6 +620,7 @@ def shutdown_procedure():
 
 def main():
     """Entry point for console script; runs the MCP server and ensures cleanup."""
+
     if transport == "http":
         try:
             mcp.run(transport="http", host=host, port=port)

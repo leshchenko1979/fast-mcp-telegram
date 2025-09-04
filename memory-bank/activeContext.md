@@ -1,11 +1,38 @@
 
 
 ## Current Work Focus
-**Primary**: **PRODUCTION-READY SYSTEM** - Completed comprehensive session management and deployment enhancements. System now features enterprise-grade deployment with automatic session persistence, permission management, and robust production infrastructure.
+**Primary**: **TOKEN-BASED AUTHENTICATION SYSTEM** - Completed implementation of multi-user Bearer token authentication with session isolation. System now supports both single-user (stdio) and multi-user (HTTP) deployments with proper session management.
 
-**Current Status**: **FULLY PRODUCTION-READY** with streamlined session management architecture. **Standard session location**: Uses `~/.config/fast-mcp-telegram/` for cross-platform compatibility. **Enhanced deployment script**: Comprehensive backup/restore, permission auto-fixing, and macOS resource fork cleanup. **Docker optimization**: Single-stage builds with proper volume mounting and user permissions. **Git integration**: Proper .gitignore handling for session files.
+**Current Status**: **PRODUCTION-READY WITH MULTI-USER SUPPORT** featuring token-based session management architecture. **Bearer Token Authentication**: Each user gets unique 256-bit cryptographically secure tokens. **Session Isolation**: Token-specific session files with LRU cache management. **Transport Flexibility**: Supports both stdio (legacy) and HTTP (multi-user) transports. **Auto-cleanup Removed**: Simplified system without background cleanup tasks. **Mandatory HTTP Auth**: Bearer tokens required for all HTTP requests (no fallback to default session).
 
 ## Active Decisions and Considerations
+
+### Token-Based Session Management Implementation (2025-01-04)
+**Decision**: Implemented comprehensive multi-user authentication system with Bearer tokens and session isolation
+**Rationale**: Enable multiple users to use the same MCP server instance while maintaining security and session separation
+**Solution**: 
+  - Generated 256-bit cryptographically secure Bearer tokens via `generate_bearer_token()`
+  - Token-specific session files in format `{token}.session`
+  - Context variable `_current_token` for request-scoped token tracking
+  - LRU cache with configurable `MAX_ACTIVE_SESSIONS` limit
+  - Auto-deletion of invalid session files on authentication errors
+**Implementation**:
+  - Authentication middleware `@with_auth_context` decorator on all MCP tools
+  - `extract_bearer_token()` function for HTTP header parsing
+  - `DISABLE_AUTH` environment variable for development mode
+  - Modified setup script to generate and display Bearer tokens
+  - Mandatory authentication for HTTP transport (no fallback to default session)
+**Impact**: Enables secure multi-user deployments with proper session isolation and enterprise-grade authentication
+
+### Auto-Cleanup Removal (2025-01-04)
+**Decision**: Removed all automatic cleanup functionality and background tasks
+**Rationale**: Simplified system architecture and eliminated potential runtime issues with asyncio event loops
+**Removed Components**:
+  - `SESSION_TIMEOUT_HOURS` and `MAX_SESSION_FILE_AGE_DAYS` constants
+  - `cleanup_expired_sessions()` and `cleanup_old_session_files()` functions
+  - Background cleanup task and related infrastructure
+  - Session timeout tracking and automatic expiration
+**Impact**: Cleaner, more predictable system behavior with manual session management control through existing cleanup functions
 ### Logging Spam Reduction Implementation
 **Decision**: Implemented module-level logging configuration to reduce Telethon network spam
 **Rationale**: Telethon DEBUG logging was producing 9,000+ messages per session, making logs unreadable and causing 924KB log files in minutes

@@ -38,12 +38,13 @@ tomli            # TOML parsing for Python < 3.11 (conditional)
 # Project structure
 tg_mcp/
 ├── src/                   # Source code
-│   ├── server.py         # MCP server entry point
-│   ├── tools/            # Tool implementations
-│   ├── client/           # Telegram client management
+│   ├── server.py         # MCP server entry point with authentication middleware
+│   ├── tools/            # Tool implementations (all with @with_auth_context)
+│   ├── client/           # Telegram client management with token-based sessions
+│   │   └── connection.py # Token management, LRU cache, session isolation
 │   ├── config/           # Configuration and logging
 │   └── utils/            # Utility functions
-├── scripts/               # 🆕 Deployment and utility scripts
+├── scripts/               # Deployment and utility scripts
 │   └── deploy-mcp.sh     # Enhanced deployment script
 ├── tests/                # Test suite
 ├── memory-bank/          # Project documentation
@@ -57,7 +58,7 @@ tg_mcp/
 
 
 
-### MCP Server Configuration (Local stdio)
+### MCP Server Configuration (Local stdio - single user, legacy)
 ```json
 {
   "mcpServers": {
@@ -73,16 +74,32 @@ tg_mcp/
 }
 ```
 
-### MCP Server Configuration (Cursor over HTTP)
+### MCP Server Configuration (HTTP with Bearer Token Authentication)
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "url": "https://your-domain.com/mcp",
-      "headers": {}
+      "url": "https://your-domain.com",
+      "headers": {
+        "Authorization": "Bearer AbCdEfGh123456789KLmnOpQr..."
+      }
     }
   }
 }
+```
+
+### Environment Variables for Authentication
+```bash
+# Development mode (bypasses authentication)
+DISABLE_AUTH=true
+
+# Session management
+MAX_ACTIVE_SESSIONS=10  # LRU cache limit for concurrent sessions
+
+# Transport configuration
+MCP_TRANSPORT=http      # http for multi-user, stdio for single-user
+MCP_HOST=0.0.0.0       # Bind address for HTTP transport
+MCP_PORT=8000          # Port for HTTP transport
 ```
 
 ### Deployment Files

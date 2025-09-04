@@ -23,8 +23,6 @@ COPY src/ ./src/
 # Install dependencies
 RUN pip install --no-cache-dir -e .
 
-
-
 # Environment for FastMCP HTTP
 ENV MCP_TRANSPORT=http \
     MCP_HOST=0.0.0.0 \
@@ -38,11 +36,9 @@ ENV MCP_TRANSPORT=http \
 # Expose the application's port
 EXPOSE 8000
 
-# Healthcheck: succeed if HTTP server accepts connections (status code agnostic)
-HEALTHCHECK --interval=5s --timeout=5s --retries=3 \
-    CMD curl -sS -o /dev/null http://localhost:8000 || exit 1
+# Healthcheck: use the dedicated health endpoint
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the application
 CMD ["python", "-m", "src.server"]
-
-

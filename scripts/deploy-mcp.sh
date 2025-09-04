@@ -53,10 +53,9 @@ deploy() {
   # Clean up macOS resource fork files
   ssh "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"
 
-  log "$BLUE" "Note: Session files are managed per-environment and should be set up separately on the remote server"
-
-  log "$BLUE" "Starting containers..."
-  if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --env-file .env up --build -d"; then
+    log "$BLUE" "Starting MCP server..."
+  
+  if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --profile server --env-file .env up --build -d"; then
     log "$RED" "Failed to start containers"
     exit 1
   fi

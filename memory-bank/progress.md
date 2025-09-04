@@ -16,6 +16,10 @@
 - **Structured Logging**: Loguru integration with stdlib bridge and emitter tracking
 - **Logging Spam Reduction**: Module-level filtering reduces Telethon noise by 99%
 - **Consistent Error Handling**: All tools return structured error responses instead of raising exceptions
+- **Token-Based Authentication**: Bearer token system with session isolation and LRU cache management
+- **Multi-User Support**: HTTP transport with per-user session files and authentication
+- **Session Management**: Token-specific sessions with automatic invalid session cleanup
+- **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -79,6 +83,12 @@
 - **Production Session Management**: Implemented complete session persistence across deployments with automatic permission management (2025-09-01)
 - **Dynamic Version Management**: Implemented automatic version reading from pyproject.toml in settings.py (2025-09-01)
 - **.env File Auto-loading**: Enhanced setup_telegram.py to automatically load .env files for seamless authentication (2025-09-02)
+- **Token-Based Authentication**: Implemented Bearer token authentication system with session isolation and LRU cache management (2025-01-04)
+- **Multi-User Session Management**: Added support for multiple authenticated users with token-specific session files (2025-01-04)
+- **Authentication Middleware**: Created `@with_auth_context` decorator and `extract_bearer_token()` for HTTP authentication (2025-01-04)
+- **Setup Script Token Generation**: Modified setup_telegram.py to generate and display cryptographically secure Bearer tokens (2025-01-04)
+- **Auto-Cleanup Removal**: Removed all automatic cleanup variables and background tasks for simplified architecture (2025-01-04)
+- **Mandatory HTTP Authentication**: Eliminated fallback to default session for HTTP requests, making Bearer tokens mandatory (2025-01-04)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

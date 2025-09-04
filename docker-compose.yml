@@ -24,14 +24,11 @@ services:
       - "traefik.http.routers.fast-mcp-telegram.entrypoints=websecure"
       - "traefik.http.services.fast-mcp-telegram.loadbalancer.server.port=8000"
       - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=letsencrypt"
-    healthcheck:
-      test: ["CMD", "sh", "-c", "curl -sS -o /dev/null http://localhost:8000 || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     restart: always
     command: python -m src.server
+
+    profiles:
+      - server
 
   setup:
     build:
@@ -46,6 +43,10 @@ services:
 
     profiles:
       - setup
+
+    stdin_open: true
+    tty: true
+    
     command: python -m src.setup_telegram --overwrite
 
 networks:

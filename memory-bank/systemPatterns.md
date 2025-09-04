@@ -17,20 +17,28 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ## Key Technical Decisions
 
-### 1. Search Architecture
+### 1. Authentication Architecture
+- **Token-Based Sessions**: Bearer tokens create isolated user sessions
+- **Context Variables**: `_current_token` for request-scoped authentication
+- **LRU Cache Management**: Configurable `MAX_ACTIVE_SESSIONS` with automatic eviction
+- **Transport-Specific Auth**: Mandatory for HTTP, optional for stdio (legacy)
+- **Session File Format**: `{token}.session` for multi-user isolation
+- **Authentication Middleware**: `@with_auth_context` decorator on all MCP tools
+
+### 2. Search Architecture
 - **Dual Search Modes**: Global search vs per-chat search
 - **Multi-Query Support**: Comma-separated terms with parallel execution
 - **Query Handling**: Different logic for empty vs non-empty queries
 - **Entity Resolution**: Automatic chat ID resolution from various formats
 - **Deduplication**: Results merged and deduplicated based on message identity
 
-### 2. Multi-Query Implementation
+### 3. Multi-Query Implementation
 - **Input Format**: Single string with comma-separated terms (e.g., "deadline, due date")
 - **Parallel Execution**: `asyncio.gather()` for simultaneous query processing
 - **Deduplication Strategy**: `(chat.id, message.id)` tuple-based deduplication
 - **Pagination**: Applied after all queries complete and results are merged
 
-### 3. Tool Registration Pattern
+### 4. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
 - **Async Operations**: All Telegram operations are async for performance
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
@@ -38,12 +46,17 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Parameter Flexibility**: Tools support optional parameters with sensible defaults
 - **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in tool responses
 
-### 4. Data Flow Patterns
+### 5. Data Flow Patterns
 ```
 User Request → MCP Tool → Search Function → Telegram API → Results → Response
 ```
 
-### 5. Multi-Query Search Flow
+### 6. Authentication Flow
+```
+HTTP Request → extract_bearer_token() → @with_auth_context → set_request_token() → _get_client_by_token() → Session Cache/New Session → Tool Execution
+```
+
+### 7. Multi-Query Search Flow
 ```
 Input: "term1, term2, term3"
      ↓
@@ -60,26 +73,30 @@ Apply limit (no pagination)
 Return unified result set
 ```
 
-### 6. Session Management Architecture
+### 8. Session Management Architecture
+- **Token-Based Sessions**: Each Bearer token gets isolated session file `{token}.session`
+- **LRU Cache Management**: In-memory cache with configurable `MAX_ACTIVE_SESSIONS` limit
+- **Automatic Eviction**: Oldest sessions disconnected when cache reaches capacity
 - **Session Location**: `~/.config/fast-mcp-telegram/` for cross-platform compatibility
+- **Auto-Cleanup on Auth Errors**: Invalid session files automatically deleted
 - **Git Integration**: Proper .gitignore with .gitkeep for structure maintenance
 - **Cross-Platform**: Automatic handling of macOS resource forks and permission differences
 - **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
 - **Backup/Restore**: Comprehensive session persistence across deployments
 
-### 7. Deployment & Transport
+### 9. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
 - Sessions: Standard `~/.config/fast-mcp-telegram/` directory with automatic permission management
 - Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
 
-### 8. Logging Strategy
+### 10. Logging Strategy
 - Loguru: File rotation + console
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Traceability: Request IDs and detailed RPC traces enabled for prod diagnosis
 
-### 9. Deployment Automation Patterns
+### 11. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
@@ -124,9 +141,9 @@ else:
 ## Component Relationships
 
 ### Core Modules
-- **server.py**: MCP server entry point and tool registration
+- **server.py**: MCP server entry point, tool registration, and `/health` endpoint for session monitoring
 - **search.py**: Search functionality implementation with multi-query support
-- **client/connection.py**: Telegram client management
+- **client/connection.py**: Telegram client management with token-based sessions and LRU cache
 - **utils/entity.py**: Entity resolution and formatting
 - **config/settings.py**: Configuration management with dynamic version reading from pyproject.toml
 - **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files

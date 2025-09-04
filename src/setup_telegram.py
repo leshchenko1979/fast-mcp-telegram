@@ -1,19 +1,18 @@
 import argparse
 import asyncio
 import getpass
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 
+from src.client.connection import generate_bearer_token
 from src.config.settings import (
     API_HASH,
     API_ID,
     PHONE_NUMBER,
     SESSION_DIR,
-    SESSION_PATH,
 )
 
 
@@ -43,7 +42,7 @@ def parse_args():
     parser.add_argument(
         "--session-name",
         type=str,
-        help="Custom session name (without .session extension)",
+        help="Override with custom session name instead of random token (for advanced users)",
     )
 
     return parser.parse_args()
@@ -87,27 +86,37 @@ async def main():
         )
         return
 
+    # Generate session name - use custom name if provided, otherwise random token
+    if args.session_name:
+        session_name = args.session_name
+        if not session_name.endswith(".session"):
+            session_name += ".session"
+        bearer_token = args.session_name  # Use custom name as token for simplicity
+        print(f"Using custom session name: {session_name}")
+    else:
+        # Generate a random bearer token for the session
+        bearer_token = generate_bearer_token()
+        session_name = f"{bearer_token}.session"
+        print("Generated random bearer token for session")
+
+    SESSION_PATH = SESSION_DIR / session_name
+
     print("Starting Telegram session setup...")
     print(f"API ID: {api_id}")
     print(f"Phone: {phone_number}")
     print(f"Session will be saved to: {SESSION_PATH}")
     print(f"Session directory: {SESSION_PATH.parent}")
 
-    # Handle session file conflicts
+    # Handle session file conflicts (rare with random tokens, but handle gracefully)
     if SESSION_PATH.exists():
         print(f"\n⚠️  Session file already exists: {SESSION_PATH}")
-        print("This session may be invalidated or from a different IP address.")
+        print("This might indicate a collision with an existing random token.")
 
         if args.overwrite:
             print("✓ Overwriting existing session (as requested)")
-            if SESSION_PATH.is_dir():
-                import shutil
-
-                shutil.rmtree(SESSION_PATH)
-                print("Removed session directory")
-            else:
-                SESSION_PATH.unlink(missing_ok=True)
+            SESSION_PATH.unlink(missing_ok=True)
         elif args.session_name:
+            # Allow overriding with custom session name if provided
             new_name = args.session_name
             if not new_name.endswith(".session"):
                 new_name += ".session"
@@ -115,45 +124,9 @@ async def main():
             print(f"Using custom session name: {new_session_path}")
             SESSION_PATH = new_session_path
         else:
-            # Interactive mode only
-            while True:
-                choice = input(
-                    "\nChoose an option:\n"
-                    "1. Overwrite existing session (recommended)\n"
-                    "2. Use different session name\n"
-                    "3. Cancel setup\n"
-                    "Enter choice (1-3): "
-                ).strip()
-
-                if choice == "1":
-                    print(f"Removing existing session: {SESSION_PATH}")
-                    if SESSION_PATH.is_dir():
-                        import shutil
-
-                        shutil.rmtree(SESSION_PATH)
-                        print("✓ Existing session directory removed")
-                    else:
-                        SESSION_PATH.unlink(missing_ok=True)
-                        print("✓ Existing session file removed")
-                    break
-                if choice == "2":
-                    new_name = input(
-                        "Enter new session name (without .session extension): "
-                    ).strip()
-                    if not new_name:
-                        print("❌ Session name cannot be empty")
-                        continue
-                    if not new_name.endswith(".session"):
-                        new_name += ".session"
-
-                    new_session_path = SESSION_DIR / new_name
-                    print(f"Using new session path: {new_session_path}")
-                    SESSION_PATH = new_session_path
-                    break
-                if choice == "3":
-                    print("Setup cancelled.")
-                    return
-                print("❌ Invalid choice. Please enter 1, 2, or 3.")
+            # For random tokens, always overwrite since collision is unlikely
+            print("✓ Overwriting existing session (random token collision)")
+            SESSION_PATH.unlink(missing_ok=True)
 
     print(f"\n🔐 Authenticating with session: {SESSION_PATH}")
 
@@ -183,8 +156,16 @@ async def main():
         break
 
     await client.disconnect()
-    print(f"✅ Setup complete! Session saved to: {SESSION_PATH}")
-    print("You can now use the Telegram search functionality.")
+
+    print("\n✅ Setup complete!")
+    print(f"📁 Session saved to: {SESSION_PATH}")
+    if args.session_name:
+        print(f"🔑 Bearer Token (custom): {bearer_token}")
+    else:
+        print(f"🔑 Bearer Token: {bearer_token}")
+    print("\n💡 Use this Bearer token for authentication when using the MCP server:")
+    print(f"   Authorization: Bearer {bearer_token}")
+    print("\n🚀 You can now use the Telegram search functionality!")
 
 
 def sync_main():
