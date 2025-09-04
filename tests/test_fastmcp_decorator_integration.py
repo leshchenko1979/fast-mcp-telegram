@@ -147,21 +147,22 @@ class TestFastMCPToolIntegration:
 
     def test_tool_functions_are_properly_decorated(self):
         """Test that tool functions are properly decorated with FastMCP."""
-        
+
         # Import the actual tool functions
         from src.server import search_contacts, send_or_edit_message, read_messages
-        
+
         # Check that the functions exist and are properly decorated
         assert search_contacts is not None
         assert send_or_edit_message is not None
         assert read_messages is not None
-        
+
         # Verify they are FunctionTool objects (meaning decorators are applied correctly)
         from fastmcp.tools.tool import FunctionTool
+
         assert isinstance(search_contacts, FunctionTool)
         assert isinstance(send_or_edit_message, FunctionTool)
         assert isinstance(read_messages, FunctionTool)
-        
+
         print("✅ All tool functions are properly decorated with FastMCP")
 
 
@@ -222,21 +223,24 @@ class TestDecoratorOrderRegression:
 
     def test_decorator_order_regression_prevention(self):
         """Regression test: verify that decorator order is correct to prevent the original issue."""
-        
+
         # This test verifies that the decorator order fix is in place
         # The original issue was that @with_auth_context wasn't being executed
         # due to incorrect decorator order
-        
+
         # Import the actual tool functions
         from src.server import search_contacts, send_or_edit_message, read_messages
-        
+
         # Verify they are properly decorated (FunctionTool objects)
         from fastmcp.tools.tool import FunctionTool
+
         assert isinstance(search_contacts, FunctionTool)
         assert isinstance(send_or_edit_message, FunctionTool)
         assert isinstance(read_messages, FunctionTool)
-        
-        print("✅ Decorator order regression prevention verified - all tools properly decorated")
+
+        print(
+            "✅ Decorator order regression prevention verified - all tools properly decorated"
+        )
 
 
 class TestRealIssueVerification:
