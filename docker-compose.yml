@@ -13,7 +13,6 @@ services:
 
       - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
-      - ./src:/app/src
       - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
 
     networks:
@@ -38,7 +37,6 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ./src:/app/src
       - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
 
     profiles:

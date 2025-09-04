@@ -265,6 +265,25 @@ setup:
   - Better alignment with standard practices
   - Simplified deployment and backup processes
 
+### Production-First Docker Optimization (2025-01-04)
+**Decision**: Removed editable install (`-e .`) and volume mounting for cleaner production deployment
+**Rationale**: Editable installs were causing dependency reinstallation issues and volume mounting added development complexity
+**Solution**: Simplified to production-focused Docker build:
+  - Layer 1: Install dependencies directly from hardcoded list (cached when pyproject.toml unchanged)
+  - Layer 2: Copy source code directly (rebuilds only when code changes)
+  - Removed volume mounting of source code from docker-compose.yml
+  - Eliminated all editable install complexity
+**Implementation**:
+  - Create minimal package structure: `mkdir -p src && touch src/__init__.py`
+  - Install from pyproject.toml: `pip install --no-cache-dir .` (gets all dependencies from single source of truth)
+  - Copy real source: `COPY src/ ./src/` (overwrites minimal structure)
+  - Removed `- ./src:/app/src` volume mounts from both services
+**Impact**: 
+  - No dependency reinstallation on code changes
+  - Faster, more predictable builds
+  - Production-optimized container without development artifacts
+  - Clean separation between dependencies and application code
+
 ### Enhanced Deployment Script with Session Management
 **Decision**: Added comprehensive session file backup/restore, permission auto-fixing, and macOS resource fork cleanup to deployment script
 **Rationale**: Manual session file management was error-prone and time-consuming, especially across different operating systems

@@ -1,5 +1,5 @@
-# Simplified single-stage Dockerfile for reliable builds
-# Uses Alpine Linux with direct pip installation
+# Production-optimized Dockerfile without editable install
+# Uses Alpine Linux with clean dependency installation
 
 FROM python:3-alpine
 
@@ -16,12 +16,16 @@ USER appuser
 # Set the working directory
 WORKDIR /app
 
-# Copy project files
+# Copy dependency files and minimal package structure for caching
 COPY pyproject.toml ./
-COPY src/ ./src/
+RUN mkdir -p src && touch src/__init__.py
 
-# Install dependencies
-RUN pip install --no-cache-dir -e .
+# Install package with dependencies (minimal src structure satisfies pip)
+# This layer will be cached and not rebuilt unless pyproject.toml changes
+RUN pip install --no-cache-dir .
+
+# Copy real source code (this layer rebuilds when code changes)
+COPY src/ ./src/
 
 # Environment for FastMCP HTTP
 ENV MCP_TRANSPORT=http \
