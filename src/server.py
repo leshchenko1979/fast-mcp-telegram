@@ -75,7 +75,7 @@ else:
         )
 
 # Initialize MCP server and logging
-mcp = FastMCP("Telegram MCP Server")
+mcp = FastMCP("Telegram MCP Server", stateless_http=True)
 setup_logging()
 
 

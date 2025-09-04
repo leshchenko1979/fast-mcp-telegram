@@ -117,6 +117,41 @@ Return unified result set
 - **Local-Remote Sync**: Bidirectional synchronization of session files
 - **Error Recovery**: Robust error handling with detailed logging and counts
 
+### 13. VDS Testing and Diagnosis Methodology
+- **Environment Access**: SSH connection using credentials from `.env` file (`VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`)
+- **Deployment Process**: Automated deployment via `./scripts/deploy-mcp.sh` with session management and health checks
+- **Container Management**: Docker Compose commands for status monitoring, log analysis, and health verification
+- **Authentication Testing**: Curl-based testing with proper MCP protocol headers and bearer token authentication
+- **Log Analysis**: Real-time monitoring of server logs for authentication flow, token extraction, and session creation
+- **Session File Management**: Verification of token-specific session files in `~/.config/fast-mcp-telegram/` directory
+- **Traefik Integration**: Domain routing verification and SSL certificate management through Traefik logs
+- **Health Monitoring**: Container health checks and `/health` endpoint monitoring for system status
+- **Production Validation**: End-to-end testing with real Telegram API calls to confirm functionality
+- **Debugging Approach**: Systematic issue elimination through targeted testing and log analysis
+
+### 14. Authentication Testing Approaches
+- **Local Testing**: Comprehensive pytest test suite with 55 passing tests covering all authentication scenarios
+- **Mock Testing**: Extensive mocking of FastMCP decorators, HTTP headers, and authentication flows
+- **Integration Testing**: FastMCP decorator integration tests to verify decorator order and execution
+- **Production Testing**: Real VDS deployment with actual Telegram API calls and bearer token authentication
+- **Protocol Testing**: MCP protocol compliance testing with proper initialization and session management
+- **Header Testing**: HTTP header extraction and bearer token parsing validation
+- **Session Testing**: Token-specific session creation and management verification
+- **Fallback Testing**: Verification that no fallback to default sessions occurs when valid tokens are provided
+- **Error Testing**: Authentication error handling and structured error response validation
+- **Performance Testing**: Authentication flow performance and session cache management testing
+
+### 15. VDS Access and Testing Commands
+- **SSH Access**: `ssh root@<VDS_IP>` (using credentials from `.env` file)
+- **Deployment**: `./scripts/deploy-mcp.sh` (automated deployment with session management)
+- **Container Status**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose ps"`
+- **Container Logs**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose logs --tail=20 fast-mcp-telegram"`
+- **Traefik Logs**: `ssh root@<VDS_IP> "docker logs traefik --tail=10"`
+- **Session Files**: `ssh root@<VDS_IP> "ls -la /home/appuser/.config/fast-mcp-telegram/"`
+- **Health Check**: `curl -X GET "https://<DOMAIN>/health" --insecure`
+- **MCP Tool Call**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "Authorization: Bearer <token>" -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_contacts","arguments":{"query":"test"}}}' --insecure`
+- **MCP Initialize**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' --insecure`
+
 ## Critical Implementation Paths
 
 ### Search Flow

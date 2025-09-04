@@ -71,10 +71,10 @@ tg_mcp/
   "mcpServers": {
     "mcp-telegram": {
       "command": "python3",
-      "args": ["/Users/leshchenko/coding_projects/tg_mcp/src/server.py"],
-      "cwd": "/Users/leshchenko/coding_projects/tg_mcp",
+      "args": ["/path/to/project/src/server.py"],
+      "cwd": "/path/to/project",
       "env": {
-        "PYTHONPATH": "/Users/leshchenko/coding_projects/tg_mcp"
+        "PYTHONPATH": "/path/to/project"
       }
     }
   }
@@ -135,6 +135,27 @@ MCP_PORT=8000          # Port for HTTP transport
   - **User Feedback**: Provides confirmation when .env file is successfully loaded
   - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`
   - Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
+
+### VDS Testing Environment
+- **Production Server**: VDS at `<VDS_IP>` with Traefik reverse proxy
+- **Domain**: `<DOMAIN>` with SSL certificates via Let's Encrypt
+- **Container Management**: Docker Compose with health checks and automatic restarts
+- **Session Persistence**: Automatic backup/restore of session files across deployments
+- **Authentication Testing**: Real Telegram API calls with bearer token authentication
+- **Log Monitoring**: Real-time log analysis for authentication flow verification
+- **Health Monitoring**: Container health checks and `/health` endpoint monitoring
+- **Traefik Integration**: Domain routing, SSL termination, and load balancing
+
+### VDS Testing Commands and Approaches
+- **SSH Access**: `ssh root@<VDS_IP>` (credentials from `.env` file)
+- **Deployment**: `./scripts/deploy-mcp.sh` (automated with session management)
+- **Container Status**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose ps"`
+- **Container Logs**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose logs --tail=20 fast-mcp-telegram"`
+- **Traefik Logs**: `ssh root@<VDS_IP> "docker logs traefik --tail=10"`
+- **Session Files**: `ssh root@<VDS_IP> "ls -la /home/appuser/.config/fast-mcp-telegram/"`
+- **Health Check**: `curl -X GET "https://<DOMAIN>/health" --insecure`
+- **MCP Tool Call**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "Authorization: Bearer <token>" -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_contacts","arguments":{"query":"test"}}}' --insecure`
+- **MCP Initialize**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' --insecure`
 
 ## Technical Constraints
 
@@ -433,3 +454,10 @@ parameter_name: Description with defaults and constraints
 - **Consistent Format**: Error responses include `operation` and `params` fields
 - **Server Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
 - **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions
+
+### FastMCP Authentication Constraints
+- **Critical Parameter**: `stateless_http=True` is **REQUIRED** for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode
+- **Decorator Order**: `@with_auth_context` must be the innermost decorator on all tool functions
+- **HTTP Transport**: Authentication middleware only works correctly with `stateless_http=True` parameter
+- **Production Requirement**: Without this parameter, authentication decorators are bypassed, causing fallback to default sessions
+- **Deprecation Warning**: Despite deprecation warning, this parameter is essential for authentication functionality
