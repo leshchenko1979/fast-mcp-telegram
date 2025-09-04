@@ -1,6 +1,6 @@
+import json
 import logging
 import sys
-import traceback
 from datetime import datetime
 
 from loguru import logger
@@ -107,43 +107,6 @@ def setup_logging():
 def format_diagnostic_info(info: dict) -> str:
     """Format diagnostic information for logging."""
     try:
-        import json
-
         return json.dumps(info, indent=2, default=str)
     except Exception as e:
         return f"Error formatting diagnostic info: {e!s}"
-
-
-def log_operation_start(request_id: str, operation: str, params: dict):
-    """Log the start of an operation with consistent format."""
-
-    logger.debug(f"[{request_id}] {operation}", extra={"params": params})
-
-
-def log_operation_success(request_id: str, operation: str, chat_id: str | None = None):
-    """Log successful completion of an operation."""
-
-    if chat_id:
-        logger.info(f"[{request_id}] {operation} successfully in chat {chat_id}")
-    else:
-        logger.info(f"[{request_id}] {operation} successfully")
-
-
-def log_operation_error(
-    request_id: str, operation: str, error: Exception, params: dict
-):
-    """Log operation errors with consistent format."""
-
-    error_info = {
-        "request_id": request_id,
-        "error": {
-            "type": type(error).__name__,
-            "message": str(error),
-            "traceback": traceback.format_exc(),
-        },
-        "params": params,
-    }
-    logger.error(
-        f"[{request_id}] Error {operation}",
-        extra={"diagnostic_info": format_diagnostic_info(error_info)},
-    )

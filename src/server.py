@@ -4,6 +4,8 @@ Provides API endpoints and core bot features.
 """
 
 import asyncio
+import inspect
+import json
 import os
 import sys
 import time
@@ -21,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.client.connection import (
     MAX_ACTIVE_SESSIONS,
     _session_cache,
-    generate_bearer_token,
+    cleanup_client,
     set_request_token,
 )
 from src.config.logging import setup_logging
@@ -39,6 +41,10 @@ from src.utils.error_handling import (
     log_and_build_error,
 )
 
+# =============================================================================
+# CONFIGURATION & SETUP
+# =============================================================================
+
 IS_TEST_MODE = "--test-mode" in sys.argv
 
 if IS_TEST_MODE:
@@ -52,6 +58,78 @@ else:
 
 # Authentication configuration
 DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
+
+# Development token generation for testing
+if DISABLE_AUTH:
+    logger.info("🔓 Authentication DISABLED for development mode")
+else:
+    logger.info("🔐 Authentication ENABLED")
+    if transport == "http":
+        logger.info("🚨 HTTP transport: Bearer token authentication is MANDATORY")
+        logger.info(
+            "💡 For development, you can generate a token by calling generate_dev_token()"
+        )
+    else:
+        logger.info(
+            "📝 Stdio transport: Bearer token optional (fallback to default session)"
+        )
+
+# Initialize MCP server and logging
+mcp = FastMCP("Telegram MCP Server")
+setup_logging()
+
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+
+def with_error_handling(operation_name: str):
+    """
+    Decorator that adds consistent error handling to MCP tool functions.
+
+    This decorator wraps tool functions to automatically handle exceptions and error responses
+    using the standardized error handling pattern, eliminating code duplication.
+
+    Args:
+        operation_name: Name of the operation for error reporting
+
+    Returns:
+        Decorated function with automatic error handling
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Build params dict from function signature for error context
+            sig = inspect.signature(func)
+            bound_args = sig.bind(*args, **kwargs)
+            bound_args.apply_defaults()
+            params = dict(bound_args.arguments)
+
+            try:
+                # Call the original function with exception handling
+                result = await func(*args, **kwargs)
+
+                # Check if this is an error response (for functions that return error dicts)
+                error_response = handle_tool_error(result, operation_name, params)
+                if error_response:
+                    return error_response
+
+                return result
+
+            except Exception as e:
+                # Handle any exception that occurs during function execution
+                return log_and_build_error(
+                    operation=operation_name,
+                    error_message=f"Unexpected error: {e}",
+                    params=params,
+                    exception=e,
+                )
+
+        return wrapper
+
+    return decorator
 
 
 def extract_bearer_token() -> str | None:
@@ -160,44 +238,11 @@ def with_auth_context(func: Callable) -> Callable:
     return wrapper
 
 
-def generate_dev_token() -> str:
-    """
-    Generate a Bearer token for development/testing purposes.
-
-    This function creates a cryptographically secure token that can be used
-    for testing the authentication middleware when DISABLE_AUTH is False.
-
-    Returns:
-        A new Bearer token string
-    """
-    token = generate_bearer_token()
-    logger.info(f"Generated development token: {token}")
-    return token
+# =============================================================================
+# HEALTH CHECK & ROUTES
+# =============================================================================
 
 
-# Development token generation for testing
-if DISABLE_AUTH:
-    logger.info("🔓 Authentication DISABLED for development mode")
-else:
-    logger.info("🔐 Authentication ENABLED")
-    if transport == "http":
-        logger.info("🚨 HTTP transport: Bearer token authentication is MANDATORY")
-        logger.info(
-            "💡 For development, you can generate a token by calling generate_dev_token()"
-        )
-    else:
-        logger.info(
-            "📝 Stdio transport: Bearer token optional (fallback to default session)"
-        )
-
-
-mcp = FastMCP("Telegram MCP Server")
-
-# Set up logging
-setup_logging()
-
-
-# Add health check endpoint
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request):
     """Health check endpoint for monitoring and load balancers."""
@@ -218,8 +263,6 @@ async def health_check(request):
     return JSONResponse(
         {
             "status": "healthy",
-            "service": "telegram-mcp-server",
-            "transport": transport,
             "active_sessions": len(_session_cache),
             "max_sessions": MAX_ACTIVE_SESSIONS,
             "sessions": session_info,
@@ -227,9 +270,14 @@ async def health_check(request):
     )
 
 
-# Register tools with the MCP server
+# =============================================================================
+# MESSAGE TOOLS
+# =============================================================================
+
+
 @mcp.tool()
 @with_auth_context
+@with_error_handling("search_messages")
 async def search_messages(
     query: str,
     chat_id: str | None = None,
@@ -267,7 +315,7 @@ async def search_messages(
         auto_expand_batches: Extra result batches for filtered searches
         include_total_count: Include total matching messages count (per-chat only)
     """
-    search_result = await search_messages_impl(
+    return await search_messages_impl(
         query,
         chat_id,
         limit,
@@ -278,30 +326,10 @@ async def search_messages(
         include_total_count=include_total_count,
     )
 
-    # Check if this is an error response
-    error_response = handle_tool_error(
-        search_result,
-        "search_messages",
-        f"search_{int(time.time())}",
-        {
-            "query": query,
-            "chat_id": chat_id,
-            "limit": limit,
-            "min_date": min_date,
-            "max_date": max_date,
-            "chat_type": chat_type,
-            "auto_expand_batches": auto_expand_batches,
-            "include_total_count": include_total_count,
-        },
-    )
-    if error_response:
-        return error_response
-
-    return search_result
-
 
 @mcp.tool()
 @with_auth_context
+@with_error_handling("send_or_edit_message")
 async def send_or_edit_message(
     chat_id: str,
     message: str,
@@ -334,32 +362,14 @@ async def send_or_edit_message(
     """
     if message_id is not None:
         # Edit existing message
-        result = await edit_message(chat_id, message_id, message, parse_mode)
-    else:
-        # Send new message
-        result = await send_message(chat_id, message, reply_to_msg_id, parse_mode)
-
-    # Check if this is an error response
-    error_response = handle_tool_error(
-        result,
-        "send_or_edit_message",
-        f"msg_op_{int(time.time())}",
-        {
-            "chat_id": chat_id,
-            "message": message,
-            "reply_to_msg_id": reply_to_msg_id,
-            "parse_mode": parse_mode,
-            "message_id": message_id,
-        },
-    )
-    if error_response:
-        return error_response
-
-    return result
+        return await edit_message(chat_id, message_id, message, parse_mode)
+    # Send new message
+    return await send_message(chat_id, message, reply_to_msg_id, parse_mode)
 
 
 @mcp.tool()
 @with_auth_context
+@with_error_handling("read_messages")
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
     Read specific messages by their IDs from a Telegram chat.
@@ -386,8 +396,14 @@ async def read_messages(chat_id: str, message_ids: list[int]):
     return await read_messages_by_ids(chat_id, message_ids)
 
 
+# =============================================================================
+# CONTACT TOOLS
+# =============================================================================
+
+
 @mcp.tool()
 @with_auth_context
+@with_error_handling("search_contacts")
 async def search_contacts(query: str, limit: int = 20):
     """
     Search Telegram contacts and users by name, username, or phone number.
@@ -416,26 +432,12 @@ async def search_contacts(query: str, limit: int = 20):
         query: Search term (name, username without @, or phone with +)
         limit: Max results (default: 20, recommended: ≤50)
     """
-    result = await search_contacts_telegram(query, limit)
-
-    # Check if this is an error response
-    error_response = handle_tool_error(
-        result,
-        "search_contacts",
-        f"contact_search_{int(time.time())}",
-        {
-            "query": query,
-            "limit": limit,
-        },
-    )
-    if error_response:
-        return error_response
-
-    return result
+    return await search_contacts_telegram(query, limit)
 
 
 @mcp.tool()
 @with_auth_context
+@with_error_handling("get_contact_details")
 async def get_contact_details(chat_id: str):
     """
     Get detailed profile information for a specific Telegram user or chat.
@@ -461,8 +463,14 @@ async def get_contact_details(chat_id: str):
     return await get_contact_info(chat_id)
 
 
+# =============================================================================
+# PHONE MESSAGING TOOLS
+# =============================================================================
+
+
 @mcp.tool()
 @with_auth_context
+@with_error_handling("send_message_to_phone")
 async def send_message_to_phone(
     phone_number: str,
     message: str,
@@ -517,8 +525,14 @@ async def send_message_to_phone(
     )
 
 
+# =============================================================================
+# LOW-LEVEL API TOOLS
+# =============================================================================
+
+
 @mcp.tool()
 @with_auth_context
+@with_error_handling("invoke_mtproto")
 async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     Execute low-level Telegram MTProto API methods directly.
@@ -549,13 +563,10 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
         API response as dict, or error details if failed
     """
     try:
-        import json
-
         try:
             params = json.loads(params_json)
         except Exception as e:
             return log_and_build_error(
-                request_id=f"mtproto_json_{int(time.time())}",
                 operation="invoke_mtproto",
                 error_message=f"Invalid JSON in params_json: {e}",
                 params={
@@ -570,27 +581,11 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
             (k if isinstance(k, str) else str(k)): v for k, v in params.items()
         }
 
-        result = await invoke_mtproto_method(
+        return await invoke_mtproto_method(
             method_full_name, sanitized_params, params_json
         )
-
-        # Check if this is an error response
-        error_response = handle_tool_error(
-            result,
-            "invoke_mtproto",
-            f"mtproto_{int(time.time())}",
-            {
-                "method_full_name": method_full_name,
-                "params_json": params_json,
-            },
-        )
-        if error_response:
-            return error_response
-
-        return result
     except Exception as e:
         return log_and_build_error(
-            request_id=f"mtproto_{int(time.time())}",
             operation="invoke_mtproto",
             error_message=f"Error in invoke_mtproto: {e!s}",
             params={
@@ -601,11 +596,14 @@ async def invoke_mtproto(method_full_name: str, params_json: str):
         )
 
 
+# =============================================================================
+# LIFECYCLE FUNCTIONS
+# =============================================================================
+
+
 def shutdown_procedure():
     """Synchronously performs async cleanup."""
     logger.info("Starting cleanup procedure.")
-
-    from src.client.connection import cleanup_client
 
     # Create a new event loop for cleanup to avoid conflicts.
     try:
@@ -621,22 +619,16 @@ def shutdown_procedure():
 def main():
     """Entry point for console script; runs the MCP server and ensures cleanup."""
 
+    run_args = {"transport": transport}
     if transport == "http":
-        try:
-            mcp.run(transport="http", host=host, port=port)
-        except KeyboardInterrupt:
-            logger.info("KeyboardInterrupt received. Initiating shutdown.")
-        finally:
-            shutdown_procedure()
-    else:
-        # For stdio transport, just run directly
-        # FastMCP handles the stdio communication automatically
-        try:
-            mcp.run(transport="stdio")
-        except KeyboardInterrupt:
-            logger.info("KeyboardInterrupt received. Initiating shutdown.")
-        finally:
-            shutdown_procedure()
+        run_args.update({"host": host, "port": port})
+
+    try:
+        mcp.run(**run_args)
+    except KeyboardInterrupt:
+        logger.info("KeyboardInterrupt received. Initiating shutdown.")
+    finally:
+        shutdown_procedure()
 
 
 # Run the server if this file is executed directly

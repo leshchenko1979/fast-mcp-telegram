@@ -92,9 +92,12 @@ Return unified result set
 - Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
 
 ### 10. Logging Strategy
-- Loguru: File rotation + console
+- Loguru: File rotation + console with structured logging
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
-- Traceability: Request IDs and detailed RPC traces enabled for prod diagnosis
+- Modular Architecture: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management
+- Parameter Sanitization: Automatic phone masking, content truncation, and security enhancements
+- Request ID Tracking: Enhanced logging with optional request ID support for operation correlation
+- Traceability: Detailed RPC traces enabled for production diagnosis with flattened error structures
 
 ### 11. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
@@ -145,7 +148,9 @@ else:
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management with token-based sessions and LRU cache
 - **utils/entity.py**: Entity resolution and formatting
+- **utils/logging_utils.py**: Consolidated logging utilities with operation tracking and request ID support
 - **config/settings.py**: Configuration management with dynamic version reading from pyproject.toml
+- **config/logging.py**: Logging configuration and diagnostic formatting
 - **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files
 - **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
 
@@ -178,12 +183,22 @@ else:
 - Result aggregation and deduplication
 
 ### 5. Error Handling Pattern
-- **Structured Error Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions or empty results
-- **Consistent Error Format**: Includes `request_id`, `operation`, `params` fields in all error responses
+- **Structured Error Responses**: All tools return `{"ok": false, "error": "message", "operation": "name"}` instead of raising exceptions or empty results
+- **Simplified Error Format**: Clean structure without request ID overhead, includes `operation` and sanitized `params` when relevant
 - **Server Error Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
 - **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions to MCP layer
-- **Request Tracking**: Each operation gets unique request_id for debugging and correlation
+- **Parameter Sanitization**: Automatic phone masking (`+1234567890` → `+12***90`), content truncation, and size limits for secure logging
+- **Flattened Structure**: Direct field access (`error_type`, `exception_message`) instead of nested diagnostic info
 - **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
+
+### 6. Logging Architecture Pattern
+- **Modular Design**: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management, `logging.py` for configuration
+- **Zero Redundancy**: Single source of truth for all logging operations with no code duplication between modules
+- **Enhanced Capabilities**: Operation tracking with consistent parameter sanitization and metadata enhancement
+- **Consistent Parameter Handling**: All logging uses consistent `"params"` key with automatic sanitization and metadata enhancement
+- **Security-First**: Phone numbers masked, messages >100 chars truncated, large values >500 chars truncated
+- **Performance-Aware**: Efficient parameter processing with no cross-module dependencies or circular imports
+- **Standardized Structure**: All parameter dictionaries include helpful derived information (message_length, has_reply, etc.)
 
 ## Critical Implementation Details
 
@@ -211,6 +226,9 @@ else:
 - Link generation for direct message access
 
 ### Shared Utilities (DRY)
-- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`, `build_send_edit_result`, `generate_request_id`, `log_operation_start`, `log_operation_success`, `log_operation_error`
+- `src/utils/logging_utils.py`: `log_operation_start`, `log_operation_success`, `log_operation_error`
+- `src/utils/error_handling.py`: `sanitize_params_for_logging`, `add_logging_metadata`, `_log_at_level`, `log_and_build_error`
+- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`, `build_send_edit_result`
 - `src/utils/entity.py`: `compute_entity_identifier`
-These are used by both `search.py` and `messages.py` to avoid duplication and ensure consistent output. The message formatting utilities now include comprehensive logging and error handling patterns.
+- `src/config/logging.py`: `format_diagnostic_info`
+These utilities are organized by responsibility: logging operations in `logging_utils.py`, error handling in `error_handling.py`, message formatting in `message_format.py`, and logging configuration in `logging.py`. This eliminates redundancy and provides clear separation of concerns across all modules.

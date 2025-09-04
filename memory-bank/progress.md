@@ -47,6 +47,11 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Logging System Refactoring**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between logging.py and error_handling.py (2025-12-19)
+- **Logging System Optimization**: Comprehensive improvements including request ID removal, parameter sanitization, and structured error logging (2025-09-04)
+- **Request ID Overhead**: Complete removal of request ID generation, variables, and references throughout codebase for better performance (2025-09-04)
+- **Parameter Security**: Implemented phone number masking, content truncation, and size limits for secure logging (2025-09-04)
+- **Error Structure Simplification**: Flattened error logging from nested diagnostic_info to direct field access for easier querying (2025-09-04)
 - **Logging Spam**: Fixed with module-level filtering (reduced from 9,000+ to ~16 lines per session)
 - **Media Serialization**: Resolved with LLM-optimized placeholders
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings

@@ -14,18 +14,17 @@ from src.utils.entity import (
     compute_entity_identifier,
     get_entity_by_id,
 )
-from src.utils.error_handling import generate_request_id, log_and_build_error
+from src.utils.error_handling import (
+    add_logging_metadata,
+    log_and_build_error,
+    sanitize_params_for_logging,
+)
 from src.utils.helpers import _append_dedup_until_limit
 from src.utils.message_format import _has_any_media, build_message_result
 
 
 async def _process_message_for_results(
-    client,
-    message,
-    chat_entity,
-    chat_type: str,
-    results: list[dict[str, Any]],
-    limit: int,
+    client, message, chat_entity, chat_type: str, results: list[dict[str, Any]]
 ) -> bool:
     """Process a single message and add it to results if it matches criteria.
 
@@ -55,10 +54,7 @@ async def _process_message_for_results(
 
 
 async def _execute_parallel_searches(
-    search_tasks: list,
-    collected: list[dict[str, Any]],
-    seen_keys: set,
-    limit: int,
+    search_tasks: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
 ) -> None:
     """Execute multiple search tasks in parallel and collect results with deduplication."""
     results_lists = await asyncio.gather(*search_tasks)
@@ -102,6 +98,20 @@ async def search_messages(
         - For global search (no chat_id), query must not be empty.
         - Total count is only available for per-chat searches, not global searches.
     """
+    params = {
+        "query": query,
+        "chat_id": chat_id,
+        "limit": limit,
+        "min_date": min_date,
+        "max_date": max_date,
+        "chat_type": chat_type,
+        "auto_expand_batches": auto_expand_batches,
+        "include_total_count": include_total_count,
+        "is_global_search": chat_id is None,
+        "has_query": bool(query and query.strip()),
+        "has_date_filter": bool(min_date or max_date),
+    }
+
     # Normalize and validate queries
     queries: list[str] = (
         [q.strip() for q in query.split(",") if q.strip()] if query else []
@@ -109,37 +119,18 @@ async def search_messages(
 
     if not chat_id and not queries:
         return log_and_build_error(
-            request_id=generate_request_id("search"),
             operation="search_messages",
             error_message="Search query must not be empty for global search",
-            params={
-                "query": query,
-                "chat_id": chat_id,
-                "limit": limit,
-                "min_date": min_date,
-                "max_date": max_date,
-                "chat_type": chat_type,
-                "auto_expand_batches": auto_expand_batches,
-                "include_total_count": include_total_count,
-            },
+            params=params,
             exception=ValueError("Search query must not be empty for global search"),
         )
-
-    request_id = generate_request_id("search")
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
     max_datetime = datetime.fromisoformat(max_date) if max_date else None
+    safe_params = sanitize_params_for_logging(params)
+    enhanced_params = add_logging_metadata(safe_params)
     logger.debug(
-        f"[{request_id}] Starting Telegram search",
-        extra={
-            "search_params": {
-                "query": query,
-                "chat_id": chat_id,
-                "limit": limit,
-                "min_date": min_date,
-                "max_date": max_date,
-                "chat_type": chat_type,
-            }
-        },
+        "Starting Telegram search",
+        extra={"params": enhanced_params},
     )
     client = await get_connected_client()
     try:
@@ -175,19 +166,9 @@ async def search_messages(
 
             except Exception as e:
                 return log_and_build_error(
-                    request_id=request_id,
                     operation="search_messages",
                     error_message=f"Failed to search in chat '{chat_id}': {e!s}",
-                    params={
-                        "query": query,
-                        "chat_id": chat_id,
-                        "limit": limit,
-                        "min_date": min_date,
-                        "max_date": max_date,
-                        "chat_type": chat_type,
-                        "auto_expand_batches": auto_expand_batches,
-                        "include_total_count": include_total_count,
-                    },
+                    params=params,
                     exception=e,
                 )
         else:
@@ -211,47 +192,25 @@ async def search_messages(
                 )
             except Exception as e:
                 return log_and_build_error(
-                    request_id=request_id,
                     operation="search_messages",
                     error_message=f"Failed to perform global search: {e!s}",
-                    params={
-                        "query": query,
-                        "chat_id": chat_id,
-                        "limit": limit,
-                        "min_date": min_date,
-                        "max_date": max_date,
-                        "chat_type": chat_type,
-                        "auto_expand_batches": auto_expand_batches,
-                        "include_total_count": include_total_count,
-                    },
+                    params=params,
                     exception=e,
                 )
 
         # Return results up to limit
         window = collected[:limit] if limit is not None else collected
 
-        logger.info(
-            f"[{request_id}] Found {len(window)} messages matching query: {query}"
-        )
+        logger.info(f"Found {len(window)} messages matching query: {query}")
 
         has_more = len(collected) > len(window)
 
         # If no messages found, return error instead of empty list for consistency
         if not window:
             return log_and_build_error(
-                request_id=request_id,
                 operation="search_messages",
                 error_message=f"No messages found matching query '{query}'",
-                params={
-                    "query": query,
-                    "chat_id": chat_id,
-                    "limit": limit,
-                    "min_date": min_date,
-                    "max_date": max_date,
-                    "chat_type": chat_type,
-                    "auto_expand_batches": auto_expand_batches,
-                    "include_total_count": include_total_count,
-                },
+                params=params,
                 exception=ValueError(f"No messages found matching query '{query}'"),
             )
 
@@ -263,19 +222,9 @@ async def search_messages(
         return response
     except Exception as e:
         return log_and_build_error(
-            request_id=request_id,
             operation="search_messages",
             error_message=f"Search operation failed: {e!s}",
-            params={
-                "query": query,
-                "chat_id": chat_id,
-                "limit": limit,
-                "min_date": min_date,
-                "max_date": max_date,
-                "chat_type": chat_type,
-                "auto_expand_batches": auto_expand_batches,
-                "include_total_count": include_total_count,
-            },
+            params=params,
             exception=e,
         )
 
@@ -318,13 +267,7 @@ async def _search_chat_messages(
 
 
 async def _search_global_messages(
-    client,
-    query,
-    limit,
-    min_datetime,
-    max_datetime,
-    chat_type,
-    auto_expand_batches,
+    client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
 ):
     results = []
     batch_count = 0

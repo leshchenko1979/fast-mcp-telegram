@@ -1,11 +1,80 @@
 
 
 ## Current Work Focus
-**Primary**: **TOKEN-BASED AUTHENTICATION SYSTEM** - Completed implementation of multi-user Bearer token authentication with session isolation. System now supports both single-user (stdio) and multi-user (HTTP) deployments with proper session management.
+**Primary**: **LOGGING SYSTEM REFACTORING COMPLETED** - Successfully eliminated redundancies between logging.py and error_handling.py by creating dedicated `src/utils/logging_utils.py` module. Consolidated all logging functions into a single, well-organized module with proper separation of concerns.
 
-**Current Status**: **PRODUCTION-READY WITH MULTI-USER SUPPORT** featuring token-based session management architecture. **Bearer Token Authentication**: Each user gets unique 256-bit cryptographically secure tokens. **Session Isolation**: Token-specific session files with LRU cache management. **Transport Flexibility**: Supports both stdio (legacy) and HTTP (multi-user) transports. **Auto-cleanup Removed**: Simplified system without background cleanup tasks. **Mandatory HTTP Auth**: Bearer tokens required for all HTTP requests (no fallback to default session).
+**Current Status**: **REFACTORING COMPLETE WITH CLEAN ARCHITECTURE** - Created `src/utils/logging_utils.py` with consolidated logging functions, removed duplicate code from `src/config/logging.py`, eliminated circular import issues, and updated all imports across the codebase. **Zero Redundancies**: No more duplicate logging logic between modules. **Clean Separation**: Configuration, utilities, and error handling properly separated. **Enhanced Functionality**: Added request ID tracking capabilities and improved logging patterns.
 
 ## Active Decisions and Considerations
+
+### Logging System Optimization (2025-09-04)
+**Decision**: Comprehensive logging pattern improvements with request ID removal and advanced parameter handling
+**Rationale**: Request IDs created overhead without adding value, while parameter logging needed security enhancements and standardization
+**Solution**:
+  - Complete removal of request ID generation, variables, imports, and references from entire codebase
+  - Standardized parameter logging keys to always use "params" instead of mixed keys like "search_params"
+  - Simplified error logging structure from nested `{"diagnostic_info": {...}}` to flat `{"params": ..., "error_type": ..., "operation": ...}`
+  - Implemented parameter sanitization with phone number masking (`+1234567890` → `+12***90`) and content truncation
+  - Added automatic metadata enhancement with timestamps and parameter counts
+  - Consistent parameter structure across all functions with derived information
+**Implementation**:
+  - Updated `log_and_build_error()` and `handle_tool_error()` to not require/use request IDs
+  - Created `sanitize_params_for_logging()` for phone masking and size limits (messages >100 chars, values >500 chars truncated)
+  - Created `add_logging_metadata()` for automatic timestamp and param count addition
+  - Standardized parameter dictionaries with helpful derived info (message_length, has_reply, is_global_search, etc.)
+  - Applied sanitization and metadata enhancement to all logging functions
+**Impact**:
+  - Cleaner, more secure logs with sensitive data automatically masked
+  - Better performance with reduced parameter overhead and no request ID generation
+  - Improved log querying with flattened error structure
+  - Enhanced debugging context with automatic metadata and derived information
+  - Simplified error responses without request ID clutter
+  - Consistent logging patterns across all operations
+
+### Logging System Refactoring (2025-12-19)
+**Decision**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between `logging.py` and `error_handling.py`
+**Rationale**: Significant code duplication existed between configuration and error handling modules, with both containing similar logging functions and parameter sanitization logic
+**Solution**:
+  - Created new `src/utils/logging_utils.py` module for all logging-specific functions
+  - Moved `log_operation_start()`, `log_operation_success()`, `log_operation_error()` from `src/config/logging.py`
+  - Moved `_log_at_level()` function from `error_handling.py` to `logging_utils.py`
+  - Added comprehensive logging functions for operation tracking
+  - Kept shared utilities (`sanitize_params_for_logging`, `add_logging_metadata`) in `error_handling.py`
+  - Eliminated cross-dependencies and circular import issues
+**Implementation**:
+  - Created comprehensive logging utilities module with proper separation of concerns
+  - Updated `src/config/logging.py` to contain only configuration and `format_diagnostic_info()`
+  - Updated `src/utils/error_handling.py` to import `_log_at_level` from new location
+  - Updated all import statements across codebase (`messages.py`, `search.py`)
+  - Fixed import sorting and eliminated circular dependencies
+  - Maintained full backward compatibility and functionality
+**Impact**:
+  - Zero code duplication between logging modules
+  - Clean architecture with proper module responsibilities
+  - Enhanced logging capabilities with request ID tracking
+  - Eliminated circular import issues
+  - Improved maintainability and code organization
+  - Single source of truth for all logging operations
+
+### Unified Error Handling Standardization (2025-01-04) [SUPERSEDED by Logging Optimization 2025-09-04]
+**Decision**: Implemented comprehensive error handling standardization across all tools and server components (later optimized to remove request ID overhead)
+**Rationale**: Mixed error handling patterns (exceptions, None returns, different response formats) created inconsistent API behavior for LLMs and complicated debugging
+**Solution**:
+  - Standardized error response format: `{"ok": false, "error": "message", "operation": "name"}`
+  - Removed exception propagation - all tools return structured responses
+  - Updated server.py with streamlined error handling without request ID overhead
+**Implementation**:
+  - search.py: Consolidated parameter handling and improved error responses
+  - contacts.py: Changed from list error responses to dict error responses for consistency
+  - messages.py: Fixed read_messages_by_ids to return error responses instead of raising exceptions
+  - mtproto.py: Removed inconsistent `{"ok": true, "result": ...}` wrapper for success responses
+  - server.py: Streamlined error handling and operation tracking
+**Impact**:
+  - Predictable API responses for all operations with no exceptions
+  - Better LLM compatibility with structured error handling
+  - Improved debugging with consistent operation context
+  - Unified error detection pattern in server.py using `handle_tool_error()`
+  - Enhanced maintainability with DRY error handling patterns
 
 ### Token-Based Session Management Implementation (2025-01-04)
 **Decision**: Implemented comprehensive multi-user authentication system with Bearer tokens and session isolation
@@ -141,7 +210,7 @@
 ### Consistent Error Handling Pattern
 **Decision**: Implemented unified structured error responses across all Telegram MCP tools
 **Rationale**: Mixed error handling patterns (some raised exceptions, some returned None) created inconsistent API behavior for LLMs
-**Solution**: All tools now return structured error responses with consistent format: `{"ok": false, "error": "message", "request_id": "id", "operation": "name"}`
+**Solution**: All tools now return structured error responses with consistent format: `{"ok": false, "error": "message", "operation": "name"}`
 **Implementation**:
   - `get_contact_details`: Already returned errors for non-existent contacts
   - `search_contacts`: Updated to return errors instead of empty lists for no results
@@ -412,10 +481,10 @@ setup:
 
 ### Error Handling Patterns
 1. **Structured Error Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
-2. **Consistent Error Format**: Include `request_id`, `operation`, and `params` in error responses
+2. **Consistent Error Format**: Include `operation` and `params` in error responses
 3. **Server Error Detection**: Check `isinstance(result, dict) and "ok" in result and not result["ok"]`
 4. **Graceful Degradation**: Tools handle errors internally and return structured responses
-5. **Request Tracking**: Each operation gets unique `request_id` for debugging
+5. **Parameter Sanitization**: Automatic phone masking and content truncation for security
 6. **Parameter Preservation**: Original parameters included in error responses for context
 
 ## Next Immediate Steps
@@ -427,3 +496,5 @@ setup:
 6. **Documentation Maintenance**: Keep README and deployment guides updated with any production learnings
 7. **Version Management Validation**: Test that the dynamic version reading works correctly in production environment
 8. **GitHub Actions Integration**: Verify that version bumping triggers automatic PyPI publishing correctly
+9. **Logging System Validation**: Test the new logging architecture in production to ensure all logging functions work correctly
+10. **Performance Monitoring**: Monitor for any performance improvements or regressions with the refactored logging system

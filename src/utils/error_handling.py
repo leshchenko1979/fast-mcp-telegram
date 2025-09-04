@@ -5,8 +5,8 @@ This module provides standardized error handling patterns to eliminate code dupl
 across all tools and server components.
 """
 
-import time
 import traceback
+from datetime import datetime
 from typing import Any
 
 from loguru import logger
@@ -31,9 +31,71 @@ def _log_at_level(log_level: str, message: str, extra: dict | None = None) -> No
         logger.debug(message, extra=extra)
 
 
-def generate_request_id(prefix: str) -> str:
-    """Generate a unique request ID with timestamp."""
-    return f"{prefix}_{int(time.time() * 1000)}"
+def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]:
+    """
+    Sanitize and truncate parameters for safe logging.
+
+    Args:
+        params: Dictionary of parameters to sanitize
+
+    Returns:
+        Sanitized parameters safe for logging
+    """
+    if not params:
+        return {}
+
+    sanitized = {}
+
+    for key, value in params.items():
+        # Mask phone numbers
+        if "phone" in key.lower() and isinstance(value, str):
+            if len(value) > 5:
+                sanitized[key] = f"{value[:3]}***{value[-2:]}"
+            else:
+                sanitized[key] = "***"
+        # Truncate long text values
+        elif isinstance(value, str) and len(value) > 200:
+            sanitized[key] = f"{value[:200]}... (truncated)"
+        # Truncate large message content
+        elif (
+            key in ["message", "new_text", "text"]
+            and isinstance(value, str)
+            and len(value) > 100
+        ):
+            sanitized[key] = f"{value[:100]}... (truncated)"
+        # Keep other values as-is but convert to string if too complex
+        else:
+            try:
+                # Ensure value is JSON serializable
+                str_value = str(value)
+                if len(str_value) > 500:
+                    sanitized[key] = f"{str_value[:500]}... (truncated)"
+                else:
+                    sanitized[key] = value
+            except Exception:
+                sanitized[key] = f"<{type(value).__name__}>"
+
+    return sanitized
+
+
+def add_logging_metadata(params: dict[str, Any]) -> dict[str, Any]:
+    """
+    Add consistent metadata to parameter dictionaries for logging.
+
+    Args:
+        params: Original parameters
+
+    Returns:
+        Parameters with added metadata
+    """
+    enhanced_params = params.copy()
+    enhanced_params.update(
+        {
+            "timestamp": datetime.now().isoformat(),
+            "param_count": len(params),
+        }
+    )
+    return enhanced_params
 
 
 def is_error_response(result: Any) -> bool:
@@ -73,7 +135,6 @@ def is_list_error_response(result: Any) -> tuple[bool, dict[str, Any] | None]:
 def build_error_response(
     error_message: str,
     operation: str,
-    request_id: str | None = None,
     params: dict[str, Any] | None = None,
     exception: Exception | None = None,
     action: str | None = None,
@@ -84,7 +145,6 @@ def build_error_response(
     Args:
         error_message: Human-readable error message
         operation: Name of the operation that failed
-        request_id: Unique request identifier (auto-generated if None)
         params: Original parameters for context
         exception: Exception that caused the error (for logging)
         action: Optional action to suggest to the user (e.g., "run_setup")
@@ -92,13 +152,9 @@ def build_error_response(
     Returns:
         Standardized error response dictionary
     """
-    if request_id is None:
-        request_id = generate_request_id("error")
-
     error_response = {
         "ok": False,
         "error": error_message,
-        "request_id": request_id,
         "operation": operation,
     }
 
@@ -118,10 +174,9 @@ def build_error_response(
 
 
 def log_and_build_error(
-    request_id: str,
     operation: str,
     error_message: str,
-    params: dict[str, Any],
+    params: dict[str, Any] | None = None,
     exception: Exception | None = None,
     log_level: str = "error",
     action: str | None = None,
@@ -130,7 +185,6 @@ def log_and_build_error(
     Log an error and build a standardized error response.
 
     Args:
-        request_id: Unique request identifier
         operation: Name of the operation that failed
         error_message: Human-readable error message
         params: Original parameters for context
@@ -141,30 +195,28 @@ def log_and_build_error(
     Returns:
         Standardized error response dictionary
     """
-    # Build comprehensive error info for logging
-    error_info = {
-        "request_id": request_id,
+    # Build flattened error info for logging
+    log_extra = {
         "operation": operation,
         "error_message": error_message,
-        "params": params,
     }
 
+    if params:
+        log_extra["params"] = sanitize_params_for_logging(params)
+
     if exception:
-        error_info["exception"] = {
-            "type": type(exception).__name__,
-            "message": str(exception),
-            "traceback": traceback.format_exc(),
-        }
+        log_extra["error_type"] = type(exception).__name__
+        log_extra["exception_message"] = str(exception)
+        log_extra["traceback"] = traceback.format_exc()
 
     # Log the error
-    log_message = f"[{request_id}] {operation} failed: {error_message}"
-    _log_at_level(log_level, log_message, extra={"diagnostic_info": error_info})
+    log_message = f"{operation} failed: {error_message}"
+    _log_at_level(log_level, log_message, extra=log_extra)
 
     # Return standardized error response
     return build_error_response(
         error_message=error_message,
         operation=operation,
-        request_id=request_id,
         params=params,
         exception=exception,
         action=action,
@@ -174,8 +226,7 @@ def log_and_build_error(
 def handle_tool_error(
     result: Any,
     operation: str,
-    request_id: str,
-    params: dict[str, Any],
+    params: dict[str, Any] | None = None,
     log_level: str = "error",
 ) -> dict[str, Any] | None:
     """
@@ -184,7 +235,6 @@ def handle_tool_error(
     Args:
         result: Result from tool function
         operation: Name of the operation
-        request_id: Unique request identifier
         params: Original parameters for context
         log_level: Logging level for error messages
 
@@ -195,8 +245,7 @@ def handle_tool_error(
     def _log_and_return_error(error_dict: dict[str, Any]) -> dict[str, Any]:
         """Helper function to log an error and return the error dict."""
         log_message = (
-            f"[{request_id}] {operation} returned error: "
-            f"{error_dict.get('error', 'Unknown error')}"
+            f"{operation} returned error: {error_dict.get('error', 'Unknown error')}"
         )
         _log_at_level(log_level, log_message)
         return error_dict

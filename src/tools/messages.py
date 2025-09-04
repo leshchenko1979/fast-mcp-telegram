@@ -5,17 +5,11 @@ from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContacts
 from telethon.tl.types import InputPhoneContact
 
 from src.client.connection import get_connected_client
-from src.config.logging import (
-    log_operation_start,
-    log_operation_success,
-)
 from src.tools.links import generate_telegram_links
 from src.utils.entity import build_entity_dict, get_entity_by_id
-from src.utils.error_handling import generate_request_id, log_and_build_error
-from src.utils.message_format import (
-    build_message_result,
-    build_send_edit_result,
-)
+from src.utils.error_handling import log_and_build_error
+from src.utils.logging_utils import log_operation_start, log_operation_success
+from src.utils.message_format import build_message_result, build_send_edit_result
 
 
 async def send_message(
@@ -33,21 +27,21 @@ async def send_message(
         reply_to_msg_id: ID of the message to reply to
         parse_mode: Parse mode ('markdown' or 'html')
     """
-    request_id = generate_request_id("send_msg")
     params = {
         "chat_id": chat_id,
+        "message": message,
         "message_length": len(message),
         "reply_to_msg_id": reply_to_msg_id,
         "parse_mode": parse_mode,
+        "has_reply": reply_to_msg_id is not None,
     }
-    log_operation_start(request_id, "Sending message to chat", params)
+    log_operation_start("Sending message to chat", params)
 
     client = await get_connected_client()
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
             return log_and_build_error(
-                request_id=request_id,
                 operation="send_message",
                 error_message=f"Cannot find chat with ID '{chat_id}'",
                 params=params,
@@ -65,12 +59,11 @@ async def send_message(
         )
 
         result = build_send_edit_result(sent_message, chat, "sent")
-        log_operation_success(request_id, "Message sent", chat_id)
+        log_operation_success("Message sent", chat_id)
         return result
 
     except Exception as e:
         return log_and_build_error(
-            request_id=request_id,
             operation="send_message",
             error_message=f"Failed to send message: {e!s}",
             params=params,
@@ -90,21 +83,20 @@ async def edit_message(
         new_text: The new text content for the message
         parse_mode: Parse mode ('markdown' or 'html')
     """
-    request_id = generate_request_id("edit_msg")
     params = {
         "chat_id": chat_id,
         "message_id": message_id,
+        "new_text": new_text,
         "new_text_length": len(new_text),
         "parse_mode": parse_mode,
     }
-    log_operation_start(request_id, "Editing message in chat", params)
+    log_operation_start("Editing message in chat", params)
 
     client = await get_connected_client()
     try:
         chat = await get_entity_by_id(chat_id)
         if not chat:
             return log_and_build_error(
-                request_id=request_id,
                 operation="edit_message",
                 error_message=f"Cannot find chat with ID '{chat_id}'",
                 params=params,
@@ -119,12 +111,11 @@ async def edit_message(
         )
 
         result = build_send_edit_result(edited_message, chat, "edited")
-        log_operation_success(request_id, "Message edited", chat_id)
+        log_operation_success("Message edited", chat_id)
         return result
 
     except Exception as e:
         return log_and_build_error(
-            request_id=request_id,
             operation="edit_message",
             error_message=f"Failed to edit message: {e!s}",
             params=params,
@@ -145,21 +136,39 @@ async def read_messages_by_ids(
     Returns:
         List of message dictionaries consistent with search results format
     """
-    request_id = generate_request_id("read_msgs")
     params = {
         "chat_id": chat_id,
         "message_ids": message_ids,
+        "message_count": len(message_ids) if message_ids else 0,
     }
-    log_operation_start(request_id, "Reading messages by IDs", params)
+    log_operation_start("Reading messages by IDs", params)
 
     if not message_ids or not isinstance(message_ids, list):
-        raise ValueError("message_ids must be a non-empty list of integers")
+        return [
+            log_and_build_error(
+                operation="read_messages",
+                error_message="message_ids must be a non-empty list of integers",
+                params=params,
+                exception=ValueError(
+                    "message_ids must be a non-empty list of integers"
+                ),
+            )
+        ]
 
     client = await get_connected_client()
     try:
         entity = await get_entity_by_id(chat_id)
         if not entity:
-            raise ValueError(f"Cannot find any entity corresponding to '{chat_id}'")
+            return [
+                log_and_build_error(
+                    operation="read_messages",
+                    error_message=f"Cannot find any entity corresponding to '{chat_id}'",
+                    params=params,
+                    exception=ValueError(
+                        f"Cannot find any entity corresponding to '{chat_id}'"
+                    ),
+                )
+            ]
 
         # Fetch messages (Telethon returns a list in the same order as requested ids)
         messages = await client.get_messages(entity, ids=message_ids)
@@ -213,14 +222,12 @@ async def read_messages_by_ids(
 
         successful_count = len([r for r in results if "error" not in r])
         log_operation_success(
-            request_id,
             f"Retrieved {successful_count} messages out of {len(message_ids)} requested",
         )
         return results
 
     except Exception as e:
         error_response = log_and_build_error(
-            request_id=request_id,
             operation="read_messages",
             error_message=f"Failed to read messages: {e!s}",
             params=params,
@@ -262,17 +269,18 @@ async def send_message_to_phone_impl(
         - contact_was_new: Whether a new contact was created during this operation
         - contact_removed: Whether the contact was removed (only if it was newly created)
     """
-    request_id = generate_request_id("send_phone_msg")
     params = {
         "phone_number": phone_number,
+        "message": message,
         "message_length": len(message),
         "first_name": first_name,
         "last_name": last_name,
         "remove_if_new": remove_if_new,
         "reply_to_msg_id": reply_to_msg_id,
         "parse_mode": parse_mode,
+        "has_reply": reply_to_msg_id is not None,
     }
-    log_operation_start(request_id, "Sending message to phone number", params)
+    log_operation_start("Sending message to phone number", params)
 
     client = await get_connected_client()
     try:
@@ -301,7 +309,6 @@ async def send_message_to_phone_impl(
             if not result.users:
                 error_msg = f"Failed to add contact. Phone number '{phone_number}' might not be registered on Telegram."
                 return log_and_build_error(
-                    request_id=request_id,
                     operation="send_message_to_phone",
                     error_message=error_msg,
                     params=params,
@@ -350,12 +357,11 @@ async def send_message_to_phone_impl(
             }
         )
 
-        log_operation_success(request_id, "Message sent to phone number", phone_number)
+        log_operation_success("Message sent to phone number", phone_number)
         return result
 
     except Exception as e:
         return log_and_build_error(
-            request_id=request_id,
             operation="send_message_to_phone",
             error_message=f"Failed to send message to phone number: {e!s}",
             params=params,

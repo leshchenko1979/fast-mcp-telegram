@@ -336,7 +336,7 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 ### Consistent Error Handling Pattern (2025-09-01)
 - **Problem**: Mixed error handling patterns across tools (some raised exceptions, others returned None or empty results)
 - **Solution**: Unified structured error response format across all tools
-- **Format**: `{"ok": false, "error": "message", "request_id": "id", "operation": "name", "params": {...}}`
+- **Format**: `{"ok": false, "error": "message", "operation": "name", "params": {...}}`
 - **Implementation**:
   - `get_contact_details`: Returns errors for non-existent contacts
   - `search_contacts`: Returns errors instead of empty lists for no results
@@ -412,7 +412,6 @@ parameter_name: Description with defaults and constraints
 
 ### Error Handling Constraints
 - **Structured Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
-- **Consistent Format**: Error responses include `request_id`, `operation`, and `params` fields
+- **Consistent Format**: Error responses include `operation` and `params` fields
 - **Server Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
 - **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions
-- **Request Tracking**: Each operation gets unique request_id for debugging and correlation

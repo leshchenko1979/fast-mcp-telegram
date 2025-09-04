@@ -6,7 +6,7 @@ from typing import Any
 from loguru import logger
 
 from src.client.connection import get_connected_client
-from src.utils.error_handling import generate_request_id, log_and_build_error
+from src.utils.error_handling import log_and_build_error
 
 
 def _json_safe(value: Any) -> Any:
@@ -55,10 +55,7 @@ async def invoke_mtproto_method(
     Returns:
         Result of the method call as a dict, or error info
     """
-    request_id = generate_request_id("mtproto")
-    logger.debug(
-        f"[{request_id}] Invoking MTProto method: {method_full_name} with params: {params}"
-    )
+    logger.debug(f"Invoking MTProto method: {method_full_name} with params: {params}")
 
     try:
         # Security: Validate and sanitize parameters
@@ -89,13 +86,10 @@ async def invoke_mtproto_method(
         # Try to convert result to dict (if possible)
         result_dict = result.to_dict() if hasattr(result, "to_dict") else str(result)
         safe_result = _json_safe(result_dict)
-        logger.info(
-            f"[{request_id}] MTProto method {method_full_name} invoked successfully"
-        )
-        return {"ok": True, "result": safe_result}
+        logger.info(f"MTProto method {method_full_name} invoked successfully")
+        return safe_result
     except Exception as e:
         return log_and_build_error(
-            request_id=request_id,
             operation="invoke_mtproto",
             error_message=f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
             params={
