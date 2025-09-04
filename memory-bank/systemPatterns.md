@@ -84,14 +84,24 @@ Return unified result set
 - **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
 - **Backup/Restore**: Comprehensive session persistence across deployments
 
-### 9. Deployment & Transport
+### 9. Professional Testing Infrastructure
+- **Test Framework**: Modern pytest-based testing with comprehensive async support
+- **Test Organization**: Scalable structure with logical separation of test modules by functionality
+- **Shared Fixtures**: Centralized test setup and reusable fixtures for consistent testing
+- **Coverage Analysis**: Automated coverage reporting with multiple output formats
+- **Parallel Execution**: Support for concurrent test execution in CI/CD pipelines
+- **Mock Infrastructure**: Comprehensive mocking for external dependencies and APIs
+- **Async Testing**: Full async/await support for modern Python concurrency patterns
+- **CI/CD Integration**: Professional configuration optimized for automated testing workflows
+
+### 10. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
 - Sessions: Standard `~/.config/fast-mcp-telegram/` directory with automatic permission management
 - Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
 
-### 10. Logging Strategy
+### 11. Logging Strategy
 - Loguru: File rotation + console with structured logging
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Modular Architecture: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management
@@ -99,7 +109,7 @@ Return unified result set
 - Request ID Tracking: Enhanced logging with optional request ID support for operation correlation
 - Traceability: Detailed RPC traces enabled for production diagnosis with flattened error structures
 
-### 11. Deployment Automation Patterns
+### 12. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
@@ -153,6 +163,12 @@ else:
 - **config/logging.py**: Logging configuration and diagnostic formatting
 - **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files
 - **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
+
+### Testing Infrastructure
+- **tests/conftest.py**: Centralized test fixtures and shared configuration
+- **tests/test_*.py**: Organized test modules by functional areas and components
+- **Mock Implementations**: Comprehensive mocking for external APIs and services
+- **Test Utilities**: Reusable testing helpers and authentication simulators
 
 ### Tool Dependencies
 - **search_messages**: Depends on search.py and entity resolution

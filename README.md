@@ -29,7 +29,6 @@
 - [🚀 Choose Your Installation Path](#-choose-your-installation-path)
 - [📦 PyPI Installation](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
-- [💻 Local Development](#-local-development)
 - [🔧 Available Tools](#-available-tools)
 - [📊 Health & Session Monitoring](#-health--session-monitoring)
 - [📁 Project Structure](#-project-structure)
@@ -73,7 +72,7 @@
 **Choose your path below:**
 - [📦 PyPI Installation (2-minute setup)](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
-- [💻 Local Development](#-local-development)
+- [💻 Local Development](CONTRIBUTING.md#-development-setup)
 
 ---
 
@@ -339,76 +338,6 @@ curl -s https://your-domain.com/health
 - `MCP_PORT=8000` - Service port
 - `API_ID` / `API_HASH` - Telegram API credentials (used by setup)
 - Phone number provided via CLI `--phone` option during setup
-
----
-
-## 💻 Local Development
-
-### 1. Clone and Setup
-```bash
-git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
-cd fast-mcp-telegram
-pip install -e .[dev]  # Install all dependencies including dev tools
-```
-
-### 2. Authenticate with Telegram
-
-**Setup Command Options:**
-
-```bash
-# Automatic .env file loading (recommended)
-echo "API_ID=your_api_id" > .env
-echo "API_HASH=your_api_hash" >> .env
-echo "PHONE_NUMBER=+123456789" >> .env
-python src/setup_telegram.py
-
-# Using CLI arguments
-python src/setup_telegram.py --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
-
-# Using environment variables
-API_ID="your_api_id" API_HASH="your_api_hash" PHONE_NUMBER="+123456789" \
-python src/setup_telegram.py
-
-# Additional options available:
-# --overwrite          # Auto-overwrite existing session
-# --session-name NAME  # Use custom session name
-```
-
-**📝 Note:** The setup script automatically loads `.env` files from the project directory if they exist, making authentication seamless.
-
-### 3. Configure Your MCP Client
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "command": "python3",
-      "args": ["src/server.py"],
-      "cwd": "/path/to/fast-mcp-telegram"
-    }
-  }
-}
-```
-
-### 4. Start Using!
-```json
-{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
-{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
-```
-
-**ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/telegram.session` (one-time setup)
-
-**✅ You're all set!** Continue below for development tools.
-
----
-
-## 🛠️ Development
-
-```bash
-pip install -e .[dev]  # Install dev dependencies
-ruff format .         # Format code
-ruff check .          # Lint code
-python src/server.py  # Test server
-```
 
 ---
 
@@ -679,26 +608,33 @@ curl -s https://your-domain.com/health
 
 ```
 fast-mcp-telegram/
-├── src/               # Source code directory
-│   ├── client/        # Telegram client management
-│   ├── config/        # Configuration settings
-│   ├── tools/         # MCP tool implementations
-│   ├── utils/         # Utility functions
-│   ├── __init__.py    # Package initialization
-│   ├── server.py      # Main server implementation
-│   └── setup_telegram.py  # Telegram setup script
-├── scripts/           # Deployment and utility scripts
-│   └── deploy-mcp.sh  # Enhanced deployment script
-├── logs/              # Log files directory
-├── pyproject.toml     # Project configuration and dependencies
-├── docker-compose.yml # Production Docker configuration
-├── Dockerfile         # Single-stage pip build
-├── .env               # Environment variables (create this)
-├── .gitignore         # Git ignore patterns
-└── LICENSE            # MIT License
+├── src/                  # Source code directory
+│   ├── client/           # Telegram client management
+│   ├── config/           # Configuration settings
+│   ├── tools/            # MCP tool implementations
+│   ├── utils/            # Utility functions and helpers
+│   ├── __init__.py       # Package initialization
+│   ├── server.py         # Main server implementation
+│   └── setup_telegram.py # Telegram authentication setup
+├── tests/                # Comprehensive test suite
+│   ├── __init__.py       # Tests package initialization
+│   ├── conftest.py       # Shared fixtures and configuration
+│   ├── test_*.py         # Organized test modules by functionality
+│   └── README.md         # Test documentation and guidelines
+├── scripts/              # Deployment and utility scripts
+│   └── deploy-mcp.sh     # Enhanced deployment script
+├── logs/                 # Log files directory (auto-created)
+├── pyproject.toml        # Project configuration and dependencies
+├── docker-compose.yml    # Production Docker configuration
+├── Dockerfile            # Optimized multi-stage build
+├── .env                  # Environment variables (create this)
+├── .gitignore            # Git ignore patterns
+├── .dockerignore         # Docker build exclusions
+└── LICENSE               # MIT License
 
 **Session Management:** Session files are stored in the standard user config directory:
 - **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)
+- **Multi-user:** `~/.config/fast-mcp-telegram/{token}.session` (token-based isolation)
 
 **Security Note:** Session files contain sensitive authentication data and are never committed to version control. Each environment (local, Docker, remote server) maintains its own authenticated session.
 ```
@@ -712,8 +648,6 @@ fast-mcp-telegram/
 | **loguru** | Structured logging |
 | **aiohttp** | Async HTTP client |
 | **python-dotenv** | Environment management |
-
-**Installation:** `pip install -e .` (dependencies managed via `pyproject.toml`)
 
 ---
 
@@ -745,18 +679,17 @@ fast-mcp-telegram/
 
 ## 🤝 Contributing
 
+We welcome contributions from the community! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development setup, testing guidelines, and contribution process.
+
+### Quick Start for Contributors
+
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
-**Development setup:**
-```bash
-pip install -e .[dev]  # Install dev dependencies
-ruff format .         # Format code
-ruff check .          # Lint code
-```
+For detailed development setup and contribution guidelines, please refer to [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

@@ -88,7 +88,7 @@ def with_error_handling(operation_name: str):
     """
     Decorator that adds consistent error handling to MCP tool functions.
 
-    This decorator wraps tool functions to automatically handle exceptions and error responses
+    This decorator wraps tool functions to automatically handle error responses
     using the standardized error handling pattern, eliminating code duplication.
 
     Args:
@@ -99,33 +99,57 @@ def with_error_handling(operation_name: str):
     """
 
     def decorator(func: Callable) -> Callable:
+        # Store the original signature before MCP decorators modify it
+        try:
+            # Try to get the original function if MCP has already transformed it
+            original_func = func
+            if hasattr(func, "__wrapped__"):
+                original_func = func.__wrapped__
+            elif hasattr(func, "func") and callable(func.func):
+                original_func = func.func
+
+            original_sig = inspect.signature(original_func)
+        except (TypeError, ValueError, AttributeError):
+            # If signature inspection fails, we'll handle it in the wrapper
+            original_sig = None
+
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Build params dict from function signature for error context
-            sig = inspect.signature(func)
-            bound_args = sig.bind(*args, **kwargs)
-            bound_args.apply_defaults()
-            params = dict(bound_args.arguments)
+            # Call the original function
+            result = await func(*args, **kwargs)
 
-            try:
-                # Call the original function with exception handling
-                result = await func(*args, **kwargs)
+            # Build params dict from stored original signature for error context
+            params = {}
+            if original_sig:
+                try:
+                    bound_args = original_sig.bind(*args, **kwargs)
+                    bound_args.apply_defaults()
+                    params = dict(bound_args.arguments)
+                except Exception:
+                    # Fallback: build params dict from kwargs and positional args
+                    param_names = list(original_sig.parameters.keys())
+                    if (
+                        param_names and param_names[0] == "self"
+                    ):  # Skip 'self' if present
+                        param_names = param_names[1:]
 
-                # Check if this is an error response (for functions that return error dicts)
-                error_response = handle_tool_error(result, operation_name, params)
-                if error_response:
-                    return error_response
+                    # Add positional args
+                    for i, arg in enumerate(args):
+                        if i < len(param_names):
+                            params[param_names[i]] = arg
 
-                return result
+                    # Add keyword args
+                    params.update(kwargs)
+            else:
+                # No signature available, just use kwargs as fallback
+                params = dict(kwargs)
 
-            except Exception as e:
-                # Handle any exception that occurs during function execution
-                return log_and_build_error(
-                    operation=operation_name,
-                    error_message=f"Unexpected error: {e}",
-                    params=params,
-                    exception=e,
-                )
+            # Check if this is an error response
+            error_response = handle_tool_error(result, operation_name, params)
+            if error_response:
+                return error_response
+
+            return result
 
         return wrapper
 
@@ -275,9 +299,9 @@ async def health_check(request):
 # =============================================================================
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("search_messages")
+@mcp.tool()
 async def search_messages(
     query: str,
     chat_id: str | None = None,
@@ -327,9 +351,9 @@ async def search_messages(
     )
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("send_or_edit_message")
+@mcp.tool()
 async def send_or_edit_message(
     chat_id: str,
     message: str,
@@ -367,9 +391,9 @@ async def send_or_edit_message(
     return await send_message(chat_id, message, reply_to_msg_id, parse_mode)
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("read_messages")
+@mcp.tool()
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
     Read specific messages by their IDs from a Telegram chat.
@@ -401,9 +425,9 @@ async def read_messages(chat_id: str, message_ids: list[int]):
 # =============================================================================
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("search_contacts")
+@mcp.tool()
 async def search_contacts(query: str, limit: int = 20):
     """
     Search Telegram contacts and users by name, username, or phone number.
@@ -435,9 +459,9 @@ async def search_contacts(query: str, limit: int = 20):
     return await search_contacts_telegram(query, limit)
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("get_contact_details")
+@mcp.tool()
 async def get_contact_details(chat_id: str):
     """
     Get detailed profile information for a specific Telegram user or chat.
@@ -468,9 +492,9 @@ async def get_contact_details(chat_id: str):
 # =============================================================================
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("send_message_to_phone")
+@mcp.tool()
 async def send_message_to_phone(
     phone_number: str,
     message: str,
@@ -530,9 +554,9 @@ async def send_message_to_phone(
 # =============================================================================
 
 
-@mcp.tool()
 @with_auth_context
 @with_error_handling("invoke_mtproto")
+@mcp.tool()
 async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     Execute low-level Telegram MTProto API methods directly.

@@ -47,6 +47,11 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Professional Testing Infrastructure**: Implemented comprehensive pytest-based testing framework with organized test structure and modern development practices (2025-09-04)
+- **Test Structure Organization**: Created scalable `tests/` directory with logical test file separation and shared fixtures (2025-09-04)
+- **Pytest Configuration**: Added comprehensive pytest configuration to pyproject.toml with coverage and parallel execution support (2025-09-04)
+- **Docker Optimization**: Enhanced .dockerignore for comprehensive build optimization and faster container builds (2025-09-04)
+- **CI/CD Ready**: Implemented pytest features for automated testing including parallel execution and coverage reporting (2025-09-04)
 - **Logging System Refactoring**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between logging.py and error_handling.py (2025-12-19)
 - **Logging System Optimization**: Comprehensive improvements including request ID removal, parameter sanitization, and structured error logging (2025-09-04)
 - **Request ID Overhead**: Complete removal of request ID generation, variables, and references throughout codebase for better performance (2025-09-04)
@@ -57,8 +62,9 @@
 - **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
 - **Connection Reliability**: Improved with automatic reconnection logic
 - **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
-- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds (2025-08-31)
-- **Deploy Script**: Fixed file transfer issues and improved error handling for uv-based deployments
+- **Setuptools Migration**: Return to setuptools for standard Python package management
+- **Memory Bank Documentation**: Added comprehensive Memory Bank system documentation to CONTRIBUTING.md as recommended best practice for AI-assisted development, including Cursor IDE integration guidance
+- **Deploy Script**: Fixed file transfer issues and improved error handling for setuptools-based deployments
 - **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
 - **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
 - **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)

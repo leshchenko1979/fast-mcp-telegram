@@ -20,7 +20,7 @@ python-dotenv    # Environment variable management
 tomli            # TOML parsing for Python < 3.11 (conditional)
 ```
 
-**Dependency Management**: pip with pyproject.toml for package management
+**Dependency Management**: setuptools with pyproject.toml for package management
 **Version Management**: Dynamic reading from pyproject.toml with Python version compatibility
 **Session Management**: Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/)
 **Cross-Platform Support**: Automatic handling of macOS resource forks and permission differences
@@ -28,7 +28,10 @@ tomli            # TOML parsing for Python < 3.11 (conditional)
 ### Development Tools
 - **Cursor IDE**: Primary development environment
 - **Git**: Version control
-- **Ruff**: Manual code formatting and linting
+- **Ruff**: Code formatting and linting
+- **pytest**: Comprehensive testing framework with async support
+- **pytest-cov**: Coverage reporting and analysis
+- **pytest-xdist**: Parallel test execution for CI/CD
 - **pip**: Package management and installation
 
 ## Development Setup
@@ -46,7 +49,11 @@ tg_mcp/
 │   └── utils/            # Utility functions
 ├── scripts/               # Deployment and utility scripts
 │   └── deploy-mcp.sh     # Enhanced deployment script
-├── tests/                # Test suite
+├── tests/                # Comprehensive test suite
+│   ├── __init__.py       # Tests package initialization
+│   ├── conftest.py       # Shared fixtures and configuration
+│   ├── test_*.py         # Organized test modules by functionality
+│   └── README.md         # Test documentation and guidelines
 ├── memory-bank/          # Project documentation
 ├── pyproject.toml       # Project configuration and dependencies
 ├── docker-compose.yml   # Production Docker configuration
@@ -102,12 +109,23 @@ MCP_HOST=0.0.0.0       # Bind address for HTTP transport
 MCP_PORT=8000          # Port for HTTP transport
 ```
 
+### Testing Infrastructure
+- **pytest Framework**: Comprehensive testing with async support and fixtures
+- **Test Organization**: Scalable structure with logical separation of test modules by functionality
+- **Shared Fixtures**: `conftest.py` provides reusable test setup (mock_client, test_server, client_session)
+- **Coverage Analysis**: Automated coverage reporting with multiple output formats
+- **Parallel Execution**: Support for concurrent test execution in CI/CD environments
+- **Mock Infrastructure**: Comprehensive mocking for external dependencies and APIs
+- **Async Testing**: Full async/await support for modern Python concurrency patterns
+- **Comprehensive Test Coverage**: Systematic testing of core functionality and edge cases
+
 ### Deployment Files
-- `Dockerfile`: Single-stage pip-based build with proper user permissions
-- `pyproject.toml`: pip dependency configuration with project metadata
+- `Dockerfile`: Optimized pip-based build with proper user permissions
+- `pyproject.toml`: Comprehensive dependency configuration with setuptools and pytest settings
 - `docker-compose.yml`: Production configuration with Traefik labels, health checks, and session persistence
 - `scripts/deploy-mcp.sh`: Enhanced deployment script with session backup/restore, permission auto-fixing, macOS resource fork cleanup, and detailed progress logging
 - `.gitignore`: Git ignore patterns for logs, cache files, and environment variables
+- `.dockerignore`: Comprehensive exclusions for optimized container builds
 
 ### Env
 - `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`

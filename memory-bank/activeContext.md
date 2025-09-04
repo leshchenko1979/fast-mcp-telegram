@@ -1,11 +1,70 @@
 
 
 ## Current Work Focus
-**Primary**: **LOGGING SYSTEM REFACTORING COMPLETED** - Successfully eliminated redundancies between logging.py and error_handling.py by creating dedicated `src/utils/logging_utils.py` module. Consolidated all logging functions into a single, well-organized module with proper separation of concerns.
+**Primary**: **CONTRIBUTING.MD COMPREHENSIVE UPDATE COMPLETED** - Successfully updated CONTRIBUTING.md with comprehensive developer documentation aligned with current project state and memory bank information.
 
-**Current Status**: **REFACTORING COMPLETE WITH CLEAN ARCHITECTURE** - Created `src/utils/logging_utils.py` with consolidated logging functions, removed duplicate code from `src/config/logging.py`, eliminated circular import issues, and updated all imports across the codebase. **Zero Redundancies**: No more duplicate logging logic between modules. **Clean Separation**: Configuration, utilities, and error handling properly separated. **Enhanced Functionality**: Added request ID tracking capabilities and improved logging patterns.
+**Current Status**: **MEMORY BANK SYSTEM DOCUMENTATION COMPLETE** - Added comprehensive Memory Bank system documentation to CONTRIBUTING.md as recommended best practice for AI-assisted development, including Cursor IDE integration guidance. **Developer Documentation Complete**: Updated with current dependency management (setuptools), session management architecture, deployment patterns. **Tooling Standardized**: Returned to setuptools + pip for better compatibility. **Cursor IDE Optimized**: Clear instructions for AI agent memory bank integration with auto-apply rules.
 
 ## Active Decisions and Considerations
+
+### CONTRIBUTING.md Memory Bank Documentation Update (2025-01-04)
+**Decision**: Added comprehensive Memory Bank system documentation to CONTRIBUTING.md, positioned as recommended best practice for AI-assisted development rather than mandatory requirement, including Cursor IDE integration guidance
+**Rationale**: Need to provide clear guidance for AI-assisted developers while maintaining flexibility for traditional development workflows, and ensure proper integration with Cursor IDE
+**Solution**:
+  - Removed reference to non-existent .env.example file and updated environment setup
+  - Updated dependency management from uv back to setuptools with proper pip documentation
+  - Removed pre-commit hooks section (no longer used) and updated development workflow
+  - Added comprehensive Session Management Architecture section
+  - **Added Memory Bank System section** with best practices for AI-assisted development
+  - **Added Cursor IDE integration section** with auto-apply rules and fallback instructions
+  - Enhanced Deployment section with current patterns and production features
+  - Updated table of contents to reflect all changes
+  - Positioned Memory Bank as beneficial tool rather than strict requirement
+**Implementation**:
+  - Fixed Quick Setup section to create .env file directly instead of copying non-existent .env.example
+  - Updated Dependencies section to document setuptools and pip package management
+  - Removed all pre-commit references and updated Development Workflow
+  - **Added comprehensive Memory Bank System section** emphasizing benefits for AI-assisted development
+  - **Added Cursor IDE section** explaining auto-applied rules and "use the memory bank" instructions
+  - Included optional Memory Bank steps in development process
+  - Made Memory Bank updates optional but recommended in PR requirements
+  - Added Memory Bank reading as optional step in Quick Setup
+  - Focused on benefits for AI collaboration rather than strict enforcement
+  - Expanded Deployment section with development and production deployment options
+  - Updated table of contents to include new Memory Bank System section
+**Impact**:
+  - **Cursor IDE optimized** with clear instructions for memory bank integration
+  - **Flexible approach** allowing developers to choose Memory Bank usage based on workflow
+  - **AI-focused benefits** clearly communicated for developers using Cursor, Claude, etc.
+  - Accurate developer documentation aligned with current project architecture
+  - Improved developer experience with optional but valuable documentation practices
+  - Comprehensive coverage of session management for contributors
+  - **Balanced approach** between encouraging best practices and maintaining flexibility
+  - Enhanced contribution process with accurate technical information
+  - **AI collaboration optimization** through recommended Memory Bank usage
+  - **Clear integration path** for different IDEs and AI agents
+
+### Tooling Standardization (2025-01-04)
+**Decision**: Return to standard Python tooling (setuptools + pip) instead of uv and pre-commit
+**Rationale**: While uv provides faster installations, the project has standardized on setuptools for better compatibility and simpler deployment across different environments
+**Solution**:
+  - Reverted from uv to setuptools build backend in pyproject.toml
+  - Removed all uv.lock references and documentation
+  - Removed pre-commit hooks configuration and documentation
+  - Updated CONTRIBUTING.md to reflect current tooling
+  - Updated Dockerfile to use standard pip installations
+**Implementation**:
+  - Updated pyproject.toml to use setuptools.build_meta
+  - Removed uv-specific configurations and lock files
+  - Updated development workflow documentation to remove pre-commit
+  - Updated dependency management documentation to reflect setuptools usage
+  - Maintained all existing functionality while simplifying the toolchain
+**Impact**:
+  - Simplified development environment setup
+  - Better compatibility across different platforms and environments
+  - Reduced complexity in deployment and CI/CD pipelines
+  - Standard Python tooling that's universally supported
+  - Maintained performance and functionality while improving maintainability
 
 ### Logging System Optimization (2025-09-04)
 **Decision**: Comprehensive logging pattern improvements with request ID removal and advanced parameter handling
@@ -30,6 +89,30 @@
   - Enhanced debugging context with automatic metadata and derived information
   - Simplified error responses without request ID clutter
   - Consistent logging patterns across all operations
+
+### Professional Testing Infrastructure Implementation (2025-09-04)
+**Decision**: Implemented comprehensive pytest-based testing framework with modern development practices
+**Rationale**: Previous testing was limited to basic manual runner; needed professional-grade testing infrastructure for maintainability and CI/CD integration
+**Solution**:
+  - Created organized `tests/` directory structure with logical test file separation
+  - Implemented shared fixtures in `conftest.py` for reusable test setup
+  - Converted to pytest with async support and comprehensive test coverage
+  - Added coverage reporting, parallel execution, and professional configuration
+  - Created comprehensive test suite covering core functionality and edge cases
+**Implementation**:
+  - `tests/conftest.py`: Shared fixtures (mock_client, test_server, client_session)
+  - `tests/test_basic_functionality.py`: MCP server basics and message operations
+  - `tests/test_decorator_chain.py`: Decorator integration and authentication
+  - `tests/test_error_handling.py`: Error handling and parameter introspection
+  - Updated `pyproject.toml` with pytest configuration and coverage settings
+  - Enhanced `.dockerignore` for comprehensive build optimization
+**Impact**:
+  - Comprehensive test suite with systematic coverage of core functionality
+  - Professional pytest setup with fixtures, async support, and coverage reporting
+  - CI/CD ready with parallel execution and comprehensive reporting
+  - Improved development workflow with fast test execution and debugging
+  - Enhanced code quality through systematic test coverage
+  - Scalable testing infrastructure that grows with the codebase
 
 ### Logging System Refactoring (2025-12-19)
 **Decision**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between `logging.py` and `error_handling.py`
