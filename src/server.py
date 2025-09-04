@@ -75,7 +75,7 @@ else:
         )
 
 # Initialize MCP server and logging
-mcp = FastMCP("Telegram MCP Server")
+mcp = FastMCP("Telegram MCP Server", stateless_http=True)
 setup_logging()
 
 
@@ -115,9 +115,6 @@ def with_error_handling(operation_name: str):
 
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Call the original function
-            result = await func(*args, **kwargs)
-
             # Build params dict from stored original signature for error context
             params = {}
             if original_sig:
@@ -144,12 +141,25 @@ def with_error_handling(operation_name: str):
                 # No signature available, just use kwargs as fallback
                 params = dict(kwargs)
 
-            # Check if this is an error response
-            error_response = handle_tool_error(result, operation_name, params)
-            if error_response:
-                return error_response
+            try:
+                # Call the original function with exception handling
+                result = await func(*args, **kwargs)
 
-            return result
+                # Check if this is an error response
+                error_response = handle_tool_error(result, operation_name, params)
+                if error_response:
+                    return error_response
+
+                return result
+
+            except Exception as e:
+                # Handle any exception that occurs during function execution
+                return log_and_build_error(
+                    operation=operation_name,
+                    error_message=f"Unexpected error: {e}",
+                    params=params,
+                    exception=e,
+                )
 
         return wrapper
 
@@ -251,10 +261,10 @@ def with_auth_context(func: Callable) -> Callable:
             # For stdio transport, fall back to singleton behavior (backward compatibility)
             set_request_token(None)
             logger.info("No Bearer token provided, using default session")
-
-        # Token provided - set it in context for token-based sessions
-        set_request_token(token)
-        logger.info(f"Bearer token extracted for request: {token[:8]}...")
+        else:
+            # Token provided - set it in context for token-based sessions
+            set_request_token(token)
+            logger.info(f"Bearer token extracted for request: {token[:8]}...")
 
         # Call the original function
         return await func(*args, **kwargs)
@@ -425,9 +435,9 @@ async def read_messages(chat_id: str, message_ids: list[int]):
 # =============================================================================
 
 
-@with_auth_context
-@with_error_handling("search_contacts")
 @mcp.tool()
+@with_error_handling("search_contacts")
+@with_auth_context
 async def search_contacts(query: str, limit: int = 20):
     """
     Search Telegram contacts and users by name, username, or phone number.

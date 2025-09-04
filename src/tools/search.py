@@ -253,7 +253,7 @@ async def _search_chat_messages(
         for message in batch:
             if (
                 await _process_message_for_results(
-                    client, message, entity, chat_type, results, limit
+                    client, message, entity, chat_type, results
                 )
                 and len(results) >= limit
             ):
@@ -303,7 +303,7 @@ async def _search_global_messages(
 
                 if (
                     await _process_message_for_results(
-                        client, message, chat, chat_type, results, limit
+                        client, message, chat, chat_type, results
                     )
                     and len(results) >= limit
                 ):
