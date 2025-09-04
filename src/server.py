@@ -309,9 +309,9 @@ async def health_check(request):
 # =============================================================================
 
 
-@with_auth_context
-@with_error_handling("search_messages")
 @mcp.tool()
+@with_error_handling("search_messages")
+@with_auth_context
 async def search_messages(
     query: str,
     chat_id: str | None = None,
@@ -361,9 +361,9 @@ async def search_messages(
     )
 
 
-@with_auth_context
-@with_error_handling("send_or_edit_message")
 @mcp.tool()
+@with_error_handling("send_or_edit_message")
+@with_auth_context
 async def send_or_edit_message(
     chat_id: str,
     message: str,
@@ -401,9 +401,9 @@ async def send_or_edit_message(
     return await send_message(chat_id, message, reply_to_msg_id, parse_mode)
 
 
-@with_auth_context
-@with_error_handling("read_messages")
 @mcp.tool()
+@with_error_handling("read_messages")
+@with_auth_context
 async def read_messages(chat_id: str, message_ids: list[int]):
     """
     Read specific messages by their IDs from a Telegram chat.
@@ -469,9 +469,9 @@ async def search_contacts(query: str, limit: int = 20):
     return await search_contacts_telegram(query, limit)
 
 
-@with_auth_context
-@with_error_handling("get_contact_details")
 @mcp.tool()
+@with_error_handling("get_contact_details")
+@with_auth_context
 async def get_contact_details(chat_id: str):
     """
     Get detailed profile information for a specific Telegram user or chat.
@@ -502,9 +502,9 @@ async def get_contact_details(chat_id: str):
 # =============================================================================
 
 
-@with_auth_context
-@with_error_handling("send_message_to_phone")
 @mcp.tool()
+@with_error_handling("send_message_to_phone")
+@with_auth_context
 async def send_message_to_phone(
     phone_number: str,
     message: str,
@@ -564,9 +564,9 @@ async def send_message_to_phone(
 # =============================================================================
 
 
-@with_auth_context
-@with_error_handling("invoke_mtproto")
 @mcp.tool()
+@with_error_handling("invoke_mtproto")
+@with_auth_context
 async def invoke_mtproto(method_full_name: str, params_json: str):
     """
     Execute low-level Telegram MTProto API methods directly.
