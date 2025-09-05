@@ -341,22 +341,23 @@
   - Future deployments automatically prevent permission issues
   - Container has proper write access to SQLite session files
 
-### Docker Setup Workflow Requirements
-**Decision**: Container must be STOPPED during Telegram authentication setup
-**Rationale**: Running setup while main service is active causes SQLite database file conflicts since both processes try to access the same session file simultaneously
-**Solution**: Implemented proper Docker setup sequence:
-  1. `docker compose down` - Stop container
-  2. `docker compose run --rm fast-mcp-telegram python -m src.setup_telegram` - Run setup
-  3. `docker compose up -d` - Start container
+### Docker Setup Workflow Requirements (UPDATED 2025-01-04)
+**Decision**: Server shutdown and restart are NOT required during Telegram authentication setup
+**Rationale**: Setup process creates new token and session file by default, eliminating conflicts with existing sessions. Token generation is independent of server state.
+**Solution**: Streamlined Docker setup sequence:
+  1. `docker compose --profile setup run --rm setup --phone="+1234567890"` - Run setup (no shutdown needed)
+  2. `docker compose --profile server up -d` - Start container (only if not already running)
 **Implementation**:
-  - Updated README.md with correct Docker setup workflow
-  - Added comprehensive troubleshooting section covering volume mount conflicts
-  - Documented common session file and permission issues with solutions
+  - Updated README.md with simplified Docker setup workflow
+  - Removed outdated server shutdown and restart requirements
+  - Documented that new tokens and sessions are created by default
+  - Clarified that server restart is only needed if server isn't already running
 **Impact**:
-  - Eliminates "unable to open database file" errors during setup
-  - Prevents session file corruption from concurrent access
-  - Provides clear setup instructions for users
-  - Reduces support burden for Docker deployment issues
+  - Simplified setup process with no server downtime
+  - Eliminates unnecessary container management steps
+  - Provides clearer setup instructions for users
+  - Reduces setup complexity and potential errors
+  - Token generation works regardless of server state
 
 ### Docker Compose Profile Simplification
 **Decision**: Implemented Docker Compose profiles to reduce setup complexity from 6 steps to 2 steps

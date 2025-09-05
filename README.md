@@ -201,7 +201,7 @@ docker compose --profile setup run --rm setup \
 # 2. Note the Bearer token output after successful setup
 # 🔑 Bearer Token: AbCdEfGh123456789KLmnOpQr...
 
-# 3. Start the main MCP server
+# 3. Start the main MCP server (if not already running)
 docker compose --profile server up -d
 ```
 
@@ -237,7 +237,7 @@ DOMAIN=my-telegram-bot.example.com
 ### 4. Local Docker Deployment
 
 ```bash
-# After completing setup, start the MCP server
+# After completing setup, start the MCP server (if not already running)
 docker compose --profile server up --build -d
 
 # Check logs
@@ -247,7 +247,7 @@ docker compose logs -f fast-mcp-telegram
 docker compose ps
 ```
 
-**Note:** Always run setup first with `docker compose --profile setup up` before starting the server.
+**Note:** Run setup with `docker compose --profile setup run --rm setup --phone="+1234567890"` to authenticate and generate a Bearer token. No server shutdown or restart required.
 
 The service will be available at `http://localhost:8000` (internal) and through Traefik if configured.
 
@@ -272,7 +272,7 @@ export VDS_PROJECT_PATH=/path/to/deployment
    cd /path/to/deployment
    docker compose --profile setup run --rm setup --phone="+1234567890"
    ```
-2. After setup completes, start the MCP server:
+2. After setup completes, start the MCP server (if not already running):
    ```bash
    docker compose --profile server up -d
    ```

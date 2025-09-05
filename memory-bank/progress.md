@@ -85,7 +85,7 @@
 - **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
 - **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
 - **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
-- **Docker Setup Workflow**: Documented proper container state requirements for Telegram authentication - container must be STOPPED during setup to prevent SQLite database conflicts (2025-09-01)
+- **Docker Setup Workflow**: Updated to reflect that server shutdown is NOT required during Telegram authentication setup - new tokens and sessions are created by default (2025-01-04)
 - **Volume Mount Conflicts**: Identified and resolved Docker volume mount issues causing directory vs file conflicts in session file handling (2025-09-01)
 - **Documentation Updates**: Updated README.md with comprehensive troubleshooting section covering session file issues, volume mount conflicts, and proper Docker setup workflow (2025-09-01)
 - **Simplified Docker Setup**: Implemented Docker Compose profiles to reduce authentication from 6 steps to 2 steps using `docker compose --profile setup run --rm setup` (2025-09-01)
