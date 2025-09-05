@@ -632,13 +632,13 @@ fast-mcp-telegram/
 ├── .gitignore            # Git ignore patterns
 ├── .dockerignore         # Docker build exclusions
 └── LICENSE               # MIT License
-
+```
 **Session Management:** Session files are stored in the standard user config directory:
 - **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)
 - **Multi-user:** `~/.config/fast-mcp-telegram/{token}.session` (token-based isolation)
 
 **Security Note:** Session files contain sensitive authentication data and are never committed to version control. Each environment (local, Docker, remote server) maintains its own authenticated session.
-```
+
 
 ## 📦 Dependencies
 

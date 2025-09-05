@@ -556,4 +556,3 @@ By contributing to this project, you agree that your contributions will be licen
 *Your contributions help make AI-Telegram integration better for everyone.*
 
 </div>
-rules
