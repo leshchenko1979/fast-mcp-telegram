@@ -51,6 +51,12 @@ def parse_args():
 async def main():
     global SESSION_PATH  # Declare global for session path modification
 
+    def mask_phone_number(phone):
+        """Redact all but the last 4 digits of a phone number."""
+        if not phone or len(phone) < 4:
+            return "****"
+        return "*" * (len(phone) - 4) + phone[-4:]
+
     # Load environment variables from .env file
     env_file = Path(__file__).parent.parent.parent / ".env"
     if env_file.exists():
@@ -103,7 +109,7 @@ async def main():
 
     print("Starting Telegram session setup...")
     print(f"API ID: {api_id}")
-    print(f"Phone: {phone_number}")
+    print(f"Phone: {mask_phone_number(phone_number)}")
     print(f"Session will be saved to: {SESSION_PATH}")
     print(f"Session directory: {SESSION_PATH.parent}")
 
@@ -135,7 +141,7 @@ async def main():
     await client.connect()
 
     if not await client.is_user_authorized():
-        print(f"Sending code to {phone_number}...")
+        print(f"Sending code to {mask_phone_number(phone_number)}...")
         await client.send_code_request(phone_number)
 
         # Get verification code (interactive only)
