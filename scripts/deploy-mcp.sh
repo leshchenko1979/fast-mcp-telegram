@@ -47,7 +47,7 @@ deploy() {
 
   log "$BLUE" "Transferring project files..."
   # Create a temporary file list excluding deleted files
-  git ls-files | xargs ls -d 2>/dev/null | tar -czf - --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
+  git ls-files | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
   scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
 
   # Clean up macOS resource fork files

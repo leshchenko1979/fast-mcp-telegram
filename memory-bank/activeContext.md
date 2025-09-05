@@ -519,20 +519,22 @@ setup:
   - Production-ready deployment workflow
   - Cross-platform deployment compatibility
 
-### Dynamic Version Management System
-**Decision**: Implemented dynamic version reading from pyproject.toml in settings.py
-**Rationale**: Previously had hardcoded version in settings.py that required manual synchronization with pyproject.toml
-**Solution**: Modified settings.py to automatically read version from pyproject.toml at runtime using tomllib/tomli
+### Simplified Version Management System (2025-01-04)
+**Decision**: Implemented single source of truth version management using `src/_version.py` with direct import approach
+**Rationale**: Previous TOML-based version reading was complex and required additional dependencies, while direct import is simpler and more Pythonic
+**Solution**: Created dedicated version file with direct import pattern used by most Python packages
 **Implementation**:
-  - Added `get_version_from_pyproject()` function with Python version compatibility
-  - Added tomli dependency for Python < 3.11
-  - Updated `SERVER_VERSION` to use dynamic reading
-  - Removed manual version bumping script as it's no longer needed
+  - Created `src/_version.py` with `__version__ = "0.2.1"`
+  - Updated `pyproject.toml` to use dynamic version with `{attr = "src._version.__version__"}`
+  - Updated `settings.py` to use direct import: `from src._version import __version__`
+  - Removed TOML parsing dependencies (tomli/tomllib) from project
+  - Updated Dockerfile to copy version file during build process
 **Impact**:
-  - Single source of truth for version information
-  - Automatic synchronization between package and server versions
-  - Simplified maintenance - only update pyproject.toml
-  - GitHub Actions automatically uses correct version for publishing
+  - Single source of truth for version information across all systems
+  - Simplified codebase with no TOML parsing complexity
+  - Reduced dependencies and improved maintainability
+  - Standard Python pattern used by most packages
+  - Automatic synchronization between build system, runtime, and Docker deployments
 
 ## Important Patterns and Preferences
 

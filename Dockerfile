@@ -13,6 +13,9 @@ RUN addgroup -g 1000 appuser && \
 # Switch to non-root user
 USER appuser
 
+# Add local bin to PATH to fix script warnings
+ENV PATH="/home/appuser/.local/bin:$PATH"
+
 # Set the working directory
 WORKDIR /app
 

@@ -614,6 +614,7 @@ fast-mcp-telegram/
 │   ├── tools/            # MCP tool implementations
 │   ├── utils/            # Utility functions and helpers
 │   ├── __init__.py       # Package initialization
+│   ├── _version.py       # Version information (single source of truth)
 │   ├── server.py         # Main server implementation
 │   └── setup_telegram.py # Telegram authentication setup
 ├── tests/                # Comprehensive test suite
@@ -648,6 +649,8 @@ fast-mcp-telegram/
 | **loguru** | Structured logging |
 | **aiohttp** | Async HTTP client |
 | **python-dotenv** | Environment management |
+
+**Version Management**: Single source of truth in `src/_version.py` with automatic synchronization across build system, runtime, and Docker deployments.
 
 ---
 
