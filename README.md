@@ -8,15 +8,15 @@
 
 # 🤖 AI-Powered Telegram Automation
 
-**Transform your AI assistant into a Telegram power user with full API access**
+**Production-ready AI integration with full Telegram API access and multi-user authentication**
 
-*Search messages, send automated replies, manage contacts, and control Telegram through any MCP-compatible AI client*
+*Advanced message search, automated messaging, contact management, and secure multi-user deployment for AI assistants*
 
 [![Quick Start](https://img.shields.io/badge/🚀_Quick_Start-2_min_setup-brightgreen?style=for-the-badge&logo=lightning)](#-pypi-installation)
 [![Docker](https://img.shields.io/badge/🐳_Docker-Production_ready-blue?style=for-the-badge&logo=docker)](#-docker-deployment-production)
 [![Community](https://img.shields.io/badge/💬_Community-Join_us-blue?style=for-the-badge&logo=telegram)](https://t.me/mcp_telegram)
 
-**⚡ Lightning-fast setup • 🔍 Smart search • 💬 Auto-messaging • 📱 Phone integration • 🐳 Production-ready**
+**🔐 Bearer token auth • 🔍 Multi-query search • 💬 Smart messaging • 📱 Phone integration • 🏢 Enterprise-ready**
 
 </div>
 
