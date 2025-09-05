@@ -1,0 +1,70 @@
+---
+description: Generate release notes from git changes
+---
+
+# Release Notes Generation
+
+## Process for Creating Release Notes
+
+When creating release notes, follow this systematic approach:
+
+### 1. Identify Changes
+- Use `git tag --sort=-version:refname | head -1` to find the latest tag
+- **Note**: Typically you'll be preparing release notes before creating the new tag
+
+### 2. Analyze Code Changes
+- **Primary focus**: `git diff <previous-tag>..HEAD` - Examine actual code changes, not summaries
+- **Final state**: `git show HEAD:<file>` - Shows final state of specific files
+- **Ignore commit messages**: Focus on what the code actually does, not what commit messages claim
+- **Describe final state**: Not the journey, but the end result
+
+### 3. Categorize Changes
+- **AI-driven categorization**: Let the AI analyze code changes and determine appropriate categories
+- **Focus on impact**: Group changes by their functional impact
+
+### 4. Format Release Notes
+
+Use this markdown template:
+
+```markdown
+Release v<version> - <main theme>
+
+## <Category Name>
+- **Brief description** - Detailed explanation of what was changed and why
+- **Another change** - Impact and benefits
+
+## <Another Category Name>
+- **Additional changes** - Description of changes in this category
+
+## Files Changed
+- X files modified with Y additions and Z deletions
+- Key files updated: list major files
+- Infrastructure changes: describe any significant structural or architectural modifications
+
+This release focuses on <main theme>.
+
+**Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-tag>...<current-tag>
+
+**Note**: Replace `<current-tag>` with the new version tag once created
+```
+
+### 5. Best Practices
+- **No emojis** in release notes
+- **Focus on impact** rather than implementation details
+- **Code-first analysis**: Base descriptions on actual code changes, not commit messages
+- **Final state focus**: Describe what the code does now, not the journey to get there
+- **Use markdown output block**: So that the user can copy and paste easily
+
+### 6. Version Bump Process
+- **First**: Update version in [pyproject.toml](mdc:pyproject.toml)
+- **Then**: Create git tag: `git tag v<version>`
+- **Next**: Push tag: `git push origin v<version>`
+- **Finally**: Create GitHub release with generated notes
+
+**Typical workflow**: Analyze changes → Prepare release notes → Update version → Create tag → Push → Create GitHub release
+
+### 7. Quality Checks
+- Verify all significant changes are mentioned
+- Ensure categories accurately reflect the nature of changes made
+- **Validate against code**: Ensure release note descriptions accurately reflect the actual code changes
+- **Final state verification**: Confirm descriptions match the final state, not intermediate commits
