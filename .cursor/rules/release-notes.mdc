@@ -48,23 +48,45 @@ This release focuses on <main theme>.
 **Note**: Replace `<current-tag>` with the new version tag once created
 ```
 
-### 5. Best Practices
+### 5. Quality Checks
+- Verify all significant changes are mentioned
+- Ensure categories accurately reflect the nature of changes made
+- **Validate against code**: Ensure release note descriptions accurately reflect the actual code changes
+- **Final state verification**: Confirm descriptions match the final state, not intermediate commits
+
+### 6. Best Practices
 - **No emojis** in release notes
 - **Focus on impact** rather than implementation details
 - **Code-first analysis**: Base descriptions on actual code changes, not commit messages
 - **Final state focus**: Describe what the code does now, not the journey to get there
 - **Use markdown output block**: So that the user can copy and paste easily
 
-### 6. Version Bump Process
+### 7. Version Bump Process
 - **First**: Update version in [pyproject.toml](mdc:pyproject.toml)
 - **Then**: Create git tag: `git tag v<version>`
 - **Next**: Push tag: `git push origin v<version>`
-- **Finally**: Create GitHub release with generated notes
+- **Then**: Create GitHub release with generated notes
+- **Wait for confirmation**: Do not proceed until user confirms GitHub release is published
+- **Finally**: Send community announcement to Telegram group (only after user confirmation)
 
-**Typical workflow**: Analyze changes → Prepare release notes → Update version → Create tag → Push → Create GitHub release
+**Typical workflow**: Analyze changes → Prepare release notes → Quality checks → Update version → Create tag → Push → Create GitHub release → **Wait for user confirmation** → Send community message
 
-### 7. Quality Checks
-- Verify all significant changes are mentioned
-- Ensure categories accurately reflect the nature of changes made
-- **Validate against code**: Ensure release note descriptions accurately reflect the actual code changes
-- **Final state verification**: Confirm descriptions match the final state, not intermediate commits
+### 8. Community Announcement Process
+- **Prerequisite**: Only proceed after user confirms GitHub release is published
+- **Target**: Send message to `@mcp_telegram` community group
+- **Language**: Russian (primary community language)
+- **Content**: Include version number, key features, and installation instructions
+- **Format**: Use Markdown formatting with emojis for better readability
+- **Structure**:
+  - Version header with date
+  - Categorized feature highlights with checkmarks
+  - Installation commands (PyPI and Docker)
+  - GitHub link
+- **Timing**: Send only after user confirms GitHub release is published
+- **Customization**: Adapt categories and features based on the specific release content
+- **Key elements to include**:
+  - Version number and release date
+  - Major new features and improvements
+  - Bug fixes and technical enhancements
+  - Installation/update instructions
+  - Link to GitHub repository
