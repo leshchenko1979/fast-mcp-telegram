@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-mcp-telegram"
-version = "0.2.1"
+dynamic = ["version"]
 description = "MCP server with Telegram search and messaging capabilities"
 authors = [
     {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}
@@ -29,13 +29,15 @@ dependencies = [
     "aiohttp",
     "fastmcp",
     "telethon",
-    "python-dotenv",
-    "tomli ; python_version < '3.11'"
+    "python-dotenv"
 ]
 
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
 fast-mcp-telegram-setup = "src.setup_telegram:sync_main"
+
+[tool.setuptools.dynamic]
+version = {attr = "src._version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]

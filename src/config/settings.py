@@ -1,18 +1,9 @@
 import os
-import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Import tomllib for Python 3.11+ or tomli for older versions
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        # Fallback if tomli is not available
-        tomllib = None
+from src._version import __version__
 
 # Load environment variables
 load_dotenv()
@@ -53,23 +44,6 @@ SESSION_PATH = SESSION_DIR / SESSION_NAME
 MAX_CONCURRENT_CONNECTIONS = 10
 
 
-def get_version_from_pyproject():
-    """Read version from pyproject.toml."""
-    pyproject_path = PROJECT_DIR / "pyproject.toml"
-
-    if tomllib is None:
-        # Fallback to hardcoded version if tomllib is not available
-        return "0.0.1"
-
-    try:
-        with open(pyproject_path, "rb") as f:
-            data = tomllib.load(f)
-        return data.get("project", {}).get("version", "0.0.1")
-    except (FileNotFoundError, KeyError):
-        # Fallback to hardcoded version if file not found or version not in file
-        return "0.0.1"
-
-
 # Server info
 SERVER_NAME = "MCP Telegram Server"
-SERVER_VERSION = get_version_from_pyproject()
+SERVER_VERSION = __version__

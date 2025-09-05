@@ -16,12 +16,13 @@ USER appuser
 # Set the working directory
 WORKDIR /app
 
-# Copy dependency files and minimal package structure for caching
+# Copy dependency files and version file for caching
 COPY pyproject.toml ./
 RUN mkdir -p src && touch src/__init__.py
+COPY src/_version.py ./src/_version.py
 
-# Install package with dependencies (minimal src structure satisfies pip)
-# This layer will be cached and not rebuilt unless pyproject.toml changes
+# Install package with dependencies (version file satisfies setuptools dynamic version)
+# This layer will be cached and not rebuilt unless pyproject.toml or _version.py changes
 RUN pip install --no-cache-dir .
 
 # Copy real source code (this layer rebuilds when code changes)
