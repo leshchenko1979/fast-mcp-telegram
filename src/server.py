@@ -12,6 +12,7 @@ import time
 import traceback
 from collections.abc import Callable
 from functools import wraps
+from typing import Literal
 
 from fastmcp import FastMCP
 from loguru import logger
@@ -317,7 +318,7 @@ async def search_messages_globally(
     limit: int = 50,
     min_date: str | None = None,
     max_date: str | None = None,
-    chat_type: str | None = None,
+    chat_type: Literal["private", "group", "channel"] | None = None,
     auto_expand_batches: int = 2,
     include_total_count: bool = False,
 ):
@@ -421,7 +422,7 @@ async def send_message(
     chat_id: str,
     message: str,
     reply_to_msg_id: int | None = None,
-    parse_mode: str | None = None,
+    parse_mode: Literal["markdown", "html"] | None = None,
 ):
     """
     Send new message in Telegram chat.
@@ -451,7 +452,7 @@ async def edit_message(
     chat_id: str,
     message_id: int,
     message: str,
-    parse_mode: str | None = None,
+    parse_mode: Literal["markdown", "html"] | None = None,
 ):
     """
     Edit existing message in Telegram chat.
@@ -585,7 +586,7 @@ async def send_message_to_phone(
     last_name: str = "Name",
     remove_if_new: bool = False,
     reply_to_msg_id: int | None = None,
-    parse_mode: str | None = None,
+    parse_mode: Literal["markdown", "html"] | None = None,
 ):
     """
     Send message to phone number, auto-managing Telegram contacts.

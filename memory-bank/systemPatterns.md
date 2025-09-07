@@ -44,6 +44,8 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
 - **Request Tracking**: Unique request IDs for debugging and correlation
 - **Parameter Flexibility**: Tools support optional parameters with sensible defaults
+- **Literal Parameter Constraints**: Uses `typing.Literal` to constrain parameter values and guide LLM choices
+- **LLM Optimization**: `parse_mode` constrained to `["markdown", "html"]`, `chat_type` to `["private", "group", "channel"]`
 - **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in tool responses
 
 ### 5. Data Flow Patterns

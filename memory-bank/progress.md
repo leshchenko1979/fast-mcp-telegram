@@ -21,6 +21,7 @@
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup
 - **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
+- **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance (2025-01-07)
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -110,6 +111,7 @@
 - **Setup Script Token Generation**: Modified setup_telegram.py to generate and display cryptographically secure Bearer tokens (2025-01-04)
 - **Auto-Cleanup Removal**: Removed all automatic cleanup variables and background tasks for simplified architecture (2025-01-04)
 - **Mandatory HTTP Authentication**: Eliminated fallback to default session for HTTP requests, making Bearer tokens mandatory (2025-01-04)
+- **Literal Parameter Implementation**: Successfully implemented `typing.Literal` constraints for `parse_mode` and `chat_type` parameters to guide LLM choices and improve input validation. Updated all relevant tool signatures in server.py and verified FastMCP compatibility (2025-01-07)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

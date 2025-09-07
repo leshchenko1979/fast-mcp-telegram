@@ -56,6 +56,7 @@
 | 📊 **Session Management** | LRU cache, automatic cleanup, health monitoring |
 | ⚡ **Performance** | Async operations, parallel queries, connection pooling |
 | 🛡️ **Reliability** | Auto-reconnect, structured logging, error handling |
+| 🎯 **LLM Optimization** | Literal parameter constraints guide AI model choices |
 
 ## 📋 Prerequisites
 
@@ -344,6 +345,14 @@ curl -s https://your-domain.com/health
 ---
 
 ## 🔧 Available Tools
+
+### 🎯 LLM-Optimized Parameter Constraints
+This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
+
+- **`parse_mode`**: Constrained to `"markdown"` or `"html"` (no invalid values)
+- **`chat_type`**: Limited to `"private"`, `"group"`, or `"channel"` for search filters
+- **Enhanced Validation**: FastMCP automatically validates these constraints
+- **Better LLM Guidance**: AI models see only valid options, reducing errors
 
 ### 📍 Supported Chat ID Formats
 All tools that accept a `chat_id` parameter support these formats:

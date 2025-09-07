@@ -1,11 +1,32 @@
 
 
 ## Current Work Focus
-**Primary**: **TOOL SPLITTING IMPLEMENTATION COMPLETED** - Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. **Two major tool splits completed**: `search_messages` → `search_messages_globally` + `search_messages_in_chat`, and `send_or_edit_message` → `send_message` + `edit_message`. **Documentation updated** to reflect new tool structure.
+**Primary**: **LITERAL PARAMETER IMPLEMENTATION COMPLETED** - Successfully implemented `typing.Literal` parameter constraints for improved LLM guidance and input validation. **All relevant tool signatures updated** with Literal types for `parse_mode` and `chat_type` parameters. **FastMCP compatibility verified** and **documentation updated** to reflect the improvements.
 
-**Current Status**: **TOOL SPLITTING COMPLETE** - All ambiguous tools have been split into deterministic, single-purpose tools. **README.md updated** with new tool documentation. **Memory bank updated** to document the implementation. **Server tested and verified** working with new tool structure.
+**Current Status**: **LITERAL PARAMETERS COMPLETE** - All tool signatures now use Literal constraints where appropriate. **README.md updated** with LLM optimization information. **Memory bank updated** to document the implementation. **Server tested and verified** working with new parameter constraints.
 
 ## Active Decisions and Considerations
+
+### Literal Parameter Implementation (2025-01-07)
+**Decision**: Implemented `typing.Literal` parameter constraints to guide LLM choices and improve input validation
+**Problem**: String parameters like `parse_mode` and `chat_type` allowed any string values, leading to potential LLM errors and invalid inputs
+**Solution**: Applied Literal type constraints to limit parameter values to valid options:
+- **`parse_mode`**: Constrained to `Literal["markdown", "html"] | None` in all messaging tools
+- **`chat_type`**: Constrained to `Literal["private", "group", "channel"] | None` in search tools
+**Implementation**:
+- **Added Literal Import**: Added `from typing import Literal` to server.py
+- **Updated Tool Signatures**: Modified all relevant tool functions:
+  - `send_message`: `parse_mode: Literal["markdown", "html"] | None = None`
+  - `edit_message`: `parse_mode: Literal["markdown", "html"] | None = None`
+  - `send_message_to_phone`: `parse_mode: Literal["markdown", "html"] | None = None`
+  - `search_messages_globally`: `chat_type: Literal["private", "group", "channel"] | None = None`
+- **FastMCP Compatibility**: Verified that FastMCP properly handles Literal parameters and constrains LLM choices
+- **Documentation Updates**: Updated README.md with LLM optimization information and parameter constraints
+**Impact**:
+- **Enhanced LLM Guidance**: AI models now see only valid parameter options, reducing errors
+- **Improved Input Validation**: FastMCP automatically validates parameter constraints
+- **Better User Experience**: Clear parameter options prevent invalid input attempts
+- **Production Ready**: All tools tested and verified working with Literal constraints
 
 ### Tool Splitting Implementation (2025-01-07)
 **Decision**: Implemented Item 1 from GitHub issue #1 to split ambiguous tools into single-purpose tools to eliminate LLM agent errors
