@@ -3,8 +3,8 @@
 
 ### Core Functionality ✅
 - **MCP Server**: FastMCP-based server with full Telegram integration
-- **Message Search**: Global and per-chat search with multi-query support
-- **Message Operations**: Send, edit, read messages with formatting support
+- **Message Search**: Split into `search_messages_globally` and `search_messages_in_chat` for deterministic behavior
+- **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
 - **Contact Management**: Search and get contact details
 - **Phone Messaging**: Send messages to phone numbers not in contacts
 - **MTProto Access**: Raw method invocation capability
@@ -20,6 +20,7 @@
 - **Multi-User Support**: HTTP transport with per-user session files and authentication
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup
 - **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
+- **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -47,6 +48,7 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Tool Splitting Implementation**: Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. Split `search_messages` into `search_messages_globally` and `search_messages_in_chat`, and `send_or_edit_message` into `send_message` and `edit_message`. Updated documentation and memory bank accordingly (2025-01-07)
 - **Bearer Token Authentication System**: Successfully identified and resolved the core authentication issue where bearer tokens were not being properly extracted and processed, causing incorrect fallback to default sessions (2025-01-04)
 - **Critical FastMCP Parameter Discovery**: Discovered that `stateless_http=True` parameter is essential for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode (2025-01-04)
 - **Decorator Order Fix**: Fixed incorrect decorator order in FastMCP tool functions - `@with_auth_context` is now the innermost decorator, ensuring proper authentication middleware execution (2025-01-04)

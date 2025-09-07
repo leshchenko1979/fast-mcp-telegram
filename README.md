@@ -142,8 +142,8 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 ### 4. Start Using!
 ```json
-{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
-{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
+{"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
 **ℹ️ Session Info:** 
@@ -345,23 +345,51 @@ curl -s https://your-domain.com/health
 
 ## 🔧 Available Tools
 
+### 📍 Supported Chat ID Formats
+All tools that accept a `chat_id` parameter support these formats:
+- `'me'` - Saved Messages (your own messages)
+- `@username` - Username (without @ symbol)
+- `123456789` - Numeric user ID
+- `-1001234567890` - Channel ID (always starts with -100)
+
+### 🔍 Search Query Guidelines
+**Important**: Telegram search has specific limitations that LLMs should understand:
+
+**✅ What Works:**
+- **Exact words**: `"deadline"`, `"meeting"`, `"project"`
+- **Multiple terms**: `"deadline, meeting, project"` (comma-separated)
+- **Partial words**: `"proj"` (finds "project", "projects", etc.)
+- **Case insensitive**: `"DEADLINE"` finds "deadline", "Deadline", etc.
+
+**❌ What Doesn't Work:**
+- **Wildcards**: `"proj*"`, `"meet%"`, `"dead*line"`
+- **Regex patterns**: `"^project"`, `"deadline$"`, `"proj.*"`
+- **Boolean operators**: `"project AND deadline"`, `"meeting OR call"`
+- **Quotes for exact phrases**: `"exact phrase"` (treated as separate words)
+
+**💡 Best Practices:**
+- Use simple, common words that are likely to appear in messages
+- Try multiple related terms: `"deadline, due, urgent"`
+- Use partial words for broader matches: `"proj"` instead of `"project*"`
+
 | Tool | Purpose | Key Features |
 |------|---------|--------------|
-| `search_messages` | Search messages globally or in specific chats | Filters by date, chat type, multiple queries |
-| `send_or_edit_message` | Send new messages or edit existing ones | Markdown/HTML formatting, replies |
+| `search_messages_globally` | Search messages across all chats | Global search, filters by date/chat type |
+| `search_messages_in_chat` | Search messages within specific chat | Per-chat search, total count support |
+| `send_message` | Send new messages | Markdown/HTML formatting, replies |
+| `edit_message` | Edit existing messages | Update message content with formatting |
 | `read_messages` | Read specific messages by ID | Bulk reading, full metadata |
 | `search_contacts` | Find users and contacts | By name, username, or phone |
 | `get_contact_details` | Get user/chat profile information | Bio, status, online state |
 | `send_message_to_phone` | Message by phone number | Auto-contact management |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
 
-### 📍 search_messages
-**Search messages with advanced filtering**
+### 🔍 search_messages_globally
+**Search messages across all Telegram chats**
 
 ```typescript
-search_messages(
-  query: str,                    // Search terms (comma-separated)
-  chat_id?: str,                 // Specific chat ID ('me' for Saved Messages)
+search_messages_globally(
+  query: str,                    // Search terms (comma-separated, required)
   limit?: number = 50,          // Max results
   chat_type?: 'private'|'group'|'channel', // Filter by chat type
   min_date?: string,            // ISO date format
@@ -371,54 +399,130 @@ search_messages(
 
 **Examples:**
 ```json
-// Global search
-{"tool": "search_messages", "params": {"query": "deadline", "limit": 20}}
+// Global search across all chats
+{"tool": "search_messages_globally", "params": {"query": "deadline", "limit": 20}}
 
-// Chat-specific search
-{"tool": "search_messages", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+// Multi-term global search (comma-separated)
+{"tool": "search_messages_globally", "params": {"query": "project, launch", "limit": 30}}
+
+// Partial word search (finds "project", "projects", etc.)
+{"tool": "search_messages_globally", "params": {"query": "proj", "limit": 20}}
 
 // Filtered by date and type
-{"tool": "search_messages", "params": {
-  "query": "project",
+{"tool": "search_messages_globally", "params": {
+  "query": "meeting",
   "chat_type": "private",
   "min_date": "2024-01-01"
 }}
 ```
 
-### 💬 send_or_edit_message
-**Send or edit messages with formatting**
+**❌ Common LLM Mistakes to Avoid:**
+```json
+// DON'T use wildcards - these won't work:
+{"tool": "search_messages_globally", "params": {"query": "proj*"}}  // ❌
+{"tool": "search_messages_globally", "params": {"query": "meet%"}}  // ❌
+
+// DON'T use regex - these won't work:
+{"tool": "search_messages_globally", "params": {"query": "^project"}}  // ❌
+{"tool": "search_messages_globally", "params": {"query": "deadline$"}}  // ❌
+
+// DO use simple terms instead:
+{"tool": "search_messages_globally", "params": {"query": "proj"}}      // ✅
+{"tool": "search_messages_globally", "params": {"query": "meet"}}      // ✅
+{"tool": "search_messages_globally", "params": {"query": "project"}}   // ✅
+{"tool": "search_messages_globally", "params": {"query": "deadline"}}  // ✅
+```
+
+### 📍 search_messages_in_chat
+**Search messages within a specific Telegram chat**
 
 ```typescript
-send_or_edit_message(
-  chat_id: str,                  // Target chat ID ('me', username, or numeric ID)
+search_messages_in_chat(
+  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
+  query?: str,                   // Search terms (optional, returns latest if omitted)
+  limit?: number = 50,          // Max results
+  min_date?: string,            // ISO date format
+  max_date?: string             // ISO date format
+)
+```
+
+**Examples:**
+```json
+// Search in specific chat
+{"tool": "search_messages_in_chat", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+
+// Get latest messages from Saved Messages (no query = latest messages)
+{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "limit": 10}}
+
+// Multi-term search in chat (comma-separated)
+{"tool": "search_messages_in_chat", "params": {"chat_id": "telegram", "query": "update, news"}}
+
+// Partial word search in chat
+{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "query": "proj"}}
+```
+
+**💡 Search Tips:**
+- **No query**: Returns latest messages from the chat
+- **Simple terms**: Use common words that appear in messages
+- **Multiple terms**: Use comma-separated words for broader results
+- **Partial words**: Use shorter forms to catch variations (e.g., "proj" finds "project", "projects")
+
+### 💬 send_message
+**Send new messages with formatting**
+
+```typescript
+send_message(
+  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
   message: str,                  // Message content
   reply_to_msg_id?: number,      // Reply to specific message
-  parse_mode?: 'markdown'|'html', // Text formatting
-  message_id?: number            // Edit existing message (omit for new)
+  parse_mode?: 'markdown'|'html' // Text formatting
 )
 ```
 
 **Examples:**
 ```json
 // Send new message
-{"tool": "send_or_edit_message", "params": {
+{"tool": "send_message", "params": {
   "chat_id": "me",
   "message": "Hello from AI! 🚀"
 }}
 
-// Edit existing message
-{"tool": "send_or_edit_message", "params": {
-  "chat_id": "-1001234567890",
-  "message": "Updated: Project deadline extended",
-  "message_id": 12345
-}}
-
 // Reply with formatting
-{"tool": "send_or_edit_message", "params": {
+{"tool": "send_message", "params": {
   "chat_id": "@username",
   "message": "*Important:* Meeting at 3 PM",
   "parse_mode": "markdown",
   "reply_to_msg_id": 67890
+}}
+```
+
+### ✏️ edit_message
+**Edit existing messages with formatting**
+
+```typescript
+edit_message(
+  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
+  message_id: number,            // Message ID to edit (required)
+  message: str,                  // New message content
+  parse_mode?: 'markdown'|'html' // Text formatting
+)
+```
+
+**Examples:**
+```json
+// Edit existing message
+{"tool": "edit_message", "params": {
+  "chat_id": "-1001234567890",
+  "message_id": 12345,
+  "message": "Updated: Project deadline extended"
+}}
+
+// Edit with formatting
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 67890,
+  "message": "*Updated:* Meeting rescheduled to 4 PM",
+  "parse_mode": "markdown"
 }}
 ```
 
@@ -427,16 +531,10 @@ send_or_edit_message(
 
 ```typescript
 read_messages(
-  chat_id: str,                  // Chat identifier ('me', username, or numeric ID)
+  chat_id: str,                  // Chat identifier (see Supported Chat ID Formats above)
   message_ids: number[]          // Array of message IDs to retrieve
 )
 ```
-
-**Supported chat formats:**
-- `'me'` - Saved Messages
-- `@username` - Username
-- `123456789` - User ID
-- `-1001234567890` - Channel ID
 
 **Examples:**
 ```json
@@ -490,7 +588,7 @@ search_contacts(
 
 ```typescript
 get_contact_details(
-  chat_id: str                  // User/channel identifier
+  chat_id: str                  // User/channel identifier (see Supported Chat ID Formats above)
 )
 ```
 

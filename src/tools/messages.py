@@ -12,7 +12,7 @@ from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_message_result, build_send_edit_result
 
 
-async def send_message(
+async def send_message_impl(
     chat_id: str,
     message: str,
     reply_to_msg_id: int | None = None,
@@ -71,7 +71,7 @@ async def send_message(
         )
 
 
-async def edit_message(
+async def edit_message_impl(
     chat_id: str, message_id: int, new_text: str, parse_mode: str | None = None
 ) -> dict[str, Any]:
     """

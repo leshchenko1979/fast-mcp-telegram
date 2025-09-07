@@ -1,11 +1,38 @@
 
 
 ## Current Work Focus
-**Primary**: **BEARER TOKEN AUTHENTICATION SYSTEM FULLY RESOLVED AND PRODUCTION VERIFIED** - Successfully identified and fixed the core issue where bearer tokens were not being properly extracted and processed by the `@with_auth_context` decorator, causing incorrect fallback to default sessions. **Production deployment confirmed working** with proper token extraction, session creation, and no fallback to default sessions.
+**Primary**: **TOOL SPLITTING IMPLEMENTATION COMPLETED** - Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. **Two major tool splits completed**: `search_messages` → `search_messages_globally` + `search_messages_in_chat`, and `send_or_edit_message` → `send_message` + `edit_message`. **Documentation updated** to reflect new tool structure.
 
-**Current Status**: **PRODUCTION AUTHENTICATION WORKING** - Bearer token authentication is now fully functional in production with `stateless_http=True` parameter enabling proper decorator execution. **Comprehensive test suite completed** with 55 passing tests covering all authentication scenarios. **VDS deployment and testing methodology established** for future debugging and validation.
+**Current Status**: **TOOL SPLITTING COMPLETE** - All ambiguous tools have been split into deterministic, single-purpose tools. **README.md updated** with new tool documentation. **Memory bank updated** to document the implementation. **Server tested and verified** working with new tool structure.
 
 ## Active Decisions and Considerations
+
+### Tool Splitting Implementation (2025-01-07)
+**Decision**: Implemented Item 1 from GitHub issue #1 to split ambiguous tools into single-purpose tools to eliminate LLM agent errors
+**Problem**: Original tools had conditional behavior that confused LLMs:
+- `search_messages`: Required `query` for global search, optional for per-chat search
+- `send_or_edit_message`: Used `message_id` parameter to determine send vs edit mode
+**Solution**: Split each ambiguous tool into two deterministic tools:
+- `search_messages` → `search_messages_globally` + `search_messages_in_chat`
+- `send_or_edit_message` → `send_message` + `edit_message`
+**Implementation**:
+- **Search Tools Split**: 
+  - `search_messages_globally`: Requires `query`, no `chat_id` parameter
+  - `search_messages_in_chat`: Requires `chat_id`, optional `query` parameter
+- **Message Tools Split**:
+  - `send_message`: No `message_id` parameter, supports `reply_to_msg_id`
+  - `edit_message`: Requires `message_id` parameter, no reply support
+- **Function Renaming**: Renamed implementation functions in `messages.py` to avoid conflicts:
+  - `send_message` → `send_message_impl`
+  - `edit_message` → `edit_message_impl`
+- **Documentation Cleanup**: Removed redundant second paragraphs from all split tool docstrings
+- **README Update**: Updated all tool documentation to reflect new split structure
+**Impact**:
+- **Eliminates Tool Overloading**: Each tool now has single, clear purpose
+- **Deterministic Behavior**: LLMs can choose correct tool based on intent
+- **Better Error Prevention**: Can't accidentally use wrong parameters for wrong operation
+- **Cleaner Documentation**: Focused, concise tool descriptions
+- **Production Ready**: All tools tested and verified working
 
 ### Bearer Token Authentication System Resolution (2025-01-04)
 **Decision**: Successfully identified and resolved the core bearer token authentication issue that was causing incorrect fallback to default sessions

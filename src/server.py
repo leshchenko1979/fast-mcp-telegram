@@ -29,9 +29,9 @@ from src.client.connection import (
 from src.config.logging import setup_logging
 from src.tools.contacts import get_contact_info, search_contacts_telegram
 from src.tools.messages import (
-    edit_message,
+    edit_message_impl,
     read_messages_by_ids,
-    send_message,
+    send_message_impl,
     send_message_to_phone_impl,
 )
 from src.tools.mtproto import invoke_mtproto_method
@@ -310,49 +310,49 @@ async def health_check(request):
 
 
 @mcp.tool()
-@with_error_handling("search_messages")
+@with_error_handling("search_messages_globally")
 @with_auth_context
-async def search_messages(
+async def search_messages_globally(
     query: str,
-    chat_id: str | None = None,
     limit: int = 50,
-    chat_type: str | None = None,
     min_date: str | None = None,
     max_date: str | None = None,
+    chat_type: str | None = None,
     auto_expand_batches: int = 2,
     include_total_count: bool = False,
 ):
     """
-    Search Telegram messages with advanced filtering.
-
-    MODES:
-    - Per-chat: Set chat_id + optional query (use 'me' for Saved Messages)
-    - Global: No chat_id + required query (searches all chats)
+    Search messages across all Telegram chats (global search).
 
     FEATURES:
     - Multiple queries: "term1, term2, term3"
     - Date filtering: ISO format (min_date="2024-01-01")
     - Chat type filter: "private", "group", "channel"
 
+    SEARCH LIMITATIONS:
+    - NO wildcards: "proj*", "meet%" won't work
+    - NO regex: "^project", "deadline$" won't work
+    - Use simple terms: "proj" finds "project", "projects"
+    - Case insensitive: "DEADLINE" finds "deadline"
+
     EXAMPLES:
-    search_messages(query="deadline", limit=20)  # Global search
-    search_messages(chat_id="me", limit=10)      # Saved Messages
-    search_messages(chat_id="-1001234567890", query="launch")  # Specific chat
+    search_messages_globally(query="deadline", limit=20)  # Global search
+    search_messages_globally(query="project, launch", limit=30)  # Multi-term search
+    search_messages_globally(query="proj", limit=20)  # Partial word search
 
     Args:
-        query: Search terms (comma-separated). Required for global search, optional for per-chat
-        chat_id: Target chat ID ('me' for Saved Messages) or None for global search
-        limit: Max results (recommended: ≤50)
-        chat_type: Filter by chat type ("private"/"group"/"channel")
-        min_date: Min date filter (ISO format: "2024-01-01")
-        max_date: Max date filter (ISO format: "2024-12-31")
-        auto_expand_batches: Extra result batches for filtered searches
-        include_total_count: Include total matching messages count (per-chat only)
+        query: Search terms (required). Comma-separated for multiple terms.
+        limit: Max results (default: 50)
+        min_date: Min date in YYYY-MM-DD format
+        max_date: Max date in YYYY-MM-DD format
+        chat_type: Filter by "private", "group", or "channel"
+        auto_expand_batches: Extra batches for filtered results
+        include_total_count: Include total count (ignored in global mode)
     """
     return await search_messages_impl(
-        query,
-        chat_id,
-        limit,
+        query=query,
+        chat_id=None,
+        limit=limit,
         min_date=min_date,
         max_date=max_date,
         chat_type=chat_type,
@@ -362,21 +362,69 @@ async def search_messages(
 
 
 @mcp.tool()
-@with_error_handling("send_or_edit_message")
+@with_error_handling("search_messages_in_chat")
 @with_auth_context
-async def send_or_edit_message(
+async def search_messages_in_chat(
+    chat_id: str,
+    query: str | None = None,
+    limit: int = 50,
+    min_date: str | None = None,
+    max_date: str | None = None,
+    auto_expand_batches: int = 2,
+    include_total_count: bool = False,
+):
+    """
+    Search messages within a specific Telegram chat.
+
+    FEATURES:
+    - Multiple queries: "term1, term2, term3"
+    - Date filtering: ISO format (min_date="2024-01-01")
+    - Total count support for per-chat searches
+
+    SEARCH LIMITATIONS:
+    - NO wildcards: "proj*", "meet%" won't work
+    - NO regex: "^project", "deadline$" won't work
+    - Use simple terms: "proj" finds "project", "projects"
+    - Case insensitive: "DEADLINE" finds "deadline"
+
+    EXAMPLES:
+    search_messages_in_chat(chat_id="me", limit=10)      # Latest messages (no query)
+    search_messages_in_chat(chat_id="-1001234567890", query="launch")  # Specific chat
+    search_messages_in_chat(chat_id="telegram", query="update, news")  # Multi-term search
+    search_messages_in_chat(chat_id="me", query="proj")  # Partial word search
+
+    Args:
+        chat_id: Target chat ('me', ID, username, or -100... channel ID)
+        query: Optional search term(s). If omitted, returns latest messages.
+        limit: Max results
+        min_date: Min date (YYYY-MM-DD)
+        max_date: Max date (YYYY-MM-DD)
+        auto_expand_batches: Extra batches for filtered results
+        include_total_count: Include total matching count
+    """
+    return await search_messages_impl(
+        query=query,
+        chat_id=chat_id,
+        limit=limit,
+        min_date=min_date,
+        max_date=max_date,
+        chat_type=None,  # Not supported in per-chat mode
+        auto_expand_batches=auto_expand_batches,
+        include_total_count=include_total_count,
+    )
+
+
+@mcp.tool()
+@with_error_handling("send_message")
+@with_auth_context
+async def send_message(
     chat_id: str,
     message: str,
     reply_to_msg_id: int | None = None,
     parse_mode: str | None = None,
-    message_id: int | None = None,
 ):
     """
-    Send new message or edit existing message in Telegram chat.
-
-    MODES:
-    - Send: message_id=None (default)
-    - Edit: message_id=<existing_message_id>
+    Send new message in Telegram chat.
 
     FORMATTING:
     - parse_mode=None: Plain text
@@ -384,21 +432,46 @@ async def send_or_edit_message(
     - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
 
     EXAMPLES:
-    send_or_edit_message(chat_id="me", message="Hello!")  # Send to Saved Messages
-    send_or_edit_message(chat_id="-1001234567890", message="Updated text", message_id=12345)  # Edit message
+    send_message(chat_id="me", message="Hello!")  # Send to Saved Messages
+    send_message(chat_id="-1001234567890", message="New message", reply_to_msg_id=12345)  # Reply to message
 
     Args:
         chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
-        message: Message text to send or new text for editing
-        reply_to_msg_id: Reply to specific message ID (send mode only)
+        message: Message text to send
+        reply_to_msg_id: Reply to specific message ID (optional)
         parse_mode: Text formatting ("markdown", "html", or None)
-        message_id: Message ID to edit (None = send new message)
     """
-    if message_id is not None:
-        # Edit existing message
-        return await edit_message(chat_id, message_id, message, parse_mode)
-    # Send new message
-    return await send_message(chat_id, message, reply_to_msg_id, parse_mode)
+    return await send_message_impl(chat_id, message, reply_to_msg_id, parse_mode)
+
+
+@mcp.tool()
+@with_error_handling("edit_message")
+@with_auth_context
+async def edit_message(
+    chat_id: str,
+    message_id: int,
+    message: str,
+    parse_mode: str | None = None,
+):
+    """
+    Edit existing message in Telegram chat.
+
+    FORMATTING:
+    - parse_mode=None: Plain text
+    - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
+    - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
+
+    EXAMPLES:
+    edit_message(chat_id="me", message_id=12345, message="Updated text")  # Edit Saved Messages
+    edit_message(chat_id="-1001234567890", message_id=67890, message="*Updated* message")  # Edit with formatting
+
+    Args:
+        chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
+        message_id: Message ID to edit (required)
+        message: New message text
+        parse_mode: Text formatting ("markdown", "html", or None)
+    """
+    return await edit_message_impl(chat_id, message_id, message, parse_mode)
 
 
 @mcp.tool()
