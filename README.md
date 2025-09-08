@@ -4,24 +4,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 
-<div align="center">
 
-# 🤖 Telegram MCP Server
+## 🌐 Demo
 
-**Production-ready AI integration with full Telegram API access and multi-user authentication**
+Open https://tg-mcp.redevest.ru/setup to begin the authentication flow
 
-</div>
+After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. 
 
----
-
-## 🌐 Live Demo (New)
-
-**Try the Telegram MCP server in your browser:**
-
-- **Start here**: Open https://tg-mcp.redevest.ru/setup to begin the authentication flow
-- **Flow**: Phone → Code/2FA → Config (auto-generated and downloadable)
-
-The demo keeps your Telegram session open until the authentication process is complete. After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. Use the config with your MCP client to check out this MCP server.
+Use the config with your MCP client to check out this MCP server.
 
 ---
 
