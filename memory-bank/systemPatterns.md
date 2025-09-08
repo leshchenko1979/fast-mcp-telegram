@@ -1,5 +1,4 @@
 
-
 ## Architecture Overview
 The fast-mcp-telegram system follows a modular MCP server architecture with clear separation of concerns:
 
@@ -24,8 +23,6 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Smart Defaults**: Host binding and authentication behavior based on server mode
 - **SetupConfig Class**: Dedicated setup configuration separate from server configuration
 - **Backward Compatibility**: settings.py imports from server_config for legacy support
-- **Environment Template**: Comprehensive .env.example with all configuration options and documentation
-- **Docker Integration**: Updated docker-compose.yml and deploy script for new configuration system
 
 ### 2. Authentication Architecture
 - **Token-Based Sessions**: Bearer tokens create isolated user sessions
@@ -41,7 +38,6 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **HTTP_AUTH Mode**: Production HTTP server (auth required)
 - **Transport Selection**: Automatic transport selection based on server mode
 - **Host Binding**: Smart defaults (127.0.0.1 for stdio, 0.0.0.0 for HTTP)
-- **Authentication Behavior**: Clear authentication requirements per mode
 
 ### 4. Search Architecture
 - **Dual Search Modes**: Global search vs per-chat search
@@ -58,12 +54,10 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ### 6. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
-- **Module Registration**: Tools registered via `src/server_components/tools_register.register_tools(mcp)`; server bootstraps only
+- **Module Registration**: Tools registered via `src/server_components/tools_register.register_tools(mcp)`
 - **Async Operations**: All Telegram operations are async for performance
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
 - **Literal Parameter Constraints**: Uses `typing.Literal` to constrain parameter values and guide LLM choices
-- **LLM Optimization**: `parse_mode` constrained to ["markdown", "html"], `chat_type` to ["private", "group", "channel"]
-- **Error Detection**: Server detects and surfaces structured error objects when present
 
 ### 7. Data Flow Patterns
 ```
@@ -111,16 +105,15 @@ Return unified result set
 - **Parallel Execution**: Support for concurrent test execution in CI/CD pipelines
 - **Mock Infrastructure**: Comprehensive mocking for external dependencies and APIs
 - **Async Testing**: Full async/await support for modern Python concurrency patterns
-- **CI/CD Integration**: Professional configuration optimized for automated testing workflows
 
 ### 12. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
-- Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
+- Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain
 - CORS: Permissive during development for Cursor compatibility
 - Sessions: Standard `~/.config/fast-mcp-telegram/` directory with automatic permission management
-- Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
- - Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
- - Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
+- Volume Mounting: Standard user config directory mounts
+- Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
+- Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
 
 ### 13. Logging Strategy
 - Loguru: File rotation + console with structured logging
@@ -149,29 +142,6 @@ Return unified result set
 - **Health Monitoring**: Container health checks and `/health` endpoint monitoring for system status
 - **Production Validation**: End-to-end testing with real Telegram API calls to confirm functionality
 - **Debugging Approach**: Systematic issue elimination through targeted testing and log analysis
-
-### 16. Authentication Testing Approaches
-- **Local Testing**: Comprehensive pytest test suite with 55 passing tests covering all authentication scenarios
-- **Mock Testing**: Extensive mocking of FastMCP decorators, HTTP headers, and authentication flows
-- **Integration Testing**: FastMCP decorator integration tests to verify decorator order and execution
-- **Production Testing**: Real VDS deployment with actual Telegram API calls and bearer token authentication
-- **Protocol Testing**: MCP protocol compliance testing with proper initialization and session management
-- **Header Testing**: HTTP header extraction and bearer token parsing validation
-- **Session Testing**: Token-specific session creation and management verification
-- **Fallback Testing**: Verification that no fallback to default sessions occurs when valid tokens are provided
-- **Error Testing**: Authentication error handling and structured error response validation
-- **Performance Testing**: Authentication flow performance and session cache management testing
-
-### 17. VDS Access and Testing Commands
-- **SSH Access**: `ssh root@<VDS_IP>` (using credentials from `.env` file)
-- **Deployment**: `./scripts/deploy-mcp.sh` (automated deployment with session management)
-- **Container Status**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose ps"`
-- **Container Logs**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose logs --tail=20 fast-mcp-telegram"`
-- **Traefik Logs**: `ssh root@<VDS_IP> "docker logs traefik --tail=10"`
-- **Session Files**: `ssh root@<VDS_IP> "ls -la /home/appuser/.config/fast-mcp-telegram/"`
-- **Health Check**: `curl -X GET "https://<DOMAIN>/health" --insecure`
-- **MCP Tool Call**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "Authorization: Bearer <token>" -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_contacts","arguments":{"query":"test"}}}' --insecure`
-- **MCP Initialize**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' --insecure`
 
 ## Critical Implementation Paths
 

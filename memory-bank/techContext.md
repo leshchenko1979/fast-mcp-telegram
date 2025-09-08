@@ -1,5 +1,4 @@
 
-
 ## Technologies Used
 
 ### Core Framework
@@ -62,8 +61,6 @@ tg_mcp/
 ├── .gitignore          # Git ignore patterns
 └── .dockerignore       # Docker build exclusions
 ```
-
-
 
 ### MCP Server Configuration (STDIO Mode - Development with Cursor IDE)
 ```json
@@ -164,12 +161,12 @@ DOMAIN=your-domain.com  # Domain for web setup and config generation
 
 ### Env
 - `.env` contains `API_ID`, `API_HASH`, `PHONE_NUMBER`, `VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`
-  - **Automatic Loading**: setup_telegram.py automatically loads .env files from the project directory
-  - **Seamless Authentication**: Users can create .env files and run setup without manual credential entry
-  - **Path Resolution**: Script searches for .env files relative to the project root directory
-  - **User Feedback**: Provides confirmation when .env file is successfully loaded
-  - On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`
-  - Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
+- **Automatic Loading**: setup_telegram.py automatically loads .env files from the project directory
+- **Seamless Authentication**: Users can create .env files and run setup without manual credential entry
+- **Path Resolution**: Script searches for .env files relative to the project root directory
+- **User Feedback**: Provides confirmation when .env file is successfully loaded
+- On server, compose uses `.env`; service env sets `MCP_TRANSPORT=http`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000`
+- Session files stored in persistent user config directory (~/.config/fast-mcp-telegram/) for cross-platform compatibility
 
 ### VDS Testing Environment
 - **Production Server**: VDS at `<VDS_IP>` with Traefik reverse proxy
@@ -181,16 +178,12 @@ DOMAIN=your-domain.com  # Domain for web setup and config generation
 - **Health Monitoring**: Container health checks and `/health` endpoint monitoring
 - **Traefik Integration**: Domain routing, SSL termination, and load balancing
 
-### VDS Testing Commands and Approaches
+### VDS Testing Commands
 - **SSH Access**: `ssh root@<VDS_IP>` (credentials from `.env` file)
 - **Deployment**: `./scripts/deploy-mcp.sh` (automated with session management)
 - **Container Status**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose ps"`
 - **Container Logs**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose logs --tail=20 fast-mcp-telegram"`
-- **Traefik Logs**: `ssh root@<VDS_IP> "docker logs traefik --tail=10"`
-- **Session Files**: `ssh root@<VDS_IP> "ls -la /home/appuser/.config/fast-mcp-telegram/"`
 - **Health Check**: `curl -X GET "https://<DOMAIN>/health" --insecure`
-- **MCP Tool Call**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -H "Authorization: Bearer <token>" -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_contacts","arguments":{"query":"test"}}}' --insecure`
-- **MCP Initialize**: `curl -X POST "https://<DOMAIN>/mcp" -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test-client","version":"1.0.0"}}}' --insecure`
 
 ## Technical Constraints
 
@@ -238,44 +231,15 @@ from src.tools.contacts import get_contact_info, search_contacts_telegram
 ## Logging Configuration
 
 ### Logging Architecture
-```python
-# Loguru + stdlib bridge configuration
-- Loguru for advanced formatting and features
-- InterceptHandler bridges stdlib loggers to Loguru
-- Emitter metadata tracking (logger/module/function/line)
-- Module-level log level control for spam reduction
-```
+- **Loguru + stdlib bridge**: Advanced formatting and features
+- **InterceptHandler**: Bridges stdlib loggers to Loguru
+- **Emitter metadata tracking**: logger/module/function/line
+- **Module-level log level control**: For spam reduction
 
 ### Spam Reduction Strategy
-```python
-# Module-level filtering (src/config/logging.py)
-telethon_root = logging.getLogger("telethon")
-telethon_root.setLevel(logging.DEBUG)  # Keep important logs
-
-# Noisy submodules set to INFO level
-noisy_modules = [
-    "telethon.network.mtprotosender",   # _send_loop, _recv_loop, _handle_update
-    "telethon.extensions.messagepacker", # packing/debug spam
-    "telethon.network",                 # other network internals
-]
-for name in noisy_modules:
-    logging.getLogger(name).setLevel(logging.INFO)
-```
-
-### Log Format
-```python
-# File format with emitter tracking
-format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
-
-# Console format (shorter time)
-format="{time:HH:mm:ss.SSS} | {level:<8} | {extra[emitter_logger]}:{extra[emitter_module]}:{extra[emitter_func]}:{extra[emitter_line]} - {message}"
-```
-
-### Performance Impact
-- **Before**: 9,000+ DEBUG messages per session, 924KB log files
-- **After**: ~16 lines per session, 0 spam phrases
-- **Preserved**: Connection, error, and important operation messages
-- **Maintained**: Full debugging capability for application code
+- **Telethon root logger**: Set to DEBUG for important logs
+- **Noisy submodules**: Set to INFO level (mtprotosender, messagepacker, network)
+- **Performance Impact**: Reduced from 9,000+ to ~16 lines per session
 
 ## Tool Usage Patterns
 
@@ -293,37 +257,6 @@ async def search_messages(
 )
 ```
 
-### Multi-Query Search Implementation
-```python
-# Query normalization
-queries: List[str] = [q.strip() for q in query.split(',') if q.strip()] if query else []
-
-# Parallel execution for per-chat search
-search_tasks = [
-    _search_chat_messages(client, entity, (q or ""), limit, chat_type, auto_expand_batches)
-    for q in queries
-]
-all_partial_results = await asyncio.gather(*search_tasks)
-
-# Parallel execution for global search
-search_tasks = [
-    _search_global_messages(client, q, limit, min_datetime, max_datetime, chat_type, auto_expand_batches)
-    for q in queries if q and str(q).strip()
-]
-all_partial_results = await asyncio.gather(*search_tasks)
-```
-
-### Message Tool Parameters
-```python
-async def send_or_edit_message(
-    chat_id: str,                  # Target chat ID
-    message: str,                  # Message text
-    reply_to_msg_id: int = None,   # Reply to specific message (only for sending)
-    parse_mode: str = None,        # Formatting mode (None, 'md', 'html')
-    message_id: int = None,        # Message ID to edit (if provided, edits instead of sending)
-)
-```
-
 ### Key Usage Scenarios
 1. **Per-chat Search**: `chat_id` provided, `query` optional
 2. **Global Search**: `chat_id` not provided, `query` required
@@ -335,18 +268,6 @@ async def send_or_edit_message(
 8. **Message Editing**: Use `message_id` parameter to edit existing messages
 9. **Direct Message Reading**: Use `read_messages` to get specific messages by ID
 10. **Search with Count**: Use `include_total_count=True` in search_messages for per-chat searches
-
-### Multi-Query Search Examples
-```python
-# Multiple terms in single query
-search_messages(query="deadline, due date", limit=30)
-
-# Russian terms
-search_messages(query="рынок складов, складская недвижимость, warehouse market", limit=50)
-
-# Per-chat multi-query
-search_messages(chat_id="-1001234567890", query="launch, release notes")
-```
 
 ### Performance Considerations
 - **Search Limit**: Default limit is 50 results to prevent LLM context window overflow
@@ -364,87 +285,6 @@ search_messages(chat_id="-1001234567890", query="launch, release notes")
 - **Performance Impact**: Large result sets can cause context overflow and incomplete processing
 - **Multi-Query Efficiency**: Use comma-separated terms for related searches to get unified results
 
-## LLM Optimization Improvements
-
-### Tool Description Optimization (2025-09-01)
-- **Problem**: Original tool descriptions were verbose and not optimized for LLM consumption
-- **Solution**: Completely rewrote all tool descriptions to be concise yet comprehensive
-- **Improvements**:
-  - Reduced description length by ~75% while maintaining comprehensiveness
-  - Added structured sections (MODES, FEATURES, EXAMPLES, Args)
-  - Made examples immediately usable by LLMs
-  - Consistent formatting across all tools
-  - Clear parameter documentation with defaults
-
-### .env File Auto-loading (2025-09-02)
-- **Enhancement**: Added automatic .env file loading to setup_telegram.py
-- **Purpose**: Seamless authentication without manual credential entry
-- **Implementation**:
-  - Script automatically searches for .env file in project directory
-  - Loads environment variables before prompting for credentials
-  - Provides user feedback when .env file is successfully loaded
-  - Falls back gracefully if no .env file exists
-- **Benefits**:
-  - Simplified setup process for users with existing .env files
-  - Eliminates manual credential copying during setup
-  - Maintains security by not storing credentials in version control
-  - Provides clear feedback about configuration loading status
-
-### 'me' Identifier Support (2025-09-01)
-- **Enhancement**: Added special handling for 'me' identifier in `get_entity_by_id()` function
-- **Purpose**: Direct access to Saved Messages using `chat_id='me'` instead of numeric user ID
-- **Benefits**:
-  - More reliable Saved Messages access
-  - Consistent with Telegram API conventions
-  - Works for both reading and searching operations
-  - Fallback support for numeric user IDs still available
-
-### Error Logging Improvements (2025-09-01)
-- **Enhancement**: Improved error logging for message access failures
-- **Changes**:
-  - Added detailed warning logs when individual messages are not found
-  - Includes request ID, message ID, and chat ID for debugging
-  - Proper diagnostic information formatting
-  - Better traceability for troubleshooting
-
-### Consistent Error Handling Pattern (2025-09-01)
-- **Problem**: Mixed error handling patterns across tools (some raised exceptions, others returned None or empty results)
-- **Solution**: Unified structured error response format across all tools
-- **Format**: `{"ok": false, "error": "message", "operation": "name", "params": {...}}`
-- **Implementation**:
-  - `get_contact_details`: Returns errors for non-existent contacts
-  - `search_contacts`: Returns errors instead of empty lists for no results
-  - `search_messages`: Returns errors instead of empty message arrays for no results
-  - `read_messages`, `invoke_mtproto`: Already returned structured errors
-- **Benefits**:
-  - Predictable API responses for all operations
-  - Better LLM compatibility with structured error handling
-  - Improved debugging with request IDs and operation context
-  - Consistent error detection pattern across server.py
-  - No more None returns, empty result confusion, or exception propagation to MCP layer
-
-### Tool Description Format Standards
-```python
-"""
-TOOL_NAME: Brief description of functionality.
-
-MODES/FORMATS:
-- Key: Value pairs for different operation modes
-- Format: Supported input formats
-- Type: Different operation types
-
-FEATURES/USAGE:
-- Key capability: Brief description
-- Usage pattern: How to use effectively
-
-EXAMPLES:
-Inline JSON examples showing real usage patterns
-
-Args:
-parameter_name: Description with defaults and constraints
-"""
-```
-
 ## Development Workflow
 
 ### Testing
@@ -457,7 +297,7 @@ parameter_name: Description with defaults and constraints
 - **HTTP Server**: For testing with HTTP transport
 - **Production**: MCP server runs as part of Cursor IDE
 
-## Technical Constraints and Limitations
+## Technical Constraints
 
 ### Telegram API Limitations
 - **Rate Limiting**: API calls are subject to Telegram's rate limits
@@ -469,30 +309,10 @@ parameter_name: Description with defaults and constraints
 - **Tool Registration**: All tools must be properly registered with FastMCP
 - **Async Operations**: All Telegram operations must be async
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
-- **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in responses
 - **Documentation**: Tool descriptions must be clear for AI model consumption
-
-### Multi-Query Implementation Constraints
-- **Input Format**: Must use comma-separated string format for multiple queries
-- **Deduplication**: Based on (chat.id, message.id) tuples for uniqueness
-- **Pagination**: Applied after all queries complete and results are merged
-- **Performance**: Parallel execution improves efficiency but may hit rate limits with many queries
-
-### Logging Constraints
-- **Spam Control**: Must balance debugging visibility with log readability
-- **Module Filtering**: Requires understanding of Telethon's internal module structure
-- **Emitter Tracking**: Need to preserve original logger metadata for debugging
-- **Performance**: Logging overhead must not impact search performance
-
-### Error Handling Constraints
-- **Structured Responses**: All tools return `{"ok": false, "error": "message", ...}` instead of raising exceptions
-- **Consistent Format**: Error responses include `operation` and `params` fields
-- **Server Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
-- **Graceful Degradation**: Tools handle errors internally rather than propagating exceptions
 
 ### FastMCP Authentication Constraints
 - **Critical Parameter**: `stateless_http=True` is **REQUIRED** for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode
 - **Decorator Order**: `@with_auth_context` must be the innermost decorator on all tool functions
 - **HTTP Transport**: Authentication middleware only works correctly with `stateless_http=True` parameter
 - **Production Requirement**: Without this parameter, authentication decorators are bypassed, causing fallback to default sessions
-- **Deprecation Warning**: Despite deprecation warning, this parameter is essential for authentication functionality

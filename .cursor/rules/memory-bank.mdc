@@ -74,12 +74,17 @@ Create additional files/folders within memory-bank/ when they help organize:
 
 ## File Content Guidelines
 
+### File Size Limits
+- **Maximum 300 lines per memory bank file** - Enforced strictly
+- **Automatic cleanup required** when files exceed limit
+
 ### Content Boundaries
-- **activeContext.md**: Keep under 50 lines, focus on current work only
-- **progress.md**: Focus on status, not detailed change tracking
-- **systemPatterns.md**: Architecture and patterns, not implementation details
-- **techContext.md**: Technical setup and constraints, not current work
-- **productContext.md**: Product vision and user experience, not technical details
+- **projectbrief.md**: What the project is and what it should accomplish (foundation & scope)
+- **productContext.md**: Product vision, user needs, and experience design (why & how)
+- **activeContext.md**: Current work focus (1-2 main items), active decisions, important patterns, next steps (3-5 items max)
+- **systemPatterns.md**: System architecture, key technical decisions, design patterns, component relationships
+- **techContext.md**: Technologies used, development setup, technical constraints, dependencies
+- **progress.md**: What works, what's left to build, known issues, evolution of decisions
 
 ### Anti-Patterns to Avoid
 - ❌ Duplicating information across multiple files
@@ -87,6 +92,8 @@ Create additional files/folders within memory-bank/ when they help organize:
 - ❌ Including detailed change history in progress.md
 - ❌ Mixing current work with architectural decisions
 - ❌ Over-documenting completed work in activeContext.md
+- ❌ Excessive completion markers and status tags
+- ❌ Redundant implementation details across files
 
 ### Logging and Documentation Rules
 - **NO Future Plans**: Don't make future plans in any memory bank files unless directly asked by user
@@ -143,6 +150,20 @@ flowchart TD
 - **systemPatterns.md**: Update when architecture or design patterns evolve
 - **techContext.md**: Update when technical setup or constraints change
 - **productContext.md**: Update when product vision or user experience goals change
+
+## Enforcement Rules
+
+### File Size Enforcement
+- **Automatic Review**: Check file sizes before any memory bank updates
+- **Cleanup Required**: If any file exceeds 300 lines, immediate cleanup is required
+- **Content Focus**: Ensure each file stays within its defined area of responsibility
+
+### VDS Operating Patterns (Preserve)
+- **VDS Testing Methodology**: SSH access, deployment process, container management, authentication testing
+- **Production Validation**: Real Telegram API calls, log analysis, session file management
+- **Traefik Integration**: Domain routing, SSL certificate management
+- **Health Monitoring**: Container health checks and endpoint monitoring
+- **Debugging Approach**: Systematic issue elimination through targeted testing
 
 Note: When triggered by **update memory bank**, I MUST review every memory bank file, even if some don't require updates. Focus particularly on activeContext.md and progress.md as they track current state.
 

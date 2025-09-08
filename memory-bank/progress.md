@@ -1,4 +1,3 @@
-
 ## What Works (Functional Status)
 
 ### Core Functionality ✅
@@ -25,16 +24,16 @@
 - **Config Generation**: Runtime `DOMAIN` with auto-download of `mcp.json`
 - **Setup Session Cleanup**: TTL-based opportunistic cleanup for temporary setup sessions
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
-- **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance (2025-01-07)
- - **Server Module Split**: Moved routes/tools out of `src/server.py` into `server/routes_setup.py` and `server/tools_register.py` (2025-09-08)
+- **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance
+- **Server Module Split**: Moved routes/tools out of `src/server.py` into `server/routes_setup.py` and `server/tools_register.py`
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
 - **Cursor Integration**: Verified working with Cursor IDE
 - **Production Deployment**: VDS deployment with Traefik and TLS
 - **Environment Management**: Proper credential handling and session management
-- **UV Migration**: Complete migration from pip to uv with multi-stage Docker builds
-- **Dependency Locking**: uv.lock provides reproducible builds and faster deployments
+- **Dependency Management**: setuptools with pyproject.toml for package management
+- **Session Persistence**: Zero-downtime deployments with automatic session backup/restore
 
 ## What's Left to Build (Remaining Work)
 
@@ -65,27 +64,11 @@
 - **Comprehensive Test Suite**: Built extensive test coverage with 55 passing tests covering bearer token determination, decorator order, FastMCP integration, and authentication scenarios (2025-01-04)
 - **Production Authentication Verification**: Bearer token authentication confirmed working in production with proper token extraction, session creation, and no fallback to default sessions (2025-01-04)
 - **VDS Testing Methodology**: Established comprehensive approach for production authentication testing and debugging using VDS deployment (2025-01-04)
-- **Test Infrastructure Cleanup**: Removed failing tests that were testing actual Telegram API calls with invalid tokens, focusing on core authentication logic (2025-01-04)
-- **Production Logging Verification**: Confirmed authentication logs appear in production: "Bearer token extracted for request" and "Created new session for token" (2025-01-04)
 - **Professional Testing Infrastructure**: Implemented comprehensive pytest-based testing framework with organized test structure and modern development practices (2025-09-04)
-- **Test Structure Organization**: Created scalable `tests/` directory with logical test file separation and shared fixtures (2025-09-04)
-- **Pytest Configuration**: Added comprehensive pytest configuration to pyproject.toml with coverage and parallel execution support (2025-09-04)
-- **Docker Optimization**: Enhanced .dockerignore for comprehensive build optimization and faster container builds (2025-09-04)
-- **CI/CD Ready**: Implemented pytest features for automated testing including parallel execution and coverage reporting (2025-09-04)
 - **Logging System Refactoring**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between logging.py and error_handling.py (2025-12-19)
 - **Logging System Optimization**: Comprehensive improvements including request ID removal, parameter sanitization, and structured error logging (2025-09-04)
-- **Request ID Overhead**: Complete removal of request ID generation, variables, and references throughout codebase for better performance (2025-09-04)
-- **Parameter Security**: Implemented phone number masking, content truncation, and size limits for secure logging (2025-09-04)
-- **Error Structure Simplification**: Flattened error logging from nested diagnostic_info to direct field access for easier querying (2025-09-04)
-- **Logging Spam**: Fixed with module-level filtering (reduced from 9,000+ to ~16 lines per session)
-- **Media Serialization**: Resolved with LLM-optimized placeholders
-- **Multi-Query Format**: Simplified from JSON arrays to comma-separated strings
-- **Connection Reliability**: Improved with automatic reconnection logic
-- **Phone Messaging**: Added capability to send messages to phone numbers not in contacts
-- **Setuptools Migration**: Return to setuptools for standard Python package management
 - **Memory Bank Documentation**: Added comprehensive Memory Bank system documentation to CONTRIBUTING.md as recommended best practice for AI-assisted development, including Cursor IDE integration guidance
-- **Deploy Script**: Fixed file transfer issues and improved error handling for setuptools-based deployments
-- **Setup Import Error**: Fixed ModuleNotFoundError in setup_telegram console script by moving setup code into src package (2025-08-26)
+- **Setuptools Migration**: Return to setuptools for standard Python package management
 - **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
 - **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
 - **Error Logging**: Enhanced error logging for message access failures with detailed diagnostics (2025-09-01)
@@ -94,18 +77,13 @@
 - **Pre-commit Hooks**: Removed automated hooks, simplified to manual Ruff formatting (2025-09-01)
 - **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
 - **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
-- **search_messages Consistency**: Updated to return error responses instead of empty lists when no messages found (2025-09-01)
 - **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
 - **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
 - **Docker Setup Workflow**: Updated to reflect that server shutdown is NOT required during Telegram authentication setup - new tokens and sessions are created by default (2025-01-04)
 - **Volume Mount Conflicts**: Identified and resolved Docker volume mount issues causing directory vs file conflicts in session file handling (2025-09-01)
-- **Documentation Updates**: Updated README.md with comprehensive troubleshooting section covering session file issues, volume mount conflicts, and proper Docker setup workflow (2025-09-01)
 - **Simplified Docker Setup**: Implemented Docker Compose profiles to reduce authentication from 6 steps to 2 steps using `docker compose --profile setup run --rm setup` (2025-09-01)
 - **Enhanced Setup Script**: Improved setup_telegram.py with better session conflict handling, command-line options, and interactive prompts (2025-09-01)
 - **Security Documentation**: Added comprehensive security considerations section with critical warnings about Telegram account access risks (2025-09-01)
-- **README Streamlining**: Removed troubleshooting section, added Table of Contents, and reorganized content for better user experience (2025-09-01)
-- **Container Isolation**: Solved Docker volume mount conflicts using isolated container approach instead of complex manual file operations (2025-09-01)
-- **Production-Ready Documentation**: Created complete, professional documentation with security warnings, clear setup instructions, and troubleshooting guidance (2025-09-01)
 - **Streamlined Session Management**: Implemented streamlined session file architecture using `~/.config/fast-mcp-telegram/` for cross-platform compatibility (2025-09-01)
 - **Enhanced Deployment Script**: Added comprehensive session file backup/restore, permission auto-fixing, and macOS resource fork cleanup (2025-09-01)
 - **Git Integration**: Updated .gitignore to properly handle sessions directory while maintaining structure with .gitkeep (2025-09-01)
@@ -147,6 +125,7 @@
 2. **UV Migration**: Migrated to uv for faster installs and better caching
 3. **Multi-stage Docker**: Implemented uv-based multi-stage builds for optimized images
 4. **Locked Dependencies**: uv.lock provides reproducible builds and faster deployments
+5. **Setuptools Return**: Returned to setuptools for standard Python package management
 
 ### Media Handling Evolution
 1. **Raw Objects**: Initially returned raw Telethon media objects
@@ -167,3 +146,4 @@
 3. **Version Bump Script**: Created script to update both files simultaneously
 4. **Dynamic Reading**: Implemented automatic reading from pyproject.toml using tomllib/tomli
 5. **Single Source**: Now only pyproject.toml needs updating, settings.py reads dynamically
+6. **Direct Import**: Simplified to direct import from `src/_version.py` for better maintainability
