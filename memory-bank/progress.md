@@ -25,6 +25,7 @@
 - **Setup Session Cleanup**: TTL-based opportunistic cleanup for temporary setup sessions
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
 - **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance (2025-01-07)
+ - **Server Module Split**: Moved routes/tools out of `src/server.py` into `server/routes_setup.py` and `server/tools_register.py` (2025-09-08)
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -53,6 +54,7 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Server Entrypoint Slimming**: `src/server.py` now registers routes (`register_routes`) and tools (`register_tools`) on startup; tool and route logic moved to dedicated modules (2025-09-08)
 - **Tool Splitting Implementation**: Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. Split `search_messages` into `search_messages_globally` and `search_messages_in_chat`, and `send_or_edit_message` into `send_message` and `edit_message`. Updated documentation and memory bank accordingly (2025-01-07)
 - **Bearer Token Authentication System**: Successfully identified and resolved the core authentication issue where bearer tokens were not being properly extracted and processed, causing incorrect fallback to default sessions (2025-01-04)
 - **Critical FastMCP Parameter Discovery**: Discovered that `stateless_http=True` parameter is essential for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode (2025-01-04)

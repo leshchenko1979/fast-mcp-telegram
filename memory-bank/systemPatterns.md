@@ -8,11 +8,11 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 │   MCP Client    │    │   FastMCP       │    │   Telegram API  │
 │   (AI Model)    │◄──►│   Server        │◄──►│   (Telethon)    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                              │
-                       ┌─────────────────┐
-                       │   Tool Modules  │
-                       │   (search, etc) │
-                       └─────────────────┘
+                             │
+                      ┌─────────────────┐
+                      │   Tool Modules  │
+                      │   (search, etc) │
+                      └─────────────────┘
 ```
 
 ## Key Technical Decisions
@@ -40,13 +40,12 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ### 4. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
+- **Module Registration**: Tools registered via `src/server_components/tools_register.register_tools(mcp)`; server bootstraps only
 - **Async Operations**: All Telegram operations are async for performance
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
-- **Request Tracking**: Unique request IDs for debugging and correlation
-- **Parameter Flexibility**: Tools support optional parameters with sensible defaults
 - **Literal Parameter Constraints**: Uses `typing.Literal` to constrain parameter values and guide LLM choices
-- **LLM Optimization**: `parse_mode` constrained to `["markdown", "html"]`, `chat_type` to `["private", "group", "channel"]`
-- **Error Detection**: server.py checks for `{"ok": false, ...}` pattern in tool responses
+- **LLM Optimization**: `parse_mode` constrained to ["markdown", "html"], `chat_type` to ["private", "group", "channel"]
+- **Error Detection**: Server detects and surfaces structured error objects when present
 
 ### 5. Data Flow Patterns
 ```
@@ -193,7 +192,10 @@ else:
 ## Component Relationships
 
 ### Core Modules
-- **server.py**: MCP server entry point, tool registration, and `/health` endpoint for session monitoring
+- **server.py**: MCP server entry point; registers routes and tools on startup
+- **server_components/routes_health.py**: Health endpoint registrar; `register_health_routes(mcp)`
+- **server_components/routes_web_setup.py**: Web setup routes registrar; `register_web_setup_routes(mcp)`
+- **server_components/tools_register.py**: Tool registrar; `register_tools(mcp)`
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management with token-based sessions and LRU cache
 - **utils/entity.py**: Entity resolution and formatting
@@ -250,40 +252,7 @@ else:
 - **Modular Design**: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management, `logging.py` for configuration
 - **Zero Redundancy**: Single source of truth for all logging operations with no code duplication between modules
 - **Enhanced Capabilities**: Operation tracking with consistent parameter sanitization and metadata enhancement
-- **Consistent Parameter Handling**: All logging uses consistent `"params"` key with automatic sanitization and metadata enhancement
+- **Consistent Parameter Handling**: All logging uses consistent "params" key with automatic sanitization and metadata enhancement
 - **Security-First**: Phone numbers masked, messages >100 chars truncated, large values >500 chars truncated
 - **Performance-Aware**: Efficient parameter processing with no cross-module dependencies or circular imports
 - **Standardized Structure**: All parameter dictionaries include helpful derived information (message_length, has_reply, etc.)
-
-## Critical Implementation Details
-
-### Search Query Handling
-- **Empty Query + chat_id**: Returns all messages from chat
-- **Non-empty Query + chat_id**: Searches for query within specific chat
-- **Non-empty Query + no chat_id**: Global search across all chats
-- **Empty Query + no chat_id**: Invalid (throws error)
-- **Multi-term Query**: Comma-separated terms processed in parallel
-
-### Multi-Query Processing
-- **Input Parsing**: Split comma-separated string into individual terms
-- **Parallel Execution**: Use asyncio.gather() for simultaneous searches
-- **Deduplication**: Use set of (chat.id, message.id) tuples
-- **Result Merging**: Collect results from all queries before pagination
-
-### Entity Resolution
-- Supports username, numeric ID, and channel ID formats
-- Automatic conversion between different ID formats
-- Error handling for invalid entities
-
-### Result Formatting
-- Consistent JSON structure across all tools
-- Optional fields for media, forwards, replies
-- Link generation for direct message access
-
-### Shared Utilities (DRY)
-- `src/utils/logging_utils.py`: `log_operation_start`, `log_operation_success`, `log_operation_error`
-- `src/utils/error_handling.py`: `sanitize_params_for_logging`, `add_logging_metadata`, `_log_at_level`, `log_and_build_error`
-- `src/utils/message_format.py`: `build_message_result`, `get_sender_info`, `build_send_edit_result`
-- `src/utils/entity.py`: `compute_entity_identifier`
-- `src/config/logging.py`: `format_diagnostic_info`
-These utilities are organized by responsibility: logging operations in `logging_utils.py`, error handling in `error_handling.py`, message formatting in `message_format.py`, and logging configuration in `logging.py`. This eliminates redundancy and provides clear separation of concerns across all modules.

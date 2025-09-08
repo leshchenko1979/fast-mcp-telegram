@@ -1,7 +1,7 @@
 
 
 ## Current Work Focus
-**Primary**: Web setup interface with HTMX is implemented and integrated. Browser flow: `/setup` → phone → code/2FA → config (success step skipped). Sessions stay open until completion; temporary setup sessions are TTL-cleaned.
+**Primary**: Server module split completed. `src/server.py` now only bootstraps, while routes and tools are registered from dedicated modules. Web setup interface with HTMX remains integrated.
 
 **Current Status**: Phase 1–4 complete for web setup. README updated with prominent live demo (`tg-mcp.redevest.ru`) and `/setup` entry point. Memory bank reflects session TTL cleanup and DOMAIN-based config generation.
 
@@ -19,6 +19,17 @@
 **Impact**:
 - Usable demo over web
 - Cleaner UX with fewer steps and auto-download
+
+### Server Module Split (2025-09-08)
+**Decision**: Move HTTP routes and MCP tools out of `src/server.py` into dedicated modules
+**Implementation**:
+- Routes: `src/server/routes_setup.py` with `register_routes(mcp)`
+- Tools: `src/server/tools_register.py` with `register_tools(mcp)`
+- Auth/Error decorators: `src/server/auth.py`, `src/server/errors.py`
+- Startup hook in `src/server.py` calls both registrars
+**Impact**:
+- Slimmer entrypoint, clearer responsibilities
+- Easier maintenance and testing of tools and routes
 
 ### Literal Parameter Implementation (2025-01-07)
 **Decision**: Implemented `typing.Literal` parameter constraints to guide LLM choices and improve input validation

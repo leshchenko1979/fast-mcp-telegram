@@ -64,7 +64,7 @@ async def _execute_parallel_searches(
             break
 
 
-async def search_messages(
+async def search_messages_impl(
     query: str,
     chat_id: str | None = None,
     limit: int = 20,
