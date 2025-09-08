@@ -17,7 +17,7 @@ from typing import Literal
 from fastmcp import FastMCP
 from loguru import logger
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.templating import Jinja2Templates
 
 # Add the project root to Python path for imports
@@ -465,6 +465,98 @@ async def setup_2fa(request: Request):
             "fragments/2fa_form.html",
             {"setup_id": setup_id, "error": f"2FA failed: {e}"},
         )
+
+
+# =============================================================================
+# SETUP WEB UI (PHASE 3)
+# =============================================================================
+
+
+def _generate_mcp_config_json(domain: str, token: str) -> str:
+    config = {
+        "mcpServers": {
+            "telegram": {
+                "url": f"https://{domain}/mcp",
+                "headers": {
+                    "Authorization": f"Bearer {token}",
+                },
+            }
+        }
+    }
+    return json.dumps(config, indent=2)
+
+
+@mcp.custom_route("/setup/generate", methods=["POST"])
+async def setup_generate(request: Request):
+    """Finalize auth: generate token, move session file, and show config JSON."""
+    form = await request.form()
+    setup_id = str(form.get("setup_id", "")).strip()
+
+    if not setup_id or setup_id not in _setup_sessions:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid setup session."}, status_code=400
+        )
+
+    state = _setup_sessions[setup_id]
+    if not state.get("authorized"):
+        return JSONResponse(
+            {"ok": False, "error": "Not authorized yet."}, status_code=400
+        )
+
+    client = state.get("client")
+    temp_session_path = state.get("session_path")
+
+    # Generate token and rename session file to token-based session
+    token = generate_bearer_token()
+    from pathlib import Path
+
+    src = Path(temp_session_path)
+    dst = SESSION_DIR / f"{token}.session"
+
+    try:
+        # Ensure any pending session writes are flushed
+        await client.send_read_acknowledge(None)  # safe no-op to touch session
+    except Exception:
+        pass
+
+    try:
+        # Close the temp client after successful auth; the session file is now valid
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
+
+        if src.exists():
+            src.rename(dst)
+    except Exception as e:
+        return JSONResponse(
+            {"ok": False, "error": f"Failed to persist session: {e}"}, status_code=500
+        )
+
+    # Build config JSON using DOMAIN env (fallback to localhost for dev)
+    domain = os.getenv("DOMAIN", "localhost")
+    config_json = _generate_mcp_config_json(domain, token)
+
+    # Save token into state for potential follow-up
+    state["token"] = token
+    state["final_session_path"] = str(dst)
+
+    return templates.TemplateResponse(
+        request,
+        "fragments/config.html",
+        {"setup_id": setup_id, "token": token, "config_json": config_json},
+    )
+
+
+@mcp.custom_route("/download-config/{token}", methods=["GET"])
+async def download_config(request: Request):
+    token = request.path_params.get("token")
+    domain = os.getenv("DOMAIN", "localhost")
+    config_json = _generate_mcp_config_json(domain, token)
+    headers = {"Content-Disposition": "attachment; filename=mcp.json"}
+    return PlainTextResponse(
+        config_json, media_type="application/json", headers=headers
+    )
 
 
 # =============================================================================

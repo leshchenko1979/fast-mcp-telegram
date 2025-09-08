@@ -155,22 +155,11 @@ POST /setup/2fa      → returns success.html fragment
   - Production-ready deployment
   - Comprehensive testing
 
-- **Technical Details**:
-
-```dockerfile
-# Add template files to Docker image
-COPY templates/ ./templates/
-
-# Ensure Jinja2 is installed
-RUN pip install jinja2
-```
-
 - **Implementation Steps**:
-  - Update `pyproject.toml` with Jinja2 dependency
-  - Modify `Dockerfile` to include template files
   - Ensure web routes coexist with MCP tools
   - Add health check validation for web interface
   - Test complete flow in Docker environment
+  - Clean up any intermediate output from the web forms pertaining to testing and development internals
 
 - **Quality Assurance**:
   - End-to-end authentication flow testing
