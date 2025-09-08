@@ -7,11 +7,9 @@
 
 ## 🌐 Demo
 
-Open https://tg-mcp.redevest.ru/setup to begin the authentication flow
-
-After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. 
-
-Use the config with your MCP client to check out this MCP server.
+1. Open https://tg-mcp.redevest.ru/setup to begin the authentication flow.
+2. After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. 
+3. Use the config with your MCP client to check out this MCP server capabilities.
 
 ---
 
@@ -73,11 +71,11 @@ Use the config with your MCP client to check out this MCP server.
 
 The MCP server supports three distinct operation modes:
 
-|| Mode | Transport | Authentication | Use Case |
-||------|----------|----------------|----------|
-|| **STDIO** | stdio | Disabled | Development with Cursor IDE |
-|| **HTTP_NO_AUTH** | HTTP | Disabled | Development HTTP server |
-|| **HTTP_AUTH** | HTTP | Required (Bearer token) | Production deployment |
+| Mode | Transport | Authentication | Use Case |
+|------|----------|----------------|----------|
+| **STDIO** | stdio | Disabled | Development with Cursor IDE |
+| **HTTP_NO_AUTH** | HTTP | Disabled | Development HTTP server |
+| **HTTP_AUTH** | HTTP | Required (Bearer token) | Production deployment |
 
 ---
 
