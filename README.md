@@ -20,7 +20,7 @@
 
 **Try the Telegram MCP server in your browser:**
 
-- **Start here**: Open `https://tg-mcp.redevest.ru/setup` to begin the authentication flow
+- **Start here**: Open https://tg-mcp.redevest.ru/setup to begin the authentication flow
 - **Flow**: Phone → Code/2FA → Config (auto-generated and downloadable)
 
 The demo keeps your Telegram session open until the authentication process is complete. After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. Use the config with your MCP client to check out this MCP server.
