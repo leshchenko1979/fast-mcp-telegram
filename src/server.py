@@ -88,8 +88,11 @@ templates = Jinja2Templates(
     directory=os.path.join(os.path.dirname(__file__), "templates")
 )
 
-# Simple in-memory setup session store for Phase 1 (not for production)
+# Simple in-memory setup session store for web setup flow
 _setup_sessions: dict[str, dict] = {}
+# TTL for temporary setup sessions (seconds). Stale sessions will be cleaned up
+# opportunistically on each setup route call to avoid background tasks.
+SETUP_SESSION_TTL_SECONDS = int(os.getenv("SETUP_SESSION_TTL_SECONDS", "900"))
 
 
 # =============================================================================
@@ -285,6 +288,47 @@ def with_auth_context(func: Callable) -> Callable:
     return wrapper
 
 
+# -----------------------------------------------------------------------------
+# Web setup session cleanup helpers (no background tasks)
+# -----------------------------------------------------------------------------
+
+
+async def _cleanup_stale_setup_sessions():
+    """Remove stale setup sessions and temporary files beyond TTL.
+
+    Runs opportunistically within request handlers; safe to await.
+    """
+    now = time.time()
+    stale_ids: list[str] = []
+
+    for sid, state in list(_setup_sessions.items()):
+        created_at = state.get("created_at") or 0
+        if created_at and (now - float(created_at) > SETUP_SESSION_TTL_SECONDS):
+            stale_ids.append(sid)
+
+    for sid in stale_ids:
+        state = _setup_sessions.pop(sid, None) or {}
+        client = state.get("client")
+        session_path = state.get("session_path")
+
+        try:
+            if client:
+                try:
+                    await client.disconnect()
+                except Exception:
+                    pass
+        finally:
+            try:
+                if isinstance(session_path, str) and session_path:
+                    from pathlib import Path
+
+                    p = Path(session_path)
+                    if p.name.startswith("setup-") and p.exists():
+                        p.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
 # =============================================================================
 # HEALTH CHECK & ROUTES
 # =============================================================================
@@ -325,6 +369,7 @@ async def health_check(request):
 @mcp.custom_route("/setup", methods=["GET"])
 async def setup_get(request):
     """Serve initial setup page with phone form."""
+    await _cleanup_stale_setup_sessions()
     return templates.TemplateResponse(request, "setup.html")
 
 
@@ -347,6 +392,9 @@ async def setup_phone(request: Request):
         return f"{first}{'*' * max(0, len(p) - 5)}{last}"
 
     masked = _mask_phone(phone_raw)
+
+    # Opportunistic cleanup of stale setup sessions
+    await _cleanup_stale_setup_sessions()
 
     # Create a simple setup session id
     setup_id = str(int(time.time() * 1000))
@@ -383,6 +431,7 @@ async def setup_phone(request: Request):
         "client": client,
         "session_path": str(temp_session_path),
         "authorized": False,
+        "created_at": time.time(),
     }
 
     # Return fragment for HTMX swap
@@ -405,7 +454,10 @@ async def setup_verify(request: Request):
             {"ok": False, "error": "Invalid setup session."}, status_code=400
         )
 
-    state = _setup_sessions[setup_id]
+    # Opportunistic cleanup of stale setup sessions
+    await _cleanup_stale_setup_sessions()
+
+    state = _setup_sessions.get(setup_id)
     client = state.get("client")
     phone = state.get("phone")
     masked_phone = state.get("masked_phone")
@@ -415,10 +467,8 @@ async def setup_verify(request: Request):
     try:
         await client.sign_in(phone=phone, code=code)
         state["authorized"] = True
-        # No 2FA needed → show success fragment
-        return templates.TemplateResponse(
-            request, "fragments/success.html", {"setup_id": setup_id}
-        )
+        # No 2FA needed → skip success page and generate config immediately
+        return await setup_generate(request)
     except SessionPasswordNeededError:
         # Need 2FA → show 2FA form
         return templates.TemplateResponse(
@@ -456,9 +506,8 @@ async def setup_2fa(request: Request):
     try:
         await client.sign_in(password=password)
         state["authorized"] = True
-        return templates.TemplateResponse(
-            request, "fragments/success.html", {"setup_id": setup_id}
-        )
+        # Skip success page and generate config immediately
+        return await setup_generate(request)
     except Exception as e:
         return templates.TemplateResponse(
             request,
@@ -537,9 +586,15 @@ async def setup_generate(request: Request):
     domain = os.getenv("DOMAIN", "localhost")
     config_json = _generate_mcp_config_json(domain, token)
 
-    # Save token into state for potential follow-up
-    state["token"] = token
-    state["final_session_path"] = str(dst)
+    # Save token into state for potential follow-up and cleanup old temp data
+    state.clear()
+    state.update(
+        {
+            "token": token,
+            "final_session_path": str(dst),
+            "created_at": time.time(),
+        }
+    )
 
     return templates.TemplateResponse(
         request,
