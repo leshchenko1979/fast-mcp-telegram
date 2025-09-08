@@ -15,8 +15,8 @@ from loguru import logger
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.client.connection import cleanup_client
-from src.config.settings import DISABLE_AUTH
 from src.config.logging import setup_logging
+from src.config.settings import DISABLE_AUTH
 from src.server_components.routes_health import register_health_routes
 from src.server_components.routes_web_setup import register_web_setup_routes
 from src.server_components.tools_register import register_tools

@@ -16,11 +16,12 @@ To:
 @with_auth_context  # Now innermost - gets executed by FastMCP
 """
 
-import pytest
 from unittest.mock import patch
 
-from src.server_components.auth import with_auth_context, extract_bearer_token
-from src.client.connection import set_request_token, _current_token
+import pytest
+
+from src.client.connection import _current_token, set_request_token
+from src.server_components.auth import extract_bearer_token, with_auth_context
 
 
 class TestDecoratorOrderFix:
@@ -179,7 +180,8 @@ class TestDecoratorOrderFix:
     async def test_decorator_order_verification(self):
         """Test that verifies the tool registration exposes expected tools."""
 
-        from fastmcp import FastMCP, Client
+        from fastmcp import Client, FastMCP
+
         from src.server_components.tools_register import register_tools
 
         temp_mcp = FastMCP("Temp Server")

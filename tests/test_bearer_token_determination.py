@@ -10,15 +10,16 @@ This module tests the core authentication mechanisms including:
 """
 
 import os
-import pytest
 from unittest.mock import Mock, patch
 
-from src.server_components.auth import extract_bearer_token, with_auth_context
+import pytest
+
 from src.client.connection import (
-    set_request_token,
     _current_token,
     generate_bearer_token,
+    set_request_token,
 )
+from src.server_components.auth import extract_bearer_token, with_auth_context
 
 
 class TestBearerTokenExtraction:
@@ -370,11 +371,12 @@ class TestEnvironmentVariableBehavior:
             with patch.dict(os.environ, {"DISABLE_AUTH": env_value}):
                 # Reload settings to re-evaluate environment variable
                 import importlib
+
                 import src.config.settings as settings
 
                 importlib.reload(settings)
 
-                assert settings.DISABLE_AUTH == expected, (
+                assert expected == settings.DISABLE_AUTH, (
                     f"Failed for DISABLE_AUTH={env_value}"
                 )
 
@@ -386,6 +388,7 @@ class TestEnvironmentVariableBehavior:
 
             # Reload settings to re-evaluate environment variable
             import importlib
+
             import src.config.settings as settings
 
             importlib.reload(settings)
@@ -447,6 +450,7 @@ class TestTransportModeDetection:
             with patch.dict(os.environ, {"MCP_TRANSPORT": env_value}):
                 # Re-import to get fresh environment variable
                 import importlib
+
                 import src.server
 
                 importlib.reload(src.server)
