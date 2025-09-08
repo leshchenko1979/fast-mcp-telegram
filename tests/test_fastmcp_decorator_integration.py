@@ -13,7 +13,8 @@ import json
 from unittest.mock import patch, Mock, MagicMock
 from contextvars import ContextVar
 
-from src.server import mcp, with_auth_context, extract_bearer_token
+from src.server import mcp
+from src.server_components.auth import with_auth_context, extract_bearer_token
 from src.client.connection import set_request_token, _current_token
 
 
@@ -53,8 +54,8 @@ class TestFastMCPDecoratorOrder:
 
         # Mock the FastMCP framework to simulate a real tool call
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             # Set up mock headers with a valid token
@@ -82,8 +83,8 @@ class TestFastMCPDecoratorOrder:
         """Test that correct decorator order prevents the fallback to default session issue."""
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "PreventFallbackToken123"
@@ -108,7 +109,7 @@ class TestFastMCPDecoratorOrder:
         """Test that extract_bearer_token works in FastMCP HTTP context."""
 
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "ExtractTestToken123"
@@ -148,22 +149,24 @@ class TestFastMCPToolIntegration:
     def test_tool_functions_are_properly_decorated(self):
         """Test that tool functions are properly decorated with FastMCP."""
 
-        # Import the actual tool functions
-        from src.server import search_contacts, send_or_edit_message, read_messages
+        from fastmcp import FastMCP, Client
+        from src.server_components.tools_register import register_tools
 
-        # Check that the functions exist and are properly decorated
-        assert search_contacts is not None
-        assert send_or_edit_message is not None
-        assert read_messages is not None
+        temp_mcp = FastMCP("Temp Server")
+        register_tools(temp_mcp)
 
-        # Verify they are FunctionTool objects (meaning decorators are applied correctly)
-        from fastmcp.tools.tool import FunctionTool
+        async def list_names():
+            async with Client(temp_mcp) as client:
+                tools = await client.list_tools()
+                return [t.name for t in tools]
 
-        assert isinstance(search_contacts, FunctionTool)
-        assert isinstance(send_or_edit_message, FunctionTool)
-        assert isinstance(read_messages, FunctionTool)
-
-        print("✅ All tool functions are properly decorated with FastMCP")
+        names = asyncio.run(list_names())
+        assert "search_messages_globally" in names
+        assert "search_messages_in_chat" in names
+        assert "send_message" in names
+        assert "edit_message" in names
+        assert "read_messages" in names
+        assert "search_contacts" in names
 
 
 class TestEndToEndTokenFlow:
@@ -174,8 +177,8 @@ class TestEndToEndTokenFlow:
         """Test that token context is properly isolated between different requests."""
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             # Simulate first request
@@ -201,14 +204,6 @@ class TestDecoratorOrderRegression:
     def test_decorator_order_is_correct_in_actual_tools(self):
         """Test that the actual tool functions have the correct decorator order."""
 
-        # Import the actual tool functions
-        from src.server import search_contacts, send_or_edit_message, read_messages
-
-        # Check that the functions exist and are properly decorated
-        assert search_contacts is not None
-        assert send_or_edit_message is not None
-        assert read_messages is not None
-
         # The key test: verify that @with_auth_context is the innermost decorator
         # This is done by checking the function's __wrapped__ attribute
         # FastMCP decorators should be outermost, @with_auth_context should be innermost
@@ -228,15 +223,24 @@ class TestDecoratorOrderRegression:
         # The original issue was that @with_auth_context wasn't being executed
         # due to incorrect decorator order
 
-        # Import the actual tool functions
-        from src.server import search_contacts, send_or_edit_message, read_messages
+        from fastmcp import FastMCP, Client
+        from src.server_components.tools_register import register_tools
 
-        # Verify they are properly decorated (FunctionTool objects)
-        from fastmcp.tools.tool import FunctionTool
+        temp_mcp = FastMCP("Temp Server")
+        register_tools(temp_mcp)
 
-        assert isinstance(search_contacts, FunctionTool)
-        assert isinstance(send_or_edit_message, FunctionTool)
-        assert isinstance(read_messages, FunctionTool)
+        async def list_names():
+            async with Client(temp_mcp) as client:
+                tools = await client.list_tools()
+                return [t.name for t in tools]
+
+        names = asyncio.run(list_names())
+        assert "search_messages_globally" in names
+        assert "search_messages_in_chat" in names
+        assert "send_message" in names
+        assert "edit_message" in names
+        assert "read_messages" in names
+        assert "search_contacts" in names
 
         print(
             "✅ Decorator order regression prevention verified - all tools properly decorated"
@@ -254,8 +258,8 @@ class TestRealIssueVerification:
         # (which was the original bug)
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "ReproductionTestToken123"
@@ -283,7 +287,7 @@ class TestRealIssueVerification:
         """Test that token extraction and context setting work correctly."""
 
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "ContextTestToken123"

@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastmcp import FastMCP, Client
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
-from src.server import with_error_handling
+from src.server_components.errors import with_error_handling
 
 
 class MockTelegramClient:

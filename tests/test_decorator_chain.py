@@ -10,7 +10,8 @@ import pytest
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-from src.server import with_auth_context, with_error_handling
+from src.server_components.auth import with_auth_context
+from src.server_components.errors import with_error_handling
 from tests.conftest import create_auth_server
 
 

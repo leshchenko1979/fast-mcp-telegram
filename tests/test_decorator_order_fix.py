@@ -17,10 +17,9 @@ To:
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
-from src.server import with_auth_context, extract_bearer_token
+from src.server_components.auth import with_auth_context, extract_bearer_token
 from src.client.connection import set_request_token, _current_token
 
 
@@ -32,8 +31,8 @@ class TestDecoratorOrderFix:
         """Test that @with_auth_context executes and sets token when valid token is provided."""
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "ValidTestToken123"
@@ -69,8 +68,8 @@ class TestDecoratorOrderFix:
         """Test that system does NOT fall back to default session when valid token is provided."""
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "NoFallbackToken123"
@@ -99,7 +98,7 @@ class TestDecoratorOrderFix:
         """Test that token extraction from HTTP headers works correctly."""
 
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             test_token = "ExtractionTestToken123"
@@ -137,8 +136,8 @@ class TestDecoratorOrderFix:
         """Test that HTTP mode requires authentication when no token is provided."""
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             # No authorization header
@@ -176,34 +175,25 @@ class TestDecoratorOrderFix:
             )
             assert result["token"] is None, "Token should be None (default session)"
 
-    def test_decorator_order_verification(self):
-        """Test that verifies the decorator order is correct in the actual server code."""
+    @pytest.mark.asyncio
+    async def test_decorator_order_verification(self):
+        """Test that verifies the tool registration exposes expected tools."""
 
-        # Import the actual tool functions
-        from src.server import search_contacts, send_or_edit_message, read_messages
+        from fastmcp import FastMCP, Client
+        from src.server_components.tools_register import register_tools
 
-        # Check that the functions exist and are properly decorated
-        assert search_contacts is not None
-        assert send_or_edit_message is not None
-        assert read_messages is not None
+        temp_mcp = FastMCP("Temp Server")
+        register_tools(temp_mcp)
 
-        # The key test: verify that the functions are decorated with FastMCP
-        # This means the decorator order is correct
-        from fastmcp.tools.tool import FunctionTool
-
-        assert isinstance(search_contacts, FunctionTool), (
-            "search_contacts should be a FunctionTool"
-        )
-        assert isinstance(send_or_edit_message, FunctionTool), (
-            "send_or_edit_message should be a FunctionTool"
-        )
-        assert isinstance(read_messages, FunctionTool), (
-            "read_messages should be a FunctionTool"
-        )
-
-        print(
-            "✅ All tool functions have correct decorator order (FastMCP FunctionTool)"
-        )
+        async with Client(temp_mcp) as client:
+            tools = await client.list_tools()
+            names = [t.name for t in tools]
+            assert "search_messages_globally" in names
+            assert "search_messages_in_chat" in names
+            assert "send_message" in names
+            assert "edit_message" in names
+            assert "read_messages" in names
+            assert "search_contacts" in names
 
     @pytest.mark.asyncio
     async def test_original_issue_reproduction_and_fix(self):
@@ -214,8 +204,8 @@ class TestDecoratorOrderFix:
         # and the system fell back to the default session"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
         ):
             # Simulate a valid token being passed to the server

@@ -11,10 +11,9 @@ This module tests the core authentication mechanisms including:
 
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from contextvars import ContextVar
+from unittest.mock import Mock, patch
 
-from src.server import extract_bearer_token, with_auth_context, DISABLE_AUTH
+from src.server_components.auth import extract_bearer_token, with_auth_context
 from src.client.connection import (
     set_request_token,
     _current_token,
@@ -31,7 +30,7 @@ class TestBearerTokenExtraction:
         mock_headers = {"authorization": "Bearer AbCdEfGh123456789KLmnOpQr"}
 
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=mock_headers,
@@ -52,7 +51,7 @@ class TestBearerTokenExtraction:
             {"authorization": "AbCdEfGh123456789KLmnOpQr"},  # No Bearer prefix
         ]
 
-        with patch("src.server.transport", "http"):
+        with patch("src.server_components.auth._get_transport", return_value="http"):
             for headers in invalid_headers:
                 with patch(
                     "fastmcp.server.dependencies.get_http_headers", return_value=headers
@@ -65,7 +64,7 @@ class TestBearerTokenExtraction:
         mock_headers = {}  # No authorization header
 
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=mock_headers,
@@ -77,7 +76,7 @@ class TestBearerTokenExtraction:
 
     def test_extract_bearer_token_stdio_mode(self):
         """Test that token extraction returns None in stdio mode."""
-        with patch("src.server.transport", "stdio"):
+        with patch("src.server_components.auth._get_transport", return_value="stdio"):
             token = extract_bearer_token()
             assert token is None
 
@@ -98,7 +97,7 @@ class TestBearerTokenExtraction:
             ),  # Newlines after token
         ]
 
-        with patch("src.server.transport", "http"):
+        with patch("src.server_components.auth._get_transport", return_value="http"):
             for auth_header, expected_token in test_cases:
                 mock_headers = {"authorization": auth_header}
                 with patch(
@@ -111,7 +110,7 @@ class TestBearerTokenExtraction:
     def test_extract_bearer_token_exception_handling(self):
         """Test that extract_bearer_token handles exceptions gracefully."""
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 side_effect=Exception("Network error"),
@@ -135,10 +134,7 @@ class TestWithAuthContextDecorator:
         async def async_mock_func():
             return "success"
 
-        with patch("src.server.DISABLE_AUTH", True):
-            # Import here to get the patched version
-            from src.client.connection import set_request_token
-
+        with patch("src.server_components.auth.DISABLE_AUTH", True):
             decorated_func = with_auth_context(async_mock_func)
 
             import asyncio
@@ -154,9 +150,12 @@ class TestWithAuthContextDecorator:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value="valid_token"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch(
+                "src.server_components.auth.extract_bearer_token",
+                return_value="valid_token",
+            ),
         ):
             decorated_func = with_auth_context(async_mock_func)
 
@@ -173,9 +172,9 @@ class TestWithAuthContextDecorator:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
             patch("fastmcp.server.dependencies.get_http_headers", return_value={}),
         ):
             decorated_func = with_auth_context(async_mock_func)
@@ -195,9 +194,9 @@ class TestWithAuthContextDecorator:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value={"authorization": "Invalid format"},
@@ -220,9 +219,9 @@ class TestWithAuthContextDecorator:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "stdio"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="stdio"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
         ):
             decorated_func = with_auth_context(async_mock_func)
 
@@ -239,9 +238,12 @@ class TestWithAuthContextDecorator:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "stdio"),
-            patch("src.server.extract_bearer_token", return_value="valid_token"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="stdio"),
+            patch(
+                "src.server_components.auth.extract_bearer_token",
+                return_value="valid_token",
+            ),
         ):
             decorated_func = with_auth_context(async_mock_func)
 
@@ -258,7 +260,7 @@ class TestWithAuthContextDecorator:
             return "async_success"
 
         with (
-            patch("src.server.DISABLE_AUTH", True),
+            patch("src.server_components.auth.DISABLE_AUTH", True),
             patch("src.client.connection.set_request_token"),
         ):
             decorated_func = with_auth_context(async_mock_func)
@@ -325,7 +327,6 @@ class TestContextVariableManagement:
 
     def test_context_isolation(self):
         """Test that context variables are isolated between different contexts."""
-        import asyncio
         from contextvars import copy_context
 
         def set_token_in_context(token_value):
@@ -367,30 +368,29 @@ class TestEnvironmentVariableBehavior:
 
         for env_value, expected in test_cases:
             with patch.dict(os.environ, {"DISABLE_AUTH": env_value}):
-                # Re-import to get fresh environment variable
+                # Reload settings to re-evaluate environment variable
                 import importlib
-                import src.server
+                import src.config.settings as settings
 
-                importlib.reload(src.server)
+                importlib.reload(settings)
 
-                assert src.server.DISABLE_AUTH == expected, (
+                assert settings.DISABLE_AUTH == expected, (
                     f"Failed for DISABLE_AUTH={env_value}"
                 )
 
     def test_disable_auth_default_value(self):
         """Test that DISABLE_AUTH defaults to False when not set."""
         with patch.dict(os.environ, {}, clear=True):
-            # Remove DISABLE_AUTH if it exists
-            if "DISABLE_AUTH" in os.environ:
-                del os.environ["DISABLE_AUTH"]
+            # Ensure DISABLE_AUTH not set
+            os.environ.pop("DISABLE_AUTH", None)
 
-            # Re-import to get fresh environment variable
+            # Reload settings to re-evaluate environment variable
             import importlib
-            import src.server
+            import src.config.settings as settings
 
-            importlib.reload(src.server)
+            importlib.reload(settings)
 
-            assert src.server.DISABLE_AUTH is False
+            assert settings.DISABLE_AUTH is False
 
 
 class TestTransportModeDetection:
@@ -403,9 +403,9 @@ class TestTransportModeDetection:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
             patch("fastmcp.server.dependencies.get_http_headers", return_value={}),
         ):
             decorated_func = with_auth_context(async_mock_func)
@@ -424,9 +424,9 @@ class TestTransportModeDetection:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "stdio"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="stdio"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
         ):
             decorated_func = with_auth_context(async_mock_func)
 
@@ -500,8 +500,8 @@ class TestBearerTokenIntegration:
         malformed_headers = {"authorization": "BearerAbCdEfGh123456789KLmnOpQr"}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=malformed_headers,
@@ -527,8 +527,8 @@ class TestBearerTokenIntegration:
         lowercase_headers = {"authorization": "bearer AbCdEfGh123456789KLmnOpQr"}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=lowercase_headers,
@@ -554,8 +554,8 @@ class TestBearerTokenIntegration:
         empty_token_headers = {"authorization": "Bearer "}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=empty_token_headers,
@@ -581,8 +581,8 @@ class TestBearerTokenIntegration:
         whitespace_headers = {"authorization": "Bearer   \t\n  "}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=whitespace_headers,
@@ -610,8 +610,8 @@ class TestBearerTokenIntegration:
         }
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=whitespace_token_headers,
@@ -636,13 +636,13 @@ class TestBearerTokenIntegration:
         valid_token_headers = {"authorization": "Bearer ValidToken123456789"}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value=valid_token_headers,
             ),
-            patch("src.server.set_request_token") as mock_set_token,
+            patch("src.server_components.auth.set_request_token") as mock_set_token,
         ):
             decorated_func = with_auth_context(async_mock_func)
 
@@ -674,12 +674,12 @@ class TestBearerTokenIntegration:
             headers = {"authorization": token_value}
 
             with (
-                patch("src.server.DISABLE_AUTH", False),
-                patch("src.server.transport", "http"),
+                patch("src.server_components.auth.DISABLE_AUTH", False),
+                patch("src.server_components.auth._get_transport", return_value="http"),
                 patch(
                     "fastmcp.server.dependencies.get_http_headers", return_value=headers
                 ),
-                patch("src.server.set_request_token") as mock_set_token,
+                patch("src.server_components.auth.set_request_token") as mock_set_token,
             ):
                 decorated_func = with_auth_context(async_mock_func)
 
@@ -705,8 +705,8 @@ class TestBearerTokenIntegration:
         headers = {"authorization": f"Bearer {test_token}"}
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch("fastmcp.server.dependencies.get_http_headers", return_value=headers),
         ):
             # First, test extract_bearer_token directly
@@ -736,9 +736,9 @@ class TestErrorHandling:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 return_value={"authorization": "Invalid format"},
@@ -762,9 +762,9 @@ class TestErrorHandling:
             return "success"
 
         with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "http"),
-            patch("src.server.extract_bearer_token", return_value=None),
+            patch("src.server_components.auth.DISABLE_AUTH", False),
+            patch("src.server_components.auth._get_transport", return_value="http"),
+            patch("src.server_components.auth.extract_bearer_token", return_value=None),
             patch("fastmcp.server.dependencies.get_http_headers", return_value={}),
         ):
             decorated_func = with_auth_context(async_mock_func)
@@ -781,12 +781,12 @@ class TestErrorHandling:
     def test_extract_bearer_token_exception_logging(self):
         """Test that exceptions in extract_bearer_token are logged."""
         with (
-            patch("src.server.transport", "http"),
+            patch("src.server_components.auth._get_transport", return_value="http"),
             patch(
                 "fastmcp.server.dependencies.get_http_headers",
                 side_effect=Exception("Network error"),
             ),
-            patch("src.server.logger") as mock_logger,
+            patch("src.server_components.auth.logger") as mock_logger,
         ):
             token = extract_bearer_token()
 
