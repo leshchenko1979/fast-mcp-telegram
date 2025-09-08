@@ -10,8 +10,9 @@ from src.client.connection import generate_bearer_token
 from src.config.settings import API_HASH, API_ID, SESSION_DIR
 
 # Templates (Phase 1)
+# Use the project-level templates directory: /app/src/templates
 templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(__file__), "templates")
+    directory=os.path.join(os.path.dirname(__file__), "..", "templates")
 )
 
 # Simple in-memory setup session store for web setup flow
