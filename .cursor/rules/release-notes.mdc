@@ -1,7 +1,7 @@
 ---
-description: Generate release notes from git changes
+description: Generate release notes from git changes, bump version, notify community
+alwaysApply: false
 ---
-
 # Release Notes Generation
 
 ## Process for Creating Release Notes
@@ -24,10 +24,10 @@ When creating release notes, follow this systematic approach:
 
 ### 4. Format Release Notes
 
-Use this markdown template:
+Use this markdown template (paste as a markdown code block in chat):
 
 ```markdown
-Release v<version> - <main theme>
+Release <version> - <main theme>
 
 ## <Category Name>
 - **Brief description** - Detailed explanation of what was changed and why
@@ -59,15 +59,21 @@ This release focuses on <main theme>.
 - **Focus on impact** rather than implementation details
 - **Code-first analysis**: Base descriptions on actual code changes, not commit messages
 - **Final state focus**: Describe what the code does now, not the journey to get there
-- **Use markdown output block**: So that the user can copy and paste easily
+- **Provide as markdown block**: Output release notes as a markdown code block in chat for easy copy/paste, do NOT create files
 
 ### 7. Version Bump Process
-- **First**: Update version in [pyproject.toml](mdc:pyproject.toml)
-- **Then**: Create git tag: `git tag v<version>`
-- **Next**: Push tag: `git push origin v<version>`
+- **First**: Update version in `src/_version.py` (single source of truth for version management)
+- **Then**: Create git tag: `git tag <version>` (no "v" prefix)
+- **Next**: Push tag: `git push origin <version>`
 - **Then**: Create GitHub release with generated notes
 - **Wait for confirmation**: Do not proceed until user confirms GitHub release is published
 - **Finally**: Send community announcement to Telegram group (only after user confirmation)
+
+**Important**: 
+- Release notes are for GitHub releases only - do NOT commit release notes files to git repository
+- Version is managed in `src/_version.py` with dynamic reading in `pyproject.toml` - only update the `_version.py` file
+- There are no release files in this repository. Do not add any `RELEASE_NOTES*` or similar files to git.
+- Tags are plain semantic versions without a leading "v" (example: `0.3.0`).
 
 **Typical workflow**: Analyze changes → Prepare release notes → Quality checks → Update version → Create tag → Push → Create GitHub release → **Wait for user confirmation** → Send community message
 
