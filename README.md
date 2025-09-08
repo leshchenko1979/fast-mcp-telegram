@@ -12,9 +12,6 @@
 
 **Production-ready AI integration with full Telegram API access and multi-user authentication**
 
-
-**🔐 Bearer token auth • 🔍 Multi-query search • 💬 Smart messaging • 📱 Phone integration • 🏢 Enterprise-ready**
-
 </div>
 
 ---
@@ -105,6 +102,8 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 ```
 
 **📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless.
+
+**🌐 Prefer a browser?** Open `/setup` on your server to authenticate and download a ready‑to‑use `mcp.json` without running the CLI.
 
 **🔑 Bearer Token Output:** After successful authentication, you'll receive a Bearer token:
 ```
@@ -231,6 +230,8 @@ docker compose --profile server up -d
 - **Full CLI**: Specify all credentials via command line options
 - **Additional options**: `--overwrite`, `--session-name` available
 
+**🌐 Browser alternative:** After the server is reachable, open `https://<DOMAIN>/setup` to authenticate via web and download `mcp.json` (no CLI needed). For local testing, use `http://localhost:8000/setup`.
+
 **Profile System:**
 - `--profile setup`: Runs only the Telegram authentication setup
 - `--profile server`: Runs only the MCP server (after authentication)
@@ -320,23 +321,6 @@ The deployment script will:
 }
 ```
 
-**Alternative curl-based configuration:**
-
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "command": "curl",
-      "args": [
-        "-X", "POST",
-        "-H", "Authorization: Bearer AbCdEfGh123456789KLmnOpQr...",
-        "https://your-domain.com/mcp"
-      ],
-      "env": {}
-    }
-  }
-}
-```
 
 **⚠️ Important:** Replace `AbCdEfGh123456789KLmnOpQr...` with your actual Bearer token from the setup process.
 
