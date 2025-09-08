@@ -95,6 +95,12 @@ tg_mcp/
 }
 ```
 
+### Web Setup & Runtime Config
+- **Templates/HTMX**: Jinja2 templates in `src/templates` power the browser setup flow
+- **Entry Point**: `/setup` launches phone → code/2FA → config (success step skipped)
+- **DOMAIN**: Runtime domain for generated `mcp.json`, taken from `DOMAIN` env
+- **Setup Session TTL**: `SETUP_SESSION_TTL_SECONDS` (default 900s) cleans temp `setup-*.session`
+
 ### Environment Variables for Authentication
 ```bash
 # Development mode (bypasses authentication)

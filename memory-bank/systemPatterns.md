@@ -102,6 +102,8 @@ Return unified result set
 - CORS: Permissive during development for Cursor compatibility
 - Sessions: Standard `~/.config/fast-mcp-telegram/` directory with automatic permission management
 - Volume Mounting: Standard user config directory mounts (`~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram`)
+ - Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
+ - Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
 
 ### 11. Logging Strategy
 - Loguru: File rotation + console with structured logging

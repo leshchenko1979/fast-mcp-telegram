@@ -20,6 +20,9 @@
 - **Multi-User Support**: HTTP transport with per-user session files and authentication
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup
 - **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
+- **Web Setup (HTMX)**: Browser-based auth at `/setup` (phone → code/2FA → config), success step skipped
+- **Config Generation**: Runtime `DOMAIN` with auto-download of `mcp.json`
+- **Setup Session Cleanup**: TTL-based opportunistic cleanup for temporary setup sessions
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
 - **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance (2025-01-07)
 
@@ -39,6 +42,7 @@
 - **Advanced Filtering**: More sophisticated search filters and operators
 - **Batch Operations**: Bulk message operations and batch processing
 - **Webhook Support**: Real-time message notifications via webhooks
+- **UX Polish**: Add hints for 2FA and retry mechanics in setup UI
 
 ### Infrastructure Improvements
 - **Monitoring**: Enhanced metrics and health checks

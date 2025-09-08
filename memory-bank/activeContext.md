@@ -1,11 +1,24 @@
 
 
 ## Current Work Focus
-**Primary**: **LITERAL PARAMETER IMPLEMENTATION COMPLETED** - Successfully implemented `typing.Literal` parameter constraints for improved LLM guidance and input validation. **All relevant tool signatures updated** with Literal types for `parse_mode` and `chat_type` parameters. **FastMCP compatibility verified** and **documentation updated** to reflect the improvements.
+**Primary**: Web setup interface with HTMX is implemented and integrated. Browser flow: `/setup` → phone → code/2FA → config (success step skipped). Sessions stay open until completion; temporary setup sessions are TTL-cleaned.
 
-**Current Status**: **LITERAL PARAMETERS COMPLETE** - All tool signatures now use Literal constraints where appropriate. **README.md updated** with LLM optimization information. **Memory bank updated** to document the implementation. **Server tested and verified** working with new parameter constraints.
+**Current Status**: Phase 1–4 complete for web setup. README updated with prominent live demo (`tg-mcp.redevest.ru`) and `/setup` entry point. Memory bank reflects session TTL cleanup and DOMAIN-based config generation.
 
 ## Active Decisions and Considerations
+
+### Web Setup Interface (2025-09-08)
+**Decision**: Add HTMX/Jinja2-based web flow to replace CLI for browser users
+**Flow**: `/setup` (GET) → `/setup/phone` → `/setup/verify` (→ optional `/setup/2fa`) → config generation
+**Implementation**:
+- Templates under `src/templates/` with HTMX fragments
+- Live endpoints in `src/server.py` with Starlette custom routes
+- Skipped separate success page; verification proceeds directly to generation
+- Config uses `DOMAIN` env at runtime and includes Bearer token
+- Added TTL-based opportunistic cleanup for setup sessions (default 900s)
+**Impact**:
+- Usable demo over web
+- Cleaner UX with fewer steps and auto-download
 
 ### Literal Parameter Implementation (2025-01-07)
 **Decision**: Implemented `typing.Literal` parameter constraints to guide LLM choices and improve input validation

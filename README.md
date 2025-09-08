@@ -8,19 +8,25 @@
 
 <div align="center">
 
-# 🤖 AI-Powered Telegram Automation
+# 🤖 Telegram MCP Server
 
 **Production-ready AI integration with full Telegram API access and multi-user authentication**
 
-*Advanced message search, automated messaging, contact management, and secure multi-user deployment for AI assistants*
-
-[![Quick Start](https://img.shields.io/badge/🚀_Quick_Start-2_min_setup-brightgreen?style=for-the-badge&logo=lightning)](#-pypi-installation)
-[![Docker](https://img.shields.io/badge/🐳_Docker-Production_ready-blue?style=for-the-badge&logo=docker)](#-docker-deployment-production)
-[![Community](https://img.shields.io/badge/💬_Community-Join_us-blue?style=for-the-badge&logo=telegram)](https://t.me/mcp_telegram)
 
 **🔐 Bearer token auth • 🔍 Multi-query search • 💬 Smart messaging • 📱 Phone integration • 🏢 Enterprise-ready**
 
 </div>
+
+---
+
+## 🌐 Live Demo (New)
+
+**Try the Telegram MCP server in your browser:**
+
+- **Start here**: Open `https://tg-mcp.redevest.ru/setup` to begin the authentication flow
+- **Flow**: Phone → Code/2FA → Config (auto-generated and downloadable)
+
+The demo keeps your Telegram session open until the authentication process is complete. After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. Use the config with your MCP client to check out this MCP server.
 
 ---
 
@@ -153,6 +159,18 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 - **Session Monitoring**: Use `/health` HTTP endpoint to monitor active sessions and server statistics
 
 **✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
+
+---
+
+## 🌐 Web Setup (Browser Alternative to CLI)
+
+In addition to the CLI setup, the server now includes a built-in browser setup flow as a first-class alternative:
+
+- Open your server’s `/setup` route (for the demo, go to `https://tg-mcp.redevest.ru/setup`).
+- Enter your phone number, then the code (and 2FA if enabled).
+- The server immediately generates and displays a ready-to-use `mcp.json` with your Bearer token and a one-click download.
+
+This is ideal if you prefer a guided flow without running the CLI. The CLI setup remains fully supported.
 
 ---
 

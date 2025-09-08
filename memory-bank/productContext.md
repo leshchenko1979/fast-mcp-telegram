@@ -22,6 +22,12 @@ The fast-mcp-telegram project addresses the need for AI assistants and language 
 - **Efficient Queries**: Minimize unnecessary global searches when specific chat targeting is possible
 - **Clear Documentation**: Provide explicit guidance for different search scenarios
 
+### Browser Setup Experience
+- **Single Entry Point**: Users open `/setup` to authenticate via web
+- **Guided Flow**: Phone → Code/2FA → Immediate config generation and download
+- **No Dead Ends**: Sessions remain open until setup completes to avoid restarts
+- **Copy/Download**: JSON shown and downloadable as `mcp.json`; copy button provided
+
 
 
 ## Target User Experience
