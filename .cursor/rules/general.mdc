@@ -10,3 +10,5 @@ you must prompt the user to reload the server first.
 All comments, docstrings, and documentation must be in English only. Do not use any other non-English language in code comments, docstrings, or documentation.
 
 Always use the DRY principle.
+
+Always check today's date with shell command `date` when inserting current date. 
