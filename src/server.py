@@ -18,8 +18,8 @@ from src.client.connection import cleanup_client
 from src.config.logging import setup_logging
 from src.config.settings import DISABLE_AUTH
 from src.server_components.health import register_health_routes
-from src.server_components.web_setup import register_web_setup_routes
 from src.server_components.tools_register import register_tools
+from src.server_components.web_setup import register_web_setup_routes
 
 IS_TEST_MODE = "--test-mode" in sys.argv
 
