@@ -7,15 +7,14 @@ This module tests the actual issue that was found and fixed:
 - End-to-end token flow through the framework
 """
 
-import pytest
 import asyncio
-import json
-from unittest.mock import patch, Mock, MagicMock
-from contextvars import ContextVar
+from unittest.mock import patch
 
+import pytest
+
+from src.client.connection import _current_token, set_request_token
 from src.server import mcp
-from src.server_components.auth import with_auth_context, extract_bearer_token
-from src.client.connection import set_request_token, _current_token
+from src.server_components.auth import extract_bearer_token, with_auth_context
 
 
 class TestFastMCPDecoratorOrder:
@@ -149,7 +148,8 @@ class TestFastMCPToolIntegration:
     def test_tool_functions_are_properly_decorated(self):
         """Test that tool functions are properly decorated with FastMCP."""
 
-        from fastmcp import FastMCP, Client
+        from fastmcp import Client, FastMCP
+
         from src.server_components.tools_register import register_tools
 
         temp_mcp = FastMCP("Temp Server")
@@ -223,7 +223,8 @@ class TestDecoratorOrderRegression:
         # The original issue was that @with_auth_context wasn't being executed
         # due to incorrect decorator order
 
-        from fastmcp import FastMCP, Client
+        from fastmcp import Client, FastMCP
+
         from src.server_components.tools_register import register_tools
 
         temp_mcp = FastMCP("Temp Server")
