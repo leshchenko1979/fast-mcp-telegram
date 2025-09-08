@@ -5,13 +5,12 @@ from datetime import datetime
 
 from loguru import logger
 
+from .server_config import get_config
 from .settings import LOG_DIR, SERVER_VERSION, SESSION_PATH
 
 # Get current timestamp for log file name
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_PATH = LOG_DIR / f"mcp_server_{current_time}.log"
-
-IS_TEST_MODE = "--test-mode" in sys.argv
 
 
 def setup_logging():
@@ -97,8 +96,13 @@ def setup_logging():
         logging.getLogger(name).setLevel(logging.INFO)
 
     # Log server startup information
+    cfg = get_config()
     logger.info("=== Telegram MCP Server Starting ===")
     logger.info(f"Version: {SERVER_VERSION}")
+    logger.info(f"Mode: {cfg.server_mode.value}")
+    logger.info(f"Transport: {cfg.transport}")
+    if cfg.transport == "http":
+        logger.info(f"Bind: {cfg.host}:{cfg.port}")
     logger.info(f"Session file path: {SESSION_PATH.absolute()}")
     logger.info(f"Log file path: {LOG_PATH.absolute()}")
     logger.info("=====================================")

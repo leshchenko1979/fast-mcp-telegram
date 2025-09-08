@@ -29,13 +29,13 @@ dependencies = [
     "aiohttp",
     "fastmcp",
     "telethon",
-    "python-dotenv",
-    "jinja2"
+    "jinja2",
+    "pydantic-settings"
 ]
 
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
-fast-mcp-telegram-setup = "src.setup_telegram:sync_main"
+fast-mcp-telegram-setup = "src.cli_setup:sync_main"
 
 [tool.setuptools.dynamic]
 version = {attr = "src._version.__version__"}

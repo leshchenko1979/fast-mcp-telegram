@@ -45,7 +45,7 @@ services:
     stdin_open: true
     tty: true
     
-    command: python -m src.setup_telegram --overwrite
+    command: python -m src.cli_setup --overwrite
 
 networks:
   traefik-public:

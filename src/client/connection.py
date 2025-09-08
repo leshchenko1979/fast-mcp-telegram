@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import os
 import secrets
 import time
 import traceback
@@ -10,12 +9,13 @@ from loguru import logger
 from telethon import TelegramClient
 
 from ..config.logging import format_diagnostic_info
+from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR, SESSION_PATH
 
 _singleton_client = None
 
-# Token-based session management
-MAX_ACTIVE_SESSIONS = int(os.getenv("MAX_ACTIVE_SESSIONS", "10"))
+# Token-based session management (use unified server config)
+MAX_ACTIVE_SESSIONS = get_config().max_active_sessions
 
 _current_token: ContextVar[str | None] = ContextVar("_current_token", default=None)
 _session_cache: dict[str, tuple[TelegramClient, float]] = {}
@@ -150,9 +150,7 @@ async def get_client() -> TelegramClient:
             client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
             await client.connect()
             if not await client.is_user_authorized():
-                logger.error(
-                    "Session not authorized. Please run setup_telegram.py first"
-                )
+                logger.error("Session not authorized. Please run cli_setup.py first")
                 raise Exception("Session not authorized")
             _singleton_client = client
         except Exception as e:

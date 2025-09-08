@@ -7,7 +7,8 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.templating import Jinja2Templates
 
 from src.client.connection import generate_bearer_token
-from src.config.settings import API_HASH, API_ID, SESSION_DIR
+from src.config.server_config import get_config
+from src.config.settings import API_HASH, API_ID
 
 # Templates (Phase 1)
 # Use the project-level templates directory: /app/src/templates
@@ -17,7 +18,8 @@ templates = Jinja2Templates(
 
 # Simple in-memory setup session store for web setup flow
 _setup_sessions: dict[str, dict] = {}
-SETUP_SESSION_TTL_SECONDS = int(os.getenv("SETUP_SESSION_TTL_SECONDS", "900"))
+# Use unified config for TTL
+SETUP_SESSION_TTL_SECONDS = get_config().setup_session_ttl_seconds
 
 
 async def cleanup_stale_setup_sessions():
@@ -72,7 +74,8 @@ def register_web_setup_routes(mcp_app):
         await cleanup_stale_setup_sessions()
         setup_id = str(int(time.time() * 1000))
         temp_session_name = f"setup-{setup_id}.session"
-        temp_session_path = SESSION_DIR / temp_session_name
+        session_dir = get_config().session_directory
+        temp_session_path = session_dir / temp_session_name
 
         from telethon import TelegramClient
         from telethon.errors.rpcerrorlist import PhoneNumberFloodError
@@ -185,7 +188,8 @@ def register_web_setup_routes(mcp_app):
         token = generate_bearer_token()
 
         src = Path(temp_session_path)
-        dst = SESSION_DIR / f"{token}.session"
+        session_dir = get_config().session_directory
+        dst = session_dir / f"{token}.session"
 
         try:
             try:
@@ -206,7 +210,7 @@ def register_web_setup_routes(mcp_app):
                 status_code=500,
             )
 
-        domain = os.getenv("DOMAIN", "localhost")
+        domain = get_config().domain
         config_json = _generate_mcp_config_json(domain, token)
 
         state.clear()
@@ -227,7 +231,7 @@ def register_web_setup_routes(mcp_app):
     @mcp_app.custom_route("/download-config/{token}", methods=["GET"])
     async def download_config(request: Request):
         token = request.path_params.get("token")
-        domain = os.getenv("DOMAIN", "localhost")
+        domain = get_config().domain
         config_json = _generate_mcp_config_json(domain, token)
         headers = {"Content-Disposition": "attachment; filename=mcp.json"}
         return PlainTextResponse(

@@ -4,49 +4,20 @@ Provides API endpoints and core bot features.
 """
 
 import asyncio
-import os
-import sys
 import traceback
 
 from fastmcp import FastMCP
 from loguru import logger
 
-# Add the project root to Python path for imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from src.client.connection import cleanup_client
 from src.config.logging import setup_logging
-from src.config.settings import DISABLE_AUTH
+from src.config.server_config import get_config
 from src.server_components.health import register_health_routes
 from src.server_components.tools_register import register_tools
 from src.server_components.web_setup import register_web_setup_routes
 
-IS_TEST_MODE = "--test-mode" in sys.argv
-
-if IS_TEST_MODE:
-    transport = "http"
-    host = "127.0.0.1"
-    port = 8000
-else:
-    transport = os.environ.get("MCP_TRANSPORT", "stdio")
-    host = os.environ.get("MCP_HOST", "127.0.0.1")
-    port = int(os.environ.get("MCP_PORT", "8000"))
-
-
-# Development token generation for testing
-if DISABLE_AUTH:
-    logger.info("🔓 Authentication DISABLED for development mode")
-else:
-    logger.info("🔐 Authentication ENABLED")
-    if transport == "http":
-        logger.info("🚨 HTTP transport: Bearer token authentication is MANDATORY")
-        logger.info(
-            "💡 For development, you can generate a token by calling generate_dev_token()"
-        )
-    else:
-        logger.info(
-            "📝 Stdio transport: Bearer token optional (fallback to default session)"
-        )
+# Get configuration
+config = get_config()
 
 # Initialize MCP server and logging
 mcp = FastMCP("Telegram MCP Server", stateless_http=True)
@@ -75,9 +46,9 @@ def shutdown_procedure():
 def main():
     """Entry point for console script; runs the MCP server and ensures cleanup."""
 
-    run_args = {"transport": transport}
-    if transport == "http":
-        run_args.update({"host": host, "port": port})
+    run_args = {"transport": config.transport}
+    if config.transport == "http":
+        run_args.update({"host": config.host, "port": config.port})
 
     try:
         mcp.run(**run_args)
