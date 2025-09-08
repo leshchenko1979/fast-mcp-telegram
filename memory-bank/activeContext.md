@@ -1,11 +1,55 @@
 
 
 ## Current Work Focus
-**Primary**: Server module split completed. `src/server.py` now only bootstraps, while routes and tools are registered from dedicated modules. Web setup interface with HTMX remains integrated.
+**Primary**: Documentation and configuration system updates completed. Modernized pydantic-settings based configuration with three clear server modes, updated README with simplified project structure, and created comprehensive .env.example template.
 
-**Current Status**: Phase 1–4 complete for web setup. README updated with prominent live demo (`tg-mcp.redevest.ru`) and `/setup` entry point. Memory bank reflects session TTL cleanup and DOMAIN-based config generation.
+**Current Status**: All documentation updated to reflect current codebase state. Configuration system fully modernized with ServerConfig and SetupConfig classes. Three server modes (stdio, http-no-auth, http-auth) provide clear transport and authentication behavior. CLI setup supports automatic .env loading and comprehensive options.
 
 ## Active Decisions and Considerations
+
+### Configuration System Modernization (2025-09-08)
+**Decision**: Implemented comprehensive pydantic-settings based configuration system with three clear server modes and automatic CLI parsing
+**Rationale**: Previous configuration was scattered across multiple files and lacked clear server mode definitions, making deployment and development confusing
+**Solution**: 
+- **ServerConfig Class**: Centralized server configuration with automatic environment variable and CLI argument parsing
+- **Three Server Modes**: Clear enum-based modes (stdio, http-no-auth, http-auth) with defined transport and authentication behavior
+- **SetupConfig Class**: Dedicated setup configuration separate from server configuration
+- **Automatic CLI Parsing**: Native pydantic-settings CLI parsing with kebab-case conversion and error handling
+- **Smart Defaults**: Host binding automatically adjusts based on server mode (127.0.0.1 for stdio, 0.0.0.0 for HTTP)
+**Implementation**:
+- `src/config/server_config.py`: ServerConfig with ServerMode enum and comprehensive field definitions
+- `src/cli_setup.py`: SetupConfig with CLI-specific options and automatic .env loading
+- `src/config/settings.py`: Backward compatibility layer importing from server_config
+- Automatic validation and smart defaults based on server mode
+**Impact**:
+- Clear server mode definitions eliminate configuration confusion
+- Automatic CLI parsing reduces setup complexity
+- Smart defaults improve out-of-the-box experience
+- Separation of concerns between setup and server configuration
+- Better error handling and validation
+
+### Documentation and Configuration Updates (2025-09-08)
+**Decision**: Updated all documentation to reflect current codebase state and modernized configuration system
+**Rationale**: Documentation was outdated and didn't reflect the new server modes, configuration system, and project structure
+**Solution**: 
+- **README Updates**: Added server modes section, updated CLI arguments (--phone to --phone-number), updated environment variables
+- **Project Structure**: Simplified from overly detailed to concise, essential information only
+- **Environment Template**: Created comprehensive .env.example with all configuration options
+- **Docker Configuration**: Updated docker-compose.yml and deploy script to use new server modes
+- **Memory Bank Updates**: Updated all memory bank files to reflect current state
+**Implementation**:
+- Updated README.md with three server modes documentation
+- Created .env.example with comprehensive configuration template
+- Updated docker-compose.yml to use SERVER_MODE instead of MCP_TRANSPORT
+- Enhanced deploy-mcp.sh script with better .env validation and .env.example transfer
+- Simplified project structure section to avoid information overload
+- Updated all memory bank files with current project state
+**Impact**:
+- Clear documentation for all three server modes
+- Easy setup with .env.example template
+- Consistent configuration across all deployment methods
+- Better user experience with simplified, focused documentation
+- Up-to-date memory bank reflecting current codebase state
 
 ### Web Setup Interface (2025-09-08)
 **Decision**: Add HTMX/Jinja2-based web flow to replace CLI for browser users

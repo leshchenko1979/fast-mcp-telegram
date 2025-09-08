@@ -65,23 +65,34 @@ tg_mcp/
 
 
 
-### MCP Server Configuration (Local stdio - single user, legacy)
+### MCP Server Configuration (STDIO Mode - Development with Cursor IDE)
 ```json
 {
   "mcpServers": {
-    "mcp-telegram": {
-      "command": "python3",
-      "args": ["/path/to/project/src/server.py"],
-      "cwd": "/path/to/project",
+    "telegram": {
+      "command": "fast-mcp-telegram",
       "env": {
-        "PYTHONPATH": "/path/to/project"
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
       }
     }
   }
 }
 ```
 
-### MCP Server Configuration (HTTP with Bearer Token Authentication)
+### MCP Server Configuration (HTTP_NO_AUTH Mode - Development HTTP Server)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "http://localhost:8000"
+    }
+  }
+}
+```
+
+### MCP Server Configuration (HTTP_AUTH Mode - Production with Bearer Token)
 ```json
 {
   "mcpServers": {
@@ -95,24 +106,42 @@ tg_mcp/
 }
 ```
 
+### Configuration System
+- **ServerConfig**: Centralized server configuration with pydantic-settings
+- **Three Server Modes**: stdio (development), http-no-auth (dev server), http-auth (production)
+- **Automatic CLI Parsing**: Native pydantic-settings CLI parsing with kebab-case conversion
+- **Smart Defaults**: Host binding and authentication behavior based on server mode
+- **SetupConfig**: Dedicated setup configuration separate from server configuration
+- **Backward Compatibility**: settings.py imports from server_config for legacy support
+- **Environment Template**: Comprehensive .env.example with all configuration options
+- **Docker Integration**: docker-compose.yml and deploy script updated for new configuration system
+
 ### Web Setup & Runtime Config
 - **Templates/HTMX**: Jinja2 templates in `src/templates` power the browser setup flow
 - **Entry Point**: `/setup` launches phone → code/2FA → config (success step skipped)
 - **DOMAIN**: Runtime domain for generated `mcp.json`, taken from `DOMAIN` env
 - **Setup Session TTL**: `SETUP_SESSION_TTL_SECONDS` (default 900s) cleans temp `setup-*.session`
 
-### Environment Variables for Authentication
+### Environment Variables for Server Configuration
 ```bash
-# Development mode (bypasses authentication)
-DISABLE_AUTH=true
+# Server mode (determines transport and authentication behavior)
+SERVER_MODE=stdio        # stdio (development), http-no-auth (dev server), http-auth (production)
+
+# Network configuration (for HTTP modes)
+HOST=127.0.0.1          # Bind address (auto-adjusts: 127.0.0.1 for stdio, 0.0.0.0 for HTTP)
+PORT=8000               # Port for HTTP transport
 
 # Session management
 MAX_ACTIVE_SESSIONS=10  # LRU cache limit for concurrent sessions
+SESSION_DIR=            # Custom session directory (defaults to ~/.config/fast-mcp-telegram/)
 
-# Transport configuration
-MCP_TRANSPORT=http      # http for multi-user, stdio for single-user
-MCP_HOST=0.0.0.0       # Bind address for HTTP transport
-MCP_PORT=8000          # Port for HTTP transport
+# Telegram API credentials (for setup)
+API_ID=your_api_id
+API_HASH=your_api_hash
+PHONE_NUMBER=+123456789
+
+# Web setup configuration
+DOMAIN=your-domain.com  # Domain for web setup and config generation
 ```
 
 ### Testing Infrastructure

@@ -30,7 +30,13 @@ validate() {
     exit 1
   fi
   if [ ! -f .env ]; then
-    log "$RED" ".env not found"
+    if [ -f .env.example ]; then
+      log "$RED" ".env not found. Please copy .env.example to .env and configure it:"
+      log "$RED" "  cp .env.example .env"
+      log "$RED" "  # Then edit .env with your values"
+    else
+      log "$RED" ".env not found and .env.example not available"
+    fi
     exit 1
   fi
   # Load .env safely
@@ -49,6 +55,10 @@ deploy() {
   # Create a temporary file list excluding deleted files
   git ls-files | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
   scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
+  # Copy .env.example if it exists
+  if [ -f .env.example ]; then
+    scp -C .env.example "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env.example"
+  fi
 
   # Clean up macOS resource fork files
   ssh "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"

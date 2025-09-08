@@ -17,7 +17,17 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ## Key Technical Decisions
 
-### 1. Authentication Architecture
+### 1. Configuration Architecture
+- **ServerConfig Class**: Centralized server configuration with pydantic-settings
+- **Three Server Modes**: Clear enum-based modes (stdio, http-no-auth, http-auth)
+- **Automatic CLI Parsing**: Native pydantic-settings CLI parsing with kebab-case conversion
+- **Smart Defaults**: Host binding and authentication behavior based on server mode
+- **SetupConfig Class**: Dedicated setup configuration separate from server configuration
+- **Backward Compatibility**: settings.py imports from server_config for legacy support
+- **Environment Template**: Comprehensive .env.example with all configuration options and documentation
+- **Docker Integration**: Updated docker-compose.yml and deploy script for new configuration system
+
+### 2. Authentication Architecture
 - **Token-Based Sessions**: Bearer tokens create isolated user sessions
 - **Context Variables**: `_current_token` for request-scoped authentication
 - **LRU Cache Management**: Configurable `MAX_ACTIVE_SESSIONS` with automatic eviction
@@ -25,20 +35,28 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Session File Format**: `{token}.session` for multi-user isolation
 - **Authentication Middleware**: `@with_auth_context` decorator on all MCP tools
 
-### 2. Search Architecture
+### 3. Server Mode Architecture
+- **STDIO Mode**: Development with Cursor IDE (no auth, default session only)
+- **HTTP_NO_AUTH Mode**: Development HTTP server (auth disabled)
+- **HTTP_AUTH Mode**: Production HTTP server (auth required)
+- **Transport Selection**: Automatic transport selection based on server mode
+- **Host Binding**: Smart defaults (127.0.0.1 for stdio, 0.0.0.0 for HTTP)
+- **Authentication Behavior**: Clear authentication requirements per mode
+
+### 4. Search Architecture
 - **Dual Search Modes**: Global search vs per-chat search
 - **Multi-Query Support**: Comma-separated terms with parallel execution
 - **Query Handling**: Different logic for empty vs non-empty queries
 - **Entity Resolution**: Automatic chat ID resolution from various formats
 - **Deduplication**: Results merged and deduplicated based on message identity
 
-### 3. Multi-Query Implementation
+### 5. Multi-Query Implementation
 - **Input Format**: Single string with comma-separated terms (e.g., "deadline, due date")
 - **Parallel Execution**: `asyncio.gather()` for simultaneous query processing
 - **Deduplication Strategy**: `(chat.id, message.id)` tuple-based deduplication
 - **Pagination**: Applied after all queries complete and results are merged
 
-### 4. Tool Registration Pattern
+### 6. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
 - **Module Registration**: Tools registered via `src/server_components/tools_register.register_tools(mcp)`; server bootstraps only
 - **Async Operations**: All Telegram operations are async for performance
@@ -47,17 +65,17 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **LLM Optimization**: `parse_mode` constrained to ["markdown", "html"], `chat_type` to ["private", "group", "channel"]
 - **Error Detection**: Server detects and surfaces structured error objects when present
 
-### 5. Data Flow Patterns
+### 7. Data Flow Patterns
 ```
 User Request → MCP Tool → Search Function → Telegram API → Results → Response
 ```
 
-### 6. Authentication Flow
+### 8. Authentication Flow
 ```
 HTTP Request → extract_bearer_token() → @with_auth_context → set_request_token() → _get_client_by_token() → Session Cache/New Session → Tool Execution
 ```
 
-### 7. Multi-Query Search Flow
+### 9. Multi-Query Search Flow
 ```
 Input: "term1, term2, term3"
      ↓
@@ -74,7 +92,7 @@ Apply limit (no pagination)
 Return unified result set
 ```
 
-### 8. Session Management Architecture
+### 10. Session Management Architecture
 - **Token-Based Sessions**: Each Bearer token gets isolated session file `{token}.session`
 - **LRU Cache Management**: In-memory cache with configurable `MAX_ACTIVE_SESSIONS` limit
 - **Automatic Eviction**: Oldest sessions disconnected when cache reaches capacity
@@ -85,7 +103,7 @@ Return unified result set
 - **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
 - **Backup/Restore**: Comprehensive session persistence across deployments
 
-### 9. Professional Testing Infrastructure
+### 11. Professional Testing Infrastructure
 - **Test Framework**: Modern pytest-based testing with comprehensive async support
 - **Test Organization**: Scalable structure with logical separation of test modules by functionality
 - **Shared Fixtures**: Centralized test setup and reusable fixtures for consistent testing
@@ -95,7 +113,7 @@ Return unified result set
 - **Async Testing**: Full async/await support for modern Python concurrency patterns
 - **CI/CD Integration**: Professional configuration optimized for automated testing workflows
 
-### 10. Deployment & Transport
+### 12. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain (defaults to `your-domain.com`)
 - CORS: Permissive during development for Cursor compatibility
@@ -104,7 +122,7 @@ Return unified result set
  - Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
  - Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
 
-### 11. Logging Strategy
+### 13. Logging Strategy
 - Loguru: File rotation + console with structured logging
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Modular Architecture: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management
@@ -112,7 +130,7 @@ Return unified result set
 - Request ID Tracking: Enhanced logging with optional request ID support for operation correlation
 - Traceability: Detailed RPC traces enabled for production diagnosis with flattened error structures
 
-### 12. Deployment Automation Patterns
+### 14. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
@@ -120,7 +138,7 @@ Return unified result set
 - **Local-Remote Sync**: Bidirectional synchronization of session files
 - **Error Recovery**: Robust error handling with detailed logging and counts
 
-### 13. VDS Testing and Diagnosis Methodology
+### 15. VDS Testing and Diagnosis Methodology
 - **Environment Access**: SSH connection using credentials from `.env` file (`VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`)
 - **Deployment Process**: Automated deployment via `./scripts/deploy-mcp.sh` with session management and health checks
 - **Container Management**: Docker Compose commands for status monitoring, log analysis, and health verification
@@ -132,7 +150,7 @@ Return unified result set
 - **Production Validation**: End-to-end testing with real Telegram API calls to confirm functionality
 - **Debugging Approach**: Systematic issue elimination through targeted testing and log analysis
 
-### 14. Authentication Testing Approaches
+### 16. Authentication Testing Approaches
 - **Local Testing**: Comprehensive pytest test suite with 55 passing tests covering all authentication scenarios
 - **Mock Testing**: Extensive mocking of FastMCP decorators, HTTP headers, and authentication flows
 - **Integration Testing**: FastMCP decorator integration tests to verify decorator order and execution
@@ -144,7 +162,7 @@ Return unified result set
 - **Error Testing**: Authentication error handling and structured error response validation
 - **Performance Testing**: Authentication flow performance and session cache management testing
 
-### 15. VDS Access and Testing Commands
+### 17. VDS Access and Testing Commands
 - **SSH Access**: `ssh root@<VDS_IP>` (using credentials from `.env` file)
 - **Deployment**: `./scripts/deploy-mcp.sh` (automated deployment with session management)
 - **Container Status**: `ssh root@<VDS_IP> "cd /opt/fast-mcp-telegram && docker compose ps"`

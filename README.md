@@ -20,6 +20,7 @@ Use the config with your MCP client to check out this MCP server.
 - [✨ Features](#-features)
 - [📋 Prerequisites](#-prerequisites)
 - [🚀 Choose Your Installation Path](#-choose-your-installation-path)
+- [🏗️ Server Modes](#️-server-modes)
 - [📦 PyPI Installation](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
 - [🔧 Available Tools](#-available-tools)
@@ -68,6 +69,16 @@ Use the config with your MCP client to check out this MCP server.
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
 - [💻 Local Development](CONTRIBUTING.md#-development-setup)
 
+## 🏗️ Server Modes
+
+The MCP server supports three distinct operation modes:
+
+|| Mode | Transport | Authentication | Use Case |
+||------|----------|----------------|----------|
+|| **STDIO** | stdio | Disabled | Development with Cursor IDE |
+|| **HTTP_NO_AUTH** | HTTP | Disabled | Development HTTP server |
+|| **HTTP_AUTH** | HTTP | Required (Bearer token) | Production deployment |
+
 ---
 
 ## 📦 PyPI Installation
@@ -82,16 +93,16 @@ pip install fast-mcp-telegram
 The setup process creates an authenticated session and generates a unique Bearer token for your use:
 
 ```bash
-fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone="+123456789"
+fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
 
 # Additional options available:
 # --overwrite          # Auto-overwrite existing session
 # --session-name NAME  # Use custom session name (advanced users)
 ```
 
-**📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless.
+**📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless. You can create a `.env` file by copying `.env.example` and filling in your values.
 
-**🌐 Prefer a browser?** Open `/setup` on your server to authenticate and download a ready‑to‑use `mcp.json` without running the CLI.
+**🌐 Prefer a browser?** Run the server and open `/setup` on your server to authenticate and download a ready‑to‑use `mcp.json` without running the CLI setup.
 
 **🔑 Bearer Token Output:** After successful authentication, you'll receive a Bearer token:
 ```
@@ -104,7 +115,7 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 ### 3. Configure Your MCP Client
 
-**For stdio transport (single-user):**
+**For STDIO mode (development with Cursor IDE):**
 ```json
 {
   "mcpServers": {
@@ -120,7 +131,18 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 }
 ```
 
-**For HTTP transport with Bearer token authentication:**
+**For HTTP_NO_AUTH mode (development HTTP server):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "http://localhost:8000"
+    }
+  }
+}
+```
+
+**For HTTP_AUTH mode (production with Bearer token):**
 ```json
 {
   "mcpServers": {
@@ -141,8 +163,9 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 ```
 
 **ℹ️ Session Info:** 
-- **Single-user (stdio)**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
-- **Multi-user (HTTP)**: Sessions saved as `~/.config/fast-mcp-telegram/{token}.session`
+- **STDIO mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
+- **HTTP_NO_AUTH mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
+- **HTTP_AUTH mode**: Sessions saved as `~/.config/fast-mcp-telegram/{token}.session`
 - **Session Monitoring**: Use `/health` HTTP endpoint to monitor active sessions and server statistics
 
 **✅ You're all set!** Jump to [Available Tools](#-available-tools) to explore features.
@@ -171,20 +194,29 @@ This is ideal if you prefer a guided flow without running the CLI. The CLI setup
 
 ### 1. Environment Setup
 
-Create a `.env` file in your project directory:
+Create a `.env` file in your project directory. You can copy from the example:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your actual values:
 
 ```bash
 # Telegram API Credentials
 API_ID=your_api_id
 API_HASH=your_api_hash
 
-# Domain Configuration
+# Domain Configuration (for remote docker deployment)
 DOMAIN=your-domain.com
 
-# Optional: MCP Server Configuration
-MCP_TRANSPORT=http
-MCP_HOST=0.0.0.0
-MCP_PORT=8000
+# Server Configuration
+SERVER_MODE=http-auth       # stdio, http-no-auth, or http-auth
+HOST=0.0.0.0                # Bind address (auto-adjusts based on server mode)
+PORT=8000                   # Service port
+
+# Optional: Session Management
+MAX_ACTIVE_SESSIONS=10      # LRU cache limit for concurrent sessions
 
 # Optional: Logging
 LOG_LEVEL=INFO
@@ -198,13 +230,13 @@ LOG_LEVEL=INFO
 
 ```bash
 # 1. Run authentication setup with your phone number
-docker compose --profile setup run --rm setup --phone="+1234567890"
+docker compose --profile setup run --rm setup --phone-number="+1234567890"
 
 # Alternative: Use all CLI options (bypasses .env file reading)
 docker compose --profile setup run --rm setup \
   --api-id="your_api_id" \
   --api-hash="your_api_hash" \
-  --phone="+1234567890"
+  --phone-number="+1234567890"
 
 # 2. Note the Bearer token output after successful setup
 # 🔑 Bearer Token: AbCdEfGh123456789KLmnOpQr...
@@ -214,7 +246,7 @@ docker compose --profile server up -d
 ```
 
 **Setup Options:**
-- **Default**: Use `--phone` with .env file for API credentials
+- **Default**: Use `--phone-number` with .env file for API credentials
 - **Full CLI**: Specify all credentials via command line options
 - **Additional options**: `--overwrite`, `--session-name` available
 
@@ -257,7 +289,7 @@ docker compose logs -f fast-mcp-telegram
 docker compose ps
 ```
 
-**Note:** Run setup with `docker compose --profile setup run --rm setup --phone="+1234567890"` to authenticate and generate a Bearer token. No server shutdown or restart required.
+**Note:** Run setup with `docker compose --profile setup run --rm setup --phone-number="+1234567890"` to authenticate and generate a Bearer token. No server shutdown or restart required.
 
 The service will be available at `http://localhost:8000` (internal) and through Traefik if configured.
 
@@ -280,7 +312,7 @@ export VDS_PROJECT_PATH=/path/to/deployment
    ```bash
    ssh your_server_user@your.server.com
    cd /path/to/deployment
-   docker compose --profile setup run --rm setup --phone="+1234567890"
+   docker compose --profile setup run --rm setup --phone-number="+1234567890"
    ```
 2. After setup completes, start the MCP server (if not already running):
    ```bash
@@ -294,7 +326,7 @@ The deployment script will:
 
 ### 6. Configure Your MCP Client
 
-**HTTP transport with Bearer token authentication:**
+**For HTTP_AUTH mode (production with Bearer token):**
 
 ```json
 {
@@ -304,6 +336,18 @@ The deployment script will:
       "headers": {
         "Authorization": "Bearer AbCdEfGh123456789KLmnOpQr..."
       }
+    }
+  }
+}
+```
+
+**For HTTP_NO_AUTH mode (development HTTP server):**
+
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "http://localhost:8000"
     }
   }
 }
@@ -326,11 +370,15 @@ curl -s https://your-domain.com/health
 ```
 
 **Environment Variables:**
-- `MCP_TRANSPORT=http` - HTTP transport mode
-- `MCP_HOST=0.0.0.0` - Bind to all interfaces
-- `MCP_PORT=8000` - Service port
+- `SERVER_MODE=http-auth` - Server mode (stdio, http-no-auth, http-auth)
+- `HOST=0.0.0.0` - Bind to all interfaces (auto-adjusts based on server mode)
+- `PORT=8000` - Service port
+- `DOMAIN` - Domain for Traefik routing and web setup
 - `API_ID` / `API_HASH` - Telegram API credentials (used by setup)
-- Phone number provided via CLI `--phone` option during setup
+- Phone number provided via CLI `--phone-number` option during setup
+
+**Docker Compose Configuration:**
+The `docker-compose.yml` automatically sets the server to `http-auth` mode for production deployment with Bearer token authentication.
 
 ---
 
@@ -707,30 +755,23 @@ curl -s https://your-domain.com/health
 
 ```
 fast-mcp-telegram/
-├── src/                  # Source code directory
-│   ├── client/           # Telegram client management
-│   ├── config/           # Configuration settings
-│   ├── tools/            # MCP tool implementations
-│   ├── utils/            # Utility functions and helpers
-│   ├── __init__.py       # Package initialization
-│   ├── _version.py       # Version information (single source of truth)
-│   ├── server.py         # Main server implementation
-│   └── setup_telegram.py # Telegram authentication setup
-├── tests/                # Comprehensive test suite
-│   ├── __init__.py       # Tests package initialization
-│   ├── conftest.py       # Shared fixtures and configuration
-│   ├── test_*.py         # Organized test modules by functionality
-│   └── README.md         # Test documentation and guidelines
-├── scripts/              # Deployment and utility scripts
-│   └── deploy-mcp.sh     # Enhanced deployment script
-├── logs/                 # Log files directory (auto-created)
-├── pyproject.toml        # Project configuration and dependencies
-├── docker-compose.yml    # Production Docker configuration
-├── Dockerfile            # Optimized multi-stage build
-├── .env                  # Environment variables (create this)
-├── .gitignore            # Git ignore patterns
-├── .dockerignore         # Docker build exclusions
-└── LICENSE               # MIT License
+├── src/                          # Source code
+│   ├── client/                   # Telegram client management
+│   ├── config/                   # Configuration and logging
+│   ├── server_components/        # Server modules (auth, health, tools, web setup)
+│   ├── templates/                # Web setup interface templates
+│   ├── tools/                    # MCP tool implementations
+│   ├── utils/                    # Utility functions
+│   ├── cli_setup.py              # CLI setup with pydantic-settings
+│   └── server.py                 # Main server entry point
+├── tests/                        # Test suite
+├── memory-bank/                  # Project documentation
+├── scripts/                      # Deployment scripts
+├── .env.example                  # Environment template
+├── docker-compose.yml            # Docker configuration
+├── Dockerfile                    # Container build
+├── pyproject.toml                # Project configuration
+└── README.md                     # This file
 ```
 **Session Management:** Session files are stored in the standard user config directory:
 - **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)

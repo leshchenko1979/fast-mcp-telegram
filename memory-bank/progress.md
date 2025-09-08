@@ -3,6 +3,7 @@
 
 ### Core Functionality ✅
 - **MCP Server**: FastMCP-based server with full Telegram integration
+- **Configuration System**: Modernized pydantic-settings based configuration with three clear server modes
 - **Message Search**: Split into `search_messages_globally` and `search_messages_in_chat` for deterministic behavior
 - **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
 - **Contact Management**: Search and get contact details
@@ -54,6 +55,8 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Documentation and Configuration Updates**: Updated all documentation to reflect current codebase state, created comprehensive .env.example template, updated README with three server modes, simplified project structure, and updated docker-compose.yml and deploy script to use new configuration system (2025-09-08)
+- **Configuration System Modernization**: Implemented comprehensive pydantic-settings based configuration system with three clear server modes (stdio, http-no-auth, http-auth) and automatic CLI parsing. Created ServerConfig and SetupConfig classes with smart defaults and validation (2025-09-08)
 - **Server Entrypoint Slimming**: `src/server.py` now registers routes (`register_routes`) and tools (`register_tools`) on startup; tool and route logic moved to dedicated modules (2025-09-08)
 - **Tool Splitting Implementation**: Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. Split `search_messages` into `search_messages_globally` and `search_messages_in_chat`, and `send_or_edit_message` into `send_message` and `edit_message`. Updated documentation and memory bank accordingly (2025-01-07)
 - **Bearer Token Authentication System**: Successfully identified and resolved the core authentication issue where bearer tokens were not being properly extracted and processed, causing incorrect fallback to default sessions (2025-01-04)
