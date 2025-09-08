@@ -29,7 +29,8 @@ dependencies = [
     "aiohttp",
     "fastmcp",
     "telethon",
-    "python-dotenv"
+    "python-dotenv",
+    "jinja2"
 ]
 
 [project.scripts]

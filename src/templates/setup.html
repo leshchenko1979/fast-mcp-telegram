@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Telegram MCP Setup</h1>
+<p class="muted">Authenticate with Telegram to generate your MCP configuration.</p>
+
+<form hx-post="/setup/phone" hx-target="#step" hx-swap="innerHTML">
+    <label for="phone">Phone number</label>
+    <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
+    <button type="submit">Send Code</button>
+</form>
+
+<div id="step" class="card" style="margin-top:16px;">
+    <div class="muted">Enter your phone to receive a code.</div>
+</div>
+{% endblock %}

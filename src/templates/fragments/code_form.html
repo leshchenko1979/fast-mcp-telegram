@@ -1,0 +1,10 @@
+<h2>Verify Code</h2>
+<p class="muted">We sent a code to {{ masked_phone }}. Enter it below.</p>
+
+<form>
+    <label for="code">Code</label>
+    <input id="code" name="code" type="text" placeholder="12345" />
+    <button type="button" disabled>Verify (Phase 1 stub)</button>
+</form>
+
+<input type="hidden" name="setup_id" value="{{ setup_id }}" />

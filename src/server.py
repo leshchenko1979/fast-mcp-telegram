@@ -16,7 +16,9 @@ from typing import Literal
 
 from fastmcp import FastMCP
 from loguru import logger
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, HTMLResponse
+from starlette.templating import Jinja2Templates
+from starlette.requests import Request
 
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -78,6 +80,14 @@ else:
 # Initialize MCP server and logging
 mcp = FastMCP("Telegram MCP Server", stateless_http=True)
 setup_logging()
+
+# Templates (Phase 1)
+templates = Jinja2Templates(
+    directory=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
+)
+
+# Simple in-memory setup session store for Phase 1 (not for production)
+_setup_sessions: dict[str, dict] = {}
 
 
 # =============================================================================
@@ -302,6 +312,45 @@ async def health_check(request):
             "max_sessions": MAX_ACTIVE_SESSIONS,
             "sessions": session_info,
         }
+    )
+
+
+# =============================================================================
+# SETUP WEB UI (PHASE 1)
+# =============================================================================
+
+
+@mcp.custom_route("/setup", methods=["GET"])
+async def setup_get(request):
+    """Serve initial setup page with phone form."""
+    return templates.TemplateResponse("setup.html", {"request": request})
+
+
+@mcp.custom_route("/setup/phone", methods=["POST"])
+async def setup_phone(request: Request):
+    """Accept phone number, validate, and return code form fragment (Phase 1 stub)."""
+    form = await request.form()
+    phone_raw = str(form.get("phone", "")).strip()
+
+    def _mask_phone(p: str) -> str:
+        if not p or len(p) < 4:
+            return p
+        # Keep first 3 and last 2 visible when possible
+        first = p[:3]
+        last = p[-2:]
+        return f"{first}{'*' * max(0, len(p) - 5)}{last}"
+
+    masked = _mask_phone(phone_raw)
+
+    # Create a simple setup session id
+    setup_id = str(int(time.time() * 1000))
+    _setup_sessions[setup_id] = {"phone": phone_raw, "masked_phone": masked}
+
+    # Return fragment for HTMX swap
+    return templates.TemplateResponse(
+        "fragments/code_form.html",
+        {"request": request, "masked_phone": masked, "setup_id": setup_id},
+        media_type="text/html",
     )
 
 

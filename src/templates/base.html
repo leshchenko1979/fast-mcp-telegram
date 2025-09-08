@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telegram MCP Setup</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            margin: 0;
+            padding: 0;
+            background: #0b1020;
+            color: #e6e9ef;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 24px;
+            background: #121a2e;
+            border-radius: 12px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin: 0 0 16px;
+        }
+
+        label {
+            display: block;
+            margin: 12px 0 6px;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="tel"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a3556;
+            background: #0f1528;
+            color: #e6e9ef;
+        }
+
+        button {
+            margin-top: 14px;
+            padding: 10px 16px;
+            border: 1px solid #2a3556;
+            background: #1a2442;
+            color: #e6e9ef;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #22305a;
+        }
+
+        .muted {
+            color: #9aa3b2;
+            font-size: 0.95rem;
+        }
+
+        .error {
+            color: #ff6b6b;
+            margin-top: 8px;
+        }
+
+        .card {
+            padding: 16px;
+            border: 1px solid #2a3556;
+            border-radius: 8px;
+            background: #0f1528;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+
+</html>
