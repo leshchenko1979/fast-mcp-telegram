@@ -16,9 +16,9 @@ from typing import Literal
 
 from fastmcp import FastMCP
 from loguru import logger
-from starlette.responses import JSONResponse, HTMLResponse
-from starlette.templating import Jinja2Templates
 from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.templating import Jinja2Templates
 
 # Add the project root to Python path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -27,9 +27,11 @@ from src.client.connection import (
     MAX_ACTIVE_SESSIONS,
     _session_cache,
     cleanup_client,
+    generate_bearer_token,
     set_request_token,
 )
 from src.config.logging import setup_logging
+from src.config.settings import API_HASH, API_ID, SESSION_DIR
 from src.tools.contacts import get_contact_info, search_contacts_telegram
 from src.tools.messages import (
     edit_message_impl,
@@ -83,7 +85,7 @@ setup_logging()
 
 # Templates (Phase 1)
 templates = Jinja2Templates(
-    directory=os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
+    directory=os.path.join(os.path.dirname(__file__), "templates")
 )
 
 # Simple in-memory setup session store for Phase 1 (not for production)
@@ -323,12 +325,16 @@ async def health_check(request):
 @mcp.custom_route("/setup", methods=["GET"])
 async def setup_get(request):
     """Serve initial setup page with phone form."""
-    return templates.TemplateResponse("setup.html", {"request": request})
+    return templates.TemplateResponse(request, "setup.html")
 
 
 @mcp.custom_route("/setup/phone", methods=["POST"])
 async def setup_phone(request: Request):
-    """Accept phone number, validate, and return code form fragment (Phase 1 stub)."""
+    """Accept phone number, validate, and trigger code send; return code form fragment.
+
+    Phase 2: actually call Telethon to send code and keep the TelegramClient alive
+    for subsequent steps using a temporary setup session kept in memory.
+    """
     form = await request.form()
     phone_raw = str(form.get("phone", "")).strip()
 
@@ -344,14 +350,121 @@ async def setup_phone(request: Request):
 
     # Create a simple setup session id
     setup_id = str(int(time.time() * 1000))
-    _setup_sessions[setup_id] = {"phone": phone_raw, "masked_phone": masked}
+
+    # Create a temporary session file path under SESSION_DIR using a temp setup id
+    # We use a dedicated filename to NOT collide with token-based sessions yet.
+    temp_session_name = f"setup-{setup_id}.session"
+    temp_session_path = SESSION_DIR / temp_session_name
+
+    # Lazy import Telethon to avoid import cost when not used
+    from telethon import TelegramClient
+    from telethon.errors.rpcerrorlist import PhoneNumberFloodError
+
+    client = TelegramClient(temp_session_path, API_ID, API_HASH)
+    await client.connect()
+    # Send the code; do not sign in yet
+    try:
+        await client.send_code_request(phone_raw)
+    except PhoneNumberFloodError:
+        return templates.TemplateResponse(
+            request,
+            "fragments/code_form.html",
+            {
+                "masked_phone": masked,
+                "setup_id": setup_id,
+                "error": "Too many attempts. Please wait before retrying.",
+            },
+        )
+
+    # Store client and state in memory for reuse in /verify and /2fa
+    _setup_sessions[setup_id] = {
+        "phone": phone_raw,
+        "masked_phone": masked,
+        "client": client,
+        "session_path": str(temp_session_path),
+        "authorized": False,
+    }
 
     # Return fragment for HTMX swap
     return templates.TemplateResponse(
+        request,
         "fragments/code_form.html",
-        {"request": request, "masked_phone": masked, "setup_id": setup_id},
-        media_type="text/html",
+        {"masked_phone": masked, "setup_id": setup_id},
     )
+
+
+@mcp.custom_route("/setup/verify", methods=["POST"])
+async def setup_verify(request: Request):
+    """Verify the code; if 2FA required, show 2FA form, else success fragment."""
+    form = await request.form()
+    setup_id = str(form.get("setup_id", "")).strip()
+    code = str(form.get("code", "")).strip()
+
+    if not setup_id or setup_id not in _setup_sessions:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid setup session."}, status_code=400
+        )
+
+    state = _setup_sessions[setup_id]
+    client = state.get("client")
+    phone = state.get("phone")
+    masked_phone = state.get("masked_phone")
+
+    from telethon.errors import SessionPasswordNeededError
+
+    try:
+        await client.sign_in(phone=phone, code=code)
+        state["authorized"] = True
+        # No 2FA needed → show success fragment
+        return templates.TemplateResponse(
+            request, "fragments/success.html", {"setup_id": setup_id}
+        )
+    except SessionPasswordNeededError:
+        # Need 2FA → show 2FA form
+        return templates.TemplateResponse(
+            request,
+            "fragments/2fa_form.html",
+            {"setup_id": setup_id, "masked_phone": masked_phone},
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "fragments/code_form.html",
+            {
+                "masked_phone": masked_phone,
+                "setup_id": setup_id,
+                "error": f"Verification failed: {e}",
+            },
+        )
+
+
+@mcp.custom_route("/setup/2fa", methods=["POST"])
+async def setup_2fa(request: Request):
+    """Submit 2FA password and finalize authentication."""
+    form = await request.form()
+    setup_id = str(form.get("setup_id", "")).strip()
+    password = str(form.get("password", "")).strip()
+
+    if not setup_id or setup_id not in _setup_sessions:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid setup session."}, status_code=400
+        )
+
+    state = _setup_sessions[setup_id]
+    client = state.get("client")
+
+    try:
+        await client.sign_in(password=password)
+        state["authorized"] = True
+        return templates.TemplateResponse(
+            request, "fragments/success.html", {"setup_id": setup_id}
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request,
+            "fragments/2fa_form.html",
+            {"setup_id": setup_id, "error": f"2FA failed: {e}"},
+        )
 
 
 # =============================================================================

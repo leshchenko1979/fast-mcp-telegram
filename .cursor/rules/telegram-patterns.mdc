@@ -1,6 +1,5 @@
 ---
 description: Telegram-specific patterns and Telethon library usage
-globs: *.py
 alwaysApply: false
 ---
 # Telegram-Specific Patterns

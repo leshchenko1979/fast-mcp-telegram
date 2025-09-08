@@ -7,6 +7,12 @@
     <title>Telegram MCP Setup</title>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
             margin: 0;
@@ -40,6 +46,7 @@
         input[type="tel"],
         input[type="password"] {
             width: 100%;
+            max-width: 100%;
             padding: 12px;
             border-radius: 8px;
             border: 1px solid #2a3556;
@@ -55,6 +62,7 @@
             color: #e6e9ef;
             border-radius: 8px;
             cursor: pointer;
+            max-width: 100%;
         }
 
         button:hover {

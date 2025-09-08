@@ -1,0 +1,14 @@
+<h2>Two-Factor Authentication</h2>
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+<p class="muted">Enter your 2FA password for {{ masked_phone }}.</p>
+
+<form hx-post="/setup/2fa" hx-target="#step" hx-swap="innerHTML">
+    <input type="hidden" name="setup_id" value="{{ setup_id }}" />
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" placeholder="••••••••" required />
+    <button type="submit">Confirm</button>
+    <div class="muted" style="margin-top:8px;">Session stays open until setup completes.</div>
+    {% if hint %}<div class="muted">Hint: {{ hint }}</div>{% endif %}
+</form>
