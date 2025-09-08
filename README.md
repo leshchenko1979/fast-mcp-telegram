@@ -1,10 +1,8 @@
-# 🚀 fast-mcp-telegram
+<img alt="Hero image" src="https://github.com/user-attachments/assets/996683da-1e61-4c6d-8681-6f4e6f4449ec" />
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
-
-<img alt="Hero image" src="https://github.com/user-attachments/assets/996683da-1e61-4c6d-8681-6f4e6f4449ec" />
 
 <div align="center">
 
