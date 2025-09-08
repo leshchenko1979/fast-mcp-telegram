@@ -5,7 +5,7 @@ from starlette.responses import JSONResponse
 
 from src.client.connection import MAX_ACTIVE_SESSIONS, _session_cache
 from src.config.settings import SESSION_DIR
-from src.server_components.routes_web_setup import _setup_sessions
+from src.server_components.web_setup import _setup_sessions
 
 
 def register_health_routes(mcp_app):

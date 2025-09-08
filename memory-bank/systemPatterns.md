@@ -193,8 +193,8 @@ else:
 
 ### Core Modules
 - **server.py**: MCP server entry point; registers routes and tools on startup
-- **server_components/routes_health.py**: Health endpoint registrar; `register_health_routes(mcp)`
-- **server_components/routes_web_setup.py**: Web setup routes registrar; `register_web_setup_routes(mcp)`
+- **server_components/health.py**: Health endpoint registrar; `register_health_routes(mcp)`
+- **server_components/web_setup.py**: Web setup routes registrar; `register_web_setup_routes(mcp)`
 - **server_components/tools_register.py**: Tool registrar; `register_tools(mcp)`
 - **search.py**: Search functionality implementation with multi-query support
 - **client/connection.py**: Telegram client management with token-based sessions and LRU cache
