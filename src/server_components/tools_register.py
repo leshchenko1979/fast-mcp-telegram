@@ -12,7 +12,7 @@ from src.tools.messages import (
     send_message_to_phone_impl,
 )
 from src.tools.mtproto import invoke_mtproto_method
-from src.tools.search import search_messages as search_messages_impl
+from src.tools.search import search_messages_impl
 from src.utils.error_handling import log_and_build_error
 
 

@@ -47,3 +47,6 @@ MAX_CONCURRENT_CONNECTIONS = 10
 # Server info
 SERVER_NAME = "MCP Telegram Server"
 SERVER_VERSION = __version__
+
+# Authentication configuration
+DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")

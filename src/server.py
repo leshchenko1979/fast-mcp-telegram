@@ -15,6 +15,7 @@ from loguru import logger
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.client.connection import cleanup_client
+from src.config.settings import DISABLE_AUTH
 from src.config.logging import setup_logging
 from src.server_components.routes_health import register_health_routes
 from src.server_components.routes_web_setup import register_web_setup_routes
@@ -31,8 +32,6 @@ else:
     host = os.environ.get("MCP_HOST", "127.0.0.1")
     port = int(os.environ.get("MCP_PORT", "8000"))
 
-# Authentication configuration
-DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
 
 # Development token generation for testing
 if DISABLE_AUTH:
@@ -53,12 +52,10 @@ else:
 mcp = FastMCP("Telegram MCP Server", stateless_http=True)
 setup_logging()
 
-
-@mcp.on_startup
-async def _register_routes():
-    register_health_routes(mcp)
-    register_web_setup_routes(mcp)
-    register_tools(mcp)
+# Register routes and tools immediately (no on_startup hook available)
+register_health_routes(mcp)
+register_web_setup_routes(mcp)
+register_tools(mcp)
 
 
 def shutdown_procedure():

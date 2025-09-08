@@ -5,9 +5,7 @@ from functools import wraps
 from loguru import logger
 
 from src.client.connection import set_request_token
-
-# Authentication configuration (evaluated at import)
-DISABLE_AUTH = os.getenv("DISABLE_AUTH", "false").lower() in ("true", "1", "yes")
+from src.config.settings import DISABLE_AUTH
 
 
 def _get_transport() -> str:
