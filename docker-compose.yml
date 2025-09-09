@@ -24,6 +24,7 @@ services:
       - "traefik.http.services.fast-mcp-telegram.loadbalancer.server.port=8000"
       - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=letsencrypt"
     restart: always
+    mem_limit: 128m
     command: python -m src.server
 
     profiles:
