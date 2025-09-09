@@ -20,12 +20,12 @@
 - **Multi-User Support**: HTTP transport with per-user session files and authentication
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup
 - **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
-- **Web Setup (HTMX)**: Browser-based auth at `/setup` (phone → code/2FA → config), success step skipped
+- **Web Setup (HTMX)**: Complete browser-based auth flow with improved styling and 2FA support
 - **Config Generation**: Runtime `DOMAIN` with auto-download of `mcp.json`
 - **Setup Session Cleanup**: TTL-based opportunistic cleanup for temporary setup sessions
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
 - **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance
-- **Server Module Split**: Moved routes/tools out of `src/server.py` into `server/routes_setup.py` and `server/tools_register.py`
+- **Server Module Split**: Moved routes/tools out of `src/server.py` into dedicated modules
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
@@ -43,7 +43,7 @@
 - **Advanced Filtering**: More sophisticated search filters and operators
 - **Batch Operations**: Bulk message operations and batch processing
 - **Webhook Support**: Real-time message notifications via webhooks
-- **UX Polish**: Add hints for 2FA and retry mechanics in setup UI
+- **UX Polish**: Additional hints and retry mechanics in setup UI
 
 ### Infrastructure Improvements
 - **Monitoring**: Enhanced metrics and health checks
@@ -54,6 +54,8 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Web Setup Interface Improvements**: Enhanced styling with larger input/button text (1.1rem/1rem) and smaller hint text (0.85rem), removed excessive instructional text, cleaned up empty card styling for better visual hierarchy (2025-09-09)
+- **2FA Authentication Route Fix**: Added missing `/setup/2fa` route handler with proper password validation, error handling, and integration with session management and config generation flow (2025-09-09)
 - **Documentation and Configuration Updates**: Updated all documentation to reflect current codebase state, created comprehensive .env.example template, updated README with three server modes, simplified project structure, and updated docker-compose.yml and deploy script to use new configuration system (2025-09-08)
 - **Configuration System Modernization**: Implemented comprehensive pydantic-settings based configuration system with three clear server modes (stdio, http-no-auth, http-auth) and automatic CLI parsing. Created ServerConfig and SetupConfig classes with smart defaults and validation (2025-09-08)
 - **Server Entrypoint Slimming**: `src/server.py` now registers routes (`register_routes`) and tools (`register_tools`) on startup; tool and route logic moved to dedicated modules (2025-09-08)
@@ -106,6 +108,20 @@
 - **Session Management**: Requires proper session handling and authentication
 
 ## Evolution of Project Decisions
+
+### Web Setup Interface Evolution
+1. **Initial**: Basic HTMX forms with standard styling
+2. **Styling Issues**: Text sizes not optimized for readability
+3. **Visual Hierarchy**: Implemented larger interactive elements with smaller instructional text
+4. **Clean Layout**: Removed excessive text and empty visual elements
+5. **Complete Flow**: Added missing 2FA route for full authentication support
+
+### Authentication Flow Evolution
+1. **CLI Only**: Initial setup required command-line interface
+2. **Web Interface**: Added HTMX-based browser setup flow
+3. **Missing 2FA**: 2FA route was missing, causing 404 errors
+4. **Complete Flow**: Added proper 2FA handling with error recovery
+5. **Enhanced UX**: Improved styling and user experience
 
 ### Logging Strategy Evolution
 1. **Initial**: Basic logging with standard library

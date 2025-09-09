@@ -1,4 +1,3 @@
-
 ## Architecture Overview
 The fast-mcp-telegram system follows a modular MCP server architecture with clear separation of concerns:
 
@@ -115,7 +114,15 @@ Return unified result set
 - Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
 - Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
 
-### 13. Logging Strategy
+### 13. Web Setup Interface Architecture
+- **HTMX Integration**: Dynamic form updates with `hx-target="#step"` for seamless UX
+- **Template Structure**: Base template with fragment-based form components
+- **Visual Hierarchy**: Larger interactive elements (1.1rem inputs, 1rem buttons) with smaller instructional text (0.85rem)
+- **Clean Layout**: Minimal text, no empty visual elements, progressive disclosure
+- **Error Handling**: Context-specific error messages with retry capability
+- **Session Management**: TTL-based setup session cleanup with automatic resource management
+
+### 14. Logging Strategy
 - Loguru: File rotation + console with structured logging
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Modular Architecture: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management
@@ -123,7 +130,7 @@ Return unified result set
 - Request ID Tracking: Enhanced logging with optional request ID support for operation correlation
 - Traceability: Detailed RPC traces enabled for production diagnosis with flattened error structures
 
-### 14. Deployment Automation Patterns
+### 15. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
@@ -131,7 +138,7 @@ Return unified result set
 - **Local-Remote Sync**: Bidirectional synchronization of session files
 - **Error Recovery**: Robust error handling with detailed logging and counts
 
-### 15. VDS Testing and Diagnosis Methodology
+### 16. VDS Testing and Diagnosis Methodology
 - **Environment Access**: SSH connection using credentials from `.env` file (`VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`)
 - **Deployment Process**: Automated deployment via `./scripts/deploy-mcp.sh` with session management and health checks
 - **Container Management**: Docker Compose commands for status monitoring, log analysis, and health verification
@@ -152,6 +159,13 @@ Return unified result set
 4. **Entity Resolution**: Convert chat_id to Telegram entity
 5. **Parallel Execution**: Create and execute search tasks for each query
 6. **Result Processing**: Merge, deduplicate, and format results
+
+### Web Setup Authentication Flow
+1. **Phone Submission**: User enters phone number, system sends verification code
+2. **Code Verification**: User enters code, system validates and checks for 2FA requirement
+3. **2FA Handling**: If required, user enters 2FA password, system validates
+4. **Config Generation**: System generates MCP configuration with bearer token
+5. **Session Cleanup**: Temporary setup sessions cleaned up via TTL
 
 ### Current Search Logic
 ```python
