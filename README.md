@@ -46,7 +46,7 @@
 | 📊 **Session Management** | LRU cache, automatic cleanup, health monitoring |
 | ⚡ **Performance** | Async operations, parallel queries, connection pooling |
 | 🛡️ **Reliability** | Auto-reconnect, structured logging, error handling |
-| 🎯 **LLM Optimization** | Literal parameter constraints guide AI model choices |
+| 🎯 **AI Optimization** | Literal parameter constraints guide AI model choices |
 
 ## 📋 Prerequisites
 
@@ -100,7 +100,7 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 **📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless. You can create a `.env` file by copying `.env.example` and filling in your values.
 
-**🌐 Prefer a browser?** Run the server and open `/setup` on your server to authenticate and download a ready‑to‑use `mcp.json` without running the CLI setup.
+**🌐 Prefer a browser?** Run the server and open `/setup` to authenticate and download a ready‑to‑use `mcp.json` without running the CLI setup.
 
 **🔑 Bearer Token Output:** After successful authentication, you'll receive a Bearer token:
 ```
@@ -220,7 +220,7 @@ MAX_ACTIVE_SESSIONS=10      # LRU cache limit for concurrent sessions
 LOG_LEVEL=INFO
 ```
 
-**Note:** Phone number is specified during setup via CLI options rather than environment variables for better security and flexibility.
+**Note:** Phone numbers are specified during setup via CLI options rather than environment variables for better security and flexibility.
 
 ### 2. Telegram Authentication & Token Generation
 
@@ -382,13 +382,13 @@ The `docker-compose.yml` automatically sets the server to `http-auth` mode for p
 
 ## 🔧 Available Tools
 
-### 🎯 LLM-Optimized Parameter Constraints
+### 🎯 AI-Optimized Parameter Constraints
 This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
 
 - **`parse_mode`**: Constrained to `"markdown"` or `"html"` (no invalid values)
 - **`chat_type`**: Limited to `"private"`, `"group"`, or `"channel"` for search filters
 - **Enhanced Validation**: FastMCP automatically validates these constraints
-- **Better LLM Guidance**: AI models see only valid options, reducing errors
+- **Better AI Guidance**: AI models see only valid options, reducing errors
 
 ### 📍 Supported Chat ID Formats
 All tools that accept a `chat_id` parameter support these formats:
@@ -398,7 +398,7 @@ All tools that accept a `chat_id` parameter support these formats:
 - `-1001234567890` - Channel ID (always starts with -100)
 
 ### 🔍 Search Query Guidelines
-**Important**: Telegram search has specific limitations that LLMs should understand:
+**Important**: Telegram search has specific limitations that AI models should understand:
 
 **✅ What Works:**
 - **Exact words**: `"deadline"`, `"meeting"`, `"project"`
@@ -461,7 +461,7 @@ search_messages_globally(
 }}
 ```
 
-**❌ Common LLM Mistakes to Avoid:**
+**❌ Common AI Model Mistakes to Avoid:**
 ```json
 // DON'T use wildcards - these won't work:
 {"tool": "search_messages_globally", "params": {"query": "proj*"}}  // ❌
@@ -773,7 +773,7 @@ fast-mcp-telegram/
 ```
 **Session Management:** Session files are stored in the standard user config directory:
 - **All installations:** `~/.config/fast-mcp-telegram/telegram.session` (persistent storage)
-- **Multi-user:** `~/.config/fast-mcp-telegram/{token}.session` (token-based isolation)
+- **Multi-user deployments:** `~/.config/fast-mcp-telegram/{token}.session` (token-based isolation)
 
 **Security Note:** Session files contain sensitive authentication data and are never committed to version control. Each environment (local, Docker, remote server) maintains its own authenticated session.
 
@@ -786,7 +786,7 @@ fast-mcp-telegram/
 | **telethon** | Telegram API client |
 | **loguru** | Structured logging |
 | **aiohttp** | Async HTTP client |
-| **python-dotenv** | Environment management |
+| **pydantic-settings** | Configuration management |
 
 **Version Management**: Single source of truth in `src/_version.py` with automatic synchronization across build system, runtime, and Docker deployments.
 
