@@ -6,7 +6,7 @@ Tests error handling decorators, parameter introspection, and error response for
 """
 
 import pytest
-from fastmcp import FastMCP, Client
+from fastmcp import Client, FastMCP
 
 from src.server_components.errors import with_error_handling
 from src.utils.error_handling import log_and_build_error

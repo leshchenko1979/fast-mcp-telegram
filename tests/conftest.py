@@ -5,15 +5,12 @@ Pytest configuration and shared fixtures for Telegram MCP Server tests.
 This module provides common fixtures and configuration used across all test files.
 """
 
-import asyncio
-import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock
 
-from fastmcp import FastMCP, Client
+import pytest
+import pytest_asyncio
+from fastmcp import Client, FastMCP
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
-
-from src.server_components.errors import with_error_handling
 
 
 class MockTelegramClient:
@@ -108,8 +105,7 @@ def test_server(mock_client):
         """Send new message or edit existing message in Telegram chat."""
         if message_id:
             return {"action": "edited", "message_id": message_id, "text": message}
-        else:
-            return {"action": "sent", "chat_id": chat_id, "text": message}
+        return {"action": "sent", "chat_id": chat_id, "text": message}
 
     @mcp.tool()
     async def read_messages(chat_id: str, message_ids: list[int]):

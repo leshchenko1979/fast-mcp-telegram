@@ -3,16 +3,15 @@ Simplified Telegram MCP server setup using pydantic-settings.
 """
 
 import asyncio
+import base64
 import getpass
+import secrets
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, CliImplicitFlag, SettingsConfigDict
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
-
-import base64
-import secrets
 
 
 class SetupConfig(BaseSettings):
