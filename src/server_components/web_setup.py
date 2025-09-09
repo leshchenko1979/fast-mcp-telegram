@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 from pathlib import Path
@@ -38,10 +39,8 @@ async def cleanup_stale_setup_sessions():
 
         try:
             if client:
-                try:
+                with contextlib.suppress(Exception):
                     await client.disconnect()
-                except Exception:
-                    pass
         finally:
             try:
                 if isinstance(session_path, str) and session_path:
@@ -151,6 +150,50 @@ def register_web_setup_routes(mcp_app):
                 },
             )
 
+    @mcp_app.custom_route("/setup/2fa", methods=["POST"])
+    async def setup_2fa(request: Request):
+        form = await request.form()
+        setup_id = str(form.get("setup_id", "")).strip()
+        password = str(form.get("password", "")).strip()
+
+        if not setup_id or setup_id not in _setup_sessions:
+            return JSONResponse(
+                {"ok": False, "error": "Invalid setup session."}, status_code=400
+            )
+
+        await cleanup_stale_setup_sessions()
+
+        state = _setup_sessions.get(setup_id)
+        client = state.get("client")
+        masked_phone = state.get("masked_phone")
+
+        from telethon.errors import PasswordHashInvalidError
+
+        try:
+            await client.sign_in(password=password)
+            state["authorized"] = True
+            return await setup_generate(request)
+        except PasswordHashInvalidError:
+            return templates.TemplateResponse(
+                request,
+                "fragments/2fa_form.html",
+                {
+                    "setup_id": setup_id,
+                    "masked_phone": masked_phone,
+                    "error": "Invalid password. Please try again.",
+                },
+            )
+        except Exception as e:
+            return templates.TemplateResponse(
+                request,
+                "fragments/2fa_form.html",
+                {
+                    "setup_id": setup_id,
+                    "masked_phone": masked_phone,
+                    "error": f"Authentication failed: {e}",
+                },
+            )
+
     def _generate_mcp_config_json(domain: str, token: str) -> str:
         import json
 
@@ -192,15 +235,11 @@ def register_web_setup_routes(mcp_app):
         dst = session_dir / f"{token}.session"
 
         try:
-            try:
+            with contextlib.suppress(Exception):
                 await client.send_read_acknowledge(None)  # touch session
-            except Exception:
-                pass
 
-            try:
+            with contextlib.suppress(Exception):
                 await client.disconnect()
-            except Exception:
-                pass
 
             if src.exists():
                 src.rename(dst)

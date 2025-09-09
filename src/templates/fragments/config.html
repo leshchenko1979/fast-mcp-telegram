@@ -1,7 +1,8 @@
-<h2>MCP Configuration</h2>
-<p class="muted">You have been authenticated. Use this configuration in your client. The token is generated and the
-    session has been saved on the
-    server.</p>
+<h1>MCP Configuration</h1>
+<p class="muted">
+    Authentication successful. Your session is saved on the server.<br>
+    Copy or download the configuration below to use in your MCP client or AI IDE.
+</p>
 
 <div class="card" style="margin-bottom:12px;">
     <pre style="white-space:pre-wrap;">{{ config_json }}</pre>
@@ -14,5 +15,3 @@
 <button type="button" id="copyBtn"
     onclick="(async ()=>{await navigator.clipboard.writeText(document.querySelector('pre').innerText); const btn=document.getElementById('copyBtn'); const prev=btn.innerText; btn.innerText='✓ Copied'; setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
     to Clipboard</button>
-
-<div class="muted" style="margin-top:8px;">Domain comes from DOMAIN env at runtime.</div>
