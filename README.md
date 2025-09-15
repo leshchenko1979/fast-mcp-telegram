@@ -855,3 +855,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [⭐ Star us on GitHub](https://github.com/leshchenko1979/fast-mcp-telegram) • [💬 Join our community](https://t.me/mcp_telegram)
 
 </div>
+
+mcp-name: io.github.leshchenko1979/fast-mcp-telegram

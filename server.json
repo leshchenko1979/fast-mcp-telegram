@@ -1,0 +1,71 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.leshchenko1979/fast-mcp-telegram",
+  "description": "Telegram MCP server with search and messaging capabilities",
+  "status": "active",
+  "website_url": "https://github.com/leshchenko1979/fast-mcp-telegram",
+  "repository": {
+    "url": "https://github.com/leshchenko1979/fast-mcp-telegram",
+    "source": "github"
+  },
+  "homepage_url": "https://github.com/leshchenko1979/fast-mcp-telegram",
+  "documentation_url": "https://github.com/leshchenko1979/fast-mcp-telegram#readme",
+  "issues_url": "https://github.com/leshchenko1979/fast-mcp-telegram/issues",
+  "releases_url": "https://github.com/leshchenko1979/fast-mcp-telegram/releases",
+  "author": "Alexey Leshchenko",
+  "contact_email": "leshchenko@gmail.com",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "telegram",
+    "search",
+    "messaging",
+    "contacts",
+    "mtproto"
+  ],
+  "languages": [
+    "python"
+  ],
+  "runtime": "python>=3.10",
+  "publisher": "io.github.leshchenko1979",
+  "packages": [
+    {
+      "registry_type": "pypi",
+      "registry_base_url": "https://pypi.org",
+      "identifier": "fast-mcp-telegram",
+      "version": "0.4.4",
+      "transport": {
+        "type": "stdio"
+      },
+      "environment_variables": [
+        {
+          "name": "API_ID",
+          "description": "Telegram API ID (from https://my.telegram.org/apps)",
+          "is_required": true
+        },
+        {
+          "name": "API_HASH",
+          "description": "Telegram API Hash (from https://my.telegram.org/apps)",
+          "is_required": true,
+          "is_secret": true
+        },
+        {
+          "name": "SERVER_MODE",
+          "description": "Server mode: stdio (local), http-no-auth (dev), http-auth (prod)",
+          "default": "stdio",
+          "choices": [
+            "stdio",
+            "http-no-auth",
+            "http-auth"
+          ]
+        },
+        {
+          "name": "SESSION_DIR",
+          "description": "Custom session directory (defaults to ~/.config/fast-mcp-telegram/)",
+          "is_required": false
+        }
+      ]
+    }
+  ],
+  "version": "0.4.5"
+}

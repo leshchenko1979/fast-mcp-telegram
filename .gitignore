@@ -72,3 +72,7 @@ sessions/
 !sessions/.gitkeep
 # macOS resource fork files
 ._*
+
+# MCP Registry
+.mcpregistry_github_token
+.mcpregistry_registry_token
