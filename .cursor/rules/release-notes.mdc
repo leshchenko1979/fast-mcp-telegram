@@ -15,12 +15,19 @@ When creating release notes, follow this systematic approach:
 ### 2. Analyze Code Changes
 - **Primary focus**: `git diff <previous-tag>..HEAD` - Examine actual code changes, not summaries
 - **Final state**: `git show HEAD:<file>` - Shows final state of specific files
-- **Ignore commit messages**: Focus on what the code actually does, not what commit messages claim
+- **Also analyze summaries**: Use `git log --no-merges <previous-tag>..HEAD --pretty=full` to read commit subjects/bodies to understand intent and user-facing context
+- **Cross-validate**: Treat commit summaries/messages as hints for categorization and wording, but always validate and correct against actual code changes
 - **Describe final state**: Not the journey, but the end result
 
 ### 3. Categorize Changes
 - **AI-driven categorization**: Let the AI analyze code changes and determine appropriate categories
 - **Focus on impact**: Group changes by their functional impact
+
+#### Prioritization
+- Prefer user-facing changes first (features, UX, behavior changes)
+- Then internal improvements (performance, stability, refactors)
+- Then documentation or meta changes
+- If there is sufficient user-facing content, omit secondary categories to keep the notes concise
 
 ### 4. Format Release Notes
 
@@ -35,11 +42,6 @@ Release <version> - <main theme>
 
 ## <Another Category Name>
 - **Additional changes** - Description of changes in this category
-
-## Files Changed
-- X files modified with Y additions and Z deletions
-- Key files updated: list major files
-- Infrastructure changes: describe any significant structural or architectural modifications
 
 This release focuses on <main theme>.
 
@@ -60,6 +62,10 @@ This release focuses on <main theme>.
 - **Code-first analysis**: Base descriptions on actual code changes, not commit messages
 - **Final state focus**: Describe what the code does now, not the journey to get there
 - **Provide as markdown block**: Output release notes as a markdown code block in chat for easy copy/paste, do NOT create files
+- **Aggregate patch releases**: Do not publish separate notes for patches; include all patch changes since the last minor version in the next minor release notes
+- **Omit file stats when not needed**: If primary (user-facing) content is sufficient, omit any “Files Changed” or file stats sections
+- **Plain changelog URL**: Do not wrap the changelog URL in quotes or backticks; use a bare markdown link line like:
+  - `**Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-tag>...<current-tag>`
 
 ### 7. Version Bump Process
 - **First**: Update version in `src/_version.py` (single source of truth for version management)
@@ -86,7 +92,7 @@ This release focuses on <main theme>.
 - **Structure**:
   - Version header with date
   - Categorized feature highlights with checkmarks
-  - Installation commands (PyPI and Docker)
+  - Installation commands (PyPI)
   - GitHub link
 - **Timing**: Send only after user confirms GitHub release is published
 - **Customization**: Adapt categories and features based on the specific release content
