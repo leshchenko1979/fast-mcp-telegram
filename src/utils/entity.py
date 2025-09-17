@@ -34,15 +34,42 @@ async def get_entity_by_id(entity_id):
         return None
 
 
+def get_normalized_chat_type(entity) -> str | None:
+    """Return normalized chat type: 'private', 'group', or 'channel'."""
+    if not entity:
+        return None
+    try:
+        entity_class = entity.__class__.__name__
+    except Exception:
+        return None
+
+    if entity_class == "User":
+        return "private"
+    if entity_class == "Chat":
+        return "group"
+    if entity_class in ["Channel", "ChannelForbidden"]:
+        is_megagroup = bool(getattr(entity, "megagroup", False))
+        is_broadcast = bool(getattr(entity, "broadcast", False))
+        if is_megagroup:
+            return "group"
+        if is_broadcast:
+            return "channel"
+        return "channel"
+    return None
+
+
 def build_entity_dict(entity) -> dict:
     if not entity:
         return None
     first_name = getattr(entity, "first_name", None)
     last_name = getattr(entity, "last_name", None)
+    normalized_type = get_normalized_chat_type(entity)
     return {
         "id": getattr(entity, "id", None),
         "title": getattr(entity, "title", None),
-        "type": entity.__class__.__name__ if hasattr(entity, "__class__") else None,
+        "type": normalized_type
+        if normalized_type
+        else (entity.__class__.__name__ if hasattr(entity, "__class__") else None),
         "username": getattr(entity, "username", None),
         "first_name": first_name,
         "last_name": last_name,
@@ -250,10 +277,5 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
     """Check if entity matches the specified chat type filter."""
     if not chat_type:
         return True
-
-    entity_class = entity.__class__.__name__
-    return (
-        (chat_type == "private" and entity_class == "User")
-        or (chat_type == "group" and entity_class == "Chat")
-        or (chat_type == "channel" and entity_class in ["Channel", "ChannelForbidden"])
-    )
+    normalized_type = get_normalized_chat_type(entity)
+    return normalized_type == chat_type
