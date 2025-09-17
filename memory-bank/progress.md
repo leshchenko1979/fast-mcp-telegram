@@ -6,6 +6,8 @@
 - Updated `find_chats` to support comma-separated multi-term queries with deduplication by `id`
 - Simplified contacts results: removed nested `user_info`/`chat_info` in quick results
 - Ensured `title` fallback (explicit → full name → @username) and type normalization
+ - `get_chat_info` now enriches results with `members_count`/`subscribers_count` using Telethon full-info requests; base builder includes counts opportunistically when present on entities
+ - Added `about` for groups/channels and `bio` for users via new `build_entity_dict_enriched`; `get_chat_info` now returns these when available
 ## What Works (Functional Status)
 
 ### Core Functionality ✅

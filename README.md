@@ -634,7 +634,7 @@ find_chats(
 ```
 
 ### ℹ️ get_chat_info
-**Get user/chat profile information**
+**Get user/chat profile information (enriched with member/subscriber counts)**
 
 ```typescript
 get_chat_info(
@@ -642,7 +642,13 @@ get_chat_info(
 )
 ```
 
-**Returns:** Bio, status, online state, profile photos, and more (same entity schema as other tools)
+**Returns:** Bio, status, online state, profile photos, and more.
+
+Also includes, when applicable:
+- `members_count` for groups (regular groups and megagroups)
+- `subscribers_count` for channels (broadcast)
+
+Counts are fetched via Telethon full-info requests and reflect current values.
 ### 🔧 Uniform Entity Schema
 All tools return chat/user objects in the same schema via `build_entity_dict`:
 
@@ -653,7 +659,9 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
   "type": "private",            // one of: private | group | channel
   "username": "johndoe",        // if available
   "first_name": "John",         // users
-  "last_name": "Doe"            // users
+  "last_name": "Doe",           // users
+  "members_count": 1234,          // groups (when available)
+  "subscribers_count": 56789      // channels (when available)
 }
 ```
 

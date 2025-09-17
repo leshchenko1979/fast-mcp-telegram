@@ -11,6 +11,7 @@ from telethon.tl.functions.contacts import SearchRequest
 from src.client.connection import get_connected_client
 from src.utils.entity import (
     build_entity_dict,
+    build_entity_dict_enriched,
     get_entity_by_id,
     get_normalized_chat_type,
 )
@@ -200,7 +201,8 @@ async def get_chat_info_impl(chat_id: str) -> dict[str, Any]:
                 exception=ValueError(f"Chat with ID '{chat_id}' not found"),
             )
 
-        return build_entity_dict(entity)
+        # Return enriched info with counts and about/bio when applicable
+        return await build_entity_dict_enriched(entity)
 
     except Exception as e:
         return log_and_build_error(

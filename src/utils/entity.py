@@ -1,5 +1,7 @@
 from loguru import logger
-from telethon.tl.functions.messages import GetSearchCountersRequest
+from telethon.tl.functions.channels import GetFullChannelRequest
+from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
+from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import InputMessagesFilterEmpty
 
 from ..client.connection import get_connected_client
@@ -90,6 +92,22 @@ def build_entity_dict(entity) -> dict:
         else (entity.__class__.__name__ if hasattr(entity, "__class__") else None)
     )
 
+    # Opportunistic counts: available only on certain entity variants
+    members_count = None
+    subscribers_count = None
+    try:
+        if computed_type == "group":
+            # Some group entities expose participants_count directly
+            members_count = getattr(entity, "participants_count", None)
+        elif computed_type == "channel":
+            # Channels may expose subscribers_count or participants_count depending on context
+            subscribers_count = getattr(entity, "subscribers_count", None) or getattr(
+                entity, "participants_count", None
+            )
+    except Exception:
+        members_count = None
+        subscribers_count = None
+
     result = {
         "id": getattr(entity, "id", None),
         "title": title,
@@ -97,6 +115,9 @@ def build_entity_dict(entity) -> dict:
         "username": username,
         "first_name": first_name,
         "last_name": last_name,
+        # Counts (only when available on the given entity instance)
+        "members_count": members_count,
+        "subscribers_count": subscribers_count,
     }
 
     # Prune None values for a compact, uniform schema
@@ -306,3 +327,108 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
         return True
     normalized_type = get_normalized_chat_type(entity)
     return normalized_type == chat_type
+
+
+async def build_entity_dict_enriched(entity_or_id) -> dict:
+    """
+    Build entity dict and include enriched fields by querying Telegram when needed.
+
+    Adds when applicable:
+    - groups: members_count, about/description
+    - channels: subscribers_count, about/description
+    - private users: bio
+
+    This is the async variant that can fetch full chat/channel info via Telethon:
+    - messages.GetFullChatRequest for basic groups (`Chat`)
+    - channels.GetFullChannelRequest for channels/megagroups (`Channel`)
+    - users.GetFullUserRequest for private users
+    """
+    try:
+        # Resolve if an id/username was provided
+        entity = entity_or_id
+        if not getattr(entity_or_id, "__class__", None):
+            entity = await get_entity_by_id(entity_or_id)
+
+        base = build_entity_dict(entity)
+        if not base:
+            return None
+
+        computed_type = base.get("type")
+        members_count: int | None = None
+        subscribers_count: int | None = None
+        about_value: str | None = None
+        bio_value: str | None = None
+
+        client = await get_connected_client()
+
+        # Distinguish Chat vs Channel classes to pick proper request
+        entity_class = entity.__class__.__name__ if hasattr(entity, "__class__") else ""
+
+        if computed_type == "group":
+            # Regular small groups use GetFullChatRequest with chat_id
+            if entity_class == "Chat":
+                try:
+                    full = await client(
+                        GetFullChatRequest(chat_id=getattr(entity, "id", None))
+                    )
+                    full_chat = getattr(full, "full_chat", None)
+                    members_count = getattr(full_chat, "participants_count", None)
+                    about_value = getattr(full_chat, "about", None)
+                except Exception as e:
+                    logger.debug(
+                        f"GetFullChatRequest failed for chat {getattr(entity, 'id', None)}: {e}"
+                    )
+            else:
+                # Megagroups are Channels with megagroup=True; use GetFullChannelRequest
+                try:
+                    full = await client(GetFullChannelRequest(channel=entity))
+                    full_chat = getattr(full, "full_chat", None)
+                    members_count = getattr(full_chat, "participants_count", None)
+                    about_value = getattr(full_chat, "about", None)
+                except Exception as e:
+                    logger.debug(
+                        f"GetFullChannelRequest (megagroup) failed for {getattr(entity, 'id', None)}: {e}"
+                    )
+
+        elif computed_type == "channel":
+            # Broadcast channels via GetFullChannelRequest
+            try:
+                full = await client(GetFullChannelRequest(channel=entity))
+                full_chat = getattr(full, "full_chat", None)
+                subscribers_count = getattr(full_chat, "participants_count", None)
+                about_value = getattr(full_chat, "about", None)
+            except Exception as e:
+                logger.debug(
+                    f"GetFullChannelRequest (channel) failed for {getattr(entity, 'id', None)}: {e}"
+                )
+
+        elif computed_type == "private":
+            # Users: get bio via GetFullUserRequest
+            try:
+                full_user = await client(GetFullUserRequest(id=entity))
+                bio_value = getattr(full_user, "about", None)
+            except Exception as e:
+                logger.debug(
+                    f"GetFullUserRequest failed for user {getattr(entity, 'id', None)}: {e}"
+                )
+
+        # Merge counts into the base dict, pruning None
+        if members_count is not None:
+            base["members_count"] = members_count
+        if subscribers_count is not None:
+            base["subscribers_count"] = subscribers_count
+        if about_value is not None:
+            base["about"] = about_value
+        if bio_value is not None:
+            base["bio"] = bio_value
+        return base
+    except Exception as e:
+        logger.warning(f"Failed to build entity dict with counts: {e}")
+        # Fallback to simple version without counts
+        try:
+            entity = entity_or_id
+            if not getattr(entity_or_id, "__class__", None):
+                entity = await get_entity_by_id(entity_or_id)
+            return build_entity_dict(entity)
+        except Exception:
+            return None

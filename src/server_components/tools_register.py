@@ -246,7 +246,7 @@ def register_tools(mcp: FastMCP) -> None:
 
         USE CASES:
         - Get full user profile after finding chat_id
-        - Retrieve contact details, bio, and status
+        - Retrieve contact details, bio, status and subscribers count
         - Check if user is online/bot/channel
 
         SUPPORTED FORMATS:

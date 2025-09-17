@@ -29,6 +29,16 @@
 **Decision**: Standardize chat/user objects via `build_entity_dict` across all tools
 **Impact**: Consistent schemas, simpler client code, reduced duplication
 
+### Entity Counts in Detailed Info (2025-09-17)
+**Decision**: Added optional member/subscriber counts. `build_entity_dict` includes counts when present on entities. Introduced async `build_entity_dict_with_counts` used by `get_chat_info` to fetch counts via Telethon full-info requests.
+**Impact**: `get_chat_info` now returns `members_count` for groups and `subscribers_count` for channels when available.
+
+### Entity Enrichment (2025-09-17)
+**Decision**: Renamed async helper to `build_entity_dict_enriched` and expanded enrichment:
+- Groups/Channels: `about` (description)
+- Private users: `bio`
+**Impact**: `get_chat_info` returns richer profile data while lightweight tools still use compact schema.
+
 ### Multi-term Contact Search (2025-09-17)
 **Decision**: `find_chats` accepts comma-separated terms; searches concurrently
 **Impact**: Better discovery with merged, deduped results and uniform payloads
