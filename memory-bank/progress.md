@@ -1,3 +1,8 @@
+### 2025-09-17
+- Implemented uniform chat schema across tools using `build_entity_dict`
+- Updated `find_chats` to support comma-separated multi-term queries with deduplication by `id`
+- Simplified contacts results: removed nested `user_info`/`chat_info` in quick results
+- Ensured `title` fallback (explicit → full name → @username) and type normalization
 ## What Works (Functional Status)
 
 ### Core Functionality ✅

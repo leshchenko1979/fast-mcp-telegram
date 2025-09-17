@@ -45,6 +45,12 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Entity Resolution**: Automatic chat ID resolution from various formats
 - **Deduplication**: Results merged and deduplicated based on message identity
 
+### Uniform Entity Schema (2025-09-17)
+- All tools format chat/user data via `utils.entity.build_entity_dict`
+- Schema: `id`, `title`, `type` (private|group|channel), `username`, `first_name`, `last_name`
+- `title` fallback: explicit title → full name → `@username`
+- Quick lookup tools (e.g., `find_chats`) return only this schema; detailed info via `get_chat_info`
+
 ### 5. Multi-Query Implementation
 - **Input Format**: Single string with comma-separated terms (e.g., "deadline, due date")
 - **Parallel Execution**: `asyncio.gather()` for simultaneous query processing

@@ -1,7 +1,7 @@
 ## Current Work Focus
-**Primary**: Web setup interface improvements and 2FA authentication flow completion (2025-09-09)
+**Primary**: Uniform chat schema across tools and optimized `find_chats` behavior (2025-09-17)
 
-**Current Status**: Successfully enhanced the web setup interface with improved styling and fixed the missing 2FA authentication route. The complete authentication flow now works properly for users with 2FA enabled.
+**Current Status**: All tools now use `build_entity_dict` for chat/user objects. `find_chats` supports comma-separated queries, merges, deduplicates by `id`, and returns compact, uniform entities.
 
 ## Active Decisions and Considerations
 
@@ -25,14 +25,13 @@
 - Integrated with existing session management and config generation flow
 **Impact**: Complete authentication flow now works for users with 2FA enabled
 
-### Web Setup Flow Architecture (2025-09-09)
-**Current Flow**: `/setup` → `/setup/phone` → `/setup/verify` → `/setup/2fa` (if needed) → config generation
-**Implementation**:
-- HTMX-based dynamic form updates with `hx-target="#step"`
-- Session management with TTL-based cleanup (900s default)
-- Error handling with user-friendly messages
-- Automatic config generation and download capability
-**Impact**: Seamless browser-based authentication experience
+### Uniform Entity Formatting (2025-09-17)
+**Decision**: Standardize chat/user objects via `build_entity_dict` across all tools
+**Impact**: Consistent schemas, simpler client code, reduced duplication
+
+### Multi-term Contact Search (2025-09-17)
+**Decision**: `find_chats` accepts comma-separated terms; searches concurrently
+**Impact**: Better discovery with merged, deduped results and uniform payloads
 
 ## Important Patterns and Preferences
 

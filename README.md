@@ -424,7 +424,7 @@ All tools that accept a `chat_id` parameter support these formats:
 | `send_message` | Send new messages | Markdown/HTML formatting, replies |
 | `edit_message` | Edit existing messages | Update message content with formatting |
 | `read_messages` | Read specific messages by ID | Bulk reading, full metadata |
-| `find_chats` | Find users/groups/channels (get chat_id) | By name, username, or phone |
+| `find_chats` | Find users/groups/channels (uniform entity schema) | Name/username/phone; multi-term supported |
 | `get_chat_info` | Get user/chat profile information | Bio, status, online state |
 | `send_message_to_phone` | Message by phone number | Auto-contact management |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
@@ -597,11 +597,11 @@ read_messages(
 ```
 
 ### 👥 find_chats
-**Find users, groups, and channels (to get chat_id)**
+**Find users, groups, and channels (uniform entity schema)**
 
 ```typescript
 find_chats(
-  query: str,                  // Search term (name, username, or phone)
+  query: str,                  // Search term(s); comma-separated for multi-term
   limit?: number = 20          // Max results to return
 )
 ```
@@ -610,6 +610,7 @@ find_chats(
 - **Saved contacts** - Your Telegram contacts
 - **Global users** - Public Telegram users
 - **Channels & groups** - Public channels and groups
+- **Multi-term** - "term1, term2" runs parallel searches and merges/dedupes
 
 **Query formats:**
 - Name: `"John Doe"`
@@ -637,7 +638,22 @@ get_chat_info(
 )
 ```
 
-**Returns:** Bio, status, online state, profile photos, and more
+**Returns:** Bio, status, online state, profile photos, and more (same entity schema as other tools)
+### 🔧 Uniform Entity Schema
+All tools return chat/user objects in the same schema via `build_entity_dict`:
+
+```json
+{
+  "id": 133526395,
+  "title": "John Doe",           // falls back to full name or @username
+  "type": "private",            // one of: private | group | channel
+  "username": "johndoe",        // if available
+  "first_name": "John",         // users
+  "last_name": "Doe"            // users
+}
+```
+
+`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format.
 
 **Examples:**
 ```json

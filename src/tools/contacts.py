@@ -40,40 +40,19 @@ async def search_contacts_native(
 
         matches = []
 
-        # Process users found in contacts
+        # combine users and chats, providing they may not be present
         if hasattr(result, "users") and result.users:
-            for user in result.users:
-                user_info = build_entity_dict(user)
-                matches.append(
-                    {
-                        "chat_id": user.id,
-                        "title": f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip(),
-                        "type": "User",
-                        "username": getattr(user, "username", None),
-                        "phone": getattr(user, "phone", None),
-                        "match_type": "telegram_search",
-                        "user_info": user_info,
-                    }
-                )
-
-        # Process chats found in contacts
+            matches.extend(result.users)
         if hasattr(result, "chats") and result.chats:
-            for chat in result.chats:
-                chat_info = build_entity_dict(chat)
-                matches.append(
-                    {
-                        "chat_id": chat.id,
-                        "title": getattr(chat, "title", ""),
-                        "type": chat.__class__.__name__,
-                        "username": getattr(chat, "username", None),
-                        "match_type": "telegram_search",
-                        "chat_info": chat_info,
-                    }
-                )
+            matches.extend(result.chats)
 
-        logger.info(
-            f"Found {len(matches)} contacts using Telegram search for '{query}'"
-        )
+        for match in matches:
+            info = build_entity_dict(match)
+            if not info:
+                continue
+            matches.append(info)
+
+        logger.info(f"Found {len(matches)} matches using Telegram search for '{query}'")
 
         # If no contacts found, return error instead of empty list for consistency
         if not matches:
@@ -129,10 +108,10 @@ async def find_chats_impl(
         for res in results:
             if isinstance(res, list):
                 for item in res:
-                    chat_id = item.get("chat_id") if isinstance(item, dict) else None
-                    if chat_id is None or chat_id in seen_ids:
+                    entity_id = item.get("id") if isinstance(item, dict) else None
+                    if entity_id is None or entity_id in seen_ids:
                         continue
-                    seen_ids.add(chat_id)
+                    seen_ids.add(entity_id)
                     merged.append(item)
             # ignore error dicts and exceptions to allow partial success
             if len(merged) >= limit:

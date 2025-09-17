@@ -59,21 +59,48 @@ def get_normalized_chat_type(entity) -> str | None:
 
 
 def build_entity_dict(entity) -> dict:
+    """
+    Build a uniform chat/user representation used across all tools.
+
+    Fields:
+    - id: numeric or string identifier
+    - title: preferred display label; falls back to full name or @username
+    - type: one of "private", "group", "channel" (when determinable)
+    - username: public username if available
+    - first_name, last_name: present for users when available
+    """
     if not entity:
         return None
+
     first_name = getattr(entity, "first_name", None)
     last_name = getattr(entity, "last_name", None)
+    username = getattr(entity, "username", None)
+
+    # Derive a robust title: explicit title → full name → @username
+    raw_title = getattr(entity, "title", None)
+    full_name = f"{first_name or ''} {last_name or ''}".strip()
+    title = raw_title or (
+        full_name if full_name else (f"@{username}" if username else None)
+    )
+
     normalized_type = get_normalized_chat_type(entity)
-    return {
-        "id": getattr(entity, "id", None),
-        "title": getattr(entity, "title", None),
-        "type": normalized_type
+    computed_type = (
+        normalized_type
         if normalized_type
-        else (entity.__class__.__name__ if hasattr(entity, "__class__") else None),
-        "username": getattr(entity, "username", None),
+        else (entity.__class__.__name__ if hasattr(entity, "__class__") else None)
+    )
+
+    result = {
+        "id": getattr(entity, "id", None),
+        "title": title,
+        "type": computed_type,
+        "username": username,
         "first_name": first_name,
         "last_name": last_name,
     }
+
+    # Prune None values for a compact, uniform schema
+    return {k: v for k, v in result.items() if v is not None}
 
 
 async def _extract_forward_info(message) -> dict:
