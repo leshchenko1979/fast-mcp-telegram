@@ -3,7 +3,6 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
-import asyncio
 from typing import Any
 
 from loguru import logger
@@ -14,57 +13,60 @@ from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import log_and_build_error
 
 
-async def search_contacts_native(
-    query: str, limit: int = 20
-) -> list[dict[str, Any]] | dict[str, Any]:
+async def search_contacts_native(query: str, limit: int = 20):
     """
-    Search contacts using Telegram's native contacts.SearchRequest method.
+    Search contacts using Telegram's native contacts.SearchRequest method via async generator.
 
-    This method searches through your contacts and global Telegram users
-    using Telegram's built-in search functionality.
+    Yields contact dictionaries one by one for memory efficiency.
 
     Args:
         query: The search query (name, username, or phone number)
         limit: Maximum number of results to return
 
-    Returns:
-        List of matching contacts with their information, or error dict if operation fails
+    Yields:
+        Contact dictionaries one by one
     """
+    try:
+        client = await get_connected_client()
+        result = await client(SearchRequest(q=query, limit=limit))
+
+        count = 0
+
+        # Process users
+        if hasattr(result, "users") and result.users:
+            for user in result.users:
+                if count >= limit:
+                    break
+                info = build_entity_dict(user)
+                if info:
+                    yield info
+                    count += 1
+
+        # Process chats
+        if hasattr(result, "chats") and result.chats and count < limit:
+            for chat in result.chats:
+                if count >= limit:
+                    break
+                info = build_entity_dict(chat)
+                if info:
+                    yield info
+                    count += 1
+
+    except Exception as e:
+        # For async generators, we raise instead of yielding error dict
+        raise RuntimeError(f"Failed to search contacts: {e!s}") from e
+
+
+async def _search_contacts_as_list(
+    query: str, limit: int = 20
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Wrapper to collect generator results into a list for backward compatibility."""
+    results = []
     params = {"query": query, "limit": limit, "query_length": len(query)}
 
     try:
-        client = await get_connected_client()
-
-        # Use Telegram's native contact search
-        result = await client(SearchRequest(q=query, limit=limit))
-
-        matches = []
-
-        # combine users and chats, providing they may not be present
-        if hasattr(result, "users") and result.users:
-            matches.extend(result.users)
-        if hasattr(result, "chats") and result.chats:
-            matches.extend(result.chats)
-
-        for match in matches:
-            info = build_entity_dict(match)
-            if not info:
-                continue
-            matches.append(info)
-
-        logger.info(f"Found {len(matches)} matches using Telegram search for '{query}'")
-
-        # If no contacts found, return error instead of empty list for consistency
-        if not matches:
-            return log_and_build_error(
-                operation="search_contacts",
-                error_message=f"No contacts found matching query '{query}'",
-                params=params,
-                exception=ValueError(f"No contacts found matching query '{query}'"),
-            )
-
-        return matches
-
+        async for item in search_contacts_native(query, limit):
+            results.append(item)
     except Exception as e:
         return log_and_build_error(
             operation="search_contacts",
@@ -72,6 +74,17 @@ async def search_contacts_native(
             params=params,
             exception=e,
         )
+
+    if not results:
+        return log_and_build_error(
+            operation="search_contacts",
+            error_message=f"No contacts found matching query '{query}'",
+            params=params,
+            exception=ValueError(f"No contacts found matching query '{query}'"),
+        )
+
+    logger.info(f"Found {len(results)} contacts using Telegram search for '{query}'")
+    return results
 
 
 async def find_chats_impl(
@@ -94,28 +107,42 @@ async def find_chats_impl(
     """
     terms = [t.strip() for t in (query or "").split(",") if t.strip()]
 
-    # Single term: delegate directly
+    # Single term: use backward-compatible wrapper
     if len(terms) <= 1:
-        return await search_contacts_native(query, limit)
+        return await _search_contacts_as_list(query, limit)
 
     try:
-        tasks = [search_contacts_native(term, limit) for term in terms]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Start all generators
+        generators = [search_contacts_native(term, limit) for term in terms]
 
         merged: list[dict[str, Any]] = []
         seen_ids: set[Any] = set()
 
-        for res in results:
-            if isinstance(res, list):
-                for item in res:
+        # Round-robin through generators to balance results
+        active_gens = list(enumerate(generators))
+
+        while active_gens and len(merged) < limit:
+            next_active = []
+
+            for i, gen in active_gens:
+                try:
+                    item = await gen.__anext__()
+
                     entity_id = item.get("id") if isinstance(item, dict) else None
-                    if entity_id is None or entity_id in seen_ids:
-                        continue
-                    seen_ids.add(entity_id)
-                    merged.append(item)
-            # ignore error dicts and exceptions to allow partial success
-            if len(merged) >= limit:
-                break
+                    if entity_id and entity_id not in seen_ids:
+                        seen_ids.add(entity_id)
+                        merged.append(item)
+                        if len(merged) >= limit:
+                            break
+
+                    next_active.append((i, gen))  # Keep generator active
+
+                except StopAsyncIteration:
+                    continue  # Generator exhausted
+                except Exception:
+                    continue  # Skip errors in individual generators
+
+            active_gens = next_active
 
         return merged[:limit]
     except Exception as e:

@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -53,15 +52,32 @@ async def _process_message_for_results(
         return False
 
 
-async def _execute_parallel_searches(
-    search_tasks: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
+async def _execute_parallel_searches_generators(
+    generators: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
 ) -> None:
-    """Execute multiple search tasks in parallel and collect results with deduplication."""
-    results_lists = await asyncio.gather(*search_tasks)
-    for partial in results_lists:
-        _append_dedup_until_limit(collected, seen_keys, partial, limit)
-        if len(collected) >= limit:
-            break
+    """Execute multiple search generators in parallel for memory efficiency.
+
+    Round-robin through generators to balance results and stop early when limit reached.
+    """
+    active_gens = list(enumerate(generators))
+
+    while active_gens and len(collected) < limit:
+        next_active = []
+
+        for i, gen in active_gens:
+            try:
+                result = await gen.__anext__()
+                _append_dedup_until_limit(collected, seen_keys, [result], limit)
+                if len(collected) >= limit:
+                    break
+                next_active.append((i, gen))  # Keep generator active
+            except StopAsyncIteration:
+                continue  # Generator exhausted
+            except Exception as e:
+                logger.warning(f"Error in search generator {i}: {e}")
+                continue  # Skip errors in individual generators
+
+        active_gens = next_active
 
 
 async def search_messages_impl(
@@ -71,7 +87,7 @@ async def search_messages_impl(
     min_date: str | None = None,  # ISO format date string
     max_date: str | None = None,  # ISO format date string
     chat_type: str | None = None,  # 'private', 'group', 'channel', or None
-    auto_expand_batches: int = 2,  # Maximum additional batches to fetch if not enough filtered results
+    auto_expand_batches: int = 1,  # Fewer extra batches to reduce RAM
     include_total_count: bool = False,  # Whether to include total count in response
 ) -> dict[str, Any]:
     """
@@ -146,8 +162,8 @@ async def search_messages_impl(
                     raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
                 per_chat_queries = queries if queries else [""]
-                search_tasks = [
-                    _search_chat_messages(
+                generators = [
+                    _search_chat_messages_generator(
                         client,
                         entity,
                         (q or ""),
@@ -157,8 +173,8 @@ async def search_messages_impl(
                     )
                     for q in per_chat_queries
                 ]
-                await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, limit
+                await _execute_parallel_searches_generators(
+                    generators, collected, seen_keys, limit
                 )
 
                 if include_total_count:
@@ -174,8 +190,8 @@ async def search_messages_impl(
         else:
             # Global search across queries (skip empty)
             try:
-                search_tasks = [
-                    _search_global_messages(
+                generators = [
+                    _search_global_messages_generator(
                         client,
                         q,
                         limit,
@@ -187,8 +203,8 @@ async def search_messages_impl(
                     for q in queries
                     if q and str(q).strip()
                 ]
-                await _execute_parallel_searches(
-                    search_tasks, collected, seen_keys, limit
+                await _execute_parallel_searches_generators(
+                    generators, collected, seen_keys, limit
                 )
             except Exception as e:
                 return log_and_build_error(
@@ -229,52 +245,84 @@ async def search_messages_impl(
         )
 
 
-async def _search_chat_messages(
+async def _search_chat_messages_generator(
     client, entity, query, limit, chat_type, auto_expand_batches
 ):
-    results = []
+    """Async generator version of chat message search for memory efficiency."""
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
+    yielded_count = 0
 
-    while batch_count < max_batches and len(results) < limit:
-        batch = []
+    while batch_count < max_batches and yielded_count < limit:
+        last_id = None
+        processed_in_batch = 0
         async for message in client.iter_messages(
             entity, search=query, offset_id=next_offset_id
         ):
             if not message:
                 continue
-            batch.append(message)
-            if len(batch) >= limit * 2:
+            last_id = getattr(message, "id", None) or last_id
+            processed_in_batch += 1
+
+            # Check if message should be yielded
+            if not _matches_chat_type(entity, chat_type):
+                continue
+
+            has_content = (hasattr(message, "text") and message.text) or _has_any_media(
+                message
+            )
+            if not has_content:
+                continue
+
+            try:
+                identifier = compute_entity_identifier(entity)
+                links = await generate_telegram_links(identifier, [message.id])
+                link = links.get("message_links", [None])[0]
+                result = await build_message_result(client, message, entity, link)
+                yield result
+                yielded_count += 1
+                if yielded_count >= limit:
+                    return
+            except Exception as e:
+                logger.warning(f"Error processing message: {e}")
+                continue
+
+            # Soft cap batch size to avoid RAM spikes
+            if processed_in_batch >= max(50, limit):
                 break
-        if not batch:
+
+        if not last_id:
             break
 
-        for message in batch:
-            if (
-                await _process_message_for_results(
-                    client, message, entity, chat_type, results
-                )
-                and len(results) >= limit
-            ):
-                break
-
-        if batch:
-            next_offset_id = batch[-1].id
+        next_offset_id = last_id
         batch_count += 1
 
+
+async def _search_chat_messages(
+    client, entity, query, limit, chat_type, auto_expand_batches
+):
+    """Backward compatibility wrapper - collects generator results into list."""
+    results = []
+    async for result in _search_chat_messages_generator(
+        client, entity, query, limit, chat_type, auto_expand_batches
+    ):
+        results.append(result)
+        if len(results) >= limit:
+            break
     return results[:limit]
 
 
-async def _search_global_messages(
+async def _search_global_messages_generator(
     client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
 ):
-    results = []
+    """Async generator version of global message search for memory efficiency."""
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
+    yielded_count = 0
 
-    while batch_count < max_batches and len(results) < limit:
+    while batch_count < max_batches and yielded_count < limit:
         offset_id = next_offset_id
         result = await client(
             SearchGlobalRequest(
@@ -285,7 +333,7 @@ async def _search_global_messages(
                 offset_rate=0,
                 offset_peer=InputPeerEmpty(),
                 offset_id=offset_id,
-                limit=limit * 2,
+                limit=min(limit * 2, 50),  # Cap batch size
             )
         )
 
@@ -301,13 +349,23 @@ async def _search_global_messages(
                     )
                     continue
 
-                if (
-                    await _process_message_for_results(
-                        client, message, chat, chat_type, results
-                    )
-                    and len(results) >= limit
-                ):
-                    break
+                if not _matches_chat_type(chat, chat_type):
+                    continue
+
+                has_content = (
+                    hasattr(message, "text") and message.text
+                ) or _has_any_media(message)
+                if not has_content:
+                    continue
+
+                identifier = compute_entity_identifier(chat)
+                links = await generate_telegram_links(identifier, [message.id])
+                link = links.get("message_links", [None])[0]
+                msg_result = await build_message_result(client, message, chat, link)
+                yield msg_result
+                yielded_count += 1
+                if yielded_count >= limit:
+                    return
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue
@@ -316,4 +374,16 @@ async def _search_global_messages(
             next_offset_id = result.messages[-1].id
         batch_count += 1
 
+
+async def _search_global_messages(
+    client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
+):
+    """Backward compatibility wrapper - collects generator results into list."""
+    results = []
+    async for result in _search_global_messages_generator(
+        client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
+    ):
+        results.append(result)
+        if len(results) >= limit:
+            break
     return results[:limit]
