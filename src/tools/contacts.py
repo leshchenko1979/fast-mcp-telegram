@@ -3,6 +3,7 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
+import asyncio
 from typing import Any
 
 from loguru import logger
@@ -13,7 +14,7 @@ from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import log_and_build_error
 
 
-async def search_contacts_telegram(
+async def search_contacts_native(
     query: str, limit: int = 20
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
@@ -94,7 +95,67 @@ async def search_contacts_telegram(
         )
 
 
-async def get_chat_info(chat_id: str) -> dict[str, Any]:
+async def find_chats_impl(
+    query: str, limit: int = 20
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """
+    High-level contacts search with support for comma-separated multi-term queries.
+
+    - Splits the input by commas
+    - Runs per-term searches concurrently via search_contacts_telegram
+    - Merges and deduplicates results by chat_id
+    - Truncates to the requested limit
+
+    Args:
+        query: Single term or comma-separated terms
+        limit: Maximum number of results to return
+
+    Returns:
+        List of matching contacts or error dict
+    """
+    terms = [t.strip() for t in (query or "").split(",") if t.strip()]
+
+    # Single term: delegate directly
+    if len(terms) <= 1:
+        return await search_contacts_native(query, limit)
+
+    try:
+        tasks = [search_contacts_native(term, limit) for term in terms]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        merged: list[dict[str, Any]] = []
+        seen_ids: set[Any] = set()
+
+        for res in results:
+            if isinstance(res, list):
+                for item in res:
+                    chat_id = item.get("chat_id") if isinstance(item, dict) else None
+                    if chat_id is None or chat_id in seen_ids:
+                        continue
+                    seen_ids.add(chat_id)
+                    merged.append(item)
+            # ignore error dicts and exceptions to allow partial success
+            if len(merged) >= limit:
+                break
+
+        return merged[:limit]
+    except Exception as e:
+        return log_and_build_error(
+            operation="search_contacts_multi",
+            error_message=f"Failed multi-term contact search: {e!s}",
+            params={"query": query, "limit": limit},
+            exception=e,
+        )
+
+
+# Backwards-compatible alias for previous name
+search_contacts = find_chats_impl
+
+# Backwards-compatible alias (do not remove without updating all imports)
+search_contacts_telegram = search_contacts_native
+
+
+async def get_chat_info_impl(chat_id: str) -> dict[str, Any]:
     """
     Get detailed information about a specific chat (user, group, or channel).
 
@@ -126,3 +187,7 @@ async def get_chat_info(chat_id: str) -> dict[str, Any]:
             params=params,
             exception=e,
         )
+
+
+# Backwards-compatible alias
+get_chat_info = get_chat_info_impl

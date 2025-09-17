@@ -4,8 +4,7 @@ from fastmcp import FastMCP
 
 from src.server_components import auth as server_auth
 from src.server_components import errors as server_errors
-from src.tools.contacts import get_chat_info as get_chat_info_impl
-from src.tools.contacts import search_contacts_telegram
+from src.tools.contacts import find_chats_impl, get_chat_info_impl
 from src.tools.messages import (
     edit_message_impl,
     read_messages_by_ids,
@@ -212,6 +211,11 @@ def register_tools(mcp: FastMCP) -> None:
         - Username: "@username" (without @)
         - Phone: "+1234567890"
 
+        MULTI-TERM QUERIES:
+        - Comma-separated terms are supported: "john, @telegram, +123"
+        - Each term is searched independently, then results are merged and deduplicated by chat_id
+        - The final list is truncated to the requested limit
+
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
@@ -223,10 +227,10 @@ def register_tools(mcp: FastMCP) -> None:
         find_chats("+1234567890")    # Find by phone
 
         Args:
-            query: Search term (name, username without @, or phone with +)
+            query: Search term(s). Supports comma-separated multi-queries.
             limit: Max results (default: 20, recommended: ≤50)
         """
-        return await search_contacts_telegram(query, limit)
+        return await find_chats_impl(query, limit)
 
     @mcp.tool()
     @server_errors.with_error_handling("get_chat_info")
