@@ -197,7 +197,11 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     @server_errors.with_error_handling("find_chats")
     @server_auth.with_auth_context
-    async def find_chats(query: str, limit: int = 20):
+    async def find_chats(
+        query: str,
+        limit: int = 20,
+        chat_type: Literal["private", "group", "channel"] | None = None,
+    ):
         """
         Find Telegram chats (users, groups, channels) by name, username, or phone number.
 
@@ -229,8 +233,9 @@ def register_tools(mcp: FastMCP) -> None:
         Args:
             query: Search term(s). Supports comma-separated multi-queries.
             limit: Max results (default: 20, recommended: ≤50)
+            chat_type: Optional filter ("private"|"group"|"channel")
         """
-        return await find_chats_impl(query, limit)
+        return await find_chats_impl(query, limit, chat_type)
 
     @mcp.tool()
     @server_errors.with_error_handling("get_chat_info")

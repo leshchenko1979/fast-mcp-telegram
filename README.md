@@ -602,7 +602,8 @@ read_messages(
 ```typescript
 find_chats(
   query: str,                  // Search term(s); comma-separated for multi-term
-  limit?: number = 20          // Max results to return
+  limit?: number = 20,         // Max results to return
+  chat_type?: 'private'|'group'|'channel' // Optional filter
 )
 ```
 
@@ -627,6 +628,9 @@ find_chats(
 
 // Find by phone
 {"tool": "find_chats", "params": {"query": "+1234567890"}}
+
+// Find only channels matching a term
+{"tool": "find_chats", "params": {"query": "news", "chat_type": "channel"}}
 ```
 
 ### ℹ️ get_chat_info

@@ -264,3 +264,9 @@ else:
 - **Security-First**: Phone numbers masked, messages >100 chars truncated, large values >500 chars truncated
 - **Performance-Aware**: Efficient parameter processing with no cross-module dependencies or circular imports
 - **Standardized Structure**: All parameter dictionaries include helpful derived information (message_length, has_reply, etc.)
+
+### Async Generators & RAM Optimizations (2025-09-17)
+- Contacts: `search_contacts_native` now yields results; `find_chats_impl` merges via round-robin.
+- Messages: Converted per-chat and global searches to async generators with round-robin executor.
+- Limits: Early-stop once `limit` reached; batch sizes capped to avoid spikes.
+- Impact: Lower peak RAM usage and fewer OOM crashes under load.

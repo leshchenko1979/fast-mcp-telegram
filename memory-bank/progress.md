@@ -1,4 +1,7 @@
 ### 2025-09-17
+- Added optional `chat_type` filter to `find_chats` tool and implementation (users, groups, channels)
+- Updated `README.md` examples for `find_chats` to document `chat_type`
+### 2025-09-17
 - Implemented uniform chat schema across tools using `build_entity_dict`
 - Updated `find_chats` to support comma-separated multi-term queries with deduplication by `id`
 - Simplified contacts results: removed nested `user_info`/`chat_info` in quick results
@@ -168,3 +171,7 @@
 4. **Dynamic Reading**: Implemented automatic reading from pyproject.toml using tomllib/tomli
 5. **Single Source**: Now only pyproject.toml needs updating, settings.py reads dynamically
 6. **Direct Import**: Simplified to direct import from `src/_version.py` for better maintainability
+### 2025-09-17
+- Adopted async generators for message and contact searches to reduce RAM.
+- Added round-robin consumption and early-stop on limits.
+- Capped batch sizes and removed large intermediate lists.

@@ -1,7 +1,7 @@
 ## Current Work Focus
 **Primary**: Uniform chat schema across tools and optimized `find_chats` behavior (2025-09-17)
 
-**Current Status**: All tools now use `build_entity_dict` for chat/user objects. `find_chats` supports comma-separated queries, merges, deduplicates by `id`, and returns compact, uniform entities.
+**Current Status**: All tools now use `build_entity_dict` for chat/user objects. `find_chats` supports comma-separated queries, merges, deduplicates by `id`, returns compact, uniform entities, and supports optional `chat_type` filtering (private|group|channel) (2025-09-17).
 
 ## Active Decisions and Considerations
 
@@ -57,3 +57,12 @@
 7. **Traefik Integration**: Domain routing, SSL certificate management
 8. **Health Monitoring**: Container health checks and endpoint monitoring
 9. **Debugging Approach**: Systematic issue elimination through targeted testing
+## Current Work Focus
+**Primary**: RAM-optimized searches via async generators (2025-09-17)
+
+**Current Status**: Contacts and messages searches use async generators; multi-term merges are round-robin with early-stop on limits.
+
+## Important Decisions (2025-09-17)
+- Standardized entity schema via `build_entity_dict` across tools
+- Converted search flows to async generators for memory efficiency
+- Added concurrency caps and early cancellation for multi-term searches

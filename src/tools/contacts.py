@@ -9,11 +9,17 @@ from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
 
 from src.client.connection import get_connected_client
-from src.utils.entity import build_entity_dict, get_entity_by_id
+from src.utils.entity import (
+    build_entity_dict,
+    get_entity_by_id,
+    get_normalized_chat_type,
+)
 from src.utils.error_handling import log_and_build_error
 
 
-async def search_contacts_native(query: str, limit: int = 20):
+async def search_contacts_native(
+    query: str, limit: int = 20, chat_type: str | None = None
+):
     """
     Search contacts using Telegram's native contacts.SearchRequest method via async generator.
 
@@ -37,6 +43,8 @@ async def search_contacts_native(query: str, limit: int = 20):
             for user in result.users:
                 if count >= limit:
                     break
+                if chat_type and get_normalized_chat_type(user) != chat_type:
+                    continue
                 info = build_entity_dict(user)
                 if info:
                     yield info
@@ -47,6 +55,8 @@ async def search_contacts_native(query: str, limit: int = 20):
             for chat in result.chats:
                 if count >= limit:
                     break
+                if chat_type and get_normalized_chat_type(chat) != chat_type:
+                    continue
                 info = build_entity_dict(chat)
                 if info:
                     yield info
@@ -58,14 +68,19 @@ async def search_contacts_native(query: str, limit: int = 20):
 
 
 async def _search_contacts_as_list(
-    query: str, limit: int = 20
+    query: str, limit: int = 20, chat_type: str | None = None
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Wrapper to collect generator results into a list for backward compatibility."""
     results = []
-    params = {"query": query, "limit": limit, "query_length": len(query)}
+    params = {
+        "query": query,
+        "limit": limit,
+        "query_length": len(query),
+        "chat_type": chat_type,
+    }
 
     try:
-        async for item in search_contacts_native(query, limit):
+        async for item in search_contacts_native(query, limit, chat_type):
             results.append(item)
     except Exception as e:
         return log_and_build_error(
@@ -88,7 +103,7 @@ async def _search_contacts_as_list(
 
 
 async def find_chats_impl(
-    query: str, limit: int = 20
+    query: str, limit: int = 20, chat_type: str | None = None
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -101,6 +116,7 @@ async def find_chats_impl(
     Args:
         query: Single term or comma-separated terms
         limit: Maximum number of results to return
+        chat_type: Optional filter ("private"|"group"|"channel")
 
     Returns:
         List of matching contacts or error dict
@@ -109,11 +125,11 @@ async def find_chats_impl(
 
     # Single term: use backward-compatible wrapper
     if len(terms) <= 1:
-        return await _search_contacts_as_list(query, limit)
+        return await _search_contacts_as_list(query, limit, chat_type)
 
     try:
         # Start all generators
-        generators = [search_contacts_native(term, limit) for term in terms]
+        generators = [search_contacts_native(term, limit, chat_type) for term in terms]
 
         merged: list[dict[str, Any]] = []
         seen_ids: set[Any] = set()
@@ -149,7 +165,7 @@ async def find_chats_impl(
         return log_and_build_error(
             operation="search_contacts_multi",
             error_message=f"Failed multi-term contact search: {e!s}",
-            params={"query": query, "limit": limit},
+            params={"query": query, "limit": limit, "chat_type": chat_type},
             exception=e,
         )
 
