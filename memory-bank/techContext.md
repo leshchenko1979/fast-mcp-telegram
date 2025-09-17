@@ -217,7 +217,7 @@ from src.tools.search import search_messages
 from src.tools.messages import send_message, edit_message, read_messages_by_ids
 from src.tools.links import generate_telegram_links
 from src.tools.mtproto import invoke_mtproto_method
-from src.tools.contacts import get_contact_info, search_contacts_telegram
+from src.tools.contacts import get_chat_info, search_contacts_telegram
 ```
 
 ### Module Dependencies

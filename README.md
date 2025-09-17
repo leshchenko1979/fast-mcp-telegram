@@ -424,8 +424,8 @@ All tools that accept a `chat_id` parameter support these formats:
 | `send_message` | Send new messages | Markdown/HTML formatting, replies |
 | `edit_message` | Edit existing messages | Update message content with formatting |
 | `read_messages` | Read specific messages by ID | Bulk reading, full metadata |
-| `search_contacts` | Find users and contacts | By name, username, or phone |
-| `get_contact_details` | Get user/chat profile information | Bio, status, online state |
+| `find_chats` | Find users/groups/channels (get chat_id) | By name, username, or phone |
+| `get_chat_info` | Get user/chat profile information | Bio, status, online state |
 | `send_message_to_phone` | Message by phone number | Auto-contact management |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
 
@@ -596,11 +596,11 @@ read_messages(
 }}
 ```
 
-### 👥 search_contacts
-**Find users and contacts**
+### 👥 find_chats
+**Find users, groups, and channels (to get chat_id)**
 
 ```typescript
-search_contacts(
+find_chats(
   query: str,                  // Search term (name, username, or phone)
   limit?: number = 20          // Max results to return
 )
@@ -619,20 +619,20 @@ search_contacts(
 **Examples:**
 ```json
 // Find by username
-{"tool": "search_contacts", "params": {"query": "telegram"}}
+{"tool": "find_chats", "params": {"query": "telegram"}}
 
 // Find by name
-{"tool": "search_contacts", "params": {"query": "John Smith"}}
+{"tool": "find_chats", "params": {"query": "John Smith"}}
 
 // Find by phone
-{"tool": "search_contacts", "params": {"query": "+1234567890"}}
+{"tool": "find_chats", "params": {"query": "+1234567890"}}
 ```
 
-### ℹ️ get_contact_details
+### ℹ️ get_chat_info
 **Get user/chat profile information**
 
 ```typescript
-get_contact_details(
+get_chat_info(
   chat_id: str                  // User/channel identifier (see Supported Chat ID Formats above)
 )
 ```
@@ -642,13 +642,13 @@ get_contact_details(
 **Examples:**
 ```json
 // Get user details by ID
-{"tool": "get_contact_details", "params": {"chat_id": "133526395"}}
+{"tool": "get_chat_info", "params": {"chat_id": "133526395"}}
 
 // Get details by username
-{"tool": "get_contact_details", "params": {"chat_id": "telegram"}}
+{"tool": "get_chat_info", "params": {"chat_id": "telegram"}}
 
 // Get channel information
-{"tool": "get_contact_details", "params": {"chat_id": "-1001234567890"}}
+{"tool": "get_chat_info", "params": {"chat_id": "-1001234567890"}}
 ```
 
 ### 📱 send_message_to_phone

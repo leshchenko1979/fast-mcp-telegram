@@ -4,7 +4,8 @@ from fastmcp import FastMCP
 
 from src.server_components import auth as server_auth
 from src.server_components import errors as server_errors
-from src.tools.contacts import get_contact_info, search_contacts_telegram
+from src.tools.contacts import get_chat_info as get_chat_info_impl
+from src.tools.contacts import search_contacts_telegram
 from src.tools.messages import (
     edit_message_impl,
     read_messages_by_ids,
@@ -195,11 +196,11 @@ def register_tools(mcp: FastMCP) -> None:
         return await read_messages_by_ids(chat_id, message_ids)
 
     @mcp.tool()
-    @server_errors.with_error_handling("search_contacts")
+    @server_errors.with_error_handling("find_chats")
     @server_auth.with_auth_context
-    async def search_contacts(query: str, limit: int = 20):
+    async def find_chats(query: str, limit: int = 20):
         """
-        Search Telegram contacts and users by name, username, or phone number.
+        Find Telegram chats (users, groups, channels) by name, username, or phone number.
 
         SEARCH SCOPE:
         - Your saved contacts
@@ -212,14 +213,14 @@ def register_tools(mcp: FastMCP) -> None:
         - Phone: "+1234567890"
 
         WORKFLOW:
-        1. Search for contact: search_contacts("John Doe")
+        1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
         3. Search messages: search_messages_in_chat(chat_id=chat_id, query="topic")
 
         EXAMPLES:
-        search_contacts("@telegram")      # Find user by username
-        search_contacts("John Smith")     # Find by name
-        search_contacts("+1234567890")    # Find by phone
+        find_chats("@telegram")      # Find user by username
+        find_chats("John Smith")     # Find by name
+        find_chats("+1234567890")    # Find by phone
 
         Args:
             query: Search term (name, username without @, or phone with +)
@@ -228,9 +229,9 @@ def register_tools(mcp: FastMCP) -> None:
         return await search_contacts_telegram(query, limit)
 
     @mcp.tool()
-    @server_errors.with_error_handling("get_contact_details")
+    @server_errors.with_error_handling("get_chat_info")
     @server_auth.with_auth_context
-    async def get_contact_details(chat_id: str):
+    async def get_chat_info(chat_id: str):
         """
         Get detailed profile information for a specific Telegram user or chat.
 
@@ -245,14 +246,14 @@ def register_tools(mcp: FastMCP) -> None:
         - Channel ID: -100xxxxxxxxx
 
         EXAMPLES:
-        get_contact_details("133526395")      # User by ID
-        get_contact_details("telegram")       # User by username
-        get_contact_details("-1001234567890") # Channel by ID
+        get_chat_info("133526395")      # User by ID
+        get_chat_info("telegram")       # User by username
+        get_chat_info("-1001234567890") # Channel by ID
 
         Args:
             chat_id: Target chat/user identifier (numeric ID, username, or channel ID)
         """
-        return await get_contact_info(chat_id)
+        return await get_chat_info_impl(chat_id)
 
     @mcp.tool()
     @server_errors.with_error_handling("send_message_to_phone")

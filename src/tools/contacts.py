@@ -94,15 +94,15 @@ async def search_contacts_telegram(
         )
 
 
-async def get_contact_info(chat_id: str) -> dict[str, Any]:
+async def get_chat_info(chat_id: str) -> dict[str, Any]:
     """
-    Get detailed information about a specific contact.
+    Get detailed information about a specific chat (user, group, or channel).
 
     Args:
-        chat_id: The chat ID of the contact
+        chat_id: The chat identifier (user/chat/channel)
 
     Returns:
-        Contact information or error message if not found
+        Chat information or error message if not found
     """
     params = {"chat_id": chat_id}
 
@@ -111,18 +111,18 @@ async def get_contact_info(chat_id: str) -> dict[str, Any]:
 
         if not entity:
             return log_and_build_error(
-                operation="get_contact_details",
-                error_message=f"Contact with ID '{chat_id}' not found",
+                operation="get_chat_info",
+                error_message=f"Chat with ID '{chat_id}' not found",
                 params=params,
-                exception=ValueError(f"Contact with ID '{chat_id}' not found"),
+                exception=ValueError(f"Chat with ID '{chat_id}' not found"),
             )
 
         return build_entity_dict(entity)
 
     except Exception as e:
         return log_and_build_error(
-            operation="get_contact_details",
-            error_message=f"Failed to get contact info for '{chat_id}': {e!s}",
+            operation="get_chat_info",
+            error_message=f"Failed to get chat info for '{chat_id}': {e!s}",
             params=params,
             exception=e,
         )
