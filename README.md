@@ -10,6 +10,16 @@
 1. Open https://tg-mcp.redevest.ru/setup to begin the authentication flow.
 2. After finishing, you’ll receive a ready-to-use `mcp.json` with your Bearer token. 
 3. Use the config with your MCP client to check out this MCP server capabilities.
+4. Or try the HTTP‑MTProto Bridge right away with curl (replace TOKEN):
+```bash
+curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "me", "message": "Hello from Demo!"},
+        "resolve": true
+      }'
+```
 
 ---
 
@@ -22,6 +32,7 @@
 - [📦 PyPI Installation](#-pypi-installation)
 - [🐳 Docker Deployment (Production)](#-docker-deployment-production)
 - [🔧 Available Tools](#-available-tools)
+- [🌐 HTTP-MTProto Bridge](#-http-mtproto-bridge)
 - [📊 Health & Session Monitoring](#-health--session-monitoring)
 - [📁 Project Structure](#-project-structure)
 - [📦 Dependencies](#-dependencies)
@@ -41,8 +52,7 @@
 | 💬 **Messaging** | Send, edit, reply with formatting support |
 | 👥 **Contacts** | Search users, get profiles, manage contacts |
 | 📱 **Phone Integration** | Message by phone number, auto-contact management |
-| 🔧 **Low-level API** | Direct MTProto access for advanced operations |
-| 🌐 **MTProto API Endpoint** | HTTP endpoint for raw Telegram API calls with entity resolution and safety guardrails |
+| 🌐 **HTTP-MTProto Bridge** | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
 | 🔐 **Multi-User Auth** | Bearer token authentication with session isolation |
 | 🏗️ **Dual Transport** | HTTP (multi-user) and stdio (single-user) support |
 | 📁 **Secure File Sending** | URL downloads with SSRF protection, size limits, and local-path restrictions |
@@ -431,7 +441,6 @@ All tools that accept a `chat_id` parameter support these formats:
 | `get_chat_info` | Get user/chat profile information | Bio, status, online state |
 | `send_message_to_phone` | Message by phone number | Auto-contact management, file sending |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
-| `POST /mtproto-api/{method}` | HTTP endpoint for raw Telegram API calls | Enhanced with entity resolution and safety guardrails |
 
 ### 🔍 search_messages_globally
 **Search messages across all Telegram chats**
@@ -794,20 +803,47 @@ invoke_mtproto(
 }}
 ```
 
-### 🌐 MTProto API Endpoint
-**HTTP endpoint for raw Telegram API calls with enhanced features**
+## 🌐 HTTP-MTProto Bridge
 
-The server provides a dedicated HTTP endpoint for direct MTProto method invocation with additional conveniences:
+**Direct curl access to any Telegram API method** - The server provides a powerful HTTP endpoint that allows you to execute any Telegram MTProto method directly via curl or HTTP requests.
 
-**Endpoint:** `POST /mtproto-api/{method}` (alias: `POST /mtproto-api/v1/{method}`)
+### Key Benefits
+- **🔄 Any Method**: Execute any Telegram API method not covered by MCP tools
+- **🌍 Entity Resolution**: Automatic resolution of usernames, IDs, and phone numbers
+- **🛡️ Safety Guardrails**: Dangerous methods blocked by default with opt-in override
+- **🔧 Case Insensitive**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
+- **🔐 Multi-Mode Support**: Works in all server modes with appropriate authentication
 
-**Features:**
+### Quick Start
+```bash
+# Send message with automatic entity resolution
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "@username", "message": "Hello from curl!"},
+        "resolve": true
+      }'
+
+# Get message history with peer resolution
+curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "me", "limit": 10},
+        "resolve": true
+      }'
+```
+
+**Endpoint**: `POST /mtproto-api/{method}` (alias: `POST /mtproto-api/v1/{method}`)
+
+### Advanced Features
 - **Case-insensitive method names**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
 - **Entity resolution**: Optional automatic resolution of usernames, IDs, and phone numbers to proper Telegram entities
 - **Safety guardrails**: Dangerous methods blocked by default (e.g., `account.DeleteAccount`, `messages.DeleteHistory`)
 - **Multi-mode support**: Works in all server modes with appropriate authentication
 
-**Request format:**
+### Request Format
 ```json
 {
   "params": { "peer": "@durov", "limit": 5 },
@@ -817,38 +853,33 @@ The server provides a dedicated HTTP endpoint for direct MTProto method invocati
 }
 ```
 
-**Server mode behavior:**
+### Server Mode Behavior
 - **stdio, http-no-auth**: Proceeds without Bearer token
 - **http-auth**: Requires `Authorization: Bearer <token>`; missing/invalid returns 401 JSON error
 
-**Examples (http-auth):**
-
+### More Examples
 ```bash
 # Send message with entity resolution
-curl -X POST "https://<DOMAIN>/mtproto-api/messages.SendMessage" \
-  -H "Authorization: Bearer <TOKEN>" \
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
         "params": {"peer": "me", "message": "Hello from MTProto API"},
         "resolve": true
       }'
-```
 
-```bash
 # Get message history with automatic peer resolution
-curl -X POST "https://<DOMAIN>/mtproto-api/messages.getHistory" \
-  -H "Authorization: Bearer <TOKEN>" \
+curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
         "params": {"peer": "@telegram", "limit": 3},
         "resolve": true
       }'
-```
 
-```bash
 # Forward messages with list resolution
-curl -X POST "https://<DOMAIN>/mtproto-api/messages.ForwardMessages" \
-  -H "Authorization: Bearer <TOKEN>" \
+curl -X POST "https://your-domain.com/mtproto-api/messages.ForwardMessages" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
         "params": {
@@ -860,7 +891,7 @@ curl -X POST "https://<DOMAIN>/mtproto-api/messages.ForwardMessages" \
       }'
 ```
 
-**Response format:**
+### Response Format
 - **Success**: JSON-safe `to_dict()` result (bytes are base64-encoded)
 - **Errors**: Standardized error structure with appropriate HTTP status codes
 - **Dangerous methods**: Blocked unless `allow_dangerous=true` is explicitly set
@@ -876,19 +907,20 @@ curl -s https://your-domain.com/health
 ```
 
 **Response includes:**
-- Server status and transport mode
-- Active session count and limits
-- Per-session statistics (token prefix, last access time, connection status)
-- Service metadata
+- Server status
+- Active session count and max limit
+- Count of session files on disk
+- Setup session count (web setup flow)
+- Per-session statistics (token prefix, hours since access, connection status, last access)
 
 **Example response:**
 ```json
 {
   "status": "healthy",
-  "service": "telegram-mcp-server",
-  "transport": "http",
   "active_sessions": 3,
   "max_sessions": 10,
+  "session_files": 3,
+  "setup_sessions": 1,
   "sessions": [
     {
       "token_prefix": "AbCdEfGh...",

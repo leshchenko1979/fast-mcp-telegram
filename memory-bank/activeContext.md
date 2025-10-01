@@ -1,7 +1,12 @@
 ## Current Work Focus
-**Primary**: MTProto API HTTP endpoint with auth + normalization (2025-10-01)
+**Primary**: README documentation improvements for MTProto HTTP endpoint prominence (2025-01-04)
 
-**Current Status**: Added `/mtproto-api/{method}` (+ alias `/mtproto-api/v1/{method}`) POST endpoint available in all server modes. Centralized bearer extraction in `server_components/auth.py` via `extract_bearer_token_from_request`. Implemented case-insensitive method normalization using a cached Telethon introspection map in `utils.helpers.normalize_method_name`. Added dangerous-method denylist with opt-in override. Responses use existing structured error format; success returns JSON-safe `to_dict()`.
+**Current Status**: Enhanced README.md to make MTProto HTTP endpoint more prominent by:
+- Moved from tools list to separate "HTTP-MTProto Bridge" feature section
+- Added dedicated section with key benefits and quick start curl examples
+- Clarified that you can curl the server to run any MTProto method
+- Updated Table of Contents to include new section
+- Added prominent curl examples showing direct API method execution
 
 ## Active Decisions and Considerations
 

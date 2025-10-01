@@ -1,3 +1,8 @@
+### 2025-01-04
+- Enhanced README.md to make MTProto HTTP endpoint more prominent by moving from tools list to separate "HTTP-MTProto Bridge" feature section with dedicated benefits and curl examples
+- Clarified that users can curl the server to run any MTProto method with prominent examples
+- Updated Table of Contents and feature descriptions to highlight HTTP-MTProto bridge capabilities
+
 ### 2025-10-01
 - Added MTProto API endpoint `/mtproto-api/{method}` with versioned alias; centralized HTTP bearer extraction; implemented case-insensitive method normalization with Telethon introspection cache; denylist for dangerous methods; structured error responses; README updated with curl examples.
 - Added file sending capability to `send_message` and `send_message_to_phone` tools
