@@ -1,5 +1,4 @@
 import base64
-import random
 from importlib import import_module
 from typing import Any
 
@@ -73,12 +72,8 @@ async def invoke_mtproto_method(
         tl_module = import_module(f"telethon.tl.functions.{module_name}")
         method_cls = getattr(tl_module, class_name)
 
-        # Simplify SendMessage: auto-generate random_id if not provided
-        if (
-            method_full_name == "messages.SendMessage"
-            and "random_id" not in sanitized_params
-        ):
-            sanitized_params["random_id"] = random.getrandbits(64)
+        # Note: Telethon automatically generates random_id for methods that require it
+        # No manual random_id generation needed
 
         method_obj = method_cls(**sanitized_params)
         client = await get_connected_client()

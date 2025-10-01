@@ -34,6 +34,7 @@
 
 ## ✨ Features
 
+
 | Feature | Description |
 |---------|-------------|
 | 🔍 **Smart Search** | Global & per-chat message search with filters |
@@ -41,6 +42,7 @@
 | 👥 **Contacts** | Search users, get profiles, manage contacts |
 | 📱 **Phone Integration** | Message by phone number, auto-contact management |
 | 🔧 **Low-level API** | Direct MTProto access for advanced operations |
+| 🌐 **MTProto API Endpoint** | HTTP endpoint for raw Telegram API calls with entity resolution and safety guardrails |
 | 🔐 **Multi-User Auth** | Bearer token authentication with session isolation |
 | 🏗️ **Dual Transport** | HTTP (multi-user) and stdio (single-user) support |
 | 📁 **Secure File Sending** | URL downloads with SSRF protection, size limits, and local-path restrictions |
@@ -429,6 +431,7 @@ All tools that accept a `chat_id` parameter support these formats:
 | `get_chat_info` | Get user/chat profile information | Bio, status, online state |
 | `send_message_to_phone` | Message by phone number | Auto-contact management, file sending |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
+| `POST /mtproto-api/{method}` | HTTP endpoint for raw Telegram API calls | Enhanced with entity resolution and safety guardrails |
 
 ### 🔍 search_messages_globally
 **Search messages across all Telegram chats**
@@ -790,6 +793,77 @@ invoke_mtproto(
   "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"
 }}
 ```
+
+### 🌐 MTProto API Endpoint
+**HTTP endpoint for raw Telegram API calls with enhanced features**
+
+The server provides a dedicated HTTP endpoint for direct MTProto method invocation with additional conveniences:
+
+**Endpoint:** `POST /mtproto-api/{method}` (alias: `POST /mtproto-api/v1/{method}`)
+
+**Features:**
+- **Case-insensitive method names**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
+- **Entity resolution**: Optional automatic resolution of usernames, IDs, and phone numbers to proper Telegram entities
+- **Safety guardrails**: Dangerous methods blocked by default (e.g., `account.DeleteAccount`, `messages.DeleteHistory`)
+- **Multi-mode support**: Works in all server modes with appropriate authentication
+
+**Request format:**
+```json
+{
+  "params": { "peer": "@durov", "limit": 5 },
+  "params_json": "{...}",
+  "resolve": true,
+  "allow_dangerous": false
+}
+```
+
+**Server mode behavior:**
+- **stdio, http-no-auth**: Proceeds without Bearer token
+- **http-auth**: Requires `Authorization: Bearer <token>`; missing/invalid returns 401 JSON error
+
+**Examples (http-auth):**
+
+```bash
+# Send message with entity resolution
+curl -X POST "https://<DOMAIN>/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "me", "message": "Hello from MTProto API"},
+        "resolve": true
+      }'
+```
+
+```bash
+# Get message history with automatic peer resolution
+curl -X POST "https://<DOMAIN>/mtproto-api/messages.getHistory" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "@telegram", "limit": 3},
+        "resolve": true
+      }'
+```
+
+```bash
+# Forward messages with list resolution
+curl -X POST "https://<DOMAIN>/mtproto-api/messages.ForwardMessages" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {
+          "from_peer": "@sourceChannel",
+          "to_peer": "me",
+          "id": [12345, 12346]
+        },
+        "resolve": true
+      }'
+```
+
+**Response format:**
+- **Success**: JSON-safe `to_dict()` result (bytes are base64-encoded)
+- **Errors**: Standardized error structure with appropriate HTTP status codes
+- **Dangerous methods**: Blocked unless `allow_dangerous=true` is explicitly set
 
 ### 📊 Health & Session Monitoring
 **Monitor server health and session statistics**

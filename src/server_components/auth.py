@@ -81,3 +81,44 @@ def with_auth_context(func: Callable) -> Callable:
         return await func(*args, **kwargs)
 
     return wrapper
+
+
+def extract_bearer_token_from_request(request) -> str | None:
+    """
+    Extract Bearer token from an incoming Starlette request when running over HTTP.
+
+    Behavior:
+    - Reads Authorization header directly from the request (custom route safe)
+    - Falls back to FastMCP's get_http_headers helper when available
+    - Returns None in non-HTTP transports or when header is missing/invalid
+    """
+    try:
+        config = get_config()
+        if config.transport != "http":
+            return None
+
+        # Prefer direct read from the incoming request (custom routes)
+        try:
+            auth_header = request.headers.get("authorization", "")
+        except Exception:
+            auth_header = ""
+
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+            return token or None
+
+        # Fallback: FastMCP dependency (works in tool-execution context)
+        try:  # pragma: no cover - optional path
+            from fastmcp.server.dependencies import get_http_headers  # type: ignore
+
+            headers = get_http_headers()
+            auth_header = headers.get("authorization", "")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return None
+            token = auth_header[7:].strip()
+            return token or None
+        except Exception:
+            return None
+    except Exception as e:  # pragma: no cover - defensive
+        logger.warning(f"Error extracting bearer token from request: {e}")
+        return None
