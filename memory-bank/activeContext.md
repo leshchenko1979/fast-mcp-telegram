@@ -1,12 +1,13 @@
 ## Current Work Focus
-**Primary**: README documentation improvements for MTProto HTTP endpoint prominence (2025-01-04)
+**Primary**: README restructuring and documentation organization (2025-10-01)
 
-**Current Status**: Enhanced README.md to make MTProto HTTP endpoint more prominent by:
-- Moved from tools list to separate "HTTP-MTProto Bridge" feature section
-- Added dedicated section with key benefits and quick start curl examples
-- Clarified that you can curl the server to run any MTProto method
-- Updated Table of Contents to include new section
-- Added prominent curl examples showing direct API method execution
+**Current Status**: Completed comprehensive README restructuring and documentation organization:
+- Reduced README from 1000+ lines to 202 lines (well under 300-400 line target)
+- Created comprehensive docs/ folder with 7 specialized documentation files
+- Moved detailed content from README to appropriate specialized guides
+- Eliminated duplication between README, CONTRIBUTING.md, and new docs
+- Created SECURITY.md with authentication model and security considerations
+- All documentation links verified and working
 
 ## Active Decisions and Considerations
 
@@ -67,6 +68,17 @@
 - **Configuration Options**: `allow_http_urls`, `max_file_size_mb`, `block_private_ips` settings
 - **Comprehensive Testing**: All security test cases passing (16/16)
 **Impact**: Prevents attackers from accessing local services, internal networks, or metadata endpoints via file URLs
+
+### Documentation Restructuring (2025-10-01)
+**Decision**: Restructured README and created comprehensive documentation system for better user experience and maintainability
+**Implementation**:
+- **README Optimization**: Reduced from 1000+ lines to 202 lines with concise, skimmable structure
+- **Documentation Organization**: Created docs/ folder with 7 specialized guides (Installation, Deployment, MTProto-Bridge, Tools-Reference, Search-Guidelines, Operations, Project-Structure)
+- **Content Migration**: Moved detailed sections from README to appropriate specialized documentation
+- **Deduplication**: Eliminated redundant content between README, CONTRIBUTING.md, and new docs
+- **Security Documentation**: Created SECURITY.md with authentication model, risks, and best practices
+- **Link Verification**: All documentation links verified and working correctly
+**Impact**: Improved user experience with clear navigation, reduced maintenance overhead, and professional documentation structure
 
 ## Important Patterns and Preferences
 

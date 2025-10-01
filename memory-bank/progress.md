@@ -1,7 +1,12 @@
-### 2025-01-04
-- Enhanced README.md to make MTProto HTTP endpoint more prominent by moving from tools list to separate "HTTP-MTProto Bridge" feature section with dedicated benefits and curl examples
-- Clarified that users can curl the server to run any MTProto method with prominent examples
-- Updated Table of Contents and feature descriptions to highlight HTTP-MTProto bridge capabilities
+### 2025-10-01
+- Completed comprehensive README restructuring and documentation organization
+- Reduced README from 1000+ lines to 202 lines with concise, skimmable structure optimized for users landing on the repo
+- Created comprehensive docs/ folder with 7 specialized documentation files (Installation, Deployment, MTProto-Bridge, Tools-Reference, Search-Guidelines, Operations, Project-Structure)
+- Moved detailed sections from README to appropriate specialized guides to eliminate overwhelming content
+- Created SECURITY.md with authentication model, risks, and best practices
+- Eliminated duplication between README, CONTRIBUTING.md, and new documentation files
+- Updated CONTRIBUTING.md to point to new documentation structure and removed redundant deployment sections
+- Verified all documentation links resolve correctly and follow professional documentation best practices
 
 ### 2025-10-01
 - Added MTProto API endpoint `/mtproto-api/{method}` with versioned alias; centralized HTTP bearer extraction; implemented case-insensitive method normalization with Telethon introspection cache; denylist for dangerous methods; structured error responses; README updated with curl examples.
@@ -60,6 +65,14 @@
 - **Environment Management**: Proper credential handling and session management
 - **Dependency Management**: setuptools with pyproject.toml for package management
 - **Session Persistence**: Zero-downtime deployments with automatic session backup/restore
+
+### Documentation & User Experience ✅
+- **Comprehensive Documentation**: Organized docs/ folder with 7 specialized guides covering all aspects of the project
+- **User-Friendly README**: Concise 202-line README optimized for quick scanning and navigation
+- **Security Documentation**: Dedicated SECURITY.md with authentication model and best practices
+- **Developer Guidelines**: Updated CONTRIBUTING.md with clear development setup and contribution process
+- **No Content Duplication**: Eliminated redundant information across documentation files
+- **Professional Structure**: Follows documentation best practices with clear navigation and specialized content
 
 ## What's Left to Build (Remaining Work)
 

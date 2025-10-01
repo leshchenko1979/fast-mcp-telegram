@@ -1,0 +1,140 @@
+# 📦 Installation Guide
+
+## Prerequisites
+
+- **Python 3.10+**
+- **Telegram API credentials** ([get them here](https://my.telegram.org/auth))
+- **MCP-compatible client** (Cursor, Claude Desktop, etc.)
+
+## PyPI Installation
+
+### 1. Install from PyPI
+```bash
+pip install fast-mcp-telegram
+```
+
+### 2. Telegram Authentication & Token Generation
+
+The setup process creates an authenticated session and generates a unique Bearer token for your use:
+
+```bash
+fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
+
+# Additional options available:
+# --overwrite          # Auto-overwrite existing session
+# --session-name NAME  # Use custom session name (advanced users)
+```
+
+**📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless. You can create a `.env` file by copying `.env.example` and filling in your values.
+
+**🌐 Prefer a browser?** Run the server and open `/setup` to authenticate and download a ready‑to‑use `mcp.json` without running the CLI setup.
+
+**🔑 Bearer Token Output:** After successful authentication, you'll receive a Bearer token:
+```
+✅ Setup complete!
+📁 Session saved to: ~/.config/fast-mcp-telegram/AbCdEfGh123456789.session
+🔑 Bearer Token: AbCdEfGh123456789KLmnOpQr...
+💡 Use this Bearer token for authentication when using the MCP server:
+   Authorization: Bearer AbCdEfGh123456789KLmnOpQr...
+```
+
+## MCP Client Configuration
+
+### STDIO Mode (Development with Cursor IDE)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "command": "fast-mcp-telegram",
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "PHONE_NUMBER": "+123456789"
+      }
+    }
+  }
+}
+```
+
+### HTTP_NO_AUTH Mode (Development HTTP Server)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "http://localhost:8000"
+    }
+  }
+}
+```
+
+### HTTP_AUTH Mode (Production with Bearer Token)
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-server.com",
+      "headers": {
+        "Authorization": "Bearer AbCdEfGh123456789KLmnOpQr..."
+      }
+    }
+  }
+}
+```
+
+## Environment Configuration
+
+Create a `.env` file in your project directory:
+
+```bash
+# Telegram API Credentials
+API_ID=your_api_id
+API_HASH=your_api_hash
+
+# Server Configuration
+SERVER_MODE=http-auth       # stdio, http-no-auth, or http-auth
+HOST=0.0.0.0                # Bind address (auto-adjusts based on server mode)
+PORT=8000                   # Service port
+
+# Optional: Session Management
+MAX_ACTIVE_SESSIONS=10      # LRU cache limit for concurrent sessions
+
+# Optional: Logging
+LOG_LEVEL=INFO
+```
+
+**Note:** Phone numbers are specified during setup via CLI options rather than environment variables for better security and flexibility.
+
+## Session Management
+
+**Session Info:**
+- **STDIO mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
+- **HTTP_NO_AUTH mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
+- **HTTP_AUTH mode**: Sessions saved as `~/.config/fast-mcp-telegram/{token}.session`
+- **Session Monitoring**: Use `/health` HTTP endpoint to monitor active sessions and server statistics
+
+## Development Setup
+
+For developers who want to contribute to the project, see [CONTRIBUTING.md](../CONTRIBUTING.md#-development-setup) for detailed development setup instructions.
+
+## Quick Start
+
+1. Install: `pip install fast-mcp-telegram`
+2. Setup: `fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"`
+3. Configure your MCP client with the Bearer token
+4. Start using: `{"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}`
+
+## Troubleshooting
+
+### Common Issues
+
+**Session conflicts**: Use `--overwrite` flag to replace existing sessions
+**Permission errors**: Ensure proper file permissions for session directory
+**Authentication failures**: Verify API credentials and phone number format
+**Connection issues**: Check network connectivity and firewall settings
+
+### Getting Help
+
+- Check the [Operations Guide](Operations.md) for monitoring and debugging
+- Review [SECURITY.md](../SECURITY.md) for security considerations
+- See [CONTRIBUTING.md](../CONTRIBUTING.md) for development setup
+- Open an [issue](https://github.com/leshchenko1979/fast-mcp-telegram/issues) for bugs

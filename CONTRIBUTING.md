@@ -110,11 +110,13 @@ python src/setup_telegram.py
 ### 4. Start Using!
 
 ```json
-{"tool": "search_messages", "params": {"query": "hello", "limit": 5}}
-{"tool": "send_or_edit_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
+{"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}
+{"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
 **ℹ️ Session Info:** Your Telegram session is saved to `~/.config/fast-mcp-telegram/telegram.session` (one-time setup)
+
+**📖 For detailed installation and configuration instructions, see [Installation Guide](docs/Installation.md)**
 
 ---
 
@@ -469,71 +471,13 @@ When updating the Memory Bank, consider these best practices:
 
 ## 🚀 Deployment
 
-### Development Deployment
+For development deployment, see the sections above. For production deployment instructions, see the [Deployment Guide](docs/Deployment.md) which covers:
 
-#### Local Development
-```bash
-# Run in development mode
-python src/server.py
-
-# With environment variables
-DEBUG=true python src/server.py
-
-# Development with stdio transport (single-user)
-python src/server.py  # Uses stdio transport by default
-```
-
-#### Docker Development
-```bash
-# Build development image
-docker build -t fast-mcp-telegram:dev .
-
-# Run with hot reload and volume mounting
-docker run -v $(pwd):/app -p 8000:8000 fast-mcp-telegram:dev
-
-# Development with Docker Compose
-docker compose -f docker-compose.dev.yml up
-```
-
-### Production Deployment
-
-#### Docker Compose Production
-```bash
-# Production deployment with session persistence
-docker compose --profile server up -d
-
-# Check deployment status
-docker compose ps
-
-# View logs
-docker compose logs -f fast-mcp-telegram
-```
-
-#### Key Production Features
-- **Session Persistence**: Automatic backup/restore across deployments
-- **Cross-Platform Compatibility**: Handles macOS, Linux, and Windows
-- **Permission Auto-Fix**: Automatic container user permission management
-- **Health Monitoring**: Comprehensive container health checks
-- **Security Hardened**: Session files excluded from version control
-
-#### Deployment Architecture
-- **Transport**: HTTP with SSE mounted at `/mcp`
-- **Ingress**: Traefik with Let's Encrypt TLS certificates
-- **Sessions**: Persistent storage in `~/.config/fast-mcp-telegram/`
-- **Volume Mounting**: Optimized directory mounts for session files
-- **Multi-User Support**: Bearer token authentication for isolation
-
-#### Environment Configuration
-```bash
-# Production environment variables
-MCP_TRANSPORT=http          # HTTP transport for production
-MCP_HOST=0.0.0.0           # Bind to all interfaces
-MCP_PORT=8000              # Service port
-MAX_ACTIVE_SESSIONS=10     # LRU cache limit
-DISABLE_AUTH=false         # Enable authentication in production
-```
-
-See [README.md](README.md) for detailed production deployment instructions including remote server deployment and domain configuration.
+- Docker deployment and production setup
+- Environment configuration
+- Session management and persistence
+- Health monitoring and troubleshooting
+- Remote server deployment
 
 ---
 
