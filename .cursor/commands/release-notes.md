@@ -1,7 +1,3 @@
----
-description: Generate release notes from git changes, bump version, notify community
-alwaysApply: false
----
 # Release Notes Generation
 
 ## Process for Creating Release Notes
@@ -34,7 +30,7 @@ When creating release notes, follow this systematic approach:
 Use this markdown template (paste as a markdown code block in chat):
 
 ```markdown
-Release <version> - <main theme>
+<main theme>
 
 ## <Category Name>
 - **Brief description** - Detailed explanation of what was changed and why
@@ -87,18 +83,10 @@ This release focuses on <main theme>.
 - **Prerequisite**: Only proceed after user confirms GitHub release is published
 - **Target**: Send message to `@mcp_telegram` community group
 - **Language**: Russian (primary community language)
-- **Content**: Include version number, key features, and installation instructions
+- **Content**: Include version number, header and key features
 - **Format**: Use Markdown formatting with emojis for better readability
 - **Structure**:
   - Version header with date
   - Categorized feature highlights with checkmarks
-  - Installation commands (PyPI)
-  - GitHub link
+  - GitHub link to the release
 - **Timing**: Send only after user confirms GitHub release is published
-- **Customization**: Adapt categories and features based on the specific release content
-- **Key elements to include**:
-  - Version number and release date
-  - Major new features and improvements
-  - Bug fixes and technical enhancements
-  - Installation/update instructions
-  - Link to GitHub repository
