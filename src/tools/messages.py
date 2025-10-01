@@ -1,5 +1,7 @@
+import ipaddress
 from io import BytesIO
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 from loguru import logger
@@ -15,34 +17,154 @@ from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_message_result, build_send_edit_result
 
 
+def _validate_url_security(url: str) -> tuple[bool, str]:
+    """
+    Validate URL for security risks to prevent SSRF attacks.
+
+    Returns:
+        (is_safe, error_message): True if safe, False with error message if unsafe
+    """
+    try:
+        # Handle empty or invalid URLs
+        if not url or not url.strip():
+            return False, "Empty URL not allowed"
+
+        parsed = urlparse(url)
+        config = get_config()
+
+        # Check if HTTP is allowed (only for development)
+        if parsed.scheme == "http" and not config.allow_http_urls:
+            return (
+                False,
+                "HTTP URLs not allowed (use HTTPS or enable allow_http_urls for development)",
+            )
+
+        # Only allow HTTP/HTTPS
+        if parsed.scheme not in ["http", "https"]:
+            return False, f"Only HTTP/HTTPS URLs allowed, got: {parsed.scheme}"
+
+        # Extract hostname/IP
+        hostname = parsed.hostname
+        if not hostname:
+            return False, "Invalid URL: no hostname"
+
+        # Block localhost variants
+        localhost_variants = {
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "::1",
+            "127.1",
+            "127.0.1",
+        }
+        if hostname.lower() in localhost_variants:
+            return False, f"Localhost access blocked: {hostname}"
+
+        # Handle IPv6 localhost
+        if hostname.startswith("[") and hostname.endswith("]"):
+            # IPv6 address in brackets
+            ipv6_addr = hostname[1:-1]
+            if ipv6_addr.lower() in ["::1", "0:0:0:0:0:0:0:1"]:
+                return False, f"Localhost access blocked: {hostname}"
+
+        # Block suspicious domains and metadata endpoints first
+        suspicious_domains = {
+            "169.254.169.254",  # AWS metadata
+            "metadata.google.internal",  # GCP metadata
+        }
+
+        for suspicious in suspicious_domains:
+            if hostname == suspicious or hostname.startswith(suspicious):
+                return False, f"Suspicious domain blocked: {hostname}"
+
+        # Block private IP ranges if enabled
+        if config.block_private_ips:
+            try:
+                ip = ipaddress.ip_address(hostname)
+                if ip.is_private or ip.is_loopback or ip.is_link_local:
+                    return False, f"Private IP access blocked: {hostname}"
+            except ValueError:
+                # Not an IP address, check if it's a valid domain
+                pass
+
+        return True, ""
+
+    except Exception as e:
+        return False, f"URL validation error: {e}"
+
+
 async def _download_single_file(
     http_client: aiohttp.ClientSession, url: str
 ) -> bytes | str:
-    """Download a single file from URL or return local path."""
+    """Download a single file from URL with security validation."""
+
+    # Validate URL security
+    is_safe, error_msg = _validate_url_security(url)
+    if not is_safe:
+        raise ValueError(f"Unsafe URL blocked: {error_msg}")
+
     if url.startswith(("http://", "https://")):
         logger.debug(f"Downloading file from {url}")
         try:
             async with http_client.get(url) as response:
+                # Check response size limit
+                content_length = response.headers.get("content-length")
+                config = get_config()
+                max_size_bytes = config.max_file_size_mb * 1024 * 1024
+
+                if content_length and int(content_length) > max_size_bytes:
+                    raise ValueError(
+                        f"File too large: {content_length} bytes (max: {max_size_bytes} bytes)"
+                    )
+
                 response.raise_for_status()
-                return await response.read()
+                content = await response.read()
+
+                # Verify actual content size
+                if len(content) > max_size_bytes:
+                    raise ValueError(
+                        f"Downloaded file too large: {len(content)} bytes (max: {max_size_bytes} bytes)"
+                    )
+
+                return content
+
         except Exception as e:
             # Add URL context to error message
             raise ValueError(f"Failed to download {url}: {e!s}") from e
+
     # Local file - keep as string path
     return url
 
 
 async def _download_urls_to_bytes(file_list: list[str]) -> list[bytes | str]:
     """
-    Download files from URLs as bytes in parallel.
+    Download files from URLs as bytes in parallel with enhanced security.
 
     Returns list of file contents as bytes or local paths.
     Raises ValueError with specific URL if download fails.
     """
     import asyncio
 
-    timeout = aiohttp.ClientTimeout(total=30.0)
-    async with aiohttp.ClientSession(timeout=timeout) as http_client:
+    # Enhanced security configuration
+    timeout = aiohttp.ClientTimeout(total=30.0, connect=10.0)
+    connector = aiohttp.TCPConnector(
+        limit=10,  # Limit concurrent connections
+        limit_per_host=2,  # Limit per host
+        ttl_dns_cache=300,  # DNS cache TTL
+        use_dns_cache=True,
+    )
+
+    async with aiohttp.ClientSession(
+        timeout=timeout,
+        connector=connector,
+        # Disable redirects to prevent SSRF
+        allow_redirects=False,
+        # Add security headers
+        headers={
+            "User-Agent": "fast-mcp-telegram/1.0",
+            "Accept": "*/*",
+        },
+    ) as http_client:
         # Download all files in parallel
         tasks = [_download_single_file(http_client, url) for url in file_list]
         return await asyncio.gather(*tasks)
@@ -52,17 +174,17 @@ def _validate_file_paths(
     files: str | list[str], operation: str, params: dict[str, Any]
 ) -> tuple[list[str] | None, dict[str, Any] | None]:
     """
-    Normalize and validate file paths based on server mode.
+    Normalize and validate file paths with security checks.
 
     Returns:
         (file_list, error): file_list if valid, error dict if validation fails
     """
     # Normalize to list
     file_list = [files] if isinstance(files, str) else files
-
-    # Validate local paths are only used in stdio mode
     config = get_config()
+
     for file in file_list:
+        # Validate local paths are only used in stdio mode
         if (
             not file.startswith(("http://", "https://"))
             and config.server_mode != ServerMode.STDIO
@@ -73,6 +195,19 @@ def _validate_file_paths(
                 params=params,
                 exception=ValueError("Local file paths require stdio mode"),
             )
+
+        # Validate URL security for HTTP/HTTPS URLs
+        if file.startswith(("http://", "https://")):
+            is_safe, error_msg = _validate_url_security(file)
+            if not is_safe:
+                return None, log_and_build_error(
+                    operation=operation,
+                    error_message=f"Unsafe URL blocked: {error_msg}",
+                    params=params,
+                    exception=ValueError(
+                        f"URL security validation failed: {error_msg}"
+                    ),
+                )
 
     return file_list, None
 

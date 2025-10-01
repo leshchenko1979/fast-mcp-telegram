@@ -43,6 +43,7 @@
 | 🔧 **Low-level API** | Direct MTProto access for advanced operations |
 | 🔐 **Multi-User Auth** | Bearer token authentication with session isolation |
 | 🏗️ **Dual Transport** | HTTP (multi-user) and stdio (single-user) support |
+| 📁 **Secure File Sending** | URL downloads with SSRF protection, size limits, and local-path restrictions |
 | 📊 **Session Management** | LRU cache, automatic cleanup, health monitoring |
 | ⚡ **Performance** | Async operations, parallel queries, connection pooling |
 | 🛡️ **Reliability** | Auto-reconnect, structured logging, error handling |
@@ -527,8 +528,9 @@ send_message(
 
 **File Sending:**
 - `files`: Single file or array of files (URLs or local paths)
-- **URLs** work in all server modes (http://, https://)
-- **Local paths** only work in stdio mode for security
+- **URLs**: Public HTTP/HTTPS URLs are supported. SSRF protections block localhost, private IP ranges, and cloud metadata endpoints by default.
+- **Local paths**: Only in stdio mode (blocked in HTTP modes)
+- **Size limits**: Download size capped (configurable)
 - Supports: images, videos, documents, audio, and other file types
 - Multiple files are sent as an album when possible
 - Message becomes the file caption when files are provided
@@ -560,6 +562,13 @@ send_message(
   "chat_id": "me",
   "message": "Report attached",
   "files": "/path/to/report.pdf"
+}}
+
+// Blocked internal URL (SSRF protection)
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "This will be rejected",
+  "files": "https://127.0.0.1:8000/health"
 }}
 
 // Reply with formatting

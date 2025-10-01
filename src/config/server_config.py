@@ -91,6 +91,17 @@ class ServerConfig(BaseSettings):
         default=900, ge=60, description="TTL for temporary setup sessions (seconds)"
     )
 
+    # File download security
+    allow_http_urls: bool = Field(
+        default=False, description="Allow HTTP URLs (insecure, only for development)"
+    )
+    max_file_size_mb: int = Field(
+        default=50, description="Maximum file size for downloads (MB)"
+    )
+    block_private_ips: bool = Field(
+        default=True, description="Block access to private IP ranges"
+    )
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str, info) -> str:

@@ -257,6 +257,14 @@ else:
 - **Album Support**: Multiple URLs downloaded and uploaded first to enable album grouping
 - **Security**: Local path validation ensures stdio mode requirement
 
+### 5.1. Security-First File Handling Pattern (2025-10-01)
+- **URL Security Validation**: `_validate_url_security()` prevents SSRF attacks by blocking localhost, private IPs, and suspicious domains
+- **Enhanced HTTP Client**: Disabled redirects, connection limits, security headers, and timeouts prevent abuse
+- **File Size Limits**: Configurable maximum file size with both header and content validation
+- **Configuration-Driven Security**: `allow_http_urls`, `max_file_size_mb`, `block_private_ips` settings for flexible security policies
+- **Comprehensive Validation**: Multi-layer validation at URL parsing, HTTP request, and content levels
+- **Security Testing**: Automated test suite validates all security measures work correctly
+
 ### 6. Error Handling Pattern
 - **Structured Error Responses**: All tools return `{"ok": false, "error": "message", "operation": "name"}` instead of raising exceptions or empty results
 - **Simplified Error Format**: Clean structure without request ID overhead, includes `operation` and sanitized `params` when relevant
