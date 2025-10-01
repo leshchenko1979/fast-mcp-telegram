@@ -1,4 +1,4 @@
-<img alt="Hero image" src="https://github.com/user-attachments/assets/996683da-1e61-4c6d-8681-6f4e6f4449ec" />
+<img alt="Hero image" src="https://github.com/user-attachments/assets/635236f6-b776-41c7-b6e5-0dd14638ecc1" />
 
 [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
