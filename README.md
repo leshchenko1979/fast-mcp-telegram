@@ -421,12 +421,12 @@ All tools that accept a `chat_id` parameter support these formats:
 |------|---------|--------------|
 | `search_messages_globally` | Search messages across all chats | Global search, filters by date/chat type |
 | `search_messages_in_chat` | Search messages within specific chat | Per-chat search, total count support |
-| `send_message` | Send new messages | Markdown/HTML formatting, replies |
+| `send_message` | Send new messages | Markdown/HTML formatting, replies, file sending (URLs/local) |
 | `edit_message` | Edit existing messages | Update message content with formatting |
 | `read_messages` | Read specific messages by ID | Bulk reading, full metadata |
 | `find_chats` | Find users/groups/channels (uniform entity schema) | Name/username/phone; multi-term supported |
 | `get_chat_info` | Get user/chat profile information | Bio, status, online state |
-| `send_message_to_phone` | Message by phone number | Auto-contact management |
+| `send_message_to_phone` | Message by phone number | Auto-contact management, file sending |
 | `invoke_mtproto` | Direct Telegram API access | Advanced operations |
 
 ### 🔍 search_messages_globally
@@ -513,23 +513,53 @@ search_messages_in_chat(
 - **Partial words**: Use shorter forms to catch variations (e.g., "proj" finds "project", "projects")
 
 ### 💬 send_message
-**Send new messages with formatting**
+**Send new messages with formatting and optional files**
 
 ```typescript
 send_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  message: str,                  // Message content
+  message: str,                  // Message content (becomes caption when files sent)
   reply_to_msg_id?: number,      // Reply to specific message
-  parse_mode?: 'markdown'|'html' // Text formatting
+  parse_mode?: 'markdown'|'html', // Text formatting
+  files?: string | string[]      // File URL(s) or local path(s)
 )
 ```
 
+**File Sending:**
+- `files`: Single file or array of files (URLs or local paths)
+- **URLs** work in all server modes (http://, https://)
+- **Local paths** only work in stdio mode for security
+- Supports: images, videos, documents, audio, and other file types
+- Multiple files are sent as an album when possible
+- Message becomes the file caption when files are provided
+
 **Examples:**
 ```json
-// Send new message
+// Send text message
 {"tool": "send_message", "params": {
   "chat_id": "me",
   "message": "Hello from AI! 🚀"
+}}
+
+// Send file from URL
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Check this document",
+  "files": "https://example.com/document.pdf"
+}}
+
+// Send multiple images as album
+{"tool": "send_message", "params": {
+  "chat_id": "@channel",
+  "message": "Project screenshots",
+  "files": ["https://example.com/img1.png", "https://example.com/img2.png"]
+}}
+
+// Send local file (stdio mode only)
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Report attached",
+  "files": "/path/to/report.pdf"
 }}
 
 // Reply with formatting
@@ -680,16 +710,17 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
 ```
 
 ### 📱 send_message_to_phone
-**Message by phone number (auto-contact management)**
+**Message by phone number (auto-contact management) with optional files**
 
 ```typescript
 send_message_to_phone(
   phone_number: str,           // Phone with country code (+1234567890)
-  message: str,                // Message content
+  message: str,                // Message content (becomes caption when files sent)
   first_name?: str = "Contact", // For new contacts
   last_name?: str = "Name",    // For new contacts
   remove_if_new?: boolean = false, // Remove temp contact after send
-  parse_mode?: 'markdown'|'html'   // Text formatting
+  parse_mode?: 'markdown'|'html',  // Text formatting
+  files?: string | string[]    // File URL(s) or local path(s)
 )
 ```
 
@@ -697,6 +728,8 @@ send_message_to_phone(
 - Auto-creates contact if phone not in contacts
 - Optional contact cleanup after sending
 - Full formatting support
+- File sending support (URLs or local paths)
+- Multiple files sent as album when possible
 
 **Examples:**
 ```json
@@ -704,6 +737,13 @@ send_message_to_phone(
 {"tool": "send_message_to_phone", "params": {
   "phone_number": "+1234567890",
   "message": "Hello from AI! 🤖"
+}}
+
+// Message with file
+{"tool": "send_message_to_phone", "params": {
+  "phone_number": "+1234567890",
+  "message": "Check this document",
+  "files": "https://example.com/document.pdf"
 }}
 
 // Message with formatting and cleanup

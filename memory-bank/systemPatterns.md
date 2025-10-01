@@ -222,7 +222,8 @@ else:
 
 ### Tool Dependencies
 - **search_messages**: Depends on search.py and entity resolution
-- **send_or_edit_message**: Depends on messages.py with formatting support and editing capabilities
+- **send_message**: Depends on messages.py with formatting, file sending, and album support
+- **send_message_to_phone**: Depends on messages.py with contact management and file sending
 - **search_contacts**: Depends on contacts.py for contact resolution
 
 ### Infrastructure Components
@@ -248,7 +249,15 @@ else:
 - Multiple query execution using asyncio.gather()
 - Result aggregation and deduplication
 
-### 5. Error Handling Pattern
+### 5. Helper Function Pattern (File Sending)
+- **Modular Validation**: `_validate_file_paths()` separates validation logic
+- **Download/Upload**: `_download_and_upload_files()` handles URL-to-Telegram conversion
+- **Routing Logic**: `_send_files_to_entity()` routes to appropriate send method
+- **Unified Interface**: `_send_message_or_files()` provides single entry point
+- **Album Support**: Multiple URLs downloaded and uploaded first to enable album grouping
+- **Security**: Local path validation ensures stdio mode requirement
+
+### 6. Error Handling Pattern
 - **Structured Error Responses**: All tools return `{"ok": false, "error": "message", "operation": "name"}` instead of raising exceptions or empty results
 - **Simplified Error Format**: Clean structure without request ID overhead, includes `operation` and sanitized `params` when relevant
 - **Server Error Detection**: server.py checks `isinstance(result, dict) and "ok" in result and not result["ok"]`
@@ -257,7 +266,7 @@ else:
 - **Flattened Structure**: Direct field access (`error_type`, `exception_message`) instead of nested diagnostic info
 - **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
 
-### 6. Logging Architecture Pattern
+### 7. Logging Architecture Pattern
 - **Modular Design**: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management, `logging.py` for configuration
 - **Zero Redundancy**: Single source of truth for all logging operations with no code duplication between modules
 - **Enhanced Capabilities**: Operation tracking with consistent parameter sanitization and metadata enhancement

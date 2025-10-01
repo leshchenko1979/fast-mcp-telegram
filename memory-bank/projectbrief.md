@@ -5,7 +5,7 @@ fast-mcp-telegram is a production-ready Python-based MCP (Modular Control Platfo
 ## Core Requirements
 1. **Telegram Integration**: Connect to Telegram via MTProto API using Telethon with robust session management
 2. **Advanced Search**: Global and per-chat message search with multi-query support, filtering, and deduplication
-3. **Comprehensive Messaging**: Send, edit, and read messages with formatting, replies, and phone number messaging
+3. **Comprehensive Messaging**: Send, edit, and read messages with formatting, replies, file sending (URLs/local), and phone number messaging
 4. **Contact Management**: Search contacts, get detailed information, and manage contact relationships
 5. **MCP Compliance**: Full MCP protocol implementation with HTTP transport and structured error handling
 6. **Production Deployment**: Automated deployment with session persistence and cross-platform compatibility

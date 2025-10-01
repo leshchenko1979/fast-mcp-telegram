@@ -1,7 +1,7 @@
 ## Current Work Focus
-**Primary**: Uniform chat schema across tools and optimized `find_chats` behavior (2025-09-17)
+**Primary**: File sending capability for messaging tools (2025-10-01)
 
-**Current Status**: All tools now use `build_entity_dict` for chat/user objects. `find_chats` supports comma-separated queries, merges, deduplicates by `id`, returns compact, uniform entities, and supports optional `chat_type` filtering (private|group|channel) (2025-09-17).
+**Current Status**: Implemented file sending for `send_message` and `send_message_to_phone`. Supports single/multiple files via URLs (all modes) or local paths (stdio only). Multiple URLs sent as albums via download/upload pattern. Documentation updated in README.
 
 ## Active Decisions and Considerations
 
@@ -43,6 +43,16 @@
 **Decision**: `find_chats` accepts comma-separated terms; searches concurrently
 **Impact**: Better discovery with merged, deduped results and uniform payloads
 
+### File Sending Implementation (2025-10-01)
+**Decision**: Unified `files` parameter accepting string or list, with auto-detection of URLs vs local paths
+**Implementation**:
+- Helper functions for modular design: `_validate_file_paths`, `_download_and_upload_files`, `_send_files_to_entity`, `_send_message_or_files`
+- URLs supported in all server modes (http://, https://)
+- Local paths restricted to stdio mode for security
+- Multiple URLs downloaded and uploaded first to enable album sending
+- Message becomes caption when files are sent
+**Impact**: Enables AI to send images, documents, videos, and other files with messages
+
 ## Important Patterns and Preferences
 
 ### Web Interface Styling Patterns
@@ -67,12 +77,3 @@
 7. **Traefik Integration**: Domain routing, SSL certificate management
 8. **Health Monitoring**: Container health checks and endpoint monitoring
 9. **Debugging Approach**: Systematic issue elimination through targeted testing
-## Current Work Focus
-**Primary**: RAM-optimized searches via async generators (2025-09-17)
-
-**Current Status**: Contacts and messages searches use async generators; multi-term merges are round-robin with early-stop on limits.
-
-## Important Decisions (2025-09-17)
-- Standardized entity schema via `build_entity_dict` across tools
-- Converted search flows to async generators for memory efficiency
-- Added concurrency caps and early cancellation for multi-term searches

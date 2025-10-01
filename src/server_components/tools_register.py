@@ -116,26 +116,40 @@ def register_tools(mcp: FastMCP) -> None:
         message: str,
         reply_to_msg_id: int | None = None,
         parse_mode: Literal["markdown", "html"] | None = None,
+        files: str | list[str] | None = None,
     ):
         """
-        Send new message in Telegram chat.
+        Send new message in Telegram chat, optionally with files.
 
         FORMATTING:
         - parse_mode=None: Plain text
         - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
         - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
 
+        FILE SENDING:
+        - files: Single file or list of files (URLs or local paths)
+        - URLs work in all modes (http:// or https://)
+        - Local file paths only work in stdio mode
+        - Supports images, videos, documents, audio, and other file types
+        - When files are provided, message becomes the caption
+
         EXAMPLES:
-        send_message(chat_id="me", message="Hello!")  # Send to Saved Messages
-        send_message(chat_id="-1001234567890", message="New message", reply_to_msg_id=12345)  # Reply to message
+        send_message(chat_id="me", message="Hello!")  # Send text to Saved Messages
+        send_message(chat_id="-1001234567890", message="New message", reply_to_msg_id=12345)  # Reply
+        send_message(chat_id="me", message="Check this", files="https://example.com/doc.pdf")  # Send file from URL
+        send_message(chat_id="me", message="Photos", files=["https://ex.com/1.jpg", "https://ex.com/2.jpg"])  # Multiple files
+        send_message(chat_id="me", message="Report", files="/path/to/file.pdf")  # Local file (stdio mode only)
 
         Args:
             chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
-            message: Message text to send
+            message: Message text to send (becomes caption when files are provided)
             reply_to_msg_id: Reply to specific message ID (optional)
             parse_mode: Text formatting ("markdown", "html", or None)
+            files: Single file or list of files to send (URLs or local paths, optional)
         """
-        return await send_message_impl(chat_id, message, reply_to_msg_id, parse_mode)
+        return await send_message_impl(
+            chat_id, message, reply_to_msg_id, parse_mode, files
+        )
 
     @mcp.tool()
     @server_errors.with_error_handling("edit_message")
@@ -275,20 +289,29 @@ def register_tools(mcp: FastMCP) -> None:
         remove_if_new: bool = False,
         reply_to_msg_id: int | None = None,
         parse_mode: Literal["markdown", "html"] | None = None,
+        files: str | list[str] | None = None,
     ):
         """
-        Send message to phone number, auto-managing Telegram contacts.
+        Send message to phone number, auto-managing Telegram contacts, optionally with files.
 
         FEATURES:
         - Auto-creates contact if phone not in contacts
         - Sends message immediately after contact creation
         - Optional contact cleanup after sending
         - Full message formatting support
+        - File sending support (URLs or local paths)
 
         CONTACT MANAGEMENT:
         - Checks existing contacts first
         - Creates temporary contact only if needed
         - Removes temporary contact if remove_if_new=True
+
+        FILE SENDING:
+        - files: Single file or list of files (URLs or local paths)
+        - URLs work in all modes (http:// or https://)
+        - Local file paths only work in stdio mode
+        - Supports images, videos, documents, audio, and other file types
+        - When files are provided, message becomes the caption
 
         REQUIREMENTS:
         - Phone number must be registered on Telegram
@@ -297,15 +320,17 @@ def register_tools(mcp: FastMCP) -> None:
         EXAMPLES:
         send_message_to_phone("+1234567890", "Hello from Telegram!")  # Basic send
         send_message_to_phone("+1234567890", "*Important*", remove_if_new=True)  # Auto cleanup
+        send_message_to_phone("+1234567890", "Check this", files="https://example.com/doc.pdf")  # Send with file
 
         Args:
             phone_number: Target phone number with country code (e.g., "+1234567890")
-            message: Message text to send
+            message: Message text to send (becomes caption when files are provided)
             first_name: Contact first name (for new contacts only)
             last_name: Contact last name (for new contacts only)
             remove_if_new: Remove contact after sending if newly created
             reply_to_msg_id: Reply to specific message ID
             parse_mode: Text formatting ("markdown", "html", or None)
+            files: Single file or list of files to send (URLs or local paths, optional)
 
         Returns:
             Message send result + contact management info (contact_was_new, contact_removed)
@@ -318,6 +343,7 @@ def register_tools(mcp: FastMCP) -> None:
             remove_if_new=remove_if_new,
             reply_to_msg_id=reply_to_msg_id,
             parse_mode=parse_mode,
+            files=files,
         )
 
     @mcp.tool()

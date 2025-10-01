@@ -1,3 +1,12 @@
+### 2025-10-01
+- Added file sending capability to `send_message` and `send_message_to_phone` tools
+- Implemented support for single or multiple files (URLs or local paths)
+- URLs work in all server modes; local paths restricted to stdio mode for security
+- Multiple files sent as albums when possible (via download/upload for URLs)
+- Added helper functions: `_download_and_upload_files`, `_validate_file_paths`, `_send_files_to_entity`, `_send_message_or_files`
+- Updated README with file sending examples and documentation
+- Supports all file types: images, videos, documents, audio, etc.
+
 ### 2025-09-17
 - Added optional `chat_type` filter to `find_chats` tool and implementation (users, groups, channels)
 - Updated `README.md` examples for `find_chats` to document `chat_type`
@@ -15,8 +24,9 @@
 - **Configuration System**: Modernized pydantic-settings based configuration with three clear server modes
 - **Message Search**: Split into `search_messages_globally` and `search_messages_in_chat` for deterministic behavior
 - **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
+- **File Sending**: Send single or multiple files via URLs (all modes) or local paths (stdio mode only)
 - **Contact Management**: Search and get contact details
-- **Phone Messaging**: Send messages to phone numbers not in contacts
+- **Phone Messaging**: Send messages to phone numbers not in contacts (with file support)
 - **MTProto Access**: Raw method invocation capability
 - **Connection Management**: Automatic reconnection and error handling
 
