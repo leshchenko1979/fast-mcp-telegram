@@ -1,7 +1,7 @@
 ## Current Work Focus
-**Primary**: Security fixes for file handling in HTTP mode (2025-10-01)
+**Primary**: MTProto API HTTP endpoint with auth + normalization (2025-10-01)
 
-**Current Status**: Implemented comprehensive security measures to prevent SSRF attacks and local file access vulnerabilities. Added URL validation, private IP blocking, file size limits, and enhanced HTTP client security. All security tests passing.
+**Current Status**: Added `/mtproto-api/{method}` (+ alias `/mtproto-api/v1/{method}`) POST endpoint available in all server modes. Centralized bearer extraction in `server_components/auth.py` via `extract_bearer_token_from_request`. Implemented case-insensitive method normalization using a cached Telethon introspection map in `utils.helpers.normalize_method_name`. Added dangerous-method denylist with opt-in override. Responses use existing structured error format; success returns JSON-safe `to_dict()`.
 
 ## Active Decisions and Considerations
 

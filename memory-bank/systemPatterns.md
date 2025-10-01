@@ -274,6 +274,14 @@ else:
 - **Flattened Structure**: Direct field access (`error_type`, `exception_message`) instead of nested diagnostic info
 - **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
 
+### 6.1 MTProto API Endpoint Pattern (2025-10-01)
+- **Custom Routes**: `/mtproto-api/{method}` and versioned alias `/mtproto-api/v1/{method}` registered in `server_components/mtproto_api.py`
+- **Auth Centralization**: `extract_bearer_token_from_request(request)` in `server_components/auth.py` used for HTTP_AUTH mode; bypass in other modes per config
+- **Method Normalization**: `utils.helpers.normalize_method_name()` performs case-insensitive resolution by introspecting `telethon.tl.functions.{module}` and caching `lower(BaseName)->BaseName`
+- **Dangerous Methods Guard**: Static denylist blocks destructive methods unless `allow_dangerous=true`
+- **Entity Resolution**: Best-effort conversion of `peer`/`user_id`-like params via `client.get_input_entity` (singular and lists)
+- **Response Policy**: Success returns JSON-safe dicts; errors use unified structured format with correct HTTP status (401/400/500)
+
 ### 7. Logging Architecture Pattern
 - **Modular Design**: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management, `logging.py` for configuration
 - **Zero Redundancy**: Single source of truth for all logging operations with no code duplication between modules
