@@ -48,8 +48,7 @@ validate() {
 
 deploy() {
   log "$BLUE" "Preparing remote directory..."
-
-  ssh "$VDS_USER@$VDS_HOST" "rm -rf $VDS_PROJECT_PATH && mkdir -p $VDS_PROJECT_PATH"
+  ssh "$VDS_USER@$VDS_HOST" "mkdir -p $VDS_PROJECT_PATH"
 
   log "$BLUE" "Transferring project files..."
   # Create a temporary file list excluding deleted files
@@ -63,12 +62,15 @@ deploy() {
   # Clean up macOS resource fork files
   ssh "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"
 
-    log "$BLUE" "Starting MCP server..."
+  log "$BLUE" "Starting MCP server..."
   
   if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --profile server --env-file .env up --build -d"; then
     log "$RED" "Failed to start containers"
     exit 1
   fi
+
+  log "$BLUE" "Build completed. Removing source files as per VDS deployment rules..."
+  ssh "$VDS_USER@$VDS_HOST" "rm -rf $VDS_PROJECT_PATH && mkdir -p $VDS_PROJECT_PATH"
 
   log "$BLUE" "Checking health..."
   ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && echo '=== Recent logs ===' && docker compose logs --since=1m fast-mcp-telegram | tail -n 20 | cat"
