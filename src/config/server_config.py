@@ -92,7 +92,9 @@ class ServerConfig(BaseSettings):
     )
 
     entity_cache_limit: int = Field(
-        default=1000, ge=1, description="Maximum number of entities to cache per Telegram client"
+        default=1000,
+        ge=1,
+        description="Maximum number of entities to cache per Telegram client",
     )
 
     # File download security

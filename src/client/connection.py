@@ -52,7 +52,10 @@ async def _get_client_by_token(token: str) -> TelegramClient:
 
         try:
             client = TelegramClient(
-                session_path, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+                session_path,
+                API_ID,
+                API_HASH,
+                entity_cache_limit=get_config().entity_cache_limit,
             )
             await client.connect()
 
@@ -150,7 +153,10 @@ async def get_client() -> TelegramClient:
     if _singleton_client is None:
         try:
             client = TelegramClient(
-                SESSION_PATH, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+                SESSION_PATH,
+                API_ID,
+                API_HASH,
+                entity_cache_limit=get_config().entity_cache_limit,
             )
             await client.connect()
             if not await client.is_user_authorized():
