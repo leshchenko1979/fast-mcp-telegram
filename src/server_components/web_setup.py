@@ -79,7 +79,9 @@ def register_web_setup_routes(mcp_app):
         from telethon import TelegramClient
         from telethon.errors.rpcerrorlist import PhoneNumberFloodError
 
-        client = TelegramClient(temp_session_path, API_ID, API_HASH)
+        client = TelegramClient(
+            temp_session_path, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+        )
         await client.connect()
         try:
             await client.send_code_request(phone_raw)

@@ -65,6 +65,10 @@ class SetupConfig(BaseSettings):
         description="Custom session name instead of random token (for advanced users)",
     )
 
+    entity_cache_limit: int = Field(
+        default=1000, ge=1, description="Maximum number of entities to cache per Telegram client"
+    )
+
     # Session directory (for setup only)
     session_dir: str = Field(
         default="",
@@ -170,7 +174,12 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
     print(f"\n🔐 Authenticating with session: {session_path}")
 
     # Create the client and connect
-    client = TelegramClient(session_path, setup_config.api_id, setup_config.api_hash)
+    client = TelegramClient(
+        session_path,
+        setup_config.api_id,
+        setup_config.api_hash,
+        entity_cache_limit=setup_config.entity_cache_limit,
+    )
 
     try:
         await client.connect()

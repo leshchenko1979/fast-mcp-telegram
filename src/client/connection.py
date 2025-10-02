@@ -51,7 +51,9 @@ async def _get_client_by_token(token: str) -> TelegramClient:
         session_path = SESSION_DIR / f"{token}.session"
 
         try:
-            client = TelegramClient(session_path, API_ID, API_HASH)
+            client = TelegramClient(
+                session_path, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+            )
             await client.connect()
 
             if not await client.is_user_authorized():
@@ -147,7 +149,9 @@ async def get_client() -> TelegramClient:
     global _singleton_client
     if _singleton_client is None:
         try:
-            client = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+            client = TelegramClient(
+                SESSION_PATH, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+            )
             await client.connect()
             if not await client.is_user_authorized():
                 logger.error("Session not authorized. Please run cli_setup.py first")

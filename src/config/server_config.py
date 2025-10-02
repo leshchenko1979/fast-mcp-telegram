@@ -91,6 +91,10 @@ class ServerConfig(BaseSettings):
         default=900, ge=60, description="TTL for temporary setup sessions (seconds)"
     )
 
+    entity_cache_limit: int = Field(
+        default=1000, ge=1, description="Maximum number of entities to cache per Telegram client"
+    )
+
     # File download security
     allow_http_urls: bool = Field(
         default=False, description="Allow HTTP URLs (insecure, only for development)"
