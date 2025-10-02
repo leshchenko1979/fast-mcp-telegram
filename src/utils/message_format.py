@@ -105,7 +105,8 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
         if file_size is not None:
             placeholder["approx_size_bytes"] = file_size
 
-    return placeholder
+    # Return None if no meaningful media metadata was extracted
+    return placeholder if placeholder else None
 
 
 async def build_message_result(
@@ -137,7 +138,9 @@ async def build_message_result(
         result["reply_to_msg_id"] = reply_to_msg_id
 
     if hasattr(message, "media") and message.media:
-        result["media"] = _build_media_placeholder(message)
+        media_placeholder = _build_media_placeholder(message)
+        if media_placeholder is not None:
+            result["media"] = media_placeholder
 
     if forward_info is not None:
         result["forwarded_from"] = forward_info
