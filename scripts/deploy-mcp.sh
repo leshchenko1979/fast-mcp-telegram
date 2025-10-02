@@ -69,11 +69,11 @@ deploy() {
     exit 1
   fi
 
-  log "$BLUE" "Build completed. Removing source files as per VDS deployment rules..."
-  ssh "$VDS_USER@$VDS_HOST" "rm -rf $VDS_PROJECT_PATH && mkdir -p $VDS_PROJECT_PATH"
-
   log "$BLUE" "Checking health..."
   ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && echo '=== Recent logs ===' && docker compose logs --since=1m fast-mcp-telegram | tail -n 20 | cat"
+
+  log "$BLUE" "Build completed. Removing source files as per VDS deployment rules..."
+  ssh "$VDS_USER@$VDS_HOST" "rm -rf $VDS_PROJECT_PATH && mkdir -p $VDS_PROJECT_PATH"
 }
 
 validate
