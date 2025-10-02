@@ -1,11 +1,11 @@
 ### 2025-10-02
-- Completed comprehensive code optimization and refactoring work
-- Successfully refactored MTProto module with unified single-function architecture
-- Eliminated code duplication between tools_register.py, mtproto.py, and mtproto_api.py
-- Created comprehensive Cursor rules for code optimization and development guidelines
-- Unified MCP tool and HTTP bridge interfaces with identical behavior (resolve=True defaults)
-- Updated all documentation to reflect new architecture and functionality
-- Implemented DRY principles with centralized constants and shared logic
+- Implemented functools.cache optimizations across the codebase for better performance and maintainability
+- Replaced manual caching patterns with functools.cache in helpers.py and entity.py
+- Optimized Telethon function mapping with automatic caching using @cache decorator
+- Enhanced entity processing functions (get_normalized_chat_type, build_entity_dict) with intelligent caching
+- Maintained manual caching for async operations in bot_restrictions.py (functools.cache limitations with async)
+- Updated tests to work with new caching patterns while preserving existing functionality
+- Achieved better performance, cleaner code, and automatic memory management
 
 ### 2025-10-01
 - Completed comprehensive README restructuring and documentation organization

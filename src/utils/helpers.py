@@ -1,3 +1,4 @@
+from functools import cache
 from importlib import import_module
 from typing import Any
 
@@ -55,15 +56,10 @@ def normalize_method_name(method: str) -> str:
 # Internal helpers (cached)
 # -------------------------
 
-_TELETHON_FUNCS_CACHE: dict[str, dict[str, str]] = {}
 
-
+@cache
 def _get_functions_map_for_module(module: str) -> dict[str, str]:
     """Return a cached map: lower(BaseName) -> BaseName for Telethon functions in module."""
-    cached = _TELETHON_FUNCS_CACHE.get(module)
-    if cached is not None:
-        return cached
-
     mapping: dict[str, str] = {}
     try:
         tl_module = import_module(f"telethon.tl.functions.{module}")
@@ -76,7 +72,6 @@ def _get_functions_map_for_module(module: str) -> dict[str, str]:
         # If Telethon is unavailable or module not found, leave mapping empty
         mapping = {}
 
-    _TELETHON_FUNCS_CACHE[module] = mapping
     return mapping
 
 

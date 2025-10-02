@@ -1,12 +1,12 @@
 ## Current Work Focus
-**Primary**: Code optimization, refactoring, and interface unification (2025-10-02)
+**Primary**: Performance optimization with functools.cache implementation (2025-10-02)
 
-**Current Status**: Completed comprehensive code optimization and refactoring work:
-- Successfully refactored MTProto module with unified single-function architecture
-- Eliminated code duplication between tools_register.py, mtproto.py, and mtproto_api.py
-- Created comprehensive Cursor rules for code optimization and development guidelines
-- Unified MCP tool and HTTP bridge interfaces with identical behavior
-- Updated all documentation to reflect new architecture and functionality
+**Current Status**: Successfully implemented functools.cache optimizations across the codebase:
+- Replaced manual caching patterns with functools.cache for better performance and maintainability
+- Optimized Telethon function mapping with automatic caching
+- Enhanced entity processing functions with intelligent caching
+- Maintained existing functionality while improving performance
+- Updated tests to work with new caching patterns
 
 ## Active Decisions and Considerations
 
@@ -31,14 +31,15 @@
 - Both interfaces now use identical parameter defaults and behavior
 **Impact**: Consistent user experience, no functional differences between interfaces
 
-### Code Quality Standards (2025-10-02)
-**Decision**: Created comprehensive Cursor rules for code optimization and development guidelines
+### Performance Optimization with functools.cache (2025-10-02)
+**Decision**: Implemented functools.cache across the codebase for better performance and maintainability
 **Implementation**:
-- **code-optimization.mdc**: DRY principles, single responsibility, anti-patterns
-- **python-structure.mdc**: Python-specific organization guidelines
-- **telegram-mtproto.mdc**: MTProto API patterns and security guidelines
-- **refactoring-patterns.mdc**: Common refactoring techniques and workflows
-**Impact**: Clear development guidelines, consistent code quality, better maintainability
+- **helpers.py**: Replaced manual `_TELETHON_FUNCS_CACHE` with `@cache` decorator on `_get_functions_map_for_module()`
+- **entity.py**: Added `@cache` to `get_normalized_chat_type()` and `build_entity_dict()` for entity processing optimization
+- **bot_restrictions.py**: Maintained manual caching for async operations (functools.cache doesn't work well with async)
+- **Automatic Memory Management**: functools.cache provides thread-safe, automatic cache management
+- **Simplified Code**: Eliminated manual cache key management and size tracking
+**Impact**: Better performance, cleaner code, automatic memory management, thread safety
 
 ### Documentation Updates (2025-10-02)
 **Decision**: Updated all documentation to reflect new unified architecture

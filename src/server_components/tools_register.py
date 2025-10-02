@@ -3,6 +3,7 @@ from typing import Literal
 from fastmcp import FastMCP
 
 from src.server_components import auth as server_auth
+from src.server_components import bot_restrictions
 from src.server_components import errors as server_errors
 from src.tools.contacts import find_chats_impl, get_chat_info_impl
 from src.tools.messages import (
@@ -15,10 +16,33 @@ from src.tools.mtproto import invoke_mtproto_impl
 from src.tools.search import search_messages_impl
 
 
+def mcp_tool_with_restrictions(operation_name: str):
+    """
+    Combined decorator for MCP tools that applies error handling, auth context, and bot restrictions.
+
+    This reduces repetition of the three common decorators:
+    - @server_errors.with_error_handling
+    - @server_auth.with_auth_context
+    - @bot_restrictions.restrict_non_bridge_for_bot_sessions
+
+    Args:
+        operation_name: Name of the operation for error reporting and bot restrictions
+    """
+
+    def decorator(func):
+        # Apply the three decorators in the correct order
+        decorated_func = server_errors.with_error_handling(operation_name)(func)
+        decorated_func = server_auth.with_auth_context(decorated_func)
+        return bot_restrictions.restrict_non_bridge_for_bot_sessions(operation_name)(
+            decorated_func
+        )
+
+    return decorator
+
+
 def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
-    @server_errors.with_error_handling("search_messages_globally")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("search_messages_globally")
     async def search_messages_globally(
         query: str,
         limit: int = 50,
@@ -62,8 +86,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
-    @server_errors.with_error_handling("search_messages_in_chat")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("search_messages_in_chat")
     async def search_messages_in_chat(
         chat_id: str,
         query: str | None = None,
@@ -108,8 +131,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
-    @server_errors.with_error_handling("send_message")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("send_message")
     async def send_message(
         chat_id: str,
         message: str,
@@ -151,8 +173,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool()
-    @server_errors.with_error_handling("edit_message")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("edit_message")
     async def edit_message(
         chat_id: str,
         message_id: int,
@@ -180,8 +201,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await edit_message_impl(chat_id, message_id, message, parse_mode)
 
     @mcp.tool()
-    @server_errors.with_error_handling("read_messages")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("read_messages")
     async def read_messages(chat_id: str, message_ids: list[int]):
         """
         Read specific messages by their IDs from a Telegram chat.
@@ -208,8 +228,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await read_messages_by_ids(chat_id, message_ids)
 
     @mcp.tool()
-    @server_errors.with_error_handling("find_chats")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("find_chats")
     async def find_chats(
         query: str,
         limit: int = 20,
@@ -251,8 +270,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await find_chats_impl(query, limit, chat_type)
 
     @mcp.tool()
-    @server_errors.with_error_handling("get_chat_info")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("get_chat_info")
     async def get_chat_info(chat_id: str):
         """
         Get detailed profile information for a specific Telegram user or chat.
@@ -278,8 +296,7 @@ def register_tools(mcp: FastMCP) -> None:
         return await get_chat_info_impl(chat_id)
 
     @mcp.tool()
-    @server_errors.with_error_handling("send_message_to_phone")
-    @server_auth.with_auth_context
+    @mcp_tool_with_restrictions("send_message_to_phone")
     async def send_message_to_phone(
         phone_number: str,
         message: str,

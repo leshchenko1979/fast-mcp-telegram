@@ -1,3 +1,4 @@
+from functools import cache
 from loguru import logger
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
@@ -36,6 +37,7 @@ async def get_entity_by_id(entity_id):
         return None
 
 
+@cache
 def get_normalized_chat_type(entity) -> str | None:
     """Return normalized chat type: 'private', 'group', or 'channel'."""
     if not entity:
@@ -60,6 +62,7 @@ def get_normalized_chat_type(entity) -> str | None:
     return None
 
 
+@cache
 def build_entity_dict(entity) -> dict:
     """
     Build a uniform chat/user representation used across all tools.

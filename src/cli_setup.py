@@ -49,6 +49,11 @@ class SetupConfig(BaseSettings):
         description="Phone number with country code (e.g., +1234567890)",
     )
 
+    bot_token: str = Field(
+        default="",
+        description="Bot token from BotFather (for bot account setup)",
+    )
+
     # Setup options
     overwrite: CliImplicitFlag[bool] = Field(
         default=False,
@@ -76,9 +81,12 @@ class SetupConfig(BaseSettings):
             raise ValueError(
                 "API Hash is required. Provide via --api-hash argument or API_HASH environment variable."
             )
-        if not self.phone_number:
+
+        # Either phone number (for user account) or bot token (for bot account) is required
+        if not self.bot_token and not self.phone_number:
             raise ValueError(
-                "Phone number is required. Provide via --phone-number argument or PHONE_NUMBER environment variable."
+                "Either phone number (for user account) or bot token (for bot account) is required. "
+                "Provide via --phone-number or --bot-token argument, or corresponding environment variables."
             )
 
 
@@ -128,7 +136,14 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
 
     print("Starting Telegram session setup...")
     print(f"API ID: {setup_config.api_id}")
-    print(f"Phone: {mask_phone_number(setup_config.phone_number)}")
+
+    if setup_config.bot_token:
+        print("Bot token: [REDACTED]")
+        print("Account type: Bot")
+    else:
+        print(f"Phone: {mask_phone_number(setup_config.phone_number)}")
+        print("Account type: User")
+
     print(f"Session will be saved to: {session_path}")
     print(f"Session directory: {session_path.parent}")
 
@@ -160,26 +175,40 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
     try:
         await client.connect()
 
-        if not await client.is_user_authorized():
-            print(f"Sending code to {mask_phone_number(setup_config.phone_number)}...")
-            await client.send_code_request(setup_config.phone_number)
+        if setup_config.bot_token:
+            # Bot authentication
+            print("Authenticating as bot...")
+            await client.start(bot_token=setup_config.bot_token)
+            print("Successfully authenticated as bot!")
 
-            # Get verification code (interactive only)
-            code = input("Enter the code you received: ")
+            # Test the connection by getting bot info
+            me = await client.get_me()
+            print(f"Bot username: @{me.username}")
+            print(f"Bot name: {me.first_name}")
+        else:
+            # User authentication
+            if not await client.is_user_authorized():
+                print(
+                    f"Sending code to {mask_phone_number(setup_config.phone_number)}..."
+                )
+                await client.send_code_request(setup_config.phone_number)
 
-            try:
-                await client.sign_in(setup_config.phone_number, code)
-            except SessionPasswordNeededError:
-                # In case you have two-step verification enabled
-                password = getpass.getpass("Please enter your 2FA password: ")
-                await client.sign_in(password=password)
+                # Get verification code (interactive only)
+                code = input("Enter the code you received: ")
 
-        print("Successfully authenticated!")
+                try:
+                    await client.sign_in(setup_config.phone_number, code)
+                except SessionPasswordNeededError:
+                    # In case you have two-step verification enabled
+                    password = getpass.getpass("Please enter your 2FA password: ")
+                    await client.sign_in(password=password)
 
-        # Test the connection by getting some dialogs
-        async for dialog in client.iter_dialogs(limit=1):
-            print(f"Successfully connected! Found chat: {dialog.name}")
-            break
+            print("Successfully authenticated!")
+
+            # Test the connection by getting some dialogs
+            async for dialog in client.iter_dialogs(limit=1):
+                print(f"Successfully connected! Found chat: {dialog.name}")
+                break
 
     finally:
         await client.disconnect()
@@ -210,7 +239,15 @@ async def main():
             "\n💡 Use this Bearer token for authentication when using the MCP server:"
         )
         print(f"   Authorization: Bearer {bearer_token}")
-        print("\n🚀 You can now use the Telegram search functionality!")
+
+        if setup_config.bot_token:
+            print("\n🤖 Bot setup complete! You can now use the MTProto bridge:")
+            print("   - Use /mtproto-api/... endpoints for bot operations")
+            print(
+                "   - High-level tools (search, send_message, etc.) are disabled for bots"
+            )
+        else:
+            print("\n🚀 You can now use the Telegram search functionality!")
 
     except ValueError as e:
         print(f"❌ Error: {e}")

@@ -63,6 +63,14 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Section Organization**: Clear section headers and logical grouping
 - **Helper Function Extraction**: Focused helper functions for specific tasks
 
+### 6.1. Performance Optimization Patterns (2025-10-02)
+- **functools.cache Usage**: Applied to pure functions for automatic caching and memory management
+- **Telethon Function Mapping**: Cached module introspection for case-insensitive method resolution
+- **Entity Processing**: Cached entity type normalization and dictionary building for repeated operations
+- **Async Caching Strategy**: Manual caching for async operations where functools.cache doesn't work well
+- **Thread Safety**: functools.cache provides built-in thread safety for concurrent operations
+- **Memory Management**: Automatic cache eviction and memory management without manual intervention
+
 ### Uniform Entity Schema (2025-09-17)
 - All tools format chat/user data via `utils.entity.build_entity_dict`
 - Schema: `id`, `title`, `type` (private|group|channel), `username`, `first_name`, `last_name`

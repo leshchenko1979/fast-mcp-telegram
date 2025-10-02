@@ -313,6 +313,81 @@ const result = await callMTProto("messages.SendMessage", {
 }, "your_token_here");
 ```
 
+## Multi-bot via Bearer Tokens
+
+The server supports multiple bots by issuing one Bearer token per bot. Each bot gets its own session file and can only use the MTProto bridge (high-level tools are disabled for bots).
+
+### Bot Setup
+
+Create a bot session using the CLI setup tool:
+
+```bash
+# Create a bot session (replace with your bot token from BotFather)
+python -m src.cli_setup --api-id <your_api_id> --api-hash <your_api_hash> --bot-token <bot_token_from_botfather>
+
+# The command will print a Bearer token - this identifies your bot
+# Example output:
+# 🔑 Bearer Token: abc123def456...
+# 🤖 Bot setup complete! You can now use the MTProto bridge:
+#    - Use /mtproto-api/... endpoints for bot operations
+#    - High-level tools (search, send_message, etc.) are disabled for bots
+```
+
+### Using Bot Sessions
+
+Each bot session is identified by its unique Bearer token. Use this token in the Authorization header:
+
+```bash
+# Use the bot via MTProto bridge with the printed Bearer token
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer <bot-server-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {"peer": "@yourchannel", "message": "Hello from bot!"},
+        "resolve": true
+      }'
+```
+
+### Bot Limitations
+
+Bot accounts have the following restrictions:
+
+- **Bridge Only**: Only `/mtproto-api/...` endpoints and the `invoke_mtproto` tool are available
+- **No High-level Tools**: `search_messages`, `send_message`, `find_chats`, etc. are disabled for bots
+- **Bot Account Restrictions**: Standard Telegram bot limitations apply (cannot message arbitrary users, limited search capabilities, etc.)
+- **Session Isolation**: Each bot has its own session file (`{token}.session`) and Bearer token
+
+### Multiple Bots
+
+To use multiple bots:
+
+1. Create a separate session for each bot using `--bot-token`
+2. Each bot gets its own unique Bearer token
+3. Use the appropriate Bearer token for each bot in your requests
+4. Each bot operates independently with its own session
+
+```bash
+# Bot 1
+python -m src.cli_setup --api-id <id> --api-hash <hash> --bot-token <bot1_token>
+# Bearer Token: token1_abc123...
+
+# Bot 2  
+python -m src.cli_setup --api-id <id> --api-hash <hash> --bot-token <bot2_token>
+# Bearer Token: token2_def456...
+
+# Use Bot 1
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer token1_abc123..." \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"peer": "@channel1", "message": "From Bot 1"}}'
+
+# Use Bot 2
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer token2_def456..." \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"peer": "@channel2", "message": "From Bot 2"}}'
+```
+
 ## Best Practices
 
 ### Security
