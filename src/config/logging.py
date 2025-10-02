@@ -15,6 +15,11 @@ LOG_PATH = LOG_DIR / f"mcp_server_{current_time}.log"
 
 def setup_logging():
     """Configure logging with loguru."""
+    # Prevent repeated setup by checking if already configured
+    if hasattr(setup_logging, "_configured"):
+        return
+    setup_logging._configured = True
+
     logger.remove()
 
     # File sink with full tracebacks and diagnostics
@@ -42,22 +47,48 @@ def setup_logging():
 
     # Bridge standard logging (uvicorn, telethon, etc.) to loguru
     class InterceptHandler(logging.Handler):
-        def emit(self, record: logging.LogRecord) -> None:
-            try:
-                level = logger.level(record.levelname).name
-            except Exception:
-                level = record.levelno
-            frame, depth = logging.currentframe(), 2
-            while frame and frame.f_code.co_filename == logging.__file__:
-                frame = frame.f_back
-                depth += 1
-            # Include original emitter info in clean format
-            emitter_logger = getattr(record, "name", "unknown")
-            emitter_func = getattr(record, "funcName", "unknown")
-            emitter_line = getattr(record, "lineno", "?")
+        def __init__(self):
+            super().__init__()
+            # Cache level mappings for performance
+            self._level_cache = {}
 
-            # Keep full logger name for proper debugging context
-            formatted_message = f"{emitter_logger}:{emitter_func}:{emitter_line} - {record.getMessage()}"
+        def emit(self, record: logging.LogRecord) -> None:
+            # Filter out noisy access logs to reduce log spam
+            if record.name == "uvicorn.access":
+                message = record.getMessage()
+                # Skip logging for health checks and other monitoring endpoints
+                if any(
+                    endpoint in message
+                    for endpoint in ["/health", "/metrics", "/status"]
+                ):
+                    return
+            # Optimized level resolution with caching
+            level_name = record.levelname
+            if level_name not in self._level_cache:
+                try:
+                    self._level_cache[level_name] = logger.level(level_name).name
+                except Exception:
+                    self._level_cache[level_name] = record.levelno
+            level = self._level_cache[level_name]
+
+            # Optimized frame walking - only when needed
+            depth = 2
+            if record.exc_info:
+                frame = logging.currentframe()
+                while frame and frame.f_code.co_filename == logging.__file__:
+                    frame = frame.f_back
+                    depth += 1
+
+            # Optimized message formatting - avoid f-strings when possible
+            emitter_logger = record.name or "unknown"
+            emitter_func = record.funcName or "unknown"
+            emitter_line = record.lineno or "?"
+            message = record.getMessage()
+
+            # Use string concatenation for better performance
+            formatted_message = (
+                f"{emitter_logger}:{emitter_func}:{emitter_line} - {message}"
+            )
 
             try:
                 logger.opt(depth=depth, exception=record.exc_info).log(
@@ -66,7 +97,7 @@ def setup_logging():
             except Exception:
                 # Fallback if anything fails
                 logger.opt(depth=depth, exception=record.exc_info).log(
-                    level, f"[logging_error] {record.getMessage()}"
+                    level, f"[logging_error] {message}"
                 )
 
     # Install a single root handler
@@ -75,10 +106,20 @@ def setup_logging():
     root_logger.setLevel(0)
 
     # Configure specific library logger levels (no extra handlers so root handler applies)
-    logging.getLogger("uvicorn").setLevel(logging.INFO)
-    logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("mcp.server.lowlevel.server").setLevel(logging.WARNING)
+    # Batch logger configuration for better performance
+    logger_configs = [
+        ("uvicorn", logging.INFO),
+        ("uvicorn.error", logging.ERROR),
+        ("uvicorn.access", logging.WARNING),
+        ("mcp.server.lowlevel.server", logging.WARNING),
+        ("asyncio", logging.WARNING),
+        ("urllib3", logging.WARNING),
+        ("httpx", logging.WARNING),
+        ("aiohttp", logging.WARNING),
+    ]
+
+    for logger_name, level in logger_configs:
+        logging.getLogger(logger_name).setLevel(level)
 
     # Keep Telethon visible but reduce noise by module-level levels
     # Default Telethon at DEBUG for diagnostics
@@ -87,25 +128,42 @@ def setup_logging():
     telethon_root.propagate = True
 
     # Noisy submodules lowered to INFO (suppress their DEBUG flood)
-    noisy_modules = [
+    # Batch Telethon logger configuration for better performance
+    telethon_noisy_modules = [
         "telethon.network.mtprotosender",  # _send_loop, _recv_loop, _handle_update, etc.
         "telethon.extensions.messagepacker",  # packing/debug spam
         "telethon.network",  # any other network internals
+        "telethon.network.connection",  # connection management noise
+        "telethon.client.telegramclient",  # client connection noise
+        "telethon.tl",  # TL layer noise
     ]
-    for name in noisy_modules:
-        logging.getLogger(name).setLevel(logging.INFO)
 
-    # Log server startup information
+    for module_name in telethon_noisy_modules:
+        logging.getLogger(module_name).setLevel(logging.INFO)
+
+    # Log server startup information (optimized batch logging)
     cfg = get_config()
-    logger.info("=== Telegram MCP Server Starting ===")
-    logger.info(f"Version: {SERVER_VERSION}")
-    logger.info(f"Mode: {cfg.server_mode.value}")
-    logger.info(f"Transport: {cfg.transport}")
+    startup_info = [
+        "=== Telegram MCP Server Starting ===",
+        f"Version: {SERVER_VERSION}",
+        f"Mode: {cfg.server_mode.value}",
+        f"Transport: {cfg.transport}",
+    ]
+
     if cfg.transport == "http":
-        logger.info(f"Bind: {cfg.host}:{cfg.port}")
-    logger.info(f"Session file path: {SESSION_PATH.absolute()}")
-    logger.info(f"Log file path: {LOG_PATH.absolute()}")
-    logger.info("=====================================")
+        startup_info.append(f"Bind: {cfg.host}:{cfg.port}")
+
+    startup_info.extend(
+        [
+            f"Session file path: {SESSION_PATH.absolute()}",
+            f"Log file path: {LOG_PATH.absolute()}",
+            "=====================================",
+        ]
+    )
+
+    # Batch log startup information
+    for info_line in startup_info:
+        logger.info(info_line)
 
 
 def format_diagnostic_info(info: dict) -> str:

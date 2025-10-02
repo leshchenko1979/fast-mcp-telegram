@@ -149,6 +149,10 @@ class ServerConfig(BaseSettings):
 
     def validate_config(self) -> None:
         """Validate configuration and log important information."""
+        # Prevent repeated logging by checking if already logged
+        if hasattr(self, "_config_logged"):
+            return
+
         from loguru import logger
 
         logger.info(f"🚀 Server mode: {self.server_mode.value}")
@@ -165,6 +169,9 @@ class ServerConfig(BaseSettings):
             logger.info("🔐 Authentication REQUIRED - Bearer token mandatory")
 
         logger.info(f"📁 Session directory: {self.session_directory}")
+
+        # Mark as logged to prevent repeated messages
+        self._config_logged = True
 
         # Validation warnings
         if self.transport == "stdio" and self.host != "127.0.0.1":

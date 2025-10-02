@@ -26,8 +26,10 @@ def log_operation_start(operation: str, params: dict[str, Any] | None = None) ->
         operation: Name of the operation being started
         params: Dictionary of parameters for the operation
     """
-    if params is None:
-        params = {}
+    # Fast path for empty params
+    if not params:
+        logger.debug(operation)
+        return
 
     safe_params = sanitize_params_for_logging(params)
     enhanced_params = add_logging_metadata(safe_params)

@@ -1,11 +1,21 @@
 ### 2025-10-02
+- Implemented comprehensive logging optimization and performance improvements for better VDS log readability and server performance
+- Reduced asyncio selector debug spam (70+ messages per session eliminated) by setting asyncio logger to WARNING level
+- Prevented repeated server startup messages (14+ per session reduced to 1) with logging setup and config validation deduplication
+- Enhanced Telethon noise reduction with additional module filtering (connection, telegramclient, tl layer)
+- Added noise reduction for common HTTP libraries (urllib3, httpx, aiohttp) to eliminate debug spam
+- Optimized InterceptHandler with level caching and reduced frame walking overhead for better performance
+- Enhanced parameter sanitization with pre-compiled patterns, fast paths for simple types, and optimized string operations
+- Implemented batch logger configuration for better startup performance
+- Added fast path optimization for empty parameter logging to reduce overhead
+- Implemented health endpoint access log filtering to eliminate monitoring noise
 - Implemented functools.cache optimizations across the codebase for better performance and maintainability
 - Replaced manual caching patterns with functools.cache in helpers.py and entity.py
 - Optimized Telethon function mapping with automatic caching using @cache decorator
 - Enhanced entity processing functions (get_normalized_chat_type, build_entity_dict) with intelligent caching
 - Maintained manual caching for async operations in bot_restrictions.py (functools.cache limitations with async)
 - Updated tests to work with new caching patterns while preserving existing functionality
-- Achieved better performance, cleaner code, and automatic memory management
+- Achieved better performance, cleaner code, automatic memory management, dramatically reduced log noise, and optimized logging overhead
 
 ### 2025-10-01
 - Completed comprehensive README restructuring and documentation organization

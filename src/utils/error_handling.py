@@ -44,34 +44,41 @@ def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]
     if not params:
         return {}
 
+    # Pre-compile common patterns for performance
+    phone_keys = {"phone", "phone_number", "mobile"}
+    message_keys = {"message", "new_text", "text"}
+
     sanitized = {}
 
     for key, value in params.items():
-        # Mask phone numbers
-        if "phone" in key.lower() and isinstance(value, str):
+        key_lower = key.lower()
+
+        # Optimized phone number masking
+        if any(phone_key in key_lower for phone_key in phone_keys) and isinstance(
+            value, str
+        ):
             if len(value) > 5:
                 sanitized[key] = f"{value[:3]}***{value[-2:]}"
             else:
                 sanitized[key] = "***"
-        # Truncate long text values
+        # Optimized message content truncation
+        elif key in message_keys and isinstance(value, str) and len(value) > 100:
+            sanitized[key] = f"{value[:100]}... (truncated)"
+        # Optimized long text truncation
         elif isinstance(value, str) and len(value) > 200:
             sanitized[key] = f"{value[:200]}... (truncated)"
-        # Truncate large message content
-        elif (
-            key in ["message", "new_text", "text"]
-            and isinstance(value, str)
-            and len(value) > 100
-        ):
-            sanitized[key] = f"{value[:100]}... (truncated)"
-        # Keep other values as-is but convert to string if too complex
+        # Optimized other value handling
         else:
             try:
-                # Ensure value is JSON serializable
-                str_value = str(value)
-                if len(str_value) > 500:
-                    sanitized[key] = f"{str_value[:500]}... (truncated)"
-                else:
+                # Fast path for simple types
+                if isinstance(value, (int, float, bool, type(None))):
                     sanitized[key] = value
+                else:
+                    str_value = str(value)
+                    if len(str_value) > 500:
+                        sanitized[key] = f"{str_value[:500]}... (truncated)"
+                    else:
+                        sanitized[key] = value
             except Exception:
                 sanitized[key] = f"<{type(value).__name__}>"
 

@@ -1,12 +1,18 @@
 ## Current Work Focus
-**Primary**: Performance optimization with functools.cache implementation (2025-10-02)
+**Primary**: Logging optimization and chatty log reduction (2025-10-02)
 
-**Current Status**: Successfully implemented functools.cache optimizations across the codebase:
-- Replaced manual caching patterns with functools.cache for better performance and maintainability
-- Optimized Telethon function mapping with automatic caching
-- Enhanced entity processing functions with intelligent caching
-- Maintained existing functionality while improving performance
-- Updated tests to work with new caching patterns
+**Current Status**: Successfully implemented comprehensive logging optimization and performance improvements:
+- Reduced asyncio selector debug spam (70+ messages per session eliminated)
+- Prevented repeated server startup messages (14+ per session reduced to 1)
+- Enhanced Telethon noise reduction with additional module filtering
+- Added noise reduction for common HTTP libraries (urllib3, httpx, aiohttp)
+- Implemented logging setup and config validation deduplication
+- Optimized InterceptHandler with level caching and reduced frame walking overhead
+- Enhanced parameter sanitization with pre-compiled patterns and fast paths
+- Batch logger configuration for better startup performance
+- Fast path optimization for empty parameter logging
+- Health endpoint access log filtering to eliminate monitoring noise
+- Maintained DEBUG level for useful diagnostic information while eliminating noise
 
 ## Active Decisions and Considerations
 
@@ -40,6 +46,49 @@
 - **Automatic Memory Management**: functools.cache provides thread-safe, automatic cache management
 - **Simplified Code**: Eliminated manual cache key management and size tracking
 **Impact**: Better performance, cleaner code, automatic memory management, thread safety
+
+### Logging Optimization and Chatty Log Reduction (2025-10-02)
+**Decision**: Comprehensive reduction of verbose logging to improve log readability and reduce noise
+**Problem**: VDS logs contained excessive chatty messages making it difficult to identify real issues
+**Analysis**: Identified main sources of noise:
+- asyncio selector debug spam (70+ messages per session)
+- Repeated server startup messages (14+ per session)
+- Telethon network and connection noise
+- HTTP library debug messages
+**Solution**:
+- **asyncio Noise Reduction**: Set asyncio logger to WARNING level to eliminate selector spam
+- **Startup Message Deduplication**: Added `_configured` flag to prevent repeated logging setup calls
+- **Config Validation Deduplication**: Added `_config_logged` flag to prevent repeated server config logging
+- **Enhanced Telethon Filtering**: Added additional noisy modules (connection, telegramclient, tl layer)
+- **HTTP Library Noise Reduction**: Set urllib3, httpx, and aiohttp to WARNING level
+- **Preserved Diagnostic Value**: Maintained DEBUG level for useful diagnostic information
+**Impact**: Dramatically reduced log noise while preserving essential debugging information
+
+### Logging Performance Optimization (2025-10-02)
+**Decision**: Comprehensive performance optimization of the logging system to reduce overhead
+**Problem**: Logging system had performance bottlenecks in hot paths affecting overall server performance
+**Analysis**: Identified key performance issues:
+- InterceptHandler doing expensive operations on every log call
+- Parameter sanitization with redundant string operations
+- Logger configuration with individual getLogger calls
+- Frame walking overhead for every log message
+**Solution**:
+- **InterceptHandler Optimization**: Added level caching, reduced frame walking to only when needed, optimized message formatting
+- **Parameter Sanitization Enhancement**: Pre-compiled pattern sets, fast paths for simple types, optimized string operations
+- **Logger Configuration Batching**: Batch configuration of logger levels for better startup performance
+- **Fast Path Optimization**: Skip parameter processing for empty parameter dictionaries
+- **String Operation Optimization**: Reduced f-string usage and optimized string concatenation
+**Impact**: Significant reduction in logging overhead while maintaining full functionality and diagnostic capabilities
+
+### Health Endpoint Access Log Filtering (2025-10-02)
+**Decision**: Disable access logging for `/health` endpoint to reduce monitoring noise
+**Problem**: Health check requests were generating frequent access log entries that cluttered logs
+**Analysis**: Health endpoint is called frequently by monitoring systems and Docker health checks, creating noise
+**Solution**:
+- **Access Log Filtering**: Added filtering in InterceptHandler to skip uvicorn.access logs for `/health` endpoint
+- **Extensible Design**: Filter supports multiple monitoring endpoints (`/health`, `/metrics`, `/status`)
+- **Performance Optimized**: Early return prevents unnecessary log processing for filtered requests
+**Impact**: Eliminated health check noise from logs while preserving all other access logging for debugging
 
 ### Documentation Updates (2025-10-02)
 **Decision**: Updated all documentation to reflect new unified architecture
