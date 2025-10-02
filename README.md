@@ -16,10 +16,7 @@
 curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "me", "message": "Hello from Demo!"},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "me", "message": "Hello from Demo!"}}'
 ```
 
 ## 📖 Table of Contents
@@ -124,6 +121,15 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Content-Type: application/json" \
   -d '{
         "params": {"peer": "@username", "message": "Hello from curl!"},
+        "resolve": true
+      }'
+
+# Send message using params_json (works with n8n and other tools)
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params_json": "{\"peer\": \"@username\", \"message\": \"Hello from curl!\"}",
         "resolve": true
       }'
 
