@@ -1,4 +1,3 @@
-from functools import cache
 from loguru import logger
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
@@ -6,6 +5,32 @@ from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import InputMessagesFilterEmpty
 
 from ..client.connection import get_connected_client
+
+# -------------------------
+# Manual caches (key-safe)
+# -------------------------
+
+# Cache normalized chat type per entity key
+_ENTITY_TYPE_CACHE: dict[tuple, str | None] = {}
+
+# Cache built entity dict per entity key
+_ENTITY_DICT_CACHE: dict[tuple, dict | None] = {}
+
+
+def _entity_cache_key(entity) -> tuple:
+    """Build a hashable cache key for an entity.
+
+    Uses a stable tuple based on class name, id and username when available,
+    avoiding passing Telethon objects directly as dict keys.
+    """
+    try:
+        entity_class = entity.__class__.__name__ if hasattr(entity, "__class__") else ""
+        entity_id = getattr(entity, "id", None)
+        username = getattr(entity, "username", None)
+        return (entity_class, entity_id, username)
+    except Exception:
+        # Fallback to object identity to avoid unhashable errors
+        return ("object", id(entity))
 
 
 async def get_entity_by_id(entity_id):
@@ -37,15 +62,19 @@ async def get_entity_by_id(entity_id):
         return None
 
 
-@cache
 def get_normalized_chat_type(entity) -> str | None:
     """Return normalized chat type: 'private', 'group', or 'channel'."""
     if not entity:
         return None
+    # Check manual cache first
+    key = _entity_cache_key(entity)
+    if key in _ENTITY_TYPE_CACHE:
+        return _ENTITY_TYPE_CACHE[key]
     try:
         entity_class = entity.__class__.__name__
     except Exception:
-        return None
+        _ENTITY_TYPE_CACHE[key] = None
+        return _ENTITY_TYPE_CACHE[key]
 
     if entity_class == "User":
         return "private"
@@ -58,11 +87,12 @@ def get_normalized_chat_type(entity) -> str | None:
             return "group"
         if is_broadcast:
             return "channel"
-        return "channel"
-    return None
+        _ENTITY_TYPE_CACHE[key] = "channel"
+        return _ENTITY_TYPE_CACHE[key]
+    _ENTITY_TYPE_CACHE[key] = None
+    return _ENTITY_TYPE_CACHE[key]
 
 
-@cache
 def build_entity_dict(entity) -> dict:
     """
     Build a uniform chat/user representation used across all tools.
@@ -76,6 +106,11 @@ def build_entity_dict(entity) -> dict:
     """
     if not entity:
         return None
+
+    # Check manual cache first
+    key = _entity_cache_key(entity)
+    if key in _ENTITY_DICT_CACHE:
+        return _ENTITY_DICT_CACHE[key]
 
     first_name = getattr(entity, "first_name", None)
     last_name = getattr(entity, "last_name", None)
@@ -124,7 +159,9 @@ def build_entity_dict(entity) -> dict:
     }
 
     # Prune None values for a compact, uniform schema
-    return {k: v for k, v in result.items() if v is not None}
+    compact = {k: v for k, v in result.items() if v is not None}
+    _ENTITY_DICT_CACHE[key] = compact
+    return compact
 
 
 async def _extract_forward_info(message) -> dict:
