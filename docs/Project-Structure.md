@@ -137,9 +137,11 @@ fast-mcp-telegram/
   - Message link formatting
   - Entity link resolution
 - **`src/tools/mtproto.py`**: Direct API access
-  - Raw MTProto method invocation
-  - Parameter validation and error handling
-  - Response formatting and sanitization
+  - Comprehensive MTProto method invocation with enhanced features
+  - Method name normalization and dangerous method protection
+  - Entity resolution and parameter sanitization
+  - Single unified function architecture for both MCP tool and HTTP bridge
+  - Response formatting and JSON-safe conversion
 
 ### Utility Functions
 - **`src/utils/entity.py`**: Entity resolution

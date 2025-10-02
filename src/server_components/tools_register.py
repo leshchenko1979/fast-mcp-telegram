@@ -11,9 +11,8 @@ from src.tools.messages import (
     send_message_impl,
     send_message_to_phone_impl,
 )
-from src.tools.mtproto import invoke_mtproto_method
+from src.tools.mtproto import invoke_mtproto_impl
 from src.tools.search import search_messages_impl
-from src.utils.error_handling import log_and_build_error
 
 
 def register_tools(mcp: FastMCP) -> None:
@@ -349,7 +348,12 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp.tool()
     @server_errors.with_error_handling("invoke_mtproto")
     @server_auth.with_auth_context
-    async def invoke_mtproto(method_full_name: str, params_json: str):
+    async def invoke_mtproto(
+        method_full_name: str,
+        params_json: str,
+        allow_dangerous: bool = False,
+        resolve: bool = True,
+    ):
         """
         Execute low-level Telegram MTProto API methods directly.
 
@@ -360,54 +364,40 @@ def register_tools(mcp: FastMCP) -> None:
 
         METHOD FORMAT:
         - Full class name: "messages.GetHistory", "users.GetFullUser"
-        - Telegram API method names with proper casing
+        - Telegram API method names with proper casing (case-insensitive)
+        - Methods are automatically normalized to correct format
 
         PARAMETERS:
         - JSON string with method parameters
         - Parameter names match Telegram API documentation
         - Supports complex nested objects
 
+        ENTITY RESOLUTION:
+        - Set resolve=true to automatically resolve entity-like parameters
+        - Handles: peer, user, chat, channel, etc. (strings/ints → TL objects)
+        - Useful for simplifying parameter preparation
+
+        SECURITY:
+        - Dangerous methods (delete operations) blocked by default
+        - Pass allow_dangerous=true to override for destructive operations
+
         EXAMPLES:
         invoke_mtproto("users.GetFullUser", '{"id": {"_": "inputUserSelf"}}')  # Get self info
-        invoke_mtproto("messages.GetHistory", '{"peer": {"_": "inputPeerChannel", "channel_id": 123456, "access_hash": 0}, "limit": 10}')
+        invoke_mtproto("messages.GetHistory", '{"peer": "username", "limit": 10}')  # Auto-resolve peer (default)
+        invoke_mtproto("messages.DeleteMessages", '{"id": [123]}', allow_dangerous=True)  # Dangerous operation
 
         Args:
             method_full_name: Telegram API method name (e.g., "messages.GetHistory")
             params_json: Method parameters as JSON string
+            allow_dangerous: Allow dangerous methods like delete operations (default: False)
+            resolve: Automatically resolve entity-like parameters (default: True)
 
         Returns:
             API response as dict, or error details if failed
         """
-        import json
-
-        try:
-            try:
-                params = json.loads(params_json)
-            except Exception as e:
-                return log_and_build_error(
-                    operation="invoke_mtproto",
-                    error_message=f"Invalid JSON in params_json: {e}",
-                    params={
-                        "method_full_name": method_full_name,
-                        "params_json": params_json,
-                    },
-                    exception=e,
-                )
-
-            sanitized_params = {
-                (k if isinstance(k, str) else str(k)): v for k, v in params.items()
-            }
-
-            return await invoke_mtproto_method(
-                method_full_name, sanitized_params, params_json
-            )
-        except Exception as e:
-            return log_and_build_error(
-                operation="invoke_mtproto",
-                error_message=f"Error in invoke_mtproto: {e!s}",
-                params={
-                    "method_full_name": method_full_name,
-                    "params_json": params_json,
-                },
-                exception=e,
-            )
+        return await invoke_mtproto_impl(
+            method_full_name=method_full_name,
+            params_json=params_json,
+            allow_dangerous=allow_dangerous,
+            resolve=resolve,
+        )

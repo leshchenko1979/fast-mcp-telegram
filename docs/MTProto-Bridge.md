@@ -5,10 +5,12 @@
 ## Key Benefits
 
 - **🔄 Any Method**: Execute any Telegram API method not covered by MCP tools
-- **🌍 Entity Resolution**: Automatic resolution of usernames, IDs, and phone numbers
+- **🔧 Method Normalization**: Automatic conversion of method names to proper format
 - **🛡️ Safety Guardrails**: Dangerous methods blocked by default with opt-in override
+- **🌍 Entity Resolution**: Optional automatic resolution of usernames, IDs, and phone numbers
 - **🔧 Case Insensitive**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
 - **🔐 Multi-Mode Support**: Works in all server modes with appropriate authentication
+- **⚡ Unified Implementation**: Same core logic as MCP tool with HTTP-specific defaults
 
 ## Quick Start
 
@@ -37,6 +39,7 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 ## Advanced Features
 
 - **Case-insensitive method names**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
+- **Method name normalization**: Automatically converts method names to proper Telegram API format
 - **Entity resolution**: Optional automatic resolution of usernames, IDs, and phone numbers to proper Telegram entities
 - **Safety guardrails**: Dangerous methods blocked by default (e.g., `account.DeleteAccount`, `messages.DeleteHistory`)
 - **Multi-mode support**: Works in all server modes with appropriate authentication

@@ -38,12 +38,30 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Transport Selection**: Automatic transport selection based on server mode
 - **Host Binding**: Smart defaults (127.0.0.1 for stdio, 0.0.0.0 for HTTP)
 
-### 4. Search Architecture
+### 4. MTProto Architecture (2025-10-02)
+- **Unified Implementation**: Single `invoke_mtproto_impl()` function for all MTProto operations
+- **Interface Unification**: MCP tool and HTTP bridge use identical behavior and defaults
+- **Method Normalization**: Automatic conversion of method names to proper Telegram API format
+- **Dangerous Method Protection**: Centralized protection with configurable override
+- **Entity Resolution**: Automatic resolution of usernames, IDs, and phone numbers
+- **Parameter Sanitization**: Security validation and cleanup of all parameters
+- **Single Source of Truth**: All MTProto logic centralized in one function
+
+### 5. Search Architecture
 - **Dual Search Modes**: Global search vs per-chat search
 - **Multi-Query Support**: Comma-separated terms with parallel execution
 - **Query Handling**: Different logic for empty vs non-empty queries
 - **Entity Resolution**: Automatic chat ID resolution from various formats
 - **Deduplication**: Results merged and deduplicated based on message identity
+
+### 6. Code Quality Patterns (2025-10-02)
+- **DRY Principle**: Eliminated code duplication across files and functions
+- **Single Responsibility**: Each function has one clear purpose
+- **Centralized Constants**: Shared constants in single locations
+- **Clear Function Boundaries**: Logical separation without artificial barriers
+- **Consistent Error Handling**: Standardized error response patterns
+- **Section Organization**: Clear section headers and logical grouping
+- **Helper Function Extraction**: Focused helper functions for specific tasks
 
 ### Uniform Entity Schema (2025-09-17)
 - All tools format chat/user data via `utils.entity.build_entity_dict`

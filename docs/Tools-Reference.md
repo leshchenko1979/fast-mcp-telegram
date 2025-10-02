@@ -336,31 +336,69 @@ send_message_to_phone(
 ```
 
 ### 🔧 invoke_mtproto
-**Direct Telegram API access**
+**Direct Telegram API access with enhanced features**
 
 ```typescript
 invoke_mtproto(
   method_full_name: str,       // Full API method name (e.g., "messages.GetHistory")
-  params_json: str            // JSON string of method parameters
+  params_json: str,           // JSON string of method parameters
+  allow_dangerous: bool,      // Allow dangerous methods (default: false)
+  resolve: bool              // Automatically resolve entities (default: true)
 )
 ```
+
+**Features:**
+- **Method name normalization**: Converts `users.getfulluser` → `users.GetFullUser`
+- **Dangerous method protection**: Blocks delete operations by default
+- **Entity resolution**: Automatically resolves usernames, chat IDs, etc.
+- **Parameter sanitization**: Security validation and cleanup
+- **Comprehensive error handling**: Structured error responses
 
 **Use cases:** Advanced operations not covered by standard tools
 
 **Examples:**
 ```json
-// Get your own user information
+// Get your own user information (with entity resolution)
 {"tool": "invoke_mtproto", "params": {
   "method_full_name": "users.GetFullUser",
-  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}"
+  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}",
+  "resolve": true
 }}
 
-// Get chat message history
+// Get account information (safe method)
 {"tool": "invoke_mtproto", "params": {
-  "method_full_name": "messages.GetHistory",
-  "params_json": "{\"peer\": {\"_\": \"inputPeerChannel\", \"channel_id\": 123456, \"access_hash\": 0}, \"limit\": 10}"
+  "method_full_name": "account.GetAccountTTL",
+  "params_json": "{}"
+}}
+
+// Delete messages (requires explicit dangerous flag)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.DeleteMessages",
+  "params_json": "{\"id\": [123, 456, 789]}",
+  "allow_dangerous": true
+}}
+
+// Get nearest data center (method normalization works)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "help.getnearestdc",
+  "params_json": "{}"
 }}
 ```
+
+**Dangerous Methods (blocked by default):**
+- `account.DeleteAccount`
+- `messages.DeleteMessages`
+- `messages.DeleteHistory`
+- `messages.DeleteUserHistory`
+- `messages.DeleteChatUser`
+- `channels.DeleteHistory`
+- `channels.DeleteMessages`
+
+**Entity Resolution:**
+When `resolve=true` (default for both MCP tool and HTTP bridge), these parameters are automatically resolved:
+- `peer`, `from_peer`, `to_peer`
+- `user`, `user_id`, `channel`, `chat`, `chat_id`
+- `users`, `chats`, `peers`
 
 ## Error Handling
 

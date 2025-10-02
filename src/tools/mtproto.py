@@ -1,4 +1,5 @@
 import base64
+import json
 from importlib import import_module
 from typing import Any
 
@@ -6,6 +7,26 @@ from loguru import logger
 
 from src.client.connection import get_connected_client
 from src.utils.error_handling import log_and_build_error
+from src.utils.helpers import normalize_method_name
+
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+# Dangerous methods that require explicit permission
+DANGEROUS_METHODS = {
+    "account.DeleteAccount",
+    "messages.DeleteHistory",
+    "messages.DeleteUserHistory",
+    "messages.DeleteChatUser",
+    "messages.DeleteMessages",
+    "channels.DeleteHistory",
+    "channels.DeleteMessages",
+}
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 
 def _json_safe(value: Any) -> Any:
@@ -42,57 +63,89 @@ def _json_safe(value: Any) -> Any:
         return str(value)
 
 
-async def invoke_mtproto_method(
-    method_full_name: str, params: dict[str, Any], params_json: str = ""
-) -> dict[str, Any]:
+async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Best-effort resolution of entity-like parameters using Telethon.
+
+    Keys handled (singular and list): peer, from_peer, to_peer, user, user_id,
+    channel, chat, chat_id, users, chats, peers.
     """
-    Dynamically invoke any MTProto method by name and parameters.
+    if not params:
+        return {}
+
+    client = await get_connected_client()
+
+    def _is_list_like(value: Any) -> bool:
+        return isinstance(value, list | tuple)
+
+    async def _resolve_one(value: Any) -> Any:
+        # Pass-through for already-resolved TL objects
+        try:
+            # Telethon TL objects usually have to_dict
+            if hasattr(value, "to_dict") or getattr(value, "_", None):
+                return value
+        except Exception:
+            pass
+        # Resolve using input entity for strings/ints
+        return await client.get_input_entity(value)
+
+    keys_to_resolve = {
+        "peer",
+        "from_peer",
+        "to_peer",
+        "user",
+        "user_id",
+        "channel",
+        "chat",
+        "chat_id",
+        "users",
+        "chats",
+        "peers",
+    }
+
+    resolved: dict[str, Any] = dict(params)
+    for key in list(resolved.keys()):
+        if key in keys_to_resolve:
+            value = resolved[key]
+            if _is_list_like(value):
+                resolved[key] = [await _resolve_one(v) for v in value]
+            else:
+                resolved[key] = await _resolve_one(value)
+    return resolved
+
+
+def _resolve_method_class(method_full_name: str):
+    """Resolve MTProto method name to Telethon class.
 
     Args:
         method_full_name: Full class name of the MTProto method, e.g., 'messages.GetHistory'
-        params: Dictionary of parameters for the method
+
     Returns:
-        Result of the method call as a dict, or error info
+        Tuple of (method_cls, normalized_name)
+
+    Raises:
+        ValueError: If method name format is invalid
+        ImportError: If method class cannot be found
     """
-    logger.debug(f"Invoking MTProto method: {method_full_name} with params: {params}")
-
-    try:
-        # Security: Validate and sanitize parameters
-        sanitized_params = _sanitize_mtproto_params(params)
-
-        # Parse method_full_name
-        if "." not in method_full_name:
-            raise ValueError(
-                "method_full_name must be in the form 'module.ClassName', e.g., 'messages.GetHistory'"
-            )
-        module_name, class_name = method_full_name.rsplit(".", 1)
-        # Telethon uses e.g. GetHistoryRequest, not GetHistory
-        if not class_name.endswith("Request"):
-            class_name += "Request"
-        tl_module = import_module(f"telethon.tl.functions.{module_name}")
-        method_cls = getattr(tl_module, class_name)
-
-        # Note: Telethon automatically generates random_id for methods that require it
-        # No manual random_id generation needed
-
-        method_obj = method_cls(**sanitized_params)
-        client = await get_connected_client()
-        result = await client(method_obj)
-        # Try to convert result to dict (if possible)
-        result_dict = result.to_dict() if hasattr(result, "to_dict") else str(result)
-        safe_result = _json_safe(result_dict)
-        logger.info(f"MTProto method {method_full_name} invoked successfully")
-        return safe_result
-    except Exception as e:
-        return log_and_build_error(
-            operation="invoke_mtproto",
-            error_message=f"Failed to invoke MTProto method '{method_full_name}': {e!s}",
-            params={
-                "method_full_name": method_full_name,
-                "params_json": params_json,
-            },
-            exception=e,
+    if "." not in method_full_name:
+        raise ValueError(
+            "method_full_name must be in the form 'module.ClassName', e.g., 'messages.GetHistory'"
         )
+
+    module_name, class_name = method_full_name.rsplit(".", 1)
+
+    # Telethon uses e.g. GetHistoryRequest, not GetHistory
+    if not class_name.endswith("Request"):
+        class_name += "Request"
+
+    tl_module = import_module(f"telethon.tl.functions.{module_name}")
+    method_cls = getattr(tl_module, class_name)
+
+    return method_cls, method_full_name
+
+
+# ============================================================================
+# PARAMETER SANITIZATION
+# ============================================================================
 
 
 def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -147,3 +200,146 @@ def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = value[:10000]
 
     return sanitized
+
+
+# ============================================================================
+# HIGH-LEVEL API FUNCTIONS
+# ============================================================================
+
+
+async def invoke_mtproto_impl(
+    method_full_name: str,
+    params_json: str,
+    allow_dangerous: bool = False,
+    resolve: bool = True,
+) -> dict[str, Any]:
+    """
+    Invoke MTProto methods with enhanced features.
+
+    This function provides comprehensive MTProto method invocation with:
+    - Method name normalization
+    - Dangerous method protection
+    - Entity resolution
+    - Parameter sanitization
+    - Telethon client interaction
+    - Result processing
+
+    Args:
+        method_full_name: Telegram API method name (e.g., "messages.GetHistory")
+        params_json: Method parameters as JSON string
+        allow_dangerous: Allow dangerous methods like delete operations (default: False)
+        resolve: Automatically resolve entity-like parameters (default: True)
+
+    Returns:
+        API response as dict, or error details if failed
+    """
+    try:
+        # Normalize method name for consistency
+        try:
+            normalized_method = normalize_method_name(method_full_name)
+        except Exception as e:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message=f"Invalid method name format: {e}",
+                params={
+                    "method_full_name": method_full_name,
+                    "params_json": params_json,
+                },
+                exception=e,
+            )
+
+        # Check for dangerous methods unless explicitly allowed
+        if normalized_method in DANGEROUS_METHODS and not allow_dangerous:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message=(
+                    f"Method '{normalized_method}' is blocked by default. "
+                    "Pass allow_dangerous=true to override."
+                ),
+                params={
+                    "method_full_name": method_full_name,
+                    "normalized_method": normalized_method,
+                    "params_json": params_json,
+                },
+            )
+
+        # Parse parameters
+        try:
+            params = json.loads(params_json)
+        except Exception as e:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message=f"Invalid JSON in params_json: {e}",
+                params={
+                    "method_full_name": method_full_name,
+                    "normalized_method": normalized_method,
+                    "params_json": params_json,
+                },
+                exception=e,
+            )
+
+        # Optional entity resolution
+        try:
+            final_params = params
+            if resolve and isinstance(params, dict):
+                final_params = await _resolve_params(params)
+        except Exception as e:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message=f"Failed to resolve parameters: {e}",
+                params={
+                    "method_full_name": method_full_name,
+                    "normalized_method": normalized_method,
+                    "params_json": params_json,
+                },
+                exception=e,
+            )
+
+        # Now invoke the actual MTProto method
+        logger.debug(
+            f"Invoking MTProto method: {normalized_method} with params: {_json_safe(final_params)}"
+        )
+
+        try:
+            # Resolve method class
+            method_cls, _ = _resolve_method_class(normalized_method)
+
+            # Security: Validate and sanitize parameters
+            sanitized_params = _sanitize_mtproto_params(final_params)
+
+            # Create method object and invoke via Telethon
+            method_obj = method_cls(**sanitized_params)
+            client = await get_connected_client()
+            result = await client(method_obj)
+
+            # Process result to JSON-safe format
+            result_dict = (
+                result.to_dict() if hasattr(result, "to_dict") else str(result)
+            )
+            safe_result = _json_safe(result_dict)
+
+            logger.info(f"MTProto method {normalized_method} invoked successfully")
+            return safe_result
+
+        except Exception as e:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message=f"Failed to invoke MTProto method '{normalized_method}': {e!s}",
+                params={
+                    "method_full_name": method_full_name,
+                    "normalized_method": normalized_method,
+                    "params": _json_safe(final_params),
+                },
+                exception=e,
+            )
+
+    except Exception as e:
+        return log_and_build_error(
+            operation="invoke_mtproto",
+            error_message=f"Error in invoke_mtproto: {e!s}",
+            params={
+                "method_full_name": method_full_name,
+                "params_json": params_json,
+            },
+            exception=e,
+        )
