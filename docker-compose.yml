@@ -1,5 +1,7 @@
 services:
   fast-mcp-telegram:
+    container_name: fast-mcp-telegram
+
     build:
       context: .
       dockerfile: ./Dockerfile
