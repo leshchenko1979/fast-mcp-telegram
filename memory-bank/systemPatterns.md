@@ -15,12 +15,15 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ## Key Technical Decisions
 
-### 1. Configuration Architecture
+### 1. Configuration Architecture (Updated 2025-10-11)
 - **ServerConfig Class**: Centralized server configuration with pydantic-settings
 - **Three Server Modes**: Clear enum-based modes (stdio, http-no-auth, http-auth)
 - **Automatic CLI Parsing**: Native pydantic-settings CLI parsing with kebab-case conversion
 - **Smart Defaults**: Host binding and authentication behavior based on server mode
-- **SetupConfig Class**: Dedicated setup configuration separate from server configuration
+- **Unified Session Configuration**: SetupConfig inherits from ServerConfig for consistent session management
+- **Session Name Control**: `session_name` field (default: "telegram") configurable via CLI/env/dotenv
+- **Session Path Property**: `session_path` combines `session_directory` and `session_name`
+- **Configuration Priority**: CLI args → env vars → .env file → defaults
 - **Backward Compatibility**: settings.py imports from server_config for legacy support
 
 ### 2. Authentication Architecture
@@ -118,11 +121,19 @@ Apply limit (no pagination)
 Return unified result set
 ```
 
-### 10. Session Management Architecture
-- **Token-Based Sessions**: Each Bearer token gets isolated session file `{token}.session`
+### 10. Session Management Architecture (Updated 2025-10-11)
+- **Unified Configuration**: ServerConfig and SetupConfig share session configuration (session_name, session_directory)
+- **Session Name Control**: `session_name` field configurable via CLI/env/dotenv (default: "telegram")
+- **Session Path Property**: `session_path = session_directory / session_name` (computed property)
+- **Mode-Specific Behavior**:
+  - **STDIO/HTTP_NO_AUTH**: Use `{session_name}.session` (default: `telegram.session`)
+  - **HTTP_AUTH**: Use `{bearer_token}.session` (one per authenticated user)
+- **Token-Based Sessions**: Each Bearer token gets isolated session file in HTTP_AUTH mode
 - **LRU Cache Management**: In-memory cache with configurable `MAX_ACTIVE_SESSIONS` limit
 - **Automatic Eviction**: Oldest sessions disconnected when cache reaches capacity
 - **Session Location**: `~/.config/fast-mcp-telegram/` for cross-platform compatibility
+- **Multi-Account Support**: Use SESSION_NAME to manage multiple Telegram accounts
+- **Configuration Priority**: CLI args → env vars → .env file → defaults
 - **Auto-Cleanup on Auth Errors**: Invalid session files automatically deleted
 - **Git Integration**: Proper .gitignore with .gitkeep for structure maintenance
 - **Cross-Platform**: Automatic handling of macOS resource forks and permission differences
@@ -235,8 +246,11 @@ else:
 - **client/connection.py**: Telegram client management with token-based sessions and LRU cache
 - **utils/entity.py**: Entity resolution and formatting
 - **utils/logging_utils.py**: Consolidated logging utilities with operation tracking and request ID support
+- **utils/mcp_config.py**: Shared MCP configuration generation for CLI and web setup (2025-10-11)
 - **config/settings.py**: Configuration management with dynamic version reading from pyproject.toml
+- **config/server_config.py**: Unified server configuration with session management (2025-10-11)
 - **config/logging.py**: Logging configuration and diagnostic formatting
+- **cli_setup.py**: CLI-based Telegram authentication setup with MCP config output (2025-10-11)
 - **~/.config/fast-mcp-telegram/**: Standard location for Telegram session files
 - **scripts/deploy-mcp.sh**: Enhanced deployment script with session management
 
@@ -300,7 +314,15 @@ else:
 - **Flattened Structure**: Direct field access (`error_type`, `exception_message`) instead of nested diagnostic info
 - **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
 
-### 6.1 MTProto API Endpoint Pattern (2025-10-01)
+### 6.1 Shared Utility Pattern (2025-10-11)
+- **MCP Config Generation**: `utils/mcp_config.py` provides `generate_mcp_config()` and `generate_mcp_config_json()`
+- **Single Source of Truth**: Both CLI setup and web setup use the same utility for MCP configuration
+- **Mode-Aware Generation**: Generates different configs for STDIO, HTTP_NO_AUTH, and HTTP_AUTH modes
+- **DRY Compliance**: Eliminated 60+ lines of duplicate code across cli_setup.py and web_setup.py
+- **Comprehensive Testing**: Dedicated test suite validates all modes and edge cases
+- **Easy Maintenance**: Changes to MCP config format only need to be made in one place
+
+### 6.2 MTProto API Endpoint Pattern (2025-10-01)
 - **Custom Routes**: `/mtproto-api/{method}` and versioned alias `/mtproto-api/v1/{method}` registered in `server_components/mtproto_api.py`
 - **Auth Centralization**: `extract_bearer_token_from_request(request)` in `server_components/auth.py` used for HTTP_AUTH mode; bypass in other modes per config
 - **Method Normalization**: `utils.helpers.normalize_method_name()` performs case-insensitive resolution by introspecting `telethon.tl.functions.{module}` and caching `lower(BaseName)->BaseName`

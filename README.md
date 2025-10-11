@@ -40,7 +40,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
 | 💬 **Advanced Messaging** | Send, edit, reply with formatting, file attachments, and phone number messaging |
-| 📊 **Enterprise Session Management** | Zero-downtime deployments with automatic backup/restore and health monitoring |
+| 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas and profile enrichment |
 | ⚡ **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
 | 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling |

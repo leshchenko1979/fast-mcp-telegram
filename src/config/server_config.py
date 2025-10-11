@@ -60,6 +60,11 @@ class ServerConfig(BaseSettings):
         description="Custom session directory (defaults to ~/.config/fast-mcp-telegram/)",
     )
 
+    session_name: str = Field(
+        default="telegram",
+        description="Session file name (without .session extension) for stdio mode or custom sessions",
+    )
+
     # Telegram API configuration
     api_id: str = Field(
         default="",
@@ -146,6 +151,11 @@ class ServerConfig(BaseSettings):
         config_dir = Path.home() / ".config" / "fast-mcp-telegram"
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir
+
+    @property
+    def session_path(self) -> Path:
+        """Get full session file path (without .session extension - Telethon adds it)."""
+        return self.session_directory / self.session_name
 
     def validate_config(self) -> None:
         """Validate configuration and log important information."""

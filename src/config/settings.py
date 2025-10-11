@@ -19,8 +19,10 @@ SESSION_DIR = config.session_directory
 API_ID = config.api_id
 API_HASH = config.api_hash
 PHONE_NUMBER = config.phone_number
-SESSION_NAME = "telegram"  # Default session name
-SESSION_PATH = SESSION_DIR / SESSION_NAME
+SESSION_NAME = (
+    config.session_name
+)  # Get from config (supports env vars and CLI options)
+SESSION_PATH = config.session_path  # Full session path from config
 
 # Connection pool settings
 MAX_CONCURRENT_CONNECTIONS = 10

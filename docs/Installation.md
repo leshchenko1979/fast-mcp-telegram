@@ -22,25 +22,43 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 # Additional options available:
 # --overwrite          # Auto-overwrite existing session
-# --session-name NAME  # Use custom session name (advanced users)
+# --session-name NAME  # Custom session name for multiple accounts support
 ```
 
 **📝 Note:** The setup script automatically loads `.env` files from the current directory if they exist, making authentication seamless. You can create a `.env` file by copying `.env.example` and filling in your values.
 
 **🌐 Prefer a browser?** Run the server and open `/setup` to authenticate and download a ready‑to‑use `mcp.json` without running the CLI setup.
 
-**🔑 Bearer Token Output:** After successful authentication, you'll receive a Bearer token:
+**🔑 Session File Output:**
 ```
 ✅ Setup complete!
-📁 Session saved to: ~/.config/fast-mcp-telegram/AbCdEfGh123456789.session
-🔑 Bearer Token: AbCdEfGh123456789KLmnOpQr...
-💡 Use this Bearer token for authentication when using the MCP server:
+📁 Session saved to: ~/.config/fast-mcp-telegram/telegram.session
+🔑 Session name: telegram
+
+💡 This is the default session for stdio mode.
+   For HTTP mode, use this Bearer token for authentication:
    Authorization: Bearer AbCdEfGh123456789KLmnOpQr...
+```
+
+**Multiple Accounts Support:** You can create and manage multiple Telegram account sessions:
+
+```bash
+# Create session for personal account
+SESSION_NAME=personal fast-mcp-telegram-setup --api-id="xxx" --api-hash="yyy" --phone-number="+111"
+
+# Create session for work account
+SESSION_NAME=work fast-mcp-telegram-setup --api-id="xxx" --api-hash="yyy" --phone-number="+222"
+
+# Sessions are saved as:
+# ~/.config/fast-mcp-telegram/personal.session
+# ~/.config/fast-mcp-telegram/work.session
 ```
 
 ## MCP Client Configuration
 
 ### STDIO Mode (Development with Cursor IDE)
+
+**Default Session:**
 ```json
 {
   "mcpServers": {
@@ -48,8 +66,31 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
       "command": "fast-mcp-telegram",
       "env": {
         "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash"
+      }
+    }
+  }
+}
+```
+
+**Using Multiple Accounts:**
+```json
+{
+  "mcpServers": {
+    "telegram-personal": {
+      "command": "fast-mcp-telegram",
+      "env": {
+        "API_ID": "your_api_id",
         "API_HASH": "your_api_hash",
-        "PHONE_NUMBER": "+123456789"
+        "SESSION_NAME": "personal"
+      }
+    },
+    "telegram-work": {
+      "command": "fast-mcp-telegram",
+      "env": {
+        "API_ID": "your_api_id",
+        "API_HASH": "your_api_hash",
+        "SESSION_NAME": "work"
       }
     }
   }
@@ -96,7 +137,8 @@ HOST=0.0.0.0                # Bind address (auto-adjusts based on server mode)
 PORT=8000                   # Service port
 
 # Optional: Session Management
-MAX_ACTIVE_SESSIONS=10      # LRU cache limit for concurrent sessions
+SESSION_NAME=telegram          # Custom session name (default: telegram)
+MAX_ACTIVE_SESSIONS=10         # LRU cache limit for concurrent sessions (HTTP_AUTH mode)
 
 # Optional: Logging
 LOG_LEVEL=INFO
@@ -106,11 +148,24 @@ LOG_LEVEL=INFO
 
 ## Session Management
 
-**Session Info:**
-- **STDIO mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
-- **HTTP_NO_AUTH mode**: Session saved to `~/.config/fast-mcp-telegram/telegram.session`
-- **HTTP_AUTH mode**: Sessions saved as `~/.config/fast-mcp-telegram/{token}.session`
-- **Session Monitoring**: Use `/health` HTTP endpoint to monitor active sessions and server statistics
+The unified session configuration system ensures that `cli_setup.py` and the server always use matching session files.
+
+**Session File Locations:**
+- **STDIO mode**: Uses `~/.config/fast-mcp-telegram/{SESSION_NAME}.session` (default: `telegram.session`)
+- **HTTP_NO_AUTH mode**: Uses `~/.config/fast-mcp-telegram/{SESSION_NAME}.session` (default: `telegram.session`)
+- **HTTP_AUTH mode**: Uses `~/.config/fast-mcp-telegram/{bearer_token}.session` (one per authenticated user)
+
+**Configuration Priority** (highest to lowest):
+1. CLI arguments: `--session-name myaccount`
+2. Environment variables: `SESSION_NAME=myaccount`
+3. .env file: `SESSION_NAME=myaccount`
+4. Default: `telegram`
+
+**Multiple Accounts:**
+- **STDIO/HTTP_NO_AUTH modes**: Use `SESSION_NAME` to switch between different account sessions
+- **HTTP_AUTH mode**: Each user gets their own Bearer token and session file automatically
+
+**Session Monitoring**: Use `/health` HTTP endpoint to monitor active sessions and server statistics
 
 ## Development Setup
 

@@ -1,20 +1,47 @@
 ## Current Work Focus
-**Primary**: Logging optimization and chatty log reduction (2025-10-02)
+**Primary**: Unified session configuration and MCP config generation (2025-10-11)
 
-**Current Status**: Successfully implemented comprehensive logging optimization and performance improvements:
-- Reduced asyncio selector debug spam (70+ messages per session eliminated)
-- Prevented repeated server startup messages (14+ per session reduced to 1)
-- Enhanced Telethon noise reduction with additional module filtering
-- Added noise reduction for common HTTP libraries (urllib3, httpx, aiohttp)
-- Implemented logging setup and config validation deduplication
-- Optimized InterceptHandler with level caching and reduced frame walking overhead
-- Enhanced parameter sanitization with pre-compiled patterns and fast paths
-- Batch logger configuration for better startup performance
-- Fast path optimization for empty parameter logging
-- Health endpoint access log filtering to eliminate monitoring noise
-- Maintained DEBUG level for useful diagnostic information while eliminating noise
+**Current Status**: Completed comprehensive unified session configuration with MCP config output:
+- Added `session_name` field to ServerConfig with default "telegram" and `session_path` property
+- Refactored SetupConfig to inherit from ServerConfig (eliminated code duplication)
+- Updated settings.py to use session_name and session_path from unified config
+- Refactored to check `server_mode` instead of `session_name` for proper security model
+- HTTP_AUTH mode generates random bearer tokens; STDIO/HTTP_NO_AUTH use configured session names
+- Created shared `utils/mcp_config.py` utility for MCP config generation (DRY principle)
+- CLI setup now prints ready-to-use MCP config JSON (parity with web setup)
+- Web setup refactored to use shared utility (eliminated code duplication)
+- Added security warnings for HTTP_AUTH mode with clear credential handling
+- Created comprehensive test suite with 26 passing tests (15 session config + 11 MCP generation)
+- Updated Installation.md with multiple accounts documentation
+- Supports SESSION_NAME via env vars, CLI options, and .env files
+- Works consistently across all three server modes with mode-appropriate behavior
+- Eliminated need for symlinks or manual session file management
 
 ## Active Decisions and Considerations
+
+### Unified Session Configuration System (2025-10-11)
+**Decision**: Unified configuration system for session files across cli_setup and server
+**Problem**: Session file mismatch - cli_setup created random token sessions while server expected telegram.session
+**Solution**:
+- Added `session_name` field to ServerConfig (default: "telegram") and `session_path` property
+- Made SetupConfig inherit from ServerConfig (eliminated duplication)
+- Updated settings.py: `SESSION_NAME = config.session_name`, `SESSION_PATH = config.session_path`
+- Refactored to check `server_mode` instead of `session_name` for security model:
+  - HTTP_AUTH: Generates random bearer tokens (security-first for multi-user)
+  - STDIO/HTTP_NO_AUTH: Uses configured session names (user control for dev)
+- Created shared `utils/mcp_config.py` for MCP config generation (eliminated duplication)
+- CLI setup now prints ready-to-use MCP config JSON (parity with web setup)
+- Web setup refactored to use shared utility
+- Added clear security warnings for HTTP_AUTH mode
+- Configuration priority: CLI args → env vars → .env file → default
+**Impact**: 
+- Eliminates session file mismatch (no more symlinks needed)
+- Supports multiple accounts via SESSION_NAME configuration
+- Single source of truth for both session config and MCP config generation
+- Consistent behavior between setup and server
+- Proper security model per server mode
+- Full test coverage (26 tests passing: 15 session config + 11 MCP generation)
+- Better UX with copy-paste ready configs
 
 ### MTProto Module Refactoring (2025-10-02)
 **Decision**: Unified MTProto implementation with single-function architecture

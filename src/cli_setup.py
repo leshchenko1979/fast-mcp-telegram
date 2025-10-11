@@ -1,5 +1,5 @@
 """
-Simplified Telegram MCP server setup using pydantic-settings.
+Simplified Telegram MCP server setup using unified ServerConfig.
 """
 
 import asyncio
@@ -9,16 +9,20 @@ import secrets
 from pathlib import Path
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, CliImplicitFlag, SettingsConfigDict
+from pydantic_settings import CliImplicitFlag, SettingsConfigDict
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 
+from .config.server_config import ServerConfig, ServerMode
+from .utils.mcp_config import generate_mcp_config_json
 
-class SetupConfig(BaseSettings):
+
+class SetupConfig(ServerConfig):
     """
-    Setup configuration with automatic CLI parsing.
+    Setup configuration extending ServerConfig with setup-specific options.
 
-    This handles only setup-specific options, not server configuration.
+    Inherits all server configuration (API credentials, session settings, etc.)
+    and adds setup-specific options like overwrite flag.
     """
 
     model_config = SettingsConfigDict(
@@ -33,48 +37,15 @@ class SetupConfig(BaseSettings):
         cli_enforce_required=False,
     )
 
-    # Telegram API configuration
-    api_id: str = Field(
-        default="",
-        description="Telegram API ID (get from https://my.telegram.org/apps)",
-    )
-
-    api_hash: str = Field(
-        default="",
-        description="Telegram API Hash (get from https://my.telegram.org/apps)",
-    )
-
-    phone_number: str = Field(
-        default="",
-        description="Phone number with country code (e.g., +1234567890)",
-    )
-
-    bot_token: str = Field(
-        default="",
-        description="Bot token from BotFather (for bot account setup)",
-    )
-
-    # Setup options
+    # Setup-specific options
     overwrite: CliImplicitFlag[bool] = Field(
         default=False,
         description="Automatically overwrite existing session without prompting",
     )
 
-    session_name: str = Field(
+    bot_token: str = Field(
         default="",
-        description="Custom session name instead of random token (for advanced users)",
-    )
-
-    entity_cache_limit: int = Field(
-        default=1000,
-        ge=1,
-        description="Maximum number of entities to cache per Telegram client",
-    )
-
-    # Session directory (for setup only)
-    session_dir: str = Field(
-        default="",
-        description="Custom session directory (defaults to ~/.config/fast-mcp-telegram/)",
+        description="Bot token from BotFather (for bot account setup)",
     )
 
     def validate_required_fields(self) -> None:
@@ -111,36 +82,33 @@ def mask_phone_number(phone: str) -> str:
     return "*" * (len(phone) - 4) + phone[-4:]
 
 
-async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
-    """Set up Telegram session and return session path and bearer token."""
+async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str | None]:
+    """Set up Telegram session and return session path and bearer token (None for STDIO/HTTP_NO_AUTH)."""
 
-    # Get session directory
-    if setup_config.session_dir:
-        session_dir = Path(setup_config.session_dir)
-    else:
-        # Use standard user config directory
-        session_dir = Path.home() / ".config" / "fast-mcp-telegram"
+    session_dir = setup_config.session_directory
 
+    # Ensure directory exists
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate session name and bearer token
-    if setup_config.session_name:
-        session_name = setup_config.session_name
-        if not session_name.endswith(".session"):
-            session_name += ".session"
-        bearer_token = (
-            setup_config.session_name
-        )  # Use custom name as token for simplicity
-        print(f"Using custom session name: {session_name}")
-    else:
-        # Generate a random bearer token for the session
+    # Determine session behavior based on server mode
+    if setup_config.server_mode == ServerMode.HTTP_AUTH:
+        # HTTP_AUTH mode: Generate random bearer token and use it as session name
+        # This is the security model for production multi-user deployments
         bearer_token = generate_bearer_token()
-        session_name = f"{bearer_token}.session"
-        print("Generated random bearer token for session")
+        session_path = session_dir / bearer_token
+        print(
+            f"Setting up HTTP_AUTH session: {bearer_token[:12]}...{bearer_token[-4:]}.session"
+        )
+        print("(Random token ensures security for multi-user production)")
+    else:
+        # STDIO or HTTP_NO_AUTH mode: Use configured session name
+        # This allows user-controlled session names like "personal", "work", etc.
+        session_path = setup_config.session_path
+        bearer_token = None  # No bearer token for STDIO/HTTP_NO_AUTH modes
+        print(f"Setting up session: {setup_config.session_name}.session")
+        print(f"(Mode: {setup_config.server_mode.value})")
 
-    session_path = session_dir / session_name
-
-    print("Starting Telegram session setup...")
+    print("\nStarting Telegram session setup...")
     print(f"API ID: {setup_config.api_id}")
 
     if setup_config.bot_token:
@@ -150,30 +118,29 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
         print(f"Phone: {mask_phone_number(setup_config.phone_number)}")
         print("Account type: User")
 
-    print(f"Session will be saved to: {session_path}")
-    print(f"Session directory: {session_path.parent}")
+    # Note: Telethon adds .session extension automatically to session_path
+    # So we pass session_path without .session, and Telethon creates session_path.session
+    actual_session_file = Path(str(session_path) + ".session")
+    print(f"Session will be saved to: {actual_session_file}")
+    print(f"Session directory: {session_dir}")
 
     # Handle session file conflicts
-    if session_path.exists():
-        print(f"\n⚠️  Session file already exists: {session_path}")
+    if actual_session_file.exists():
+        print(f"\n⚠️  Session file already exists: {actual_session_file}")
 
         if setup_config.overwrite:
             print("✓ Overwriting existing session (as requested)")
-            session_path.unlink(missing_ok=True)
-        elif setup_config.session_name:
-            # Custom session name - user choice
+            actual_session_file.unlink(missing_ok=True)
+        else:
+            # Ask user for confirmation
             response = input("Overwrite existing session? [y/N]: ").lower().strip()
             if response in ("y", "yes"):
-                session_path.unlink(missing_ok=True)
+                actual_session_file.unlink(missing_ok=True)
             else:
                 print("❌ Setup cancelled")
                 return session_path, bearer_token
-        else:
-            # Random token collision (very unlikely)
-            print("✓ Overwriting existing session (random token collision)")
-            session_path.unlink(missing_ok=True)
 
-    print(f"\n🔐 Authenticating with session: {session_path}")
+    print(f"\n🔐 Authenticating with session: {setup_config.session_name}")
 
     # Create the client and connect
     client = TelegramClient(
@@ -227,6 +194,53 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str]:
     return session_path, bearer_token
 
 
+def _print_mode_instructions(
+    mode: ServerMode,
+    session_path: Path,
+    session_name: str,
+    bearer_token: str | None,
+    domain: str | None = None,
+    api_id: str = "",
+    api_hash: str = "",
+) -> None:
+    """Print mode-specific setup instructions with MCP config."""
+    # Generate MCP config using shared utility
+    config_json = generate_mcp_config_json(
+        mode, session_name, bearer_token, domain, api_id, api_hash
+    )
+
+    # Print session info
+    print(f"📁 Session saved to: {session_path}.session")
+
+    if mode == ServerMode.HTTP_AUTH:
+        print(f"🔑 Bearer Token: {bearer_token}")
+        print("\n⚠️  SECURITY: Keep this Bearer token secret!")
+        print("   Anyone with this token can access your Telegram account")
+    else:
+        print(f"🔑 Session name: {session_name}")
+
+    # Print MCP configuration
+    print("\n📋 MCP Configuration (add to your MCP client):")
+    print(config_json)
+
+    # Print mode-specific notes
+    if mode == ServerMode.HTTP_AUTH:
+        print("\n💡 For HTTP_AUTH mode (production):")
+        print(
+            f"   Configure your server domain via DOMAIN env var (currently: {domain or 'your-server.com'})"
+        )
+        print("   The Bearer token above is required for authentication")
+    elif mode == ServerMode.HTTP_NO_AUTH:
+        print("\n💡 For HTTP_NO_AUTH mode (development):")
+        print("   Start server with: fast-mcp-telegram --mode http-no-auth")
+        print("   No authentication needed - use for local development only")
+    else:  # STDIO
+        print("\n💡 For STDIO mode (Cursor IDE):")
+        print("   Save the config above to your Cursor MCP settings")
+        if session_name != "telegram":
+            print(f"   Note: Using custom session name '{session_name}'")
+
+
 async def main():
     """Main setup function."""
 
@@ -240,17 +254,19 @@ async def main():
         # Set up Telegram session
         session_path, bearer_token = await setup_telegram_session(setup_config)
 
+        # Display results
         print("\n✅ Setup complete!")
-        print(f"📁 Session saved to: {session_path}")
-        if setup_config.session_name:
-            print(f"🔑 Bearer Token (custom): {bearer_token}")
-        else:
-            print(f"🔑 Bearer Token: {bearer_token}")
-        print(
-            "\n💡 Use this Bearer token for authentication when using the MCP server:"
+        _print_mode_instructions(
+            setup_config.server_mode,
+            session_path,
+            setup_config.session_name,
+            bearer_token,
+            setup_config.domain,
+            setup_config.api_id,
+            setup_config.api_hash,
         )
-        print(f"   Authorization: Bearer {bearer_token}")
 
+        # Display account type specific information
         if setup_config.bot_token:
             print("\n🤖 Bot setup complete! You can now use the MTProto bridge:")
             print("   - Use /mtproto-api/... endpoints for bot operations")

@@ -1,3 +1,23 @@
+### 2025-10-11
+- Implemented unified session configuration system to eliminate session file mismatch between cli_setup and server
+- Added `session_name` field to ServerConfig with default "telegram" and `session_path` property
+- Refactored SetupConfig to inherit from ServerConfig, eliminating code duplication
+- Updated settings.py to use session_name and session_path from unified config
+- Refactored session behavior to check `server_mode` instead of `session_name` for proper security model
+- HTTP_AUTH mode now generates random bearer tokens; STDIO/HTTP_NO_AUTH use configured session names
+- Created shared `utils/mcp_config.py` utility for MCP config generation (DRY principle applied)
+- Eliminated duplicate MCP config generation code from cli_setup.py (47 lines) and web_setup.py (13 lines)
+- CLI setup now prints ready-to-use MCP config JSON with mode-specific instructions (parity with web setup)
+- Web setup refactored to use shared utility for consistent config generation
+- Added security warnings for HTTP_AUTH mode with clear credential handling guidance
+- Fixed security issue: bearer_token not printed for HTTP_NO_AUTH mode (was confusing)
+- Created comprehensive test suite with 26 passing tests (15 session config + 11 MCP generation)
+- Updated Installation.md documentation with multiple accounts support and SESSION_NAME examples
+- Configuration now supports CLI args, env vars, and .env files with consistent priority
+- Works consistently across all three server modes with mode-appropriate behavior
+- Eliminated need for symlinks or manual session file management workarounds
+- Supports multiple Telegram accounts via SESSION_NAME configuration
+
 ### 2025-10-02
 - Implemented comprehensive logging optimization and performance improvements for better VDS log readability and server performance
 - Reduced asyncio selector debug spam (70+ messages per session eliminated) by setting asyncio logger to WARNING level

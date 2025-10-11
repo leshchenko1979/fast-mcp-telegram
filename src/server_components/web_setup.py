@@ -8,8 +8,9 @@ from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.templating import Jinja2Templates
 
 from src.client.connection import generate_bearer_token
-from src.config.server_config import get_config
+from src.config.server_config import ServerMode, get_config
 from src.config.settings import API_HASH, API_ID
+from src.utils.mcp_config import generate_mcp_config_json
 
 # Templates (Phase 1)
 # Use the project-level templates directory: /app/src/templates
@@ -80,7 +81,10 @@ def register_web_setup_routes(mcp_app):
         from telethon.errors.rpcerrorlist import PhoneNumberFloodError
 
         client = TelegramClient(
-            temp_session_path, API_ID, API_HASH, entity_cache_limit=get_config().entity_cache_limit
+            temp_session_path,
+            API_ID,
+            API_HASH,
+            entity_cache_limit=get_config().entity_cache_limit,
         )
         await client.connect()
         try:
@@ -196,21 +200,6 @@ def register_web_setup_routes(mcp_app):
                 },
             )
 
-    def _generate_mcp_config_json(domain: str, token: str) -> str:
-        import json
-
-        config = {
-            "mcpServers": {
-                "telegram": {
-                    "url": f"https://{domain}/mcp",
-                    "headers": {
-                        "Authorization": f"Bearer {token}",
-                    },
-                }
-            }
-        }
-        return json.dumps(config, indent=2)
-
     @mcp_app.custom_route("/setup/generate", methods=["POST"])
     async def setup_generate(request: Request):
         form = await request.form()
@@ -252,7 +241,13 @@ def register_web_setup_routes(mcp_app):
             )
 
         domain = get_config().domain
-        config_json = _generate_mcp_config_json(domain, token)
+        # Web setup always uses HTTP_AUTH mode
+        config_json = generate_mcp_config_json(
+            ServerMode.HTTP_AUTH,
+            session_name="",  # Not used for HTTP_AUTH
+            bearer_token=token,
+            domain=domain,
+        )
 
         state.clear()
         state.update(
@@ -273,7 +268,13 @@ def register_web_setup_routes(mcp_app):
     async def download_config(request: Request):
         token = request.path_params.get("token")
         domain = get_config().domain
-        config_json = _generate_mcp_config_json(domain, token)
+        # Web setup always uses HTTP_AUTH mode
+        config_json = generate_mcp_config_json(
+            ServerMode.HTTP_AUTH,
+            session_name="",  # Not used for HTTP_AUTH
+            bearer_token=token,
+            domain=domain,
+        )
         headers = {"Content-Disposition": "attachment; filename=mcp.json"}
         return PlainTextResponse(
             config_json, media_type="application/json", headers=headers
