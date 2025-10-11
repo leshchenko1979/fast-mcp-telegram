@@ -182,10 +182,10 @@ For developers who want to contribute to the project, see [CONTRIBUTING.md](../C
 
 ### Common Issues
 
-**Session conflicts**: Use `--overwrite` flag to replace existing sessions
-**Permission errors**: Ensure proper file permissions for session directory
-**Authentication failures**: Verify API credentials and phone number format
-**Connection issues**: Check network connectivity and firewall settings
+- **Session conflicts**: Use `--overwrite` flag to replace existing sessions
+- **Permission errors**: Ensure proper file permissions for session directory
+- **Authentication failures**: Verify API credentials and phone number format
+- **Connection issues**: Check network connectivity and firewall settings
 
 ### Getting Help
 
