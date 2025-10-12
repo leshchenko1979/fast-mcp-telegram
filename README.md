@@ -47,6 +47,22 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 🎯 **AI-Optimized** | Literal parameter constraints and LLM-friendly API design |
 | 🌍 **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
 
+## 🛠️ Available Tools
+
+| Tool | Purpose | Key Features |
+|------|---------|--------------|
+| `search_messages_globally` | Search across all chats | Multi-term queries, date filtering, chat type filtering |
+| `search_messages_in_chat` | Search within specific chat | Supports "me" for Saved Messages, optional query for latest messages |
+| `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), replies |
+| `edit_message` | Edit existing message | Text formatting, preserves message structure |
+| `read_messages` | Read specific messages by ID | Batch reading, full message content with metadata |
+| `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
+| `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, enriched data |
+| `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
+| `invoke_mtproto` | Direct Telegram API access | Raw MTProto methods, entity resolution, safety guardrails |
+
+**📖 For detailed tool documentation with examples, see [Tools Reference](docs/Tools-Reference.md)**
+
 ## 🚀 Quick Start
 
 ### 1. Install from PyPI
