@@ -20,6 +20,9 @@ def setup_logging():
         return
     setup_logging._configured = True
 
+    # Get configuration
+    cfg = get_config()
+
     logger.remove()
 
     # File sink with full tracebacks and diagnostics
@@ -27,17 +30,17 @@ def setup_logging():
         LOG_PATH,
         rotation="1 day",
         retention="7 days",
-        level="DEBUG",
+        level="DEBUG",  # Always keep full logs in file
         backtrace=True,
         diagnose=True,
         enqueue=True,
         # Clean format - emitter info is now in the message
         format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}",
     )
-    # Console sink for quick visibility (DEBUG with full backtraces)
+    # Console sink with configurable level
     logger.add(
         sys.stderr,
-        level="DEBUG",
+        level=cfg.log_level.upper(),  # Use configured log level
         backtrace=True,
         diagnose=True,
         enqueue=True,
@@ -53,15 +56,14 @@ def setup_logging():
             self._level_cache = {}
 
         def emit(self, record: logging.LogRecord) -> None:
+            message = record.getMessage()
+
             # Filter out noisy access logs to reduce log spam
-            if record.name == "uvicorn.access":
-                message = record.getMessage()
-                # Skip logging for health checks and other monitoring endpoints
-                if any(
-                    endpoint in message
-                    for endpoint in ["/health", "/metrics", "/status"]
-                ):
-                    return
+            if record.name == "uvicorn.access" and any(
+                endpoint in message for endpoint in ["/health", "/metrics", "/status"]
+            ):
+                return
+
             # Optimized level resolution with caching
             level_name = record.levelname
             if level_name not in self._level_cache:
@@ -116,30 +118,25 @@ def setup_logging():
         ("urllib3", logging.WARNING),
         ("httpx", logging.WARNING),
         ("aiohttp", logging.WARNING),
+        # Telethon configuration - keep root at DEBUG for diagnostics
+        ("telethon", logging.DEBUG),
+        # Noisy Telethon submodules lowered to INFO (suppress their DEBUG flood)
+        (
+            "telethon.network.mtprotosender",
+            logging.INFO,
+        ),  # _send_loop, _recv_loop, _handle_update, etc.
+        ("telethon.extensions.messagepacker", logging.INFO),  # packing/debug spam
+        ("telethon.network", logging.INFO),  # any other network internals
+        ("telethon.network.connection", logging.INFO),  # connection management noise
+        ("telethon.client.telegramclient", logging.INFO),  # client connection noise
+        ("telethon.tl", logging.INFO),  # TL layer noise
+        ("telethon.client.updates", logging.INFO),  # Update loop timeout spam
+        # Suppress SSE ping messages completely
+        ("sse_starlette.sse", logging.WARNING),
     ]
 
     for logger_name, level in logger_configs:
         logging.getLogger(logger_name).setLevel(level)
-
-    # Keep Telethon visible but reduce noise by module-level levels
-    # Default Telethon at DEBUG for diagnostics
-    telethon_root = logging.getLogger("telethon")
-    telethon_root.setLevel(logging.DEBUG)
-    telethon_root.propagate = True
-
-    # Noisy submodules lowered to INFO (suppress their DEBUG flood)
-    # Batch Telethon logger configuration for better performance
-    telethon_noisy_modules = [
-        "telethon.network.mtprotosender",  # _send_loop, _recv_loop, _handle_update, etc.
-        "telethon.extensions.messagepacker",  # packing/debug spam
-        "telethon.network",  # any other network internals
-        "telethon.network.connection",  # connection management noise
-        "telethon.client.telegramclient",  # client connection noise
-        "telethon.tl",  # TL layer noise
-    ]
-
-    for module_name in telethon_noisy_modules:
-        logging.getLogger(module_name).setLevel(logging.INFO)
 
     # Log server startup information (optimized batch logging)
     cfg = get_config()

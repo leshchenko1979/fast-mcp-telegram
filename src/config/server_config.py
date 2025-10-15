@@ -113,6 +113,11 @@ class ServerConfig(BaseSettings):
         default=True, description="Block access to private IP ranges"
     )
 
+    # Logging configuration
+    log_level: str = Field(
+        default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)"
+    )
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str, info) -> str:
