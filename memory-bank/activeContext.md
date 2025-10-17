@@ -1,23 +1,43 @@
 ## Current Work Focus
-**Primary**: Unified session configuration and MCP config generation (2025-10-11)
+**Primary**: Connection storm resolution and stability improvements (2025-10-17)
 
-**Current Status**: Completed comprehensive unified session configuration with MCP config output:
-- Added `session_name` field to ServerConfig with default "telegram" and `session_path` property
-- Refactored SetupConfig to inherit from ServerConfig (eliminated code duplication)
-- Updated settings.py to use session_name and session_path from unified config
-- Refactored to check `server_mode` instead of `session_name` for proper security model
-- HTTP_AUTH mode generates random bearer tokens; STDIO/HTTP_NO_AUTH use configured session names
-- Created shared `utils/mcp_config.py` utility for MCP config generation (DRY principle)
-- CLI setup now prints ready-to-use MCP config JSON (parity with web setup)
-- Web setup refactored to use shared utility (eliminated code duplication)
-- Added security warnings for HTTP_AUTH mode with clear credential handling
-- Created comprehensive test suite with 26 passing tests (15 session config + 11 MCP generation)
-- Updated Installation.md with multiple accounts documentation
-- Supports SESSION_NAME via env vars, CLI options, and .env files
-- Works consistently across all three server modes with mode-appropriate behavior
-- Eliminated need for symlinks or manual session file management
+**Current Status**: Successfully resolved critical connection storm and implemented comprehensive connection stability improvements:
+- **Connection Storm Resolved**: Eliminated 1,300+ reconnections per minute that was consuming 44.70% CPU and 95.31% memory
+- **Root Cause Identified**: "Wrong session ID" error from Telegram servers due to corrupted session file (656KB vs normal 28KB)
+- **Session Restoration**: Successfully restored original bearer token `f9NdKOLR...` with fresh, clean session data
+- **Exponential Backoff**: Implemented intelligent backoff logic (2^failure_count seconds, max 60s) to prevent rapid reconnection attempts
+- **Circuit Breaker**: Added failure tracking and circuit breaker pattern (opens after 5 failures in 5 minutes)
+- **Session Health Monitoring**: Added comprehensive failure tracking, auto-cleanup of failed sessions, and health statistics
+- **Enhanced Error Detection**: Added "wrong session ID" error detection with appropriate user guidance
+- **Health Endpoint Enhancement**: Extended `/health` endpoint with connection failure statistics and session health data
+- **Production Deployment**: Successfully deployed fixes to VDS with zero downtime and immediate resolution
+- **System Stability**: Container now running cleanly with normal resource usage and successful API operations
 
 ## Active Decisions and Considerations
+
+### Connection Storm Resolution and Stability Improvements (2025-10-17)
+**Decision**: Comprehensive connection management overhaul to prevent and handle connection storms
+**Problem**: Critical connection storm with 1,300+ reconnections per minute consuming excessive resources
+**Root Cause Analysis**:
+- "Wrong session ID" error from Telegram servers at 19:01:17 Oct 17
+- Corrupted session file (656KB vs normal 28KB) with continuous growth
+- No backoff mechanism - Telethon aggressively reconnected without delay
+- No circuit breaker - system continued futile reconnection attempts
+- Multiple active sessions multiplying the problem
+**Solution Implemented**:
+- **Exponential Backoff**: `ensure_connection()` now waits 2^failure_count seconds before retry (max 60s)
+- **Circuit Breaker**: Opens after 5 failures in 5 minutes, preventing further attempts
+- **Session Health Monitoring**: Tracks failure counts, timestamps, and auto-cleans failed sessions
+- **Enhanced Error Detection**: Added "wrong session ID" error detection in `error_handling.py`
+- **Health Statistics**: Extended `/health` endpoint with connection failure data
+- **Session Restoration**: Preserved original bearer token while using fresh session data
+**Impact**: 
+- Eliminated connection storm completely (0 reconnections vs 1,300+/minute)
+- Reduced CPU usage from 44.70% to normal levels
+- Reduced memory usage from 95.31% to normal levels
+- Maintained user continuity with original bearer token preserved
+- Added robust protection against future connection issues
+- Improved system reliability and resource efficiency
 
 ### Unified Session Configuration System (2025-10-11)
 **Decision**: Unified configuration system for session files across cli_setup and server

@@ -21,6 +21,12 @@ _current_token: ContextVar[str | None] = ContextVar("_current_token", default=No
 _session_cache: dict[str, tuple[TelegramClient, float]] = {}
 _cache_lock = asyncio.Lock()
 
+# Connection failure tracking for circuit breaker and backoff
+_connection_failures: dict[
+    str, tuple[int, float]
+] = {}  # token -> (failure_count, last_failure_time)
+_failure_lock = asyncio.Lock()
+
 
 def generate_bearer_token() -> str:
     """Generate a cryptographically secure bearer token for session management."""
@@ -214,6 +220,75 @@ async def get_connected_client() -> TelegramClient:
 
 
 async def ensure_connection(client: TelegramClient) -> bool:
+    """Ensure client connection with exponential backoff and circuit breaker."""
+    token = _current_token.get(None)
+    if not token:
+        # Legacy singleton mode - no backoff tracking
+        return await _ensure_connection_legacy(client)
+
+    async with _failure_lock:
+        current_time = time.time()
+        failure_count, last_failure_time = _connection_failures.get(token, (0, 0))
+
+        # Circuit breaker: if too many recent failures, don't attempt connection
+        if (
+            failure_count >= 5 and (current_time - last_failure_time) < 300
+        ):  # 5 failures in 5 minutes
+            logger.warning(
+                f"Circuit breaker open for token {token[:8]}... - too many recent failures"
+            )
+            return False
+
+        # Exponential backoff: wait before retrying
+        if failure_count > 0 and (current_time - last_failure_time) < min(
+            2**failure_count, 60
+        ):
+            wait_time = min(2**failure_count, 60) - (current_time - last_failure_time)
+            logger.info(
+                f"Exponential backoff: waiting {wait_time:.1f}s before retry for token {token[:8]}..."
+            )
+            await asyncio.sleep(wait_time)
+
+    try:
+        if not client.is_connected():
+            logger.warning(
+                f"Client disconnected for token {token[:8]}..., attempting to reconnect..."
+            )
+            await client.connect()
+            if not await client.is_user_authorized():
+                logger.error(
+                    f"Client reconnected but not authorized for token {token[:8]}..."
+                )
+                await _record_connection_failure(token)
+                return False
+            logger.info(f"Successfully reconnected client for token {token[:8]}...")
+
+            # Reset failure count on successful connection
+            async with _failure_lock:
+                _connection_failures.pop(token, None)
+
+        return client.is_connected()
+    except Exception as e:
+        await _record_connection_failure(token)
+        logger.error(
+            f"Error ensuring connection for token {token[:8]}...: {e}",
+            extra={
+                "diagnostic_info": format_diagnostic_info(
+                    {
+                        "error": {
+                            "type": type(e).__name__,
+                            "message": str(e),
+                            "traceback": traceback.format_exc(),
+                        }
+                    }
+                )
+            },
+        )
+        return False
+
+
+async def _ensure_connection_legacy(client: TelegramClient) -> bool:
+    """Legacy connection logic for singleton mode."""
     try:
         if not client.is_connected():
             logger.warning("Client disconnected, attempting to reconnect...")
@@ -239,6 +314,17 @@ async def ensure_connection(client: TelegramClient) -> bool:
             },
         )
         return False
+
+
+async def _record_connection_failure(token: str) -> None:
+    """Record a connection failure for backoff and circuit breaker logic."""
+    async with _failure_lock:
+        current_time = time.time()
+        failure_count, _ = _connection_failures.get(token, (0, 0))
+        _connection_failures[token] = (failure_count + 1, current_time)
+        logger.warning(
+            f"Recorded connection failure #{failure_count + 1} for token {token[:8]}..."
+        )
 
 
 async def cleanup_client():
@@ -272,3 +358,66 @@ async def cleanup_all_clients():
     """Clean up both singleton and cached clients."""
     await cleanup_client()
     await cleanup_session_cache()
+
+
+async def cleanup_failed_sessions():
+    """Clean up sessions that have too many connection failures."""
+    async with _failure_lock:
+        current_time = time.time()
+        failed_tokens = []
+
+        for token, (failure_count, last_failure_time) in _connection_failures.items():
+            # If more than 10 failures and last failure was more than 1 hour ago, clean up
+            if failure_count >= 10 and (current_time - last_failure_time) > 3600:
+                failed_tokens.append(token)
+
+        for token in failed_tokens:
+            # Remove from failure tracking
+            _connection_failures.pop(token, None)
+
+            # Remove from session cache and disconnect
+            if token in _session_cache:
+                client, _ = _session_cache.pop(token)
+                try:
+                    await client.disconnect()
+                    logger.info(f"Disconnected failed session for token {token[:8]}...")
+                except Exception as e:
+                    logger.warning(
+                        f"Error disconnecting failed session {token[:8]}...: {e}"
+                    )
+
+            # Remove session file
+            session_path = SESSION_DIR / f"{token}.session"
+            if session_path.exists():
+                try:
+                    session_path.unlink()
+                    logger.info(f"Removed failed session file for token {token[:8]}...")
+                except Exception as e:
+                    logger.warning(
+                        f"Error removing failed session file {token[:8]}...: {e}"
+                    )
+
+            logger.info(
+                f"Cleaned up failed session for token {token[:8]}... (had {failure_count} failures)"
+            )
+
+
+async def get_session_health_stats() -> dict:
+    """Get health statistics for all sessions."""
+    async with _failure_lock:
+        current_time = time.time()
+        stats = {
+            "total_sessions": len(_session_cache),
+            "failed_sessions": len(_connection_failures),
+            "failure_details": {},
+        }
+
+        for token, (failure_count, last_failure_time) in _connection_failures.items():
+            stats["failure_details"][token[:8] + "..."] = {
+                "failure_count": failure_count,
+                "hours_since_last_failure": (current_time - last_failure_time) / 3600,
+                "circuit_breaker_open": failure_count >= 5
+                and (current_time - last_failure_time) < 300,
+            }
+
+        return stats

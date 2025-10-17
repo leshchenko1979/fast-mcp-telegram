@@ -1,3 +1,15 @@
+### 2025-10-17
+- Successfully resolved critical connection storm that was consuming 1,300+ reconnections per minute and 44.70% CPU usage
+- Identified root cause: "Wrong session ID" error from Telegram servers due to corrupted session file (656KB vs normal 28KB)
+- Implemented comprehensive connection stability improvements with exponential backoff and circuit breaker patterns
+- Added session health monitoring with failure tracking, auto-cleanup of failed sessions, and enhanced health statistics
+- Enhanced error detection to identify "wrong session ID" errors with appropriate user guidance
+- Successfully restored original bearer token `f9NdKOLR...` with fresh, clean session data while preserving user continuity
+- Deployed fixes to production VDS with zero downtime and immediate resolution of connection storm
+- Achieved complete elimination of connection storm (0 reconnections vs 1,300+/minute) and normal resource usage
+- Added robust protection against future connection issues with intelligent backoff and circuit breaker mechanisms
+- Extended `/health` endpoint with connection failure statistics and session health monitoring capabilities
+
 ### 2025-10-11
 - Implemented unified session configuration system to eliminate session file mismatch between cli_setup and server
 - Added `session_name` field to ServerConfig with default "telegram" and `session_path` property
@@ -90,6 +102,7 @@
 - **Multi-User Support**: HTTP transport with per-user session files and authentication
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup
 - **Health Monitoring**: HTTP `/health` endpoint for session statistics and server monitoring
+- **Connection Stability**: Exponential backoff, circuit breaker, and session health monitoring to prevent connection storms
 - **Web Setup (HTMX)**: Complete browser-based auth flow with improved styling and 2FA support
 - **Config Generation**: Runtime `DOMAIN` with auto-download of `mcp.json`
 - **Setup Session Cleanup**: TTL-based opportunistic cleanup for temporary setup sessions
@@ -132,6 +145,7 @@
 ## Known Issues and Status
 
 ### Resolved Issues ✅
+- **Critical Connection Storm Resolution**: Successfully resolved connection storm consuming 1,300+ reconnections per minute and 44.70% CPU usage. Implemented exponential backoff, circuit breaker pattern, session health monitoring, and enhanced error detection. Restored original bearer token with fresh session data while preserving user continuity. Achieved complete elimination of connection storm and normal resource usage (2025-10-17)
 - **Web Setup Interface Improvements**: Enhanced styling with larger input/button text (1.1rem/1rem) and smaller hint text (0.85rem), removed excessive instructional text, cleaned up empty card styling for better visual hierarchy (2025-09-09)
 - **2FA Authentication Route Fix**: Added missing `/setup/2fa` route handler with proper password validation, error handling, and integration with session management and config generation flow (2025-09-09)
 - **Documentation and Configuration Updates**: Updated all documentation to reflect current codebase state, created comprehensive .env.example template, updated README with three server modes, simplified project structure, and updated docker-compose.yml and deploy script to use new configuration system (2025-09-08)

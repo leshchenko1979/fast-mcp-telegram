@@ -3,7 +3,11 @@ from pathlib import Path
 
 from starlette.responses import JSONResponse
 
-from src.client.connection import MAX_ACTIVE_SESSIONS, _session_cache
+from src.client.connection import (
+    MAX_ACTIVE_SESSIONS,
+    _session_cache,
+    get_session_health_stats,
+)
 from src.config.settings import SESSION_DIR
 from src.server_components.web_setup import _setup_sessions
 
@@ -25,6 +29,9 @@ def register_health_routes(mcp_app):
                 }
             )
 
+        # Get session health statistics
+        health_stats = await get_session_health_stats()
+
         return JSONResponse(
             {
                 "status": "healthy",
@@ -35,5 +42,6 @@ def register_health_routes(mcp_app):
                 ),
                 "setup_sessions": len(_setup_sessions),
                 "sessions": session_info,
+                "health_stats": health_stats,
             }
         )

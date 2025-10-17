@@ -294,6 +294,15 @@ def check_connection_error(error_text: str) -> dict[str, Any] | None:
         },
         {
             "patterns": [
+                ("wrong session id" in lowered),
+                ("server replied with a wrong session id" in lowered),
+                ("security error" in lowered and "session id" in lowered),
+            ],
+            "message": "Session ID mismatch detected. Your session may be corrupted or used from multiple locations. Please re-authenticate to get a fresh session.",
+            "action": "reauthenticate",
+        },
+        {
+            "patterns": [
                 ("connection" in lowered and "failed" in lowered),
                 ("network" in lowered and "timeout" in lowered),
             ],

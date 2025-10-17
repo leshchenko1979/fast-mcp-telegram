@@ -34,6 +34,16 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Session File Format**: `{token}.session` for multi-user isolation
 - **Authentication Middleware**: `@with_auth_context` decorator on all MCP tools
 
+### 2.1. Connection Management Architecture (2025-10-17)
+- **Exponential Backoff**: Intelligent retry delays (2^failure_count seconds, max 60s) to prevent connection storms
+- **Circuit Breaker Pattern**: Opens after 5 failures in 5 minutes, preventing futile reconnection attempts
+- **Session Health Monitoring**: Tracks failure counts, timestamps, and connection quality per token
+- **Automatic Session Cleanup**: Removes failed sessions after 10+ failures and 1+ hour of inactivity
+- **Connection Failure Tracking**: `_connection_failures` dict tracks (failure_count, last_failure_time) per token
+- **Health Statistics**: Real-time monitoring of connection failures and session health via `/health` endpoint
+- **Error Detection**: Enhanced error handling for "wrong session ID" and other connection issues
+- **Session Restoration**: Preserves bearer tokens while allowing fresh session data replacement
+
 ### 3. Server Mode Architecture
 - **STDIO Mode**: Development with Cursor IDE (no auth, default session only)
 - **HTTP_NO_AUTH Mode**: Development HTTP server (auth disabled)
@@ -313,6 +323,15 @@ else:
 - **Parameter Sanitization**: Automatic phone masking (`+1234567890` → `+12***90`), content truncation, and size limits for secure logging
 - **Flattened Structure**: Direct field access (`error_type`, `exception_message`) instead of nested diagnostic info
 - **No Empty Results**: Tools like `search_messages` and `search_contacts` return errors instead of empty arrays when no results found
+
+### 6.1. Connection Stability Pattern (2025-10-17)
+- **Exponential Backoff**: Progressive retry delays (2^failure_count seconds, max 60s) to prevent connection storms
+- **Circuit Breaker**: Opens after 5 failures in 5 minutes, preventing futile reconnection attempts
+- **Failure Tracking**: Per-token failure counting with timestamps for intelligent retry decisions
+- **Session Health Monitoring**: Real-time tracking of connection quality and automatic cleanup of failed sessions
+- **Error Pattern Detection**: Specific handling for "wrong session ID" and other connection-related errors
+- **Graceful Degradation**: System continues operating with reduced functionality rather than complete failure
+- **Resource Protection**: Prevents excessive CPU/memory usage from connection storms
 
 ### 6.1 Shared Utility Pattern (2025-10-11)
 - **MCP Config Generation**: `utils/mcp_config.py` provides `generate_mcp_config()` and `generate_mcp_config_json()`
