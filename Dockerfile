@@ -45,7 +45,7 @@ ENV MCP_TRANSPORT=http \
 EXPOSE 8000
 
 # Healthcheck: use the dedicated health endpoint
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --start-interval=3s --retries=1 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the application
