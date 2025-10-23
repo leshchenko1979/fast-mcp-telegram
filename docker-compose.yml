@@ -1,57 +1,41 @@
 services:
   fast-mcp-telegram:
     container_name: fast-mcp-telegram
-
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-
+    build: .
     env_file:
       - ./.env
     environment:
       - SERVER_MODE=http-auth
       - HOST=0.0.0.0
       - PORT=8000
-
       - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
       - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
-
     networks:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.fast-mcp-telegram.rule=Host(`${DOMAIN:-your-domain.com}`)"
-      - "traefik.http.routers.fast-mcp-telegram.entrypoints=websecure"
-      - "traefik.http.services.fast-mcp-telegram.loadbalancer.server.port=8000"
-      - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=letsencrypt"
-    restart: always
+      - "sablier.managed=true"
+      - "sablier.enabled=true"
+
+    restart: unless-stopped
     mem_limit: 128m
+    cpus: 0.5
+    mem_reservation: 32m
     command: python -m src.server
 
-    profiles:
-      - server
-
   setup:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-
+    profiles:
+      - setup
+    build: .
     env_file:
       - ./.env
     volumes:
       - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
-
-    profiles:
-      - setup
-
     stdin_open: true
     tty: true
-    
     command: python -m src.cli_setup --overwrite
 
 networks:
   traefik-public:
     external: true
-
-
