@@ -451,15 +451,22 @@ async def edit_message_impl(
 
 
 async def _build_message_link_mapping(
-    chat_id: str, message_ids: list[int]
+    chat_id: str, message_ids: list[int], resolved_entity=None
 ) -> dict[int, str]:
     """
     Build mapping of message IDs to their Telegram links.
 
+    Args:
+        chat_id: Chat identifier
+        message_ids: List of message IDs to generate links for
+        resolved_entity: Pre-resolved entity object to avoid API calls
+
     Returns empty dict if link generation fails.
     """
     try:
-        links_info = await generate_telegram_links(chat_id, message_ids)
+        links_info = await generate_telegram_links(
+            chat_id, message_ids, resolved_entity=resolved_entity
+        )
         message_links = links_info.get("message_links", []) or []
         return {
             mid: message_links[idx]
@@ -570,7 +577,9 @@ async def read_messages_by_ids(
             messages = [messages]
 
         # Build link mapping and chat dict
-        id_to_link = await _build_message_link_mapping(chat_id, message_ids)
+        id_to_link = await _build_message_link_mapping(
+            chat_id, message_ids, resolved_entity=entity
+        )
         chat_dict = build_entity_dict(entity)
 
         # Build results for all messages

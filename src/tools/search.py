@@ -43,7 +43,9 @@ async def _process_message_for_results(
 
     try:
         identifier = compute_entity_identifier(chat_entity)
-        links = await generate_telegram_links(identifier, [message.id])
+        links = await generate_telegram_links(
+            identifier, [message.id], resolved_entity=chat_entity
+        )
         link = links.get("message_links", [None])[0]
         results.append(await build_message_result(client, message, chat_entity, link))
         return True
@@ -277,7 +279,9 @@ async def _search_chat_messages_generator(
 
             try:
                 identifier = compute_entity_identifier(entity)
-                links = await generate_telegram_links(identifier, [message.id])
+                links = await generate_telegram_links(
+                    identifier, [message.id], resolved_entity=entity
+                )
                 link = links.get("message_links", [None])[0]
                 result = await build_message_result(client, message, entity, link)
                 yield result
@@ -359,7 +363,9 @@ async def _search_global_messages_generator(
                     continue
 
                 identifier = compute_entity_identifier(chat)
-                links = await generate_telegram_links(identifier, [message.id])
+                links = await generate_telegram_links(
+                    identifier, [message.id], resolved_entity=chat
+                )
                 link = links.get("message_links", [None])[0]
                 msg_result = await build_message_result(client, message, chat, link)
                 yield msg_result
