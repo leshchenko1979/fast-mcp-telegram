@@ -2,12 +2,33 @@
 Server configuration using pydantic_settings for clean environment and argument handling.
 """
 
+import os
+import sys
 from enum import Enum
 from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _is_test_environment() -> bool:
+    """Detect if we're running in a test environment where CLI parsing should be disabled."""
+    # Check for pytest-related environment variables
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return True
+
+    # Check if pytest is in the call stack
+    for frame_info in sys._current_frames().values():
+        frame = frame_info
+        while frame:
+            if "pytest" in frame.f_code.co_filename:
+                return True
+            frame = frame.f_back
+
+    # Check if pytest modules are imported
+    pytest_modules = ["pytest", "_pytest", "pluggy"]
+    return any(module_name in sys.modules for module_name in pytest_modules)
 
 
 class ServerMode(str, Enum):
@@ -33,10 +54,10 @@ class ServerConfig(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
-        # Native CLI parsing configuration
-        cli_parse_args=True,
+        # Disable CLI parsing in test environments to avoid conflicts with pytest
+        cli_parse_args=not _is_test_environment(),
         cli_kebab_case=True,
-        cli_exit_on_error=True,
+        cli_exit_on_error=not _is_test_environment(),  # Don't exit on error in tests
         cli_enforce_required=False,
     )
 
@@ -118,6 +139,13 @@ class ServerConfig(BaseSettings):
         default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)"
     )
 
+    # Backward compatibility: DISABLE_AUTH environment variable
+    disable_auth_env: str | None = Field(
+        default=None,
+        validation_alias="DISABLE_AUTH",
+        description="DISABLE_AUTH environment variable value",
+    )
+
     @field_validator("host")
     @classmethod
     def validate_host(cls, v: str, info) -> str:
@@ -139,6 +167,17 @@ class ServerConfig(BaseSettings):
     @property
     def disable_auth(self) -> bool:
         """Whether authentication is disabled."""
+        # Check for DISABLE_AUTH environment variable first (backward compatibility)
+        if self.disable_auth_env is not None and self.disable_auth_env.strip():
+            # Parse string values to boolean
+            env_value = self.disable_auth_env.lower().strip()
+            if env_value in ("true", "1", "yes", "on"):
+                return True
+            elif env_value in ("false", "0", "no", "off"):
+                return False
+            # Invalid values are ignored, fall through to server mode logic
+
+        # Otherwise use server mode logic
         return self.server_mode in (ServerMode.STDIO, ServerMode.HTTP_NO_AUTH)
 
     @property

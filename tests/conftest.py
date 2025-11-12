@@ -12,6 +12,8 @@ import pytest_asyncio
 from fastmcp import Client, FastMCP
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
+from src.config.server_config import ServerConfig, ServerMode, set_config
+
 
 class MockTelegramClient:
     """Mock Telegram client for testing without real API calls."""
@@ -122,6 +124,149 @@ async def client_session(test_server):
     """Pytest fixture providing an MCP client session."""
     async with Client(test_server) as client:
         yield client
+
+
+# Server Configuration Fixtures
+@pytest.fixture
+def http_auth_config():
+    """Fixture providing HTTP auth mode server configuration."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.HTTP_AUTH
+    set_config(config)
+    return config
+
+
+@pytest.fixture
+def http_no_auth_config():
+    """Fixture providing HTTP no-auth mode server configuration."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.HTTP_NO_AUTH
+    set_config(config)
+    return config
+
+
+@pytest.fixture
+def stdio_config():
+    """Fixture providing STDIO mode server configuration."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.STDIO
+    set_config(config)
+    return config
+
+
+# Helper functions for manual config setup
+def create_http_auth_config():
+    """Create and return HTTP auth mode config."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.HTTP_AUTH
+    return config
+
+
+def create_http_no_auth_config():
+    """Create and return HTTP no-auth mode config."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.HTTP_NO_AUTH
+    return config
+
+
+def create_stdio_config():
+    """Create and return STDIO mode config."""
+    config = ServerConfig()
+    config.server_mode = ServerMode.STDIO
+    return config
+
+
+# Common test data and fixtures
+@pytest.fixture
+def test_token():
+    """Common test token used across tests."""
+    return "TestToken123456789"
+
+
+@pytest.fixture
+def valid_token():
+    """Valid token for testing."""
+    return "ValidTestToken123"
+
+
+@pytest.fixture
+def extraction_token():
+    """Token used for extraction tests."""
+    return "ExtractionTestToken123"
+
+
+@pytest.fixture
+def context_token():
+    """Token used for context testing."""
+    return "ContextTestToken123"
+
+
+@pytest.fixture
+def auth_headers(test_token):
+    """Authorization headers with test token."""
+    return {"authorization": f"Bearer {test_token}"}
+
+
+@pytest.fixture
+def empty_headers():
+    """Empty HTTP headers."""
+    return {}
+
+
+@pytest.fixture
+def invalid_auth_headers():
+    """Invalid authorization headers (missing Bearer)."""
+    return {"authorization": "Basic InvalidToken123"}
+
+
+@pytest.fixture
+def malformed_auth_headers():
+    """Malformed authorization headers (missing space)."""
+    return {"authorization": "BearerInvalidToken123"}
+
+
+@pytest.fixture
+def async_success_func():
+    """Common async function that returns 'success'."""
+
+    async def async_mock_func():
+        return "success"
+
+    return async_mock_func
+
+
+@pytest.fixture
+def async_success_func_decorated(async_success_func):
+    """Async success function decorated with with_auth_context."""
+    from src.server_components.auth import with_auth_context
+
+    return with_auth_context(async_success_func)
+
+
+# Token verification helpers
+@pytest.fixture
+def token_verifier():
+    """Helper fixture for token verification."""
+
+    def verify_token(expected_token=None, should_be_none=False):
+        """Verify current token state."""
+        from src.client.connection import _current_token
+
+        current = _current_token.get()
+
+        if should_be_none:
+            assert current is None, f"Expected None, got {current}"
+            return True
+
+        if expected_token is not None:
+            assert current == expected_token, (
+                f"Expected {expected_token}, got {current}"
+            )
+            return True
+
+        return current
+
+    return verify_token
 
 
 # Pytest configuration

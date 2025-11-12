@@ -9,6 +9,7 @@ This module tests the actual issue that was found and fixed:
 
 import asyncio
 from unittest.mock import patch
+from src.config.server_config import ServerConfig, ServerMode, set_config
 
 import pytest
 
@@ -48,25 +49,24 @@ class TestFastMCPDecoratorOrder:
         print("✅ Decorator order test setup complete")
 
     @pytest.mark.asyncio
-    async def test_with_auth_context_execution_directly(self):
+    async def test_with_auth_context_execution_directly(
+        self, http_auth_config, test_token
+    ):
         """Test that @with_auth_context works correctly when called directly."""
 
         # Mock the FastMCP framework to simulate a real tool call
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             # Set up mock headers with a valid token
-            test_token = "TestToken123456789"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
             # Create a test function with the correct decorator order
             @with_auth_context
             async def test_tool():
                 # Check if the token was set in context
-                current_token = _current_token.get()
-                return {"token_set": current_token is not None, "token": current_token}
+                return {
+                    "token_set": _current_token.get() is not None,
+                    "token": _current_token.get(),
+                }
 
             # Call the function directly (this tests the decorator logic)
             result = await test_tool()
@@ -78,14 +78,10 @@ class TestFastMCPDecoratorOrder:
             )
 
     @pytest.mark.asyncio
-    async def test_decorator_order_prevents_fallback_issue(self):
+    async def test_decorator_order_prevents_fallback_issue(self, http_auth_config):
         """Test that correct decorator order prevents the fallback to default session issue."""
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "PreventFallbackToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -104,13 +100,10 @@ class TestFastMCPDecoratorOrder:
             assert result["used_token"] == test_token, "Should use the provided token"
 
     @pytest.mark.asyncio
-    async def test_extract_bearer_token_in_fastmcp_context(self):
+    async def test_extract_bearer_token_in_fastmcp_context(self, http_auth_config):
         """Test that extract_bearer_token works in FastMCP HTTP context."""
 
-        with (
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "ExtractTestToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -166,21 +159,17 @@ class TestFastMCPToolIntegration:
         assert "send_message" in names
         assert "edit_message" in names
         assert "read_messages" in names
-        assert "search_contacts" in names
+        assert "find_chats" in names
 
 
 class TestEndToEndTokenFlow:
     """Test the complete token flow from HTTP request to session management."""
 
     @pytest.mark.asyncio
-    async def test_token_context_isolation(self):
+    async def test_token_context_isolation(self, http_auth_config):
         """Test that token context is properly isolated between different requests."""
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             # Simulate first request
             token1 = "Token1"
             mock_headers.return_value = {"authorization": f"Bearer {token1}"}
@@ -208,7 +197,7 @@ class TestDecoratorOrderRegression:
         # This is done by checking the function's __wrapped__ attribute
         # FastMCP decorators should be outermost, @with_auth_context should be innermost
 
-        # For search_contacts, the decorator chain should be:
+        # For find_chats, the decorator chain should be:
         # @mcp.tool() -> @with_error_handling() -> @with_auth_context -> function
         # So the innermost decorator should be @with_auth_context
 
@@ -241,7 +230,7 @@ class TestDecoratorOrderRegression:
         assert "send_message" in names
         assert "edit_message" in names
         assert "read_messages" in names
-        assert "search_contacts" in names
+        assert "find_chats" in names
 
         print(
             "✅ Decorator order regression prevention verified - all tools properly decorated"
@@ -252,17 +241,13 @@ class TestRealIssueVerification:
     """Test that verifies the actual issue that was found and fixed."""
 
     @pytest.mark.asyncio
-    async def test_decorator_order_issue_reproduction(self):
+    async def test_decorator_order_issue_reproduction(self, http_auth_config):
         """Test that reproduces the original issue: decorator order preventing @with_auth_context execution."""
 
         # This test simulates what would happen with the WRONG decorator order
         # (which was the original bug)
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "ReproductionTestToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -284,13 +269,10 @@ class TestRealIssueVerification:
             print("✅ Correct decorator order prevents fallback issue")
 
     @pytest.mark.asyncio
-    async def test_token_extraction_and_context_setting(self):
+    async def test_token_extraction_and_context_setting(self, http_auth_config):
         """Test that token extraction and context setting work correctly."""
 
-        with (
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "ContextTestToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 

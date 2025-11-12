@@ -7,16 +7,17 @@ and the system fell back to the default session"
 
 The fix was to change the decorator order from:
 @with_auth_context
-@with_error_handling("search_contacts")
+@with_error_handling("find_chats")
 @mcp.tool()
 
 To:
 @mcp.tool()
-@with_error_handling("search_contacts")
+@with_error_handling("find_chats")
 @with_auth_context  # Now innermost - gets executed by FastMCP
 """
 
 from unittest.mock import patch
+from src.config.server_config import ServerConfig, ServerMode, set_config
 
 import pytest
 
@@ -28,14 +29,10 @@ class TestDecoratorOrderFix:
     """Test that the decorator order fix resolves the original issue."""
 
     @pytest.mark.asyncio
-    async def test_with_auth_context_executes_with_valid_token(self):
+    async def test_with_auth_context_executes_with_valid_token(self, http_auth_config):
         """Test that @with_auth_context executes and sets token when valid token is provided."""
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "ValidTestToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -65,14 +62,10 @@ class TestDecoratorOrderFix:
             )
 
     @pytest.mark.asyncio
-    async def test_no_fallback_to_default_session_when_token_provided(self):
+    async def test_no_fallback_to_default_session_when_token_provided(self, http_auth_config):
         """Test that system does NOT fall back to default session when valid token is provided."""
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "NoFallbackToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -95,13 +88,10 @@ class TestDecoratorOrderFix:
             )
 
     @pytest.mark.asyncio
-    async def test_token_extraction_works_correctly(self):
+    async def test_token_extraction_works_correctly(self, http_auth_config):
         """Test that token extraction from HTTP headers works correctly."""
 
-        with (
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             test_token = "ExtractionTestToken123"
             mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
 
@@ -133,14 +123,10 @@ class TestDecoratorOrderFix:
         assert current_token is None, "Expected None, got {current_token}"
 
     @pytest.mark.asyncio
-    async def test_http_mode_requires_authentication(self):
+    async def test_http_mode_requires_authentication(self, http_auth_config):
         """Test that HTTP mode requires authentication when no token is provided."""
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             # No authorization header
             mock_headers.return_value = {}
 
@@ -155,18 +141,13 @@ class TestDecoratorOrderFix:
             assert "Missing Bearer token" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_stdio_mode_allows_fallback(self):
+    async def test_stdio_mode_allows_fallback(self, stdio_config):
         """Test that stdio mode allows fallback to default session when no token is provided."""
 
-        with (
-            patch("src.server.DISABLE_AUTH", False),
-            patch("src.server.transport", "stdio"),
-        ):
-
-            @with_auth_context
-            async def test_function():
-                token = _current_token.get()
-                return {"token": token, "fell_back": token is None}
+        @with_auth_context
+        async def test_function():
+            token = _current_token.get()
+            return {"token": token, "fell_back": token is None}
 
             result = await test_function()
 
@@ -195,21 +176,17 @@ class TestDecoratorOrderFix:
             assert "send_message" in names
             assert "edit_message" in names
             assert "read_messages" in names
-            assert "search_contacts" in names
+            assert "find_chats" in names
 
     @pytest.mark.asyncio
-    async def test_original_issue_reproduction_and_fix(self):
+    async def test_original_issue_reproduction_and_fix(self, http_auth_config):
         """Test that reproduces the original issue and verifies the fix."""
 
         # This test simulates the exact scenario from the user's report:
         # "upon passing a token to the server, it was not properly extracted in @with_auth_context
         # and the system fell back to the default session"
 
-        with (
-            patch("src.server_components.auth.DISABLE_AUTH", False),
-            patch("src.server_components.auth._get_transport", return_value="http"),
-            patch("fastmcp.server.dependencies.get_http_headers") as mock_headers,
-        ):
+        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
             # Simulate a valid token being passed to the server
             user_token = "UserProvidedToken123"
             mock_headers.return_value = {"authorization": f"Bearer {user_token}"}
