@@ -3,13 +3,63 @@
 {% block content %}
 <div id="step">
     <h1>Telegram MCP Setup</h1>
-    <p class="muted">Authenticate with Telegram to generate your MCP configuration.</p>
+    <p class="muted">Choose how to set up your Telegram session.</p>
 
-    <form hx-post="/setup/phone" hx-target="#step" hx-swap="innerHTML">
-        <label for="phone">Phone number</label>
-        <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
-        <button type="submit">Send Code</button>
-    </form>
+    <div class="option-buttons">
+        <button type="button" onclick="showNewSession()">Create New Session</button>
+        <button type="button" onclick="showReauthorize()">Reauthorize Existing Session</button>
+    </div>
 
+    <div id="new-session-form" style="display: none;">
+        <h2>Create New Session</h2>
+        <p class="muted">Enter your phone number to authenticate with Telegram.</p>
+
+        <form hx-post="/setup/phone" hx-target="#step" hx-swap="innerHTML">
+            <label for="phone">Phone number</label>
+            <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
+            <button type="submit">Send Code</button>
+        </form>
+    </div>
+
+    <div id="reauthorize-form" style="display: none;">
+        <h2>Reauthorize Existing Session</h2>
+        <p class="muted">Enter your existing bearer token to reauthorize your session.</p>
+
+        <form hx-post="/setup/reauthorize" hx-target="#step" hx-swap="innerHTML">
+            <label for="token">Bearer Token</label>
+            <input id="token" name="token" type="text" placeholder="Your bearer token" required />
+            <button type="submit">Check & Reauthorize</button>
+        </form>
+    </div>
 </div>
+
+<style>
+.option-buttons {
+    display: flex;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.option-buttons button {
+    flex: 1;
+    padding: 1rem;
+    font-size: 1.1rem;
+}
+
+#new-session-form, #reauthorize-form {
+    margin-top: 2rem;
+}
+</style>
+
+<script>
+function showNewSession() {
+    document.getElementById('new-session-form').style.display = 'block';
+    document.getElementById('reauthorize-form').style.display = 'none';
+}
+
+function showReauthorize() {
+    document.getElementById('new-session-form').style.display = 'none';
+    document.getElementById('reauthorize-form').style.display = 'block';
+}
+</script>
 {% endblock %}

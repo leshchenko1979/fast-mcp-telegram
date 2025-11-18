@@ -9,7 +9,7 @@
 ## 🌐 Demo
 
 1. Open https://tg-mcp.redevest.ru/setup to begin the authentication flow.
-2. After finishing, you'll receive a ready-to-use `mcp.json` with your Bearer token. 
+2. After finishing, you'll receive a ready-to-use `mcp.json` with your Bearer token.
 3. Use the config with your MCP client to check out this MCP server capabilities.
 4. Or try the HTTP‑MTProto Bridge right away with curl (replace TOKEN):
 ```bash
@@ -75,7 +75,7 @@ pip install fast-mcp-telegram
 fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
 ```
 
-**🌐 Prefer a browser?** Run the server and open `/setup` to authenticate and download a ready‑to‑use `mcp.json`.
+**🌐 Prefer a browser?** Run the server and open `/setup` to authenticate and download a ready‑to‑use `mcp.json`. You can also reauthorize existing sessions through the same interface.
 
 ### 3. Configure Your MCP Client
 

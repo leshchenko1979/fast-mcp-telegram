@@ -1,0 +1,12 @@
+<h2>Confirm Phone Number</h2>
+<p class="muted">Enter your phone number to reauthorize this session.</p>
+
+<form hx-post="/setup/reauthorize/phone" hx-target="#step" hx-swap="innerHTML">
+    <input type="hidden" name="setup_id" value="{{ setup_id }}" />
+
+    <label for="phone">Phone number</label>
+    <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
+
+    <button type="submit">Send Code</button>
+</form>
+

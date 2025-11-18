@@ -115,8 +115,34 @@ docker compose up -d --env LOG_LEVEL=DEBUG
 1. **Creation**: New session created on first authentication
 2. **Activation**: Session loaded into memory on first use
 3. **Usage**: Session used for Telegram API calls
-4. **Eviction**: Session removed from memory when LRU limit reached
-5. **Cleanup**: Invalid sessions automatically deleted
+4. **Reauthorization**: Expired sessions can be reauthorized via web interface or CLI
+5. **Eviction**: Session removed from memory when LRU limit reached
+6. **Cleanup**: Invalid sessions automatically deleted
+
+### Session Reauthorization
+
+When a session becomes unauthorized (expired login, password change, etc.), you can reauthorize it:
+
+#### Web Interface (HTTP_AUTH mode)
+1. Visit `https://your-domain.com/setup`
+2. Choose "Reauthorize Existing Session"
+3. Enter your existing Bearer token
+4. Confirm phone number and complete verification
+5. Session is reauthorized with the same token
+
+#### CLI Reauthorization
+```bash
+# For HTTP_AUTH mode (with existing token)
+fast-mcp-telegram-setup --overwrite --phone-number="+1234567890"
+
+# For STDIO mode
+SESSION_NAME=telegram fast-mcp-telegram-setup --overwrite --phone-number="+1234567890"
+```
+
+#### Detecting Unauthorized Sessions
+- **Health endpoint**: Shows connection status per session
+- **API errors**: Unauthorized sessions return authentication errors
+- **Logs**: Check for "Session not authorized" messages
 
 ### Session Files
 - **Location**: `~/.config/fast-mcp-telegram/`

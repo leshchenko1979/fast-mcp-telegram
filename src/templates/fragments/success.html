@@ -1,0 +1,15 @@
+<h2>✅ Success</h2>
+<p class="muted">{{ message }}</p>
+
+{% if token %}
+<div class="card" style="margin: 1rem 0;">
+    <strong>Your bearer token:</strong><br>
+    <code style="word-break: break-all;">{{ token }}</code>
+</div>
+
+<p class="muted">
+    You can now use this token in your MCP client configuration.
+    Your session has been reauthorized and is ready to use.
+</p>
+{% endif %}
+

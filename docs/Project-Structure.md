@@ -115,9 +115,11 @@ fast-mcp-telegram/
   - Authentication decorator application
   - Tool discovery and registration
 - **`src/server_components/web_setup.py`**: Web setup interface
-  - HTMX-based authentication flow
+  - HTMX-based authentication and reauthorization flow
+  - Token-based reauthorization with security validation
   - Session management and cleanup
   - Configuration generation and download
+  - Phone verification for reauthorization
 
 ### Tool Implementations
 - **`src/tools/search.py`**: Message search functionality
@@ -182,11 +184,14 @@ fast-mcp-telegram/
   - Progressive disclosure
 
 ### Setup Flow
-1. **Phone submission**: User enters phone number
-2. **Code verification**: User enters verification code
-3. **2FA handling**: Optional two-factor authentication
-4. **Config generation**: Bearer token and MCP configuration
-5. **Download**: Ready-to-use configuration file
+1. **Mode selection**: Choose new session or reauthorize existing
+2. **Phone submission**: User enters phone number (new or reauth)
+3. **Token validation**: For reauth, validate existing bearer token
+4. **Code verification**: User enters verification code
+5. **2FA handling**: Optional two-factor authentication
+6. **Session management**: New session created or existing reauthorized
+7. **Config generation**: Bearer token and MCP configuration
+8. **Download**: Ready-to-use configuration file
 
 ## Testing Infrastructure
 

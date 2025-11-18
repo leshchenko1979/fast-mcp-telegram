@@ -59,11 +59,27 @@ pip install fast-mcp-telegram
 SERVER_MODE=http-auth fast-mcp-telegram
 
 # 3. Open browser → http://your-server.com/setup
+#    - Choose "Create New Session"
 #    - Enter phone number
 #    - Enter verification code
 #    - Download mcp.json
 
 # ✅ Done! Use the downloaded mcp.json in your MCP client
+
+### 🔄 Reauthorizing Existing Sessions
+
+If your session becomes unauthorized (expired login, etc.):
+
+1. **Via Web Interface:** Open http://your-server.com/setup
+   - Choose "Reauthorize Existing Session"
+   - Enter your existing bearer token
+   - Confirm your phone number and complete verification
+   - Your session is reauthorized with the same token!
+
+2. **Via CLI:** Use the `--overwrite` flag
+   ```bash
+   fast-mcp-telegram-setup --overwrite --phone-number="+1234567890"
+   ```
 ```
 
 ---
