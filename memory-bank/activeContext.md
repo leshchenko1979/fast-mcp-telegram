@@ -31,7 +31,7 @@
 - **Enhanced Error Detection**: Added "wrong session ID" error detection in `error_handling.py`
 - **Health Statistics**: Extended `/health` endpoint with connection failure data
 - **Session Restoration**: Preserved original bearer token while using fresh session data
-**Impact**: 
+**Impact**:
 - Eliminated connection storm completely (0 reconnections vs 1,300+/minute)
 - Reduced CPU usage from 44.70% to normal levels
 - Reduced memory usage from 95.31% to normal levels
@@ -54,7 +54,7 @@
 - Web setup refactored to use shared utility
 - Added clear security warnings for HTTP_AUTH mode
 - Configuration priority: CLI args → env vars → .env file → default
-**Impact**: 
+**Impact**:
 - Eliminates session file mismatch (no more symlinks needed)
 - Supports multiple accounts via SESSION_NAME configuration
 - Single source of truth for both session config and MCP config generation
@@ -66,7 +66,7 @@
 ### MTProto Module Refactoring (2025-10-02)
 **Decision**: Unified MTProto implementation with single-function architecture
 **Problem**: Code duplication across multiple files with unclear function boundaries
-**Solution**: 
+**Solution**:
 - Consolidated all MTProto logic into single `invoke_mtproto_impl()` function
 - Eliminated duplicate constants (`DANGEROUS_METHODS`) and helper functions
 - Removed artificial function boundaries between `invoke_mtproto_method` and `invoke_mtproto_impl`
@@ -151,7 +151,7 @@
 **Decision**: Enhanced web setup interface styling and user experience
 **Changes Made**:
 - **Input Text Size**: Increased to 1.1rem for better readability
-- **Button Text Size**: Increased to 1rem for better prominence  
+- **Button Text Size**: Increased to 1rem for better prominence
 - **Hint Text Size**: Reduced to 0.85rem for more subtle appearance
 - **Removed Excessive Text**: Eliminated redundant "Enter your phone to receive a code" instruction
 - **Cleaner Layout**: Removed empty card styling from step div for cleaner appearance
@@ -160,7 +160,7 @@
 ### 2FA Authentication Route Fix (2025-09-09)
 **Decision**: Added missing `/setup/2fa` route to complete the authentication flow
 **Problem**: 2FA form was submitting to non-existent endpoint, causing 404 errors
-**Solution**: 
+**Solution**:
 - Added `@mcp_app.custom_route("/setup/2fa", methods=["POST"])` handler
 - Implemented proper 2FA password validation with `client.sign_in(password=password)`
 - Added error handling for invalid passwords and authentication failures
@@ -184,6 +184,21 @@
 ### Multi-term Contact Search (2025-09-17)
 **Decision**: `find_chats` accepts comma-separated terms; searches concurrently
 **Impact**: Better discovery with merged, deduped results and uniform payloads
+
+### Bearer Token Reserved Name Protection (2025-11-18)
+**Decision**: Added validation to prevent reserved session names from being used as bearer tokens
+**Problem**: Bearer tokens like "telegram" could create session file conflicts and break isolation
+**Solution**:
+- Added `RESERVED_SESSION_NAMES` frozenset with common problematic names
+- Updated `extract_bearer_token()` and `extract_bearer_token_from_request()` to reject reserved names
+- Case-insensitive validation prevents `TELEGRAM`, `Telegram`, etc.
+- Comprehensive test coverage for all reserved names and edge cases
+- Warning logging for security monitoring
+**Impact**:
+- Prevents session file conflicts between HTTP_AUTH and STDIO modes
+- Maintains proper session isolation and security boundaries
+- Clear security logging for monitoring attempted attacks
+- Backward compatible - only blocks problematic tokens
 
 ### File Sending Implementation (2025-10-01)
 **Decision**: Unified `files` parameter accepting string or list, with auto-detection of URLs vs local paths
@@ -215,6 +230,22 @@
 - **Security Documentation**: Created SECURITY.md with authentication model, risks, and best practices
 - **Link Verification**: All documentation links verified and working correctly
 **Impact**: Improved user experience with clear navigation, reduced maintenance overhead, and professional documentation structure
+
+### Web Setup Reauthorization Enhancement (2025-11-18)
+**Decision**: Enhanced `/setup` endpoint with secure token-based reauthorization for existing sessions
+**Problem**: Users with expired/unauthorized sessions had to use CLI for reauthorization, creating friction
+**Solution Implemented**:
+- **Unified Setup Interface**: Single `/setup` endpoint offering both "Create New Session" and "Reauthorize Existing Session" options
+- **Token-Based Security**: Users must provide existing bearer token to reauthorize (possession = access)
+- **Phone Verification**: Required phone confirmation during reauthorization prevents account takeover
+- **Session Preservation**: Reauthorized sessions keep the same bearer token, maintaining existing configurations
+- **Error Handling**: Comprehensive validation with user-friendly error messages and success confirmations
+**Security Features**:
+- No session enumeration or phone number exposure
+- Reserved session name blocking
+- Session existence and authorization status validation
+- Temporary file cleanup and TTL-based session management
+**Impact**: Improved user experience for session management while maintaining security-first approach
 
 ## Important Patterns and Preferences
 

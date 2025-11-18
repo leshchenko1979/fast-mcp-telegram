@@ -8,6 +8,17 @@
 - Deployed fixes to production VDS with zero downtime and immediate resolution of connection storm
 - Achieved complete elimination of connection storm (0 reconnections vs 1,300+/minute) and normal resource usage
 - Added robust protection against future connection issues with intelligent backoff and circuit breaker mechanisms
+
+### 2025-11-18
+- **Web Setup Reauthorization Enhancement**: Added secure token-based reauthorization to existing `/setup` endpoint, allowing users to reauthorize expired sessions through web interface while maintaining security
+- **Unified Setup Interface**: Enhanced `/setup` page with both "Create New Session" and "Reauthorize Existing Session" options using JavaScript toggles for better UX
+- **Token-Based Security**: Implemented reauthorization flow requiring existing bearer token possession, preventing unauthorized access or session enumeration
+- **Reauthorization Flow**: Added `/setup/reauthorize` and `/setup/reauthorize/phone` routes with phone verification to complete reauthorization while preserving original bearer token
+- **Session File Management**: Created `setup_complete_reauth()` function to safely replace original session files with reauthorized versions
+- **Enhanced Error Handling**: Added `success.html` and `error.html` fragments with user-friendly messaging and navigation
+- **Security Validation**: Implemented comprehensive validation including reserved name blocking, session existence checks, and authorization status verification
+- **Backward Compatibility**: Maintained existing new session creation flow while adding reauthorization capability
+- **Bearer Token Reserved Name Protection**: Added validation to prevent reserved session names like "telegram" from being used as bearer tokens, preventing session file conflicts and maintaining isolation between HTTP_AUTH and STDIO modes. Implemented case-insensitive validation with comprehensive test coverage and security logging.
 - Extended `/health` endpoint with connection failure statistics and session health monitoring capabilities
 
 ### 2025-10-11
