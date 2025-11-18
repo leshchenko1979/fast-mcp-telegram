@@ -204,6 +204,7 @@
 - **Auto-Cleanup Removal**: Removed all automatic cleanup variables and background tasks for simplified architecture (2025-01-04)
 - **Mandatory HTTP Authentication**: Eliminated fallback to default session for HTTP requests, making Bearer tokens mandatory (2025-01-04)
 - **Literal Parameter Implementation**: Successfully implemented `typing.Literal` constraints for `parse_mode` and `chat_type` parameters to guide LLM choices and improve input validation. Updated all relevant tool signatures in server.py and verified FastMCP compatibility (2025-01-07)
+- **Auto Parse Mode**: Implemented automatic formatting detection with "auto" as default parse_mode. Added `detect_message_formatting()` function to intelligently detect HTML/Markdown patterns in messages (2025-11-18)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting

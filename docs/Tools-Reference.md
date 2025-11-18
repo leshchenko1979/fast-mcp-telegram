@@ -8,7 +8,7 @@ This MCP server provides comprehensive Telegram integration tools optimized for 
 
 This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
 
-- **`parse_mode`**: Constrained to `"markdown"` or `"html"` (no invalid values)
+- **`parse_mode`**: Constrained to `"markdown"`, `"html"`, or `"auto"` (default: `"auto"`)
 - **`chat_type`**: Limited to `"private"`, `"group"`, or `"channel"` for search filters
 - **Enhanced Validation**: FastMCP automatically validates these constraints
 - **Better AI Guidance**: AI models see only valid options, reducing errors
@@ -116,7 +116,7 @@ send_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
   message: str,                  // Message content (becomes caption when files sent)
   reply_to_msg_id?: number,      // Reply to specific message
-  parse_mode?: 'markdown'|'html', // Text formatting
+  parse_mode?: 'markdown'|'html'|'auto' = 'auto', // Text formatting (auto-detect by default)
   files?: string | string[]      // File URL(s) or local path(s)
 )
 ```

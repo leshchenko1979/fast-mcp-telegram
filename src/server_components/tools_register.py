@@ -136,14 +136,14 @@ def register_tools(mcp: FastMCP) -> None:
         chat_id: str,
         message: str,
         reply_to_msg_id: int | None = None,
-        parse_mode: Literal["markdown", "html"] | None = None,
+        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
         files: str | list[str] | None = None,
     ):
         """
         Send new message in Telegram chat, optionally with files.
 
         FORMATTING:
-        - parse_mode=None: Plain text
+        - parse_mode="auto" (default): Automatically detects Markdown or HTML based on content
         - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
         - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
 
@@ -165,7 +165,7 @@ def register_tools(mcp: FastMCP) -> None:
             chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
             message: Message text to send (becomes caption when files are provided)
             reply_to_msg_id: Reply to specific message ID (optional)
-            parse_mode: Text formatting ("markdown", "html", or None)
+            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
             files: Single file or list of files to send (URLs or local paths, optional)
         """
         return await send_message_impl(
@@ -178,13 +178,13 @@ def register_tools(mcp: FastMCP) -> None:
         chat_id: str,
         message_id: int,
         message: str,
-        parse_mode: Literal["markdown", "html"] | None = None,
+        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
     ):
         """
         Edit existing message in Telegram chat.
 
         FORMATTING:
-        - parse_mode=None: Plain text
+        - parse_mode="auto" (default): Automatically detects Markdown or HTML based on content
         - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
         - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
 
@@ -196,7 +196,7 @@ def register_tools(mcp: FastMCP) -> None:
             chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
             message_id: Message ID to edit (required)
             message: New message text
-            parse_mode: Text formatting ("markdown", "html", or None)
+            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
         """
         return await edit_message_impl(chat_id, message_id, message, parse_mode)
 
@@ -304,7 +304,7 @@ def register_tools(mcp: FastMCP) -> None:
         last_name: str = "Name",
         remove_if_new: bool = False,
         reply_to_msg_id: int | None = None,
-        parse_mode: Literal["markdown", "html"] | None = None,
+        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
         files: str | list[str] | None = None,
     ):
         """
@@ -345,7 +345,7 @@ def register_tools(mcp: FastMCP) -> None:
             last_name: Contact last name (for new contacts only)
             remove_if_new: Remove contact after sending if newly created
             reply_to_msg_id: Reply to specific message ID
-            parse_mode: Text formatting ("markdown", "html", or None)
+            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
             files: Single file or list of files to send (URLs or local paths, optional)
 
         Returns:

@@ -17,6 +17,46 @@ from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_message_result, build_send_edit_result
 
 
+def detect_message_formatting(message: str) -> str | None:
+    """
+    Detect message formatting based on content patterns.
+
+    Returns:
+        "html" if HTML tags are detected
+        "markdown" if Markdown syntax is detected
+        None if no formatting is detected
+    """
+    if not message or not isinstance(message, str):
+        return None
+
+    # Check for HTML tags first (higher precedence)
+    import re
+
+    html_pattern = r"<[^>]+>"
+    if re.search(html_pattern, message):
+        return "html"
+
+    # Check for Markdown patterns (require content between paired markers)
+    markdown_patterns = [
+        r"```.+?```",  # ```code block``` (require at least 1 char between triple backticks)
+        r"`[^`]+`",  # `code` (single backticks, no nested backticks)
+        r"\*\*[^[*].*?\*\*",  # **bold** (double asterisks, no triple asterisks)
+        r"\*[^**].*?\*",  # *italic* (single asterisk, no double asterisks)
+        r"_[^_]*?_",  # _italic_ (underscores)
+        r"\[.*?\]\(.*?\)",  # [link](url) - allow empty link text but require parentheses
+        r"^#{1,6}\s",  # # ## ### headers (require space after #)
+        r"^\d+\.\s",  # 1. numbered lists (require space after number)
+        r"^\*\s",  # * bullet points (require space after asterisk)
+        r"^\-\s",  # - bullet points (require space after dash)
+    ]
+
+    for pattern in markdown_patterns:
+        if re.search(pattern, message, re.MULTILINE):
+            return "markdown"
+
+    return None
+
+
 def _validate_url_security(url: str) -> tuple[bool, str]:
     """
     Validate URL for security risks to prevent SSRF attacks.
@@ -356,6 +396,13 @@ async def send_message_impl(
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
     }
+
+    # Resolve auto parse mode
+    resolved_parse_mode = parse_mode
+    if parse_mode == "auto":
+        resolved_parse_mode = detect_message_formatting(message)
+        params["detected_parse_mode"] = resolved_parse_mode
+
     log_operation_start("Sending message to chat", params)
 
     client = await get_connected_client()
@@ -378,7 +425,7 @@ async def send_message_impl(
             message,
             files,
             reply_to_msg_id,
-            parse_mode,
+            resolved_parse_mode,
             "send_message",
             params,
         )
@@ -417,6 +464,13 @@ async def edit_message_impl(
         "new_text_length": len(new_text),
         "parse_mode": parse_mode,
     }
+
+    # Resolve auto parse mode
+    resolved_parse_mode = parse_mode
+    if parse_mode == "auto":
+        resolved_parse_mode = detect_message_formatting(new_text)
+        params["detected_parse_mode"] = resolved_parse_mode
+
     log_operation_start("Editing message in chat", params)
 
     client = await get_connected_client()
@@ -434,7 +488,10 @@ async def edit_message_impl(
 
         # Edit message
         edited_message = await client.edit_message(
-            entity=chat, message=message_id, text=new_text, parse_mode=parse_mode
+            entity=chat,
+            message=message_id,
+            text=new_text,
+            parse_mode=resolved_parse_mode,
         )
 
         result = build_send_edit_result(edited_message, chat, "edited")
@@ -654,6 +711,13 @@ async def send_message_to_phone_impl(
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
     }
+
+    # Resolve auto parse mode
+    resolved_parse_mode = parse_mode
+    if parse_mode == "auto":
+        resolved_parse_mode = detect_message_formatting(message)
+        params["detected_parse_mode"] = resolved_parse_mode
+
     log_operation_start("Sending message to phone number", params)
 
     client = await get_connected_client()
@@ -700,7 +764,7 @@ async def send_message_to_phone_impl(
             message,
             files,
             reply_to_msg_id,
-            parse_mode,
+            resolved_parse_mode,
             "send_message_to_phone",
             params,
         )
