@@ -5,6 +5,7 @@
 - **Per-Session Authentication**: Each session requires a unique Bearer token
 - **Session Isolation**: Each token creates an isolated Telegram session
 - **Token Generation**: Cryptographically secure 256-bit tokens via setup script
+- **Reserved Name Protection**: Common session names blocked to prevent conflicts
 - **HTTP Authentication**: Mandatory Bearer tokens for HTTP transport (`Authorization: Bearer <token>`)
 - **Development Mode**: `DISABLE_AUTH=true` bypasses authentication for development
 
@@ -35,6 +36,14 @@
 - **Local paths**: Only allowed in stdio mode for security
 - **URL downloads**: Supported in all modes with SSRF protection
 - **Size validation**: Both header and content validation for downloaded files
+
+## Token Validation Security
+
+- **Reserved Name Blocking**: Prevents common session names from being used as bearer tokens
+- **Blocked Names**: `telegram`, `default`, `session`, `bot`, `user`, `main`, `primary`, `test`, `dev`, `prod`
+- **Case Insensitive**: Validation ignores case differences
+- **Session Conflict Prevention**: Blocks tokens that could create file conflicts with STDIO/HTTP_NO_AUTH sessions
+- **Logging**: Rejected tokens are logged with warning messages for security monitoring
 
 ## Session File Security
 

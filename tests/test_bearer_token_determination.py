@@ -20,7 +20,11 @@ from src.client.connection import (
     set_request_token,
 )
 from src.config.server_config import ServerConfig, ServerMode, set_config
-from src.server_components.auth import extract_bearer_token, with_auth_context
+from src.server_components.auth import (
+    extract_bearer_token,
+    extract_bearer_token_from_request,
+    with_auth_context,
+)
 
 
 class TestBearerTokenExtraction:
@@ -747,6 +751,110 @@ class TestErrorHandling:
             error_msg = str(exc_info.value)
             assert "Missing Bearer token" in error_msg
             assert "Authorization: Bearer <your-token>" in error_msg
+
+    def test_extract_bearer_token_reserved_names_rejected(self, http_auth_config):
+        """Test that reserved session names are rejected as bearer tokens."""
+        from src.server_components.auth import RESERVED_SESSION_NAMES
+
+        # Test each reserved name
+        for reserved_name in RESERVED_SESSION_NAMES:
+            mock_headers = {"authorization": f"Bearer {reserved_name}"}
+
+            with (
+                patch(
+                    "fastmcp.server.dependencies.get_http_headers",
+                    return_value=mock_headers,
+                ),
+                patch("src.server_components.auth.logger") as mock_logger,
+            ):
+                token = extract_bearer_token()
+
+                assert token is None, (
+                    f"Reserved name '{reserved_name}' should be rejected"
+                )
+                mock_logger.warning.assert_called_once()
+                # Check that the warning mentions the rejected token and lists reserved names
+                warning_call = mock_logger.warning.call_args[0][0]
+                assert reserved_name in warning_call
+                assert "Reserved names:" in warning_call
+
+                mock_logger.reset_mock()
+
+    def test_extract_bearer_token_reserved_names_case_insensitive(
+        self, http_auth_config
+    ):
+        """Test that reserved name validation is case-insensitive."""
+        reserved_names_upper = ["TELEGRAM", "Default", "SESSION"]
+        reserved_names_mixed = ["TeLeGrAm", "DeFaUlT", "SeSsIoN"]
+
+        for upper_name, mixed_name in zip(reserved_names_upper, reserved_names_mixed):
+            # Test uppercase
+            mock_headers = {"authorization": f"Bearer {upper_name}"}
+            with patch(
+                "fastmcp.server.dependencies.get_http_headers",
+                return_value=mock_headers,
+            ):
+                token = extract_bearer_token()
+                assert token is None, (
+                    f"Uppercase reserved name '{upper_name}' should be rejected"
+                )
+
+            # Test mixed case
+            mock_headers = {"authorization": f"Bearer {mixed_name}"}
+            with patch(
+                "fastmcp.server.dependencies.get_http_headers",
+                return_value=mock_headers,
+            ):
+                token = extract_bearer_token()
+                assert token is None, (
+                    f"Mixed case reserved name '{mixed_name}' should be rejected"
+                )
+
+    def test_extract_bearer_token_non_reserved_names_allowed(self, http_auth_config):
+        """Test that non-reserved names are still allowed as bearer tokens."""
+        valid_tokens = [
+            "AbCdEfGh123456789KLmnOpQr",  # Random token
+            "my-custom-session",  # Custom name
+            "user123",  # Another custom name
+            "randomtoken",  # Generic token
+        ]
+
+        for token in valid_tokens:
+            mock_headers = {"authorization": f"Bearer {token}"}
+
+            with patch(
+                "fastmcp.server.dependencies.get_http_headers",
+                return_value=mock_headers,
+            ):
+                extracted_token = extract_bearer_token()
+
+                assert extracted_token == token, (
+                    f"Valid token '{token}' should be accepted"
+                )
+
+    def test_extract_bearer_token_from_request_reserved_names_rejected(
+        self, http_auth_config
+    ):
+        """Test that extract_bearer_token_from_request also rejects reserved names."""
+        from src.server_components.auth import RESERVED_SESSION_NAMES
+
+        # Create a mock request object
+        class MockRequest:
+            def __init__(self, auth_header):
+                self.headers = {"authorization": auth_header}
+
+        for reserved_name in RESERVED_SESSION_NAMES:
+            mock_request = MockRequest(f"Bearer {reserved_name}")
+
+            with patch("src.server_components.auth.logger") as mock_logger:
+                token = extract_bearer_token_from_request(mock_request)
+
+                assert token is None, (
+                    f"Reserved name '{reserved_name}' should be rejected"
+                )
+                mock_logger.warning.assert_called_once()
+
+                mock_logger.reset_mock()
 
     def test_extract_bearer_token_exception_logging(self, http_auth_config):
         """Test that exceptions in extract_bearer_token are logged."""
