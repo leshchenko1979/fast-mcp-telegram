@@ -50,7 +50,9 @@ def main():
 
     run_args = {"transport": config.transport}
     if config.transport == "http":
-        run_args.update({"host": config.host, "port": config.port, "stateless_http": True})
+        run_args.update(
+            {"host": config.host, "port": config.port, "stateless_http": True}
+        )
 
     try:
         mcp.run(**run_args)
