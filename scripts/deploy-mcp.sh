@@ -51,8 +51,8 @@ deploy() {
   ssh "$VDS_USER@$VDS_HOST" "mkdir -p $VDS_PROJECT_PATH"
 
   log "$BLUE" "Transferring project files..."
-  # Create a temporary file list excluding deleted files
-  git ls-files | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
+  # Create a temporary file list including tracked and untracked files (excluding deleted and ignored files)
+  (git ls-files && git ls-files --others --exclude-standard) | sort | uniq | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
   scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
   # Copy .env.example if it exists
   if [ -f .env.example ]; then
@@ -63,7 +63,7 @@ deploy() {
   ssh "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"
 
   log "$BLUE" "Starting MCP server..."
-  
+
   if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --profile server --env-file .env up --build -d"; then
     log "$RED" "Failed to start containers"
     exit 1
@@ -81,5 +81,3 @@ deploy
 
 elapsed=$(( $(date +%s) - start_time ))
 log "$GREEN" "Deployment finished in ${elapsed}s"
-
-
