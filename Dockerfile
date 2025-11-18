@@ -6,30 +6,33 @@ FROM python:3-alpine
 # Install essential runtime dependencies
 RUN apk add --no-cache curl
 
-# Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -D -s /bin/sh -u 1000 -G appuser appuser
-
-# Switch to non-root user
-USER appuser
-
-# Add local bin to PATH to fix script warnings
-ENV PATH="/home/appuser/.local/bin:$PATH"
-
-# Set the working directory
 WORKDIR /app
 
-# Copy dependency files and version file for caching
 COPY pyproject.toml ./
 RUN mkdir -p src && touch src/__init__.py
 COPY src/_version.py ./src/_version.py
 
-# Install package with dependencies (version file satisfies setuptools dynamic version)
-# This layer will be cached and not rebuilt unless pyproject.toml or _version.py changes
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir uv; \
+    uv pip install --system --no-cache -r pyproject.toml; \
+    pip uninstall -y uv; \
+    rm -rf /root/.cache/uv
+
+# Create non-root user for security
+RUN addgroup -g 1000 appuser && \
+    adduser -D -s /bin/sh -u 1000 -G appuser appuser
+
+# Create necessary directories and set permissions before switching user
+RUN mkdir -p logs && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
 
 # Copy real source code (this layer rebuilds when code changes)
 COPY src/ ./src/
+
+# Add local bin to PATH to fix script warnings
+ENV PATH="/home/appuser/.local/bin:$PATH"
 
 # Environment for FastMCP HTTP
 ENV MCP_TRANSPORT=http \
@@ -37,9 +40,6 @@ ENV MCP_TRANSPORT=http \
     MCP_PORT=8000 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
-
-# Session files stored in user config directory (~/.config/fast-mcp-telegram/)
-# as determined by settings.py logic for cross-platform compatibility
 
 # Expose the application's port
 EXPOSE 8000
