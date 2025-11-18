@@ -10,6 +10,7 @@
 - Added robust protection against future connection issues with intelligent backoff and circuit breaker mechanisms
 
 ### 2025-11-18
+- **FastMCP Deprecation Warning Fix**: Resolved DeprecationWarning for `stateless_http` parameter by moving it from FastMCP constructor to `run()` method call, ensuring compatibility with latest FastMCP version while maintaining authentication functionality
 - **Web Setup Reauthorization Enhancement**: Added secure token-based reauthorization to existing `/setup` endpoint, allowing users to reauthorize expired sessions through web interface while maintaining security
 - **Unified Setup Interface**: Enhanced `/setup` page with both "Create New Session" and "Reauthorize Existing Session" options using JavaScript toggles for better UX
 - **Token-Based Security**: Implemented reauthorization flow requiring existing bearer token possession, preventing unauthorized access or session enumeration

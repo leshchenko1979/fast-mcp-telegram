@@ -21,7 +21,7 @@ from src.server_components.web_setup import register_web_setup_routes
 config = get_config()
 
 # Initialize MCP server and logging
-mcp = FastMCP("Telegram MCP Server", stateless_http=True)
+mcp = FastMCP("Telegram MCP Server")
 setup_logging()
 
 # Register routes and tools immediately (no on_startup hook available)
@@ -50,7 +50,7 @@ def main():
 
     run_args = {"transport": config.transport}
     if config.transport == "http":
-        run_args.update({"host": config.host, "port": config.port})
+        run_args.update({"host": config.host, "port": config.port, "stateless_http": True})
 
     try:
         mcp.run(**run_args)
