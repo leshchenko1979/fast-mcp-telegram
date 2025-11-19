@@ -176,7 +176,7 @@ edit_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
   message_id: number,            // Message ID to edit (required)
   message: str,                  // New message content
-  parse_mode?: 'markdown'|'html' // Text formatting
+  parse_mode?: 'markdown'|'html'|'auto' = 'auto' // Text formatting (auto-detect by default)
 )
 ```
 
@@ -189,12 +189,19 @@ edit_message(
   "message": "Updated: Project deadline extended"
 }}
 
-// Edit with formatting
+// Edit with formatting (auto-detected)
 {"tool": "edit_message", "params": {
   "chat_id": "me",
   "message_id": 67890,
-  "message": "*Updated:* Meeting rescheduled to 4 PM",
-  "parse_mode": "markdown"
+  "message": "*Updated:* Meeting rescheduled to 4 PM"
+}}
+
+// Edit with explicit formatting
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 67890,
+  "message": "<b>Updated:</b> Meeting rescheduled to 4 PM",
+  "parse_mode": "html"
 }}
 ```
 
@@ -299,7 +306,7 @@ send_message_to_phone(
   first_name?: str = "Contact", // For new contacts
   last_name?: str = "Name",    // For new contacts
   remove_if_new?: boolean = false, // Remove temp contact after send
-  parse_mode?: 'markdown'|'html',  // Text formatting
+  parse_mode?: 'markdown'|'html'|'auto' = 'auto',  // Text formatting (auto-detect by default)
   files?: string | string[]    // File URL(s) or local path(s)
 )
 ```
