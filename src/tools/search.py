@@ -10,6 +10,7 @@ from src.tools.links import generate_telegram_links
 from src.utils.entity import (
     _get_chat_message_count,
     _matches_chat_type,
+    _matches_public_filter,
     compute_entity_identifier,
     get_entity_by_id,
 )
@@ -23,7 +24,12 @@ from src.utils.message_format import _has_any_media, build_message_result
 
 
 async def _process_message_for_results(
-    client, message, chat_entity, chat_type: str, results: list[dict[str, Any]]
+    client,
+    message,
+    chat_entity,
+    chat_type: str,
+    public: bool | None,
+    results: list[dict[str, Any]],
 ) -> bool:
     """Process a single message and add it to results if it matches criteria.
 
@@ -39,6 +45,9 @@ async def _process_message_for_results(
         return False
 
     if not _matches_chat_type(chat_entity, chat_type):
+        return False
+
+    if not _matches_public_filter(chat_entity, public):
         return False
 
     try:
@@ -89,11 +98,13 @@ async def search_messages_impl(
     min_date: str | None = None,  # ISO format date string
     max_date: str | None = None,  # ISO format date string
     chat_type: str | None = None,  # 'private', 'group', 'channel', or None
+    public: bool
+    | None = None,  # True=with username, False=without username, None=no filter
     auto_expand_batches: int = 1,  # Fewer extra batches to reduce RAM
     include_total_count: bool = False,  # Whether to include total count in response
 ) -> dict[str, Any]:
     """
-    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with optional chat type filtering and auto-expansion for filtered results.
+    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with optional chat type and public filtering and auto-expansion for filtered results.
 
     Args:
         query: Search query string (use comma-separated terms for multiple queries). For per-chat, may be empty; for global, must not be empty. Results are merged and deduplicated.
@@ -102,6 +113,7 @@ async def search_messages_impl(
         min_date: Optional minimum date for search results (ISO format string)
         max_date: Optional maximum date for search results (ISO format string)
         chat_type: Optional filter for chat type ('private', 'group', 'channel')
+        public: Optional filter for public discoverability (True=with username, False=without username, None=no filter). Never applies to private chats.
         auto_expand_batches: Maximum additional batches to fetch if not enough filtered results (default 2)
         include_total_count: Whether to include total count of matching messages in response (default False)
 
@@ -123,6 +135,7 @@ async def search_messages_impl(
         "min_date": min_date,
         "max_date": max_date,
         "chat_type": chat_type,
+        "public": public,
         "auto_expand_batches": auto_expand_batches,
         "include_total_count": include_total_count,
         "is_global_search": chat_id is None,
@@ -171,6 +184,7 @@ async def search_messages_impl(
                         (q or ""),
                         limit,
                         chat_type,
+                        public,
                         auto_expand_batches,
                     )
                     for q in per_chat_queries
@@ -200,6 +214,7 @@ async def search_messages_impl(
                         min_datetime,
                         max_datetime,
                         chat_type,
+                        public,
                         auto_expand_batches,
                     )
                     for q in queries
@@ -248,7 +263,7 @@ async def search_messages_impl(
 
 
 async def _search_chat_messages_generator(
-    client, entity, query, limit, chat_type, auto_expand_batches
+    client, entity, query, limit, chat_type, public, auto_expand_batches
 ):
     """Async generator version of chat message search for memory efficiency."""
     batch_count = 0
@@ -269,6 +284,9 @@ async def _search_chat_messages_generator(
 
             # Check if message should be yielded
             if not _matches_chat_type(entity, chat_type):
+                continue
+
+            if not _matches_public_filter(entity, public):
                 continue
 
             has_content = (hasattr(message, "text") and message.text) or _has_any_media(
@@ -304,12 +322,12 @@ async def _search_chat_messages_generator(
 
 
 async def _search_chat_messages(
-    client, entity, query, limit, chat_type, auto_expand_batches
+    client, entity, query, limit, chat_type, public, auto_expand_batches
 ):
     """Backward compatibility wrapper - collects generator results into list."""
     results = []
     async for result in _search_chat_messages_generator(
-        client, entity, query, limit, chat_type, auto_expand_batches
+        client, entity, query, limit, chat_type, public, auto_expand_batches
     ):
         results.append(result)
         if len(results) >= limit:
@@ -318,7 +336,14 @@ async def _search_chat_messages(
 
 
 async def _search_global_messages_generator(
-    client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
+    client,
+    query,
+    limit,
+    min_datetime,
+    max_datetime,
+    chat_type,
+    public,
+    auto_expand_batches,
 ):
     """Async generator version of global message search for memory efficiency."""
     batch_count = 0
@@ -356,6 +381,9 @@ async def _search_global_messages_generator(
                 if not _matches_chat_type(chat, chat_type):
                     continue
 
+                if not _matches_public_filter(chat, public):
+                    continue
+
                 has_content = (
                     hasattr(message, "text") and message.text
                 ) or _has_any_media(message)
@@ -382,12 +410,26 @@ async def _search_global_messages_generator(
 
 
 async def _search_global_messages(
-    client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
+    client,
+    query,
+    limit,
+    min_datetime,
+    max_datetime,
+    chat_type,
+    public,
+    auto_expand_batches,
 ):
     """Backward compatibility wrapper - collects generator results into list."""
     results = []
     async for result in _search_global_messages_generator(
-        client, query, limit, min_datetime, max_datetime, chat_type, auto_expand_batches
+        client,
+        query,
+        limit,
+        min_datetime,
+        max_datetime,
+        chat_type,
+        public,
+        auto_expand_batches,
     ):
         results.append(result)
         if len(results) >= limit:

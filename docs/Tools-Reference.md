@@ -50,9 +50,14 @@ search_messages_globally(
   query: str,                    // Search terms (comma-separated, required)
   limit?: number = 50,          // Max results
   chat_type?: 'private'|'group'|'channel', // Filter by chat type
+  public?: boolean,             // Filter by public discoverability (true=with username, false=without username). Never applies to private chats.
   min_date?: string,            // ISO date format
   max_date?: string             // ISO date format
-)
+) -> {
+  messages: Message[],          // Array of message objects
+  has_more: boolean,            // Whether more results exist
+  total_count?: number,         // Total matching messages (if requested)
+}
 ```
 
 **Examples:**
@@ -71,6 +76,19 @@ search_messages_globally(
   "query": "meeting",
   "chat_type": "private",
   "min_date": "2024-01-01"
+}}
+
+// Search only in public groups and channels
+{"tool": "search_messages_globally", "params": {
+  "query": "announcement",
+  "public": true
+}}
+
+// Search private groups only
+{"tool": "search_messages_globally", "params": {
+  "query": "team",
+  "chat_type": "group",
+  "public": false
 }}
 ```
 
@@ -237,8 +255,11 @@ read_messages(
 find_chats(
   query: str,                  // Search term(s); comma-separated for multi-term
   limit?: number = 20,         // Max results to return
-  chat_type?: 'private'|'group'|'channel' // Optional filter
-)
+  chat_type?: 'private'|'group'|'channel', // Optional filter
+  public?: boolean             // Optional public filter (true=with username, false=without username). Never applies to private chats.
+) -> {
+  chats: Chat[],               // Array of chat/user entities
+}
 ```
 
 **Search capabilities:**
@@ -265,6 +286,12 @@ find_chats(
 
 // Find only channels matching a term
 {"tool": "find_chats", "params": {"query": "news", "chat_type": "channel"}}
+
+// Find only public chats (with usernames)
+{"tool": "find_chats", "params": {"query": "project", "public": true}}
+
+// Find private groups only
+{"tool": "find_chats", "params": {"query": "team", "chat_type": "group", "public": false}}
 ```
 
 ### ℹ️ get_chat_info

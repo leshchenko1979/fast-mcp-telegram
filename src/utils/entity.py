@@ -369,6 +369,35 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
     return normalized_type == chat_type
 
 
+def _matches_public_filter(entity, public: bool | None) -> bool:
+    """Check if entity matches the specified public filter.
+
+    Private chats (User entities) are never filtered by the public parameter.
+
+    Args:
+        entity: Telegram entity (User, Chat, Channel)
+        public: True for entities with usernames (publicly discoverable),
+               False for entities without usernames (invite-only),
+               None for no filtering
+
+    Returns:
+        True if entity matches public filter, False otherwise
+    """
+    # Private chats (User entities) are never filtered by public parameter
+    if get_normalized_chat_type(entity) == "private":
+        return True
+
+    if public is None:
+        return True
+
+    has_username = bool(getattr(entity, "username", None))
+
+    if public:
+        return has_username  # public=True means has username
+
+    return not has_username  # public=False means no username
+
+
 async def build_entity_dict_enriched(entity_or_id) -> dict:
     """
     Build entity dict and include enriched fields by querying Telegram when needed.
