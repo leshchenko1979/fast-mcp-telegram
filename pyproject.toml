@@ -33,6 +33,12 @@ dependencies = [
     "pydantic-settings"
 ]
 
+[project.urls]
+Homepage = "https://github.com/leshchenko1979/fast-mcp-telegram"
+Repository = "https://github.com/leshchenko1979/fast-mcp-telegram"
+Documentation = "https://github.com/leshchenko1979/fast-mcp-telegram#readme"
+Issues = "https://github.com/leshchenko1979/fast-mcp-telegram/issues"
+
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
 fast-mcp-telegram-setup = "src.cli_setup:sync_main"

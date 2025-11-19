@@ -61,7 +61,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
 | `invoke_mtproto` | Direct Telegram API access | Raw MTProto methods, entity resolution, safety guardrails |
 
-**📖 For detailed tool documentation with examples, see [Tools Reference](docs/Tools-Reference.md)**
+**📖 For detailed tool documentation with examples, see [Tools Reference](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Tools-Reference.md)**
 
 ## 🚀 Quick Start
 
@@ -115,7 +115,7 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
-**📝 For detailed installation instructions, see [Installation Guide](docs/Installation.md)**
+**📝 For detailed installation instructions, see [Installation Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Installation.md)**
 
 ## 🏗️ Server Modes
 
@@ -159,17 +159,17 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
       }'
 ```
 
-**📖 For complete MTProto Bridge documentation, see [MTProto Bridge Guide](docs/MTProto-Bridge.md)**
+**📖 For complete MTProto Bridge documentation, see [MTProto Bridge Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/MTProto-Bridge.md)**
 
 ## 📚 Documentation
 
-- **[Installation Guide](docs/Installation.md)** - Detailed installation and configuration
-- **[Deployment Guide](docs/Deployment.md)** - Docker deployment and production setup
-- **[Tools Reference](docs/Tools-Reference.md)** - Complete tools documentation with examples
-- **[Search Guidelines](docs/Search-Guidelines.md)** - Search best practices and limitations
-- **[Operations Guide](docs/Operations.md)** - Health monitoring and troubleshooting
-- **[Project Structure](docs/Project-Structure.md)** - Code organization and architecture
-- **[Contributing Guide](CONTRIBUTING.md)** - Development setup and contribution guidelines
+- **[Installation Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Installation.md)** - Detailed installation and configuration
+- **[Deployment Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Deployment.md)** - Docker deployment and production setup
+- **[Tools Reference](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Tools-Reference.md)** - Complete tools documentation with examples
+- **[Search Guidelines](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Search-Guidelines.md)** - Search best practices and limitations
+- **[Operations Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Operations.md)** - Health monitoring and troubleshooting
+- **[Project Structure](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/Project-Structure.md)** - Code organization and architecture
+- **[Contributing Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/CONTRIBUTING.md)** - Development setup and contribution guidelines
 
 ## 🔒 Security
 
@@ -179,11 +179,11 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 - Dangerous method blocking with opt-in override
 - Session file security and automatic cleanup
 
-**📖 For complete security information, see [SECURITY.md](SECURITY.md)**
+**📖 For complete security information, see [SECURITY.md](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/SECURITY.md)**
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for:
+We welcome contributions! Please see our [Contributing Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/CONTRIBUTING.md) for:
 
 - Development setup instructions
 - Testing guidelines
@@ -192,14 +192,14 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 **Quick Start for Contributors:**
 1. Fork the repository
-2. Read the [Contributing Guide](CONTRIBUTING.md)
+2. Read the [Contributing Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/CONTRIBUTING.md)
 3. Create a feature branch
 4. Make your changes and add tests
 5. Submit a pull request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
