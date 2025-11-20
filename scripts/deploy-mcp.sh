@@ -2,18 +2,39 @@
 
 set -e
 
-RED="$(tput setaf 1)"
-GREEN="$(tput setaf 2)"
-BLUE="$(tput setaf 4)"
-BOLD="$(tput bold)"
-RESET="$(tput sgr0)"
+# Color codes and timing functions
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+
+# SSH multiplexing setup for faster connections
+SSH_OPTS="-o ControlMaster=auto -o ControlPath=~/.ssh/master-%r@%h:%p -o ControlPersist=10m"
 
 start_time=$(date +%s)
+section_start_time=0
+
+start_section() {
+    section_start_time=$(date +%s)
+    echo -e "${BLUE}┌─────────────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${BLUE}│${NC} ${WHITE}$1${NC}"
+    echo -e "${BLUE}└─────────────────────────────────────────────────────────────────┘${NC}"
+}
+
+end_section() {
+    local end_time=$(date +%s)
+    local duration=$((end_time - section_start_time))
+    echo -e "${GREEN}✓ Completed in ${duration}s${NC}"
+    echo ""
+}
 
 log() {
   local color="$1"; shift
   local ts=$(date '+%Y-%m-%d %H:%M:%S')
-  echo -e "${color}${BOLD}[${ts}] $*${RESET}"
+  echo -e "${color}[${ts}] $*${NC}"
 }
 
 require_env() {
@@ -47,37 +68,67 @@ validate() {
 }
 
 deploy() {
-  log "$BLUE" "Preparing remote directory..."
-  ssh "$VDS_USER@$VDS_HOST" "mkdir -p $VDS_PROJECT_PATH"
+  start_section "📁 Preparing Remote Directory"
+  log "$BLUE" "Creating project directory on remote server..."
+  ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "mkdir -p $VDS_PROJECT_PATH"
+  end_section
 
-  log "$BLUE" "Transferring project files..."
+  start_section "📦 File Transfer"
+  log "$BLUE" "Transferring project files using optimized tarball transfer..."
   # Create a temporary file list including tracked and untracked files (excluding deleted and ignored files)
-  (git ls-files && git ls-files --others --exclude-standard) | sort | uniq | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
-  scp -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
+  (git ls-files && git ls-files --others --exclude-standard) | sort | uniq | xargs ls -d 2>/dev/null | tar -czf - --no-xattrs --files-from=- | ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "tar -xzf - -C $VDS_PROJECT_PATH"
+  scp $SSH_OPTS -C .env "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env"
   # Copy .env.example if it exists
   if [ -f .env.example ]; then
-    scp -C .env.example "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env.example"
+    scp $SSH_OPTS -C .env.example "$VDS_USER@$VDS_HOST:$VDS_PROJECT_PATH/.env.example"
   fi
 
   # Clean up macOS resource fork files
-  ssh "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"
+  ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "find $VDS_PROJECT_PATH -name '._*' -delete 2>/dev/null || true"
+  end_section
 
-  log "$BLUE" "Starting MCP server..."
-
-  if ! ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --profile server --env-file .env up --build -d"; then
+  start_section "🐳 Container Deployment"
+  log "$BLUE" "Building and starting MCP server containers..."
+  if ! ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose --profile server --env-file .env up --build -d"; then
     log "$RED" "Failed to start containers"
     exit 1
   fi
+  end_section
 
-  log "$BLUE" "Checking health..."
-  ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && echo '=== Recent logs ===' && docker compose logs --since=1m fast-mcp-telegram | tail -n 20 | cat"
+  start_section "🏥 Health Verification"
+  log "$BLUE" "Waiting for container to be healthy..."
+  ATTEMPTS=0
+  MAX_ATTEMPTS=30
+  until ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps --format json | grep -q '\"Health\":\"healthy\"'" || [ $ATTEMPTS -eq $MAX_ATTEMPTS ]; do
+      ATTEMPTS=$((ATTEMPTS + 1))
+      log "$YELLOW" "Waiting for container to be healthy (attempt ${ATTEMPTS}/${MAX_ATTEMPTS})..."
+      sleep 5
+  done
 
-  log "$BLUE" "Build completed. Removing source files as per VDS deployment rules..."
-  ssh "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && find . -type f ! -name 'docker-compose.yml' ! -name '.env' ! -name '.env.example' -delete && find . -type d -empty -delete"
+  if [ $ATTEMPTS -eq $MAX_ATTEMPTS ]; then
+      log "$RED" "Container failed to become healthy after ${MAX_ATTEMPTS} attempts"
+      exit 1
+  fi
+
+  log "$BLUE" "Checking container status and recent logs..."
+  ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && docker compose ps && echo '=== Recent logs ===' && docker compose logs --since=1m fast-mcp-telegram | tail -n 20 | cat"
+  end_section
+
+  start_section "🧹 Post-Deployment Cleanup"
+  log "$BLUE" "Removing source files as per VDS deployment rules..."
+  ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "cd $VDS_PROJECT_PATH && find . -type f ! -name 'docker-compose.yml' ! -name '.env' ! -name '.env.example' -delete && find . -type d -empty -delete"
+  end_section
 }
 
 validate
 deploy
 
-elapsed=$(( $(date +%s) - start_time ))
-log "$GREEN" "Deployment finished in ${elapsed}s"
+end_time=$(date +%s)
+total_duration=$((end_time - start_time))
+current_time=$(date '+%Y-%m-%d %H:%M:%S')
+
+echo -e "${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│${NC} ${WHITE}🎉 Deployment completed successfully!${NC}"
+echo -e "${CYAN}│${NC} ${GREEN}Total deployment time: ${total_duration}s${NC}"
+echo -e "${CYAN}│${NC} ${YELLOW}Finished at: ${current_time}${NC}"
+echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
