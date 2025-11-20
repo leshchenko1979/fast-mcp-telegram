@@ -362,11 +362,28 @@ async def _get_chat_message_count(chat_id: str) -> int | None:
 
 
 def _matches_chat_type(entity, chat_type: str) -> bool:
-    """Check if entity matches the specified chat type filter."""
+    """Check if entity matches the specified chat type filter.
+
+    Supports comma-separated values (e.g., "private,group").
+    Whitespace is trimmed, case-insensitive, empty values are ignored.
+    """
     if not chat_type:
         return True
+
+    # Split by comma, strip whitespace, filter out empty strings, convert to lowercase
+    chat_types = [
+        ct.strip().lower()
+        for ct in chat_type.split(',')
+        if ct.strip()
+    ]
+
+    # Validate that all specified types are valid
+    valid_types = {"private", "group", "channel"}
+    if not all(ct in valid_types for ct in chat_types):
+        return False
+
     normalized_type = get_normalized_chat_type(entity)
-    return normalized_type == chat_type
+    return normalized_type in chat_types
 
 
 def _matches_public_filter(entity, public: bool | None) -> bool:

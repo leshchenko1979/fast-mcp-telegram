@@ -53,7 +53,7 @@ def register_tools(mcp: FastMCP) -> None:
         limit: int = 50,
         min_date: str | None = None,
         max_date: str | None = None,
-        chat_type: Literal["private", "group", "channel"] | None = None,
+        chat_type: str | None = None,
         public: bool | None = None,
         auto_expand_batches: int = 2,
         include_total_count: bool = False,
@@ -64,20 +64,21 @@ def register_tools(mcp: FastMCP) -> None:
         FEATURES:
         - Multiple queries: "term1, term2, term3"
         - Date filtering: ISO format (min_date="2024-01-01")
-        - Chat type filter: "private", "group", "channel"
+        - Chat type filter: "private", "group", "channel" (comma-separated for multiple)
         - Public filter: True=with username, False=without username (never applies to private chats)
 
         EXAMPLES:
         search_messages_globally(query="deadline", limit=20)  # Global search
         search_messages_globally(query="project, launch", limit=30)  # Multi-term search
         search_messages_globally(query="urgent", chat_type="private")  # Private chats only
-        search_messages_globally(query="news", public=True)  # Public groups and channels only
+        search_messages_globally(query="news", chat_type="channel,group")  # Channels and groups
         search_messages_globally(query="team", chat_type="group", public=False)  # Private groups
+        search_messages_globally(query="urgent", chat_type="private, group")  # Private chats and groups
 
         Args:
             query: Search terms (comma-separated). Required for global search.
             limit: Max results (recommended: ≤50)
-            chat_type: Filter by chat type ("private"/"group"/"channel")
+            chat_type: Filter by chat type ("private"/"group"/"channel", comma-separated for multiple)
             public: Filter by public discoverability (True=with username, False=without username)
             min_date: Min date filter (ISO format: "2024-01-01")
             max_date: Max date filter (ISO format: "2024-12-31")
@@ -259,7 +260,7 @@ def register_tools(mcp: FastMCP) -> None:
     async def find_chats(
         query: str,
         limit: int = 20,
-        chat_type: Literal["private", "group", "channel"] | None = None,
+        chat_type: str | None = None,
         public: bool | None = None,
     ):
         """
@@ -293,13 +294,14 @@ def register_tools(mcp: FastMCP) -> None:
         find_chats("@telegram")      # Find user by username
         find_chats("John Smith")     # Find by name
         find_chats("+1234567890")    # Find by phone
+        find_chats("news", chat_type="channel,group")    # Find channels and groups
         find_chats("news", public=True)    # Find public groups and channels only
         find_chats("team", chat_type="group", public=False)  # Private groups only
 
         Args:
             query: Search term(s). Supports comma-separated multi-queries.
             limit: Max results (default: 20, recommended: ≤50)
-            chat_type: Optional filter ("private"|"group"|"channel")
+            chat_type: Optional filter ("private"|"group"|"channel", comma-separated for multiple)
             public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats.
         """
         return await find_chats_impl(query, limit, chat_type, public)

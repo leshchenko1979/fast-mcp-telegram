@@ -109,7 +109,7 @@ All message-returning tools (search, read, send, edit) return messages in a cons
 search_messages_globally(
   query: str,                    // Search terms (comma-separated, required)
   limit?: number = 50,          // Max results
-  chat_type?: 'private'|'group'|'channel', // Filter by chat type
+  chat_type?: string, // Filter by chat type ('private','group','channel', comma-separated for multiple)
   public?: boolean,             // Filter by public discoverability (true=with username, false=without username). Never applies to private chats.
   min_date?: string,            // ISO date format
   max_date?: string             // ISO date format
@@ -149,6 +149,12 @@ search_messages_globally(
   "query": "team",
   "chat_type": "group",
   "public": false
+}}
+
+// Search in multiple chat types
+{"tool": "search_messages_globally", "params": {
+  "query": "urgent",
+  "chat_type": "private,group"
 }}
 ```
 
@@ -315,7 +321,7 @@ read_messages(
 find_chats(
   query: str,                  // Search term(s); comma-separated for multi-term
   limit?: number = 20,         // Max results to return
-  chat_type?: 'private'|'group'|'channel', // Optional filter
+  chat_type?: string, // Optional filter ('private','group','channel', comma-separated for multiple)
   public?: boolean             // Optional public filter (true=with username, false=without username). Never applies to private chats.
 ) -> {
   chats: Chat[],               // Array of chat/user entities
@@ -346,6 +352,9 @@ find_chats(
 
 // Find only channels matching a term
 {"tool": "find_chats", "params": {"query": "news", "chat_type": "channel"}}
+
+// Find channels and groups
+{"tool": "find_chats", "params": {"query": "news", "chat_type": "channel,group"}}
 
 // Find only public chats (with usernames)
 {"tool": "find_chats", "params": {"query": "project", "public": true}}
