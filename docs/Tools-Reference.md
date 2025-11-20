@@ -2,7 +2,16 @@
 
 ## Overview
 
-This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. All tools support uniform entity schemas and consistent error handling.
+This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. All tools support uniform entity schemas, consistent error handling, and MCP ToolAnnotations for better AI agent decision-making.
+
+## ToolAnnotations for AI Guidance
+
+All tools include MCP ToolAnnotations to help AI agents make informed decisions:
+
+- **`openWorldHint=True`**: All tools interact with external Telegram APIs
+- **`readOnlyHint=True`**: Applied to search and informational tools (safe to retry)
+- **`destructiveHint=True`**: Applied to messaging and state-changing tools (use cautiously)
+- **`idempotentHint=True`**: Applied to safely repeatable operations (can retry safely)
 
 ## AI-Optimized Parameter Constraints
 
@@ -39,6 +48,57 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
 ```
 
 `find_chats` returns a list of these entities. Message search results include a `chat` field in the same format.
+
+## Uniform Message Schema
+
+All message-returning tools (search, read, send, edit) return messages in a consistent schema via `build_message_result`:
+
+```json
+{
+  "id": 12345,                    // Message ID (unique within chat)
+  "date": "2024-01-15T10:30:00",  // ISO format timestamp
+  "chat": {                       // Chat entity (same uniform schema as above)
+    "id": 133526395,
+    "title": "John Doe",
+    "type": "private",
+    "username": "johndoe"
+  },
+  "text": "Hello world!",          // Message content (text/caption)
+  "link": "https://t.me/johndoe/12345",  // Direct Telegram link (when available)
+  "sender": {                     // Sender entity (same uniform schema, optional)
+    "id": 133526395,
+    "title": "John Doe",
+    "type": "private",
+    "username": "johndoe"
+  },
+  "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
+  "media": {                      // Media attachment info (optional, lightweight)
+    "mime_type": "image/jpeg",    // File MIME type
+    "filename": "photo.jpg",      // Original filename (if available)
+    "approx_size_bytes": 2048576  // Approximate file size
+  },
+  "forwarded_from": {             // Forwarded message info (optional)
+    "id": 999999999,
+    "title": "Original Channel",
+    "type": "channel",
+    "username": "original_channel"
+  }
+}
+```
+
+**Message Content Priority:**
+1. `text` - Primary message content
+2. `message` - Alternative text field
+3. `caption` - Media caption (if no text)
+
+**Media Attachments:**
+- Lightweight metadata only (not actual files)
+- Includes MIME type, filename, and approximate size
+- Covers: photos, documents, videos, audio, voice messages, etc.
+
+**Forwarded Messages:**
+- `forwarded_from` contains original sender info
+- Uses same entity schema as chat/sender fields
 
 ## Tools Reference
 
