@@ -22,6 +22,31 @@
 - **Bearer Token Reserved Name Protection**: Added validation to prevent reserved session names like "telegram" from being used as bearer tokens, preventing session file conflicts and maintaining isolation between HTTP_AUTH and STDIO modes. Implemented case-insensitive validation with comprehensive test coverage and security logging.
 - Extended `/health` endpoint with connection failure statistics and session health monitoring capabilities
 
+### 2025-11-20
+- **Message Schema Documentation**: Added comprehensive uniform message schema documentation to Tools-Reference.md, detailing the consistent structure returned by all message-returning tools (search, read, send, edit) with all fields, types, and optional properties
+- **ToolAnnotations Implementation**: Added comprehensive ToolAnnotations metadata to all 9 MCP tools for improved AI agent decision-making and MCP compliance
+- **openWorldHint=True**: Applied to all tools since they interact with external Telegram API
+- **readOnlyHint=True**: Applied to 5 read-only operations (search_messages_globally, search_messages_in_chat, read_messages, find_chats, get_chat_info)
+- **destructiveHint=True**: Applied to 4 state-changing operations (send_message, edit_message, send_message_to_phone, invoke_mtproto)
+- **idempotentHint=True**: Applied to safely repeatable operations (all read-only tools plus edit_message)
+- **MCP Compliance**: Full adherence to MCP specification ToolAnnotations schema for better tool discoverability
+- **AI Agent Optimization**: Clients can now make informed decisions about tool safety, retry behavior, and external dependencies
+- **Backward Compatibility**: No functional changes to tool behavior, only metadata enhancements
+- **Testing Validation**: Verified tools register successfully and maintain existing functionality
+
+### 2025-11-19
+- **Public Visibility Filtering Implementation**: Added `public: bool | None` parameter to `search_messages_globally` and `find_chats` tools with architectural rule that private chats should never be filtered by visibility
+- **Boolean Parameter Design**: `public=True` finds entities with usernames (publicly discoverable), `public=False` finds entities without usernames (invite-only), `public=None` disables filtering
+- **Private Chat Protection**: Private chats (direct messages with users) are automatically excluded from public filtering - they always appear regardless of the `public` parameter value
+- **Core Filtering Logic**: Updated `_matches_public_filter()` in `entity.py` to return `True` for all private chats regardless of username presence
+- **Search Implementation**: Modified `search.py` to use boolean public filtering in all search generators and helper functions
+- **Contact Implementation**: Updated `contacts.py` to apply public filtering to contact searches while protecting private chats
+- **Tool Registration**: Added `public` parameter to both search tools with clear documentation and examples
+- **Documentation Updates**: Updated TypeScript signatures, examples, and descriptions to reflect boolean parameter and private chat protection
+- **Version Bump**: Incremented version from 0.8.4 to 0.9.0 to reflect the major architectural change
+- **Testing Validation**: Verified that private chats are never filtered while groups/channels are filtered normally
+- **Live Deployment**: Successfully deployed and tested the new functionality in production VDS environment
+
 ### 2025-10-11
 - Implemented unified session configuration system to eliminate session file mismatch between cli_setup and server
 - Added `session_name` field to ServerConfig with default "telegram" and `session_path` property

@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 from src.server_components import auth as server_auth
 from src.server_components import bot_restrictions
@@ -41,7 +42,11 @@ def mcp_tool_with_restrictions(operation_name: str):
 
 
 def register_tools(mcp: FastMCP) -> None:
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("search_messages_globally")
     async def search_messages_globally(
         query: str,
@@ -91,7 +96,11 @@ def register_tools(mcp: FastMCP) -> None:
             include_total_count=include_total_count,
         )
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("search_messages_in_chat")
     async def search_messages_in_chat(
         chat_id: str,
@@ -136,7 +145,7 @@ def register_tools(mcp: FastMCP) -> None:
             include_total_count=include_total_count,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     @mcp_tool_with_restrictions("send_message")
     async def send_message(
         chat_id: str,
@@ -178,7 +187,11 @@ def register_tools(mcp: FastMCP) -> None:
             chat_id, message, reply_to_msg_id, parse_mode, files
         )
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            destructiveHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("edit_message")
     async def edit_message(
         chat_id: str,
@@ -206,7 +219,11 @@ def register_tools(mcp: FastMCP) -> None:
         """
         return await edit_message_impl(chat_id, message_id, message, parse_mode)
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("read_messages")
     async def read_messages(chat_id: str, message_ids: list[int]):
         """
@@ -233,7 +250,11 @@ def register_tools(mcp: FastMCP) -> None:
         """
         return await read_messages_by_ids(chat_id, message_ids)
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("find_chats")
     async def find_chats(
         query: str,
@@ -283,7 +304,11 @@ def register_tools(mcp: FastMCP) -> None:
         """
         return await find_chats_impl(query, limit, chat_type, public)
 
-    @mcp.tool()
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
     @mcp_tool_with_restrictions("get_chat_info")
     async def get_chat_info(chat_id: str):
         """
@@ -309,7 +334,7 @@ def register_tools(mcp: FastMCP) -> None:
         """
         return await get_chat_info_impl(chat_id)
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     @mcp_tool_with_restrictions("send_message_to_phone")
     async def send_message_to_phone(
         phone_number: str,
@@ -376,7 +401,7 @@ def register_tools(mcp: FastMCP) -> None:
             files=files,
         )
 
-    @mcp.tool()
+    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     @server_errors.with_error_handling("invoke_mtproto")
     @server_auth.with_auth_context
     async def invoke_mtproto(

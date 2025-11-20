@@ -111,9 +111,9 @@ fast-mcp-telegram/
   - Entity resolution and safety guardrails
   - Case-insensitive method resolution
 - **`src/server_components/tools_register.py`**: Tool registration
-  - FastMCP tool registration
+  - FastMCP tool registration with MCP ToolAnnotations
   - Authentication decorator application
-  - Tool discovery and registration
+  - Tool discovery and registration with behavioral hints
 - **`src/server_components/web_setup.py`**: Web setup interface
   - HTMX-based authentication and reauthorization flow
   - Token-based reauthorization with security validation

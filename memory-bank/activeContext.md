@@ -1,7 +1,7 @@
 ## Current Work Focus
-**Primary**: Connection storm resolution and stability improvements (2025-10-17)
+**Primary**: ToolAnnotations implementation for MCP compliance (2025-11-20)
 
-**Current Status**: Successfully resolved critical connection storm and implemented comprehensive connection stability improvements:
+**Current Status**: Successfully implemented public visibility filtering with the architectural rule that private chats should never be filtered by visibility. This is a major architectural change affecting all search operations.
 - **Connection Storm Resolved**: Eliminated 1,300+ reconnections per minute that was consuming 44.70% CPU and 95.31% memory
 - **Root Cause Identified**: "Wrong session ID" error from Telegram servers due to corrupted session file (656KB vs normal 28KB)
 - **Session Restoration**: Successfully restored original bearer token `f9NdKOLR...` with fresh, clean session data
@@ -246,6 +246,42 @@
 - Session existence and authorization status validation
 - Temporary file cleanup and TTL-based session management
 **Impact**: Improved user experience for session management while maintaining security-first approach
+
+### Public Visibility Filtering Implementation (2025-11-19)
+**Decision**: Added `public: bool | None` parameter to search tools with architectural rule that private chats should never be filtered by visibility
+**Problem**: Users could accidentally exclude private chats when using visibility filtering, leading to confusing behavior where direct message contacts disappeared from results
+**Solution Implemented**:
+- **Boolean Parameter**: `public=True` finds entities with usernames (discoverable), `public=False` finds entities without usernames (invite-only)
+- **Private Chat Protection**: Private chats (User entities) are automatically excluded from public filtering - they always appear regardless of the `public` parameter value
+- **User Experience**: No more confusing scenarios where private chats disappear from search results
+- **Clear Documentation**: Updated all docs to clarify that private chats are never filtered by visibility
+- **Warning System Removed**: Eliminated warning system since the behavior is now inherently correct
+**Architectural Impact**:
+- **Filtering Logic**: `_matches_public_filter()` returns `True` for all private chats regardless of username presence
+- **Consistent Behavior**: Groups and channels are filtered normally, private chats always included
+- **User Expectations**: Direct message contacts remain accessible regardless of filter settings
+**Impact**: Enhanced search usability with intuitive filtering that protects user's direct communication access
+
+### ToolAnnotations Implementation for MCP Compliance (2025-11-20)
+**Decision**: Added comprehensive ToolAnnotations metadata to all MCP tools for improved AI agent decision-making and tool discoverability
+**Problem**: MCP tools lacked behavioral hints that help AI clients understand tool safety, repeatability, and external dependencies
+**Solution Implemented**:
+- **ToolAnnotations Import**: Added `from mcp.types import ToolAnnotations` to enable structured metadata
+- **openWorldHint=True**: Applied to all 9 tools since they interact with external Telegram API
+- **readOnlyHint=True**: Applied to 5 read-only operations (search_messages_globally, search_messages_in_chat, read_messages, find_chats, get_chat_info)
+- **destructiveHint=True**: Applied to 4 state-changing operations (send_message, edit_message, send_message_to_phone, invoke_mtproto)
+- **idempotentHint=True**: Applied to safely repeatable operations (all read-only tools plus edit_message)
+**Implementation Details**:
+- **Search Tools**: `readOnlyHint=True, idempotentHint=True, openWorldHint=True` for both global and chat-specific searches
+- **Messaging Tools**: `destructiveHint=True, openWorldHint=True` for send operations, plus `idempotentHint=True` for edit operations
+- **Contact/Chat Tools**: `readOnlyHint=True, idempotentHint=True, openWorldHint=True` for informational queries
+- **MTProto Tool**: `destructiveHint=True, openWorldHint=True` due to potential for dangerous operations
+**Benefits**:
+- **Better AI Decisions**: Clients can avoid unsafe tool usage and prefer safe retry operations
+- **Tool Discovery**: Annotations enable filtering/grouping by behavior type
+- **Error Handling**: Read-only tools can be safely retried, destructive operations avoided
+- **MCP Compliance**: Full adherence to MCP specification ToolAnnotations schema
+**Impact**: Enhanced AI agent tool selection and safety while maintaining full backward compatibility
 
 ## Important Patterns and Preferences
 

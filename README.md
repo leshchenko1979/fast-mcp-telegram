@@ -44,7 +44,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas and profile enrichment |
 | ⚡ **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
 | 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling |
-| 🎯 **AI-Optimized** | Literal parameter constraints and LLM-friendly API design |
+| 🎯 **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
 | 🌍 **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
 
 ## 🛠️ Available Tools

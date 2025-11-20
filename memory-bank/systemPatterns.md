@@ -67,7 +67,15 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Entity Resolution**: Automatic chat ID resolution from various formats
 - **Deduplication**: Results merged and deduplicated based on message identity
 
-### 6. Code Quality Patterns (2025-10-02)
+### 6. Public Visibility Filtering Architecture (2025-11-19)
+- **Boolean Parameter Design**: `public: bool | None` where `True`=discoverable (has username), `False`=invite-only (no username), `None`=no filtering
+- **Private Chat Protection**: Private chats (User entities) are never filtered by the `public` parameter - they always appear regardless of username presence
+- **Selective Filtering**: Groups and channels are filtered normally by username presence, but private chats bypass this filtering entirely
+- **User Experience**: Prevents confusing scenarios where direct message contacts disappear from search results
+- **Architectural Rule**: "Private chats should never be filtered by visibility" - implemented in `_matches_public_filter()` function
+- **Cross-Tool Consistency**: Same filtering logic applied to both `search_messages_globally` and `find_chats` tools
+
+### 7. Code Quality Patterns (2025-10-02)
 - **DRY Principle**: Eliminated code duplication across files and functions
 - **Single Responsibility**: Each function has one clear purpose
 - **Centralized Constants**: Shared constants in single locations
@@ -76,7 +84,7 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Section Organization**: Clear section headers and logical grouping
 - **Helper Function Extraction**: Focused helper functions for specific tasks
 
-### 6.1. Performance Optimization Patterns (2025-10-02)
+### 7.1. Performance Optimization Patterns (2025-10-02)
 - **functools.cache Usage**: Applied to pure functions for automatic caching and memory management
 - **Telethon Function Mapping**: Cached module introspection for case-insensitive method resolution
 - **Entity Processing**: Cached entity type normalization and dictionary building for repeated operations
@@ -84,37 +92,37 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Thread Safety**: functools.cache provides built-in thread safety for concurrent operations
 - **Memory Management**: Automatic cache eviction and memory management without manual intervention
 
-### Uniform Entity Schema (2025-09-17)
+### 8. Uniform Entity Schema (2025-09-17)
 - All tools format chat/user data via `utils.entity.build_entity_dict`
 - Schema: `id`, `title`, `type` (private|group|channel), `username`, `first_name`, `last_name`
 - Counts: `members_count` for groups, `subscribers_count` for channels (opportunistic in builder; guaranteed via async helper)
 - `title` fallback: explicit title → full name → `@username`
 - Quick lookup tools (e.g., `find_chats`) return lightweight schema; detailed info via `get_chat_info` uses async helper to enrich with counts and `about`/`bio`
 
-### 5. Multi-Query Implementation
+### 9. Multi-Query Implementation
 - **Input Format**: Single string with comma-separated terms (e.g., "deadline, due date")
 - **Parallel Execution**: `asyncio.gather()` for simultaneous query processing
 - **Deduplication Strategy**: `(chat.id, message.id)` tuple-based deduplication
 - **Pagination**: Applied after all queries complete and results are merged
 
-### 6. Tool Registration Pattern
+### 10. Tool Registration Pattern
 - **FastMCP Integration**: Uses FastMCP framework for MCP compliance
 - **Module Registration**: Tools registered via `src/server_components/tools_register.register_tools(mcp)`
 - **Async Operations**: All Telegram operations are async for performance
 - **Error Handling**: All tools return structured error responses instead of raising exceptions
 - **Literal Parameter Constraints**: Uses `typing.Literal` to constrain parameter values and guide LLM choices
 
-### 7. Data Flow Patterns
+### 11. Data Flow Patterns
 ```
 User Request → MCP Tool → Search Function → Telegram API → Results → Response
 ```
 
-### 8. Authentication Flow
+### 12. Authentication Flow
 ```
 HTTP Request → extract_bearer_token() → @with_auth_context → set_request_token() → _get_client_by_token() → Session Cache/New Session → Tool Execution
 ```
 
-### 9. Multi-Query Search Flow
+### 13. Multi-Query Search Flow
 ```
 Input: "term1, term2, term3"
      ↓
@@ -131,7 +139,7 @@ Apply limit (no pagination)
 Return unified result set
 ```
 
-### 10. Session Management Architecture (Updated 2025-10-11)
+### 14. Session Management Architecture (Updated 2025-10-11)
 - **Unified Configuration**: ServerConfig and SetupConfig share session configuration (session_name, session_directory)
 - **Session Name Control**: `session_name` field configurable via CLI/env/dotenv (default: "telegram")
 - **Session Path Property**: `session_path = session_directory / session_name` (computed property)
@@ -150,7 +158,7 @@ Return unified result set
 - **Permission Auto-Fix**: Automatic chown/chmod for container user access (1000:1000)
 - **Backup/Restore**: Comprehensive session persistence across deployments
 
-### 11. Professional Testing Infrastructure
+### 15. Professional Testing Infrastructure
 - **Test Framework**: Modern pytest-based testing with comprehensive async support
 - **Test Organization**: Scalable structure with logical separation of test modules by functionality
 - **Shared Fixtures**: Centralized test setup and reusable fixtures for consistent testing
@@ -159,7 +167,7 @@ Return unified result set
 - **Mock Infrastructure**: Comprehensive mocking for external dependencies and APIs
 - **Async Testing**: Full async/await support for modern Python concurrency patterns
 
-### 12. Deployment & Transport
+### 16. Deployment & Transport
 - Transport: Streamable HTTP with SSE mounted at `/mcp`
 - Ingress: Traefik `websecure` with Let's Encrypt, configurable router domain
 - CORS: Permissive during development for Cursor compatibility
@@ -168,7 +176,7 @@ Return unified result set
 - Web Setup: HTMX/Jinja2 templates under `src/templates`, routes: `/setup`, `/setup/phone`, `/setup/verify`, `/setup/2fa`, `/setup/generate`, `/download-config/{token}`
 - Setup Session Cleanup: Opportunistic TTL-based cleanup (default 900s) for temporary `setup-*.session` files
 
-### 13. Web Setup Interface Architecture
+### 17. Web Setup Interface Architecture
 - **HTMX Integration**: Dynamic form updates with `hx-target="#step"` for seamless UX
 - **Template Structure**: Base template with fragment-based form components
 - **Visual Hierarchy**: Larger interactive elements (1.1rem inputs, 1rem buttons) with smaller instructional text (0.85rem)
@@ -176,7 +184,7 @@ Return unified result set
 - **Error Handling**: Context-specific error messages with retry capability
 - **Session Management**: TTL-based setup session cleanup with automatic resource management
 
-### 14. Logging Strategy
+### 18. Logging Strategy
 - Loguru: File rotation + console with structured logging
 - Bridged Loggers: `uvicorn`, `uvicorn.access`, and `telethon` redirected into Loguru at DEBUG
 - Modular Architecture: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management
@@ -184,7 +192,7 @@ Return unified result set
 - Request ID Tracking: Enhanced logging with optional request ID support for operation correlation
 - Traceability: Detailed RPC traces enabled for production diagnosis with flattened error structures
 
-### 15. Deployment Automation Patterns
+### 19. Deployment Automation Patterns
 - **Session Backup**: Automatic backup of `~/.config/fast-mcp-telegram/*` before deployment
 - **Permission Management**: Auto-fix ownership (1000:1000) and permissions (664/775)
 - **Cross-Platform Cleanup**: Automatic removal of macOS resource fork files (._*)
@@ -192,7 +200,7 @@ Return unified result set
 - **Local-Remote Sync**: Bidirectional synchronization of session files
 - **Error Recovery**: Robust error handling with detailed logging and counts
 
-### 16. VDS Testing and Diagnosis Methodology
+### 20. VDS Testing and Diagnosis Methodology
 - **Environment Access**: SSH connection using credentials from `.env` file (`VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`)
 - **Deployment Process**: Automated deployment via `./scripts/deploy-mcp.sh` with session management and health checks
 - **Container Management**: Docker Compose commands for status monitoring, log analysis, and health verification
