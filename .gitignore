@@ -56,10 +56,6 @@ coverage.xml
 # Environment variables
 .env
 
-# Telegram session files
-*.session
-*.session-journal
-
 # MCP specific
 .cursor/mcp.json
 .cursorrules
@@ -67,12 +63,17 @@ coverage.xml
 # OS specific
 .DS_Store
 Thumbs.db
+._*
+
 # Session files (but keep directory structure)
 sessions/
 !sessions/.gitkeep
-# macOS resource fork files
-._*
+*.session
+*.session-journal
 
 # MCP Registry
 .mcpregistry_github_token
 .mcpregistry_registry_token
+
+# Miscellaneous
+.misc/
