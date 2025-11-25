@@ -161,7 +161,7 @@ curl -X POST "https://your-domain.com/mtproto-api/contacts.GetContacts" \
 When `resolve: true` is set, the bridge automatically resolves:
 
 - **Usernames**: `@username` → proper input entity
-- **Numeric IDs**: `123456789` → proper input entity  
+- **Numeric IDs**: `123456789` → proper input entity
 - **Channel IDs**: `-1001234567890` → proper input entity
 - **Phone numbers**: `+1234567890` → proper input entity
 - **Special identifiers**: `me` → `inputPeerSelf`
@@ -374,7 +374,7 @@ def call_mtproto(method, params, token, resolve=True):
         "params": params,
         "resolve": resolve
     }
-    
+
     response = requests.post(url, headers=headers, json=data)
     return response.json()
 
@@ -399,7 +399,7 @@ async function callMTProto(method, params, token, resolve = true) {
             resolve
         })
     });
-    
+
     return await response.json();
 }
 
@@ -468,7 +468,7 @@ To use multiple bots:
 python -m src.cli_setup --api-id <id> --api-hash <hash> --bot-token <bot1_token>
 # Bearer Token: token1_abc123...
 
-# Bot 2  
+# Bot 2
 python -m src.cli_setup --api-id <id> --api-hash <hash> --bot-token <bot2_token>
 # Bearer Token: token2_def456...
 

@@ -46,12 +46,12 @@ def _construct_tl_object_from_dict(data: Any) -> Any:
     from telethon.tl import types
 
     # Case-insensitive lookup: build mapping if not already built
-    if not hasattr(_construct_tl_object_from_dict, '_name_mapping'):
+    if not hasattr(_construct_tl_object_from_dict, "_name_mapping"):
         _construct_tl_object_from_dict._name_mapping = {}
         for name in dir(types):
             cls = getattr(types, name)
             # Only include TL object classes (they have CONSTRUCTOR_ID)
-            if hasattr(cls, 'CONSTRUCTOR_ID'):
+            if hasattr(cls, "CONSTRUCTOR_ID"):
                 _construct_tl_object_from_dict._name_mapping[name.lower()] = name
 
     # Try case-insensitive lookup first
