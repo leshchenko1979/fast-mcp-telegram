@@ -22,17 +22,16 @@
 - **Bearer Token Reserved Name Protection**: Added validation to prevent reserved session names like "telegram" from being used as bearer tokens, preventing session file conflicts and maintaining isolation between HTTP_AUTH and STDIO modes. Implemented case-insensitive validation with comprehensive test coverage and security logging.
 - Extended `/health` endpoint with connection failure statistics and session health monitoring capabilities
 
-### 2025-11-20
-- **Message Schema Documentation**: Added comprehensive uniform message schema documentation to Tools-Reference.md, detailing the consistent structure returned by all message-returning tools (search, read, send, edit) with all fields, types, and optional properties
-- **ToolAnnotations Implementation**: Added comprehensive ToolAnnotations metadata to all 9 MCP tools for improved AI agent decision-making and MCP compliance
-- **openWorldHint=True**: Applied to all tools since they interact with external Telegram API
-- **readOnlyHint=True**: Applied to 5 read-only operations (search_messages_globally, search_messages_in_chat, read_messages, find_chats, get_chat_info)
-- **destructiveHint=True**: Applied to 4 state-changing operations (send_message, edit_message, send_message_to_phone, invoke_mtproto)
-- **idempotentHint=True**: Applied to safely repeatable operations (all read-only tools plus edit_message)
-- **MCP Compliance**: Full adherence to MCP specification ToolAnnotations schema for better tool discoverability
-- **AI Agent Optimization**: Clients can now make informed decisions about tool safety, retry behavior, and external dependencies
-- **Backward Compatibility**: No functional changes to tool behavior, only metadata enhancements
-- **Testing Validation**: Verified tools register successfully and maintain existing functionality
+### 2025-11-25
+- **Enhanced invoke_mtproto with Automatic TL Object Construction**: Extended `invoke_mtproto` to automatically construct Telethon TL objects from JSON dictionaries, enabling generic MTProto method invocation
+- **Recursive TL Construction**: Added `_construct_tl_object_from_dict()` function that recursively builds TL objects from dictionaries with `"_"` keys
+- **Parameter Processing Pipeline**: Enhanced `_resolve_params()` to construct TL objects before entity resolution using `inspect.signature()` for constructor parameter matching
+- **Generic MTProto Support**: `invoke_mtproto` now works with any Telegram API method regardless of parameter complexity (todo lists, polls, complex media, etc.)
+- **Automatic Type Mapping**: Maps class names to Telethon TL types using `telethon.tl.types` introspection with validation and error handling
+- **Nested Object Support**: Handles deeply nested structures like `InputMediaTodo` → `TodoList` → `TodoItem[]` automatically
+- **Production Testing**: Successfully created a todo list in saved messages using the enhanced `invoke_mtproto` with automatic TL object construction
+- **No Codebase Modification Required**: Users can now pass complex JSON structures without requiring manual TL object creation in the codebase
+- **Backward Compatibility**: Existing simple parameters continue to work unchanged while complex objects are now supported
 
 ### 2025-11-19
 - **Public Visibility Filtering Implementation**: Added `public: bool | None` parameter to `search_messages_globally` and `find_chats` tools with architectural rule that private chats should never be filtered by visibility

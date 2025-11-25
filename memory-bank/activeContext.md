@@ -1,5 +1,5 @@
 ## Current Work Focus
-**Primary**: ToolAnnotations implementation for MCP compliance (2025-11-20)
+**Primary**: Enhanced invoke_mtproto with automatic TL object construction (2025-11-25)
 
 **Current Status**: Successfully implemented public visibility filtering with the architectural rule that private chats should never be filtered by visibility. This is a major architectural change affecting all search operations.
 - **Connection Storm Resolved**: Eliminated 1,300+ reconnections per minute that was consuming 44.70% CPU and 95.31% memory
@@ -262,26 +262,46 @@
 - **User Expectations**: Direct message contacts remain accessible regardless of filter settings
 **Impact**: Enhanced search usability with intuitive filtering that protects user's direct communication access
 
-### ToolAnnotations Implementation for MCP Compliance (2025-11-20)
-**Decision**: Added comprehensive ToolAnnotations metadata to all MCP tools for improved AI agent decision-making and tool discoverability
-**Problem**: MCP tools lacked behavioral hints that help AI clients understand tool safety, repeatability, and external dependencies
+### Enhanced invoke_mtproto with Automatic TL Object Construction (2025-11-25)
+**Decision**: Extended `invoke_mtproto` to automatically construct Telethon TL objects from JSON dictionaries, enabling generic MTProto method invocation without manual object creation
+**Problem**: `invoke_mtproto` failed on complex media objects like todo lists because it couldn't convert JSON dictionaries to proper TL objects required by Telethon's method constructors
 **Solution Implemented**:
-- **ToolAnnotations Import**: Added `from mcp.types import ToolAnnotations` to enable structured metadata
-- **openWorldHint=True**: Applied to all 9 tools since they interact with external Telegram API
-- **readOnlyHint=True**: Applied to 5 read-only operations (search_messages_globally, search_messages_in_chat, read_messages, find_chats, get_chat_info)
-- **destructiveHint=True**: Applied to 4 state-changing operations (send_message, edit_message, send_message_to_phone, invoke_mtproto)
-- **idempotentHint=True**: Applied to safely repeatable operations (all read-only tools plus edit_message)
+- **Recursive TL Construction**: Added `_construct_tl_object_from_dict()` function that recursively builds TL objects from dictionaries with `"_"` keys
+- **Parameter Processing Pipeline**: Enhanced `_resolve_params()` to construct TL objects before entity resolution
+- **Automatic Type Mapping**: Maps class names to Telethon TL types using `telethon.tl.types` introspection
+- **Nested Object Support**: Handles deeply nested structures like `InputMediaTodo` containing `TodoList` with `TodoItem` arrays
+- **Constructor Signature Inspection**: Uses `inspect.signature()` to match dictionary keys to constructor parameters
 **Implementation Details**:
-- **Search Tools**: `readOnlyHint=True, idempotentHint=True, openWorldHint=True` for both global and chat-specific searches
-- **Messaging Tools**: `destructiveHint=True, openWorldHint=True` for send operations, plus `idempotentHint=True` for edit operations
-- **Contact/Chat Tools**: `readOnlyHint=True, idempotentHint=True, openWorldHint=True` for informational queries
-- **MTProto Tool**: `destructiveHint=True, openWorldHint=True` due to potential for dangerous operations
+- **TL Object Recognition**: Identifies objects by `"_"` key containing class name (e.g., `{"_": "InputMediaTodo", ...}`)
+- **Recursive Processing**: Handles nested objects and lists automatically
+- **Type Safety**: Validates constructor signatures and parameter types
+- **Error Handling**: Graceful fallback with warnings for unrecognized types
+- **Performance**: Efficient construction without external API calls
 **Benefits**:
-- **Better AI Decisions**: Clients can avoid unsafe tool usage and prefer safe retry operations
-- **Tool Discovery**: Annotations enable filtering/grouping by behavior type
-- **Error Handling**: Read-only tools can be safely retried, destructive operations avoided
-- **MCP Compliance**: Full adherence to MCP specification ToolAnnotations schema
-**Impact**: Enhanced AI agent tool selection and safety while maintaining full backward compatibility
+- **Generic MTProto Support**: `invoke_mtproto` now works with any Telegram API method regardless of parameter complexity
+- **No Manual Construction**: Users can pass JSON dictionaries instead of manually creating TL objects
+- **Backward Compatibility**: Existing simple parameters continue to work unchanged
+- **Type Safety**: Automatic validation ensures correct object construction
+**Impact**: `invoke_mtproto` can now create todo lists, polls, complex media, and any other MTProto method without requiring codebase modifications for each new object type
+
+### Multiple Chat Type Filtering Support (2025-11-20)
+**Decision**: Extended `chat_type` parameter to accept comma-separated values for flexible multi-type filtering
+**Problem**: Users could only filter by single chat types, requiring multiple API calls for complex searches
+**Solution Implemented**:
+- **Comma-Separated Input**: `chat_type="private,group"` or `chat_type="channel, group"` now supported
+- **Flexible Parsing**: Case-insensitive, whitespace-tolerant parsing with empty value filtering
+- **Validation**: Strict validation ensures only valid chat types ("private", "group", "channel") are accepted
+- **Backward Compatibility**: Single values like `"private"` continue to work unchanged
+**Implementation Details**:
+- **Core Logic**: Modified `_matches_chat_type()` function in `entity.py` to split and validate comma-separated input
+- **Type Annotations**: Changed from `Literal["private", "group", "channel"] | None` to `str | None`
+- **Documentation**: Updated all tool descriptions, TypeScript signatures, and JSON examples
+**Validation Rules**:
+- Case-insensitive matching ("Private,GROUP" works)
+- Whitespace trimmed ("private, group" works)
+- Empty values ignored ("private,,group" becomes ["private", "group"])
+- Invalid types rejected ("private,invalid" returns no matches)
+**Impact**: Enables complex filtering with single API calls while maintaining full backward compatibility
 
 ## Important Patterns and Preferences
 

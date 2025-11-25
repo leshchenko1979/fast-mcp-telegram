@@ -60,6 +60,15 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 - **Parameter Sanitization**: Security validation and cleanup of all parameters
 - **Single Source of Truth**: All MTProto logic centralized in one function
 
+### 4.1. Automatic TL Object Construction (2025-11-25)
+- **Recursive TL Construction**: `_construct_tl_object_from_dict()` function builds TL objects from JSON dictionaries with `"_"` keys
+- **Constructor Signature Inspection**: Uses `inspect.signature()` to match dictionary parameters to TL object constructors
+- **Nested Object Support**: Handles complex nested structures like `InputMediaTodo` containing `TodoList` with `TodoItem` arrays
+- **Type Mapping**: Automatic mapping of class names to `telethon.tl.types` classes with validation
+- **Parameter Processing Pipeline**: TL construction occurs before entity resolution in `_resolve_params()`
+- **Generic Method Support**: `invoke_mtproto` now works with any MTProto method regardless of parameter complexity
+- **Error Handling**: Graceful fallback with warnings for unrecognized or invalid TL types
+
 ### 5. Search Architecture
 - **Dual Search Modes**: Global search vs per-chat search
 - **Multi-Query Support**: Comma-separated terms with parallel execution

@@ -1,4 +1,5 @@
 import base64
+import inspect
 import json
 from importlib import import_module
 from typing import Any
@@ -27,6 +28,54 @@ DANGEROUS_METHODS = {
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
+
+
+def _construct_tl_object_from_dict(data: Any) -> Any:
+    """
+    Recursively construct Telethon TL objects from dictionaries.
+
+    Handles dictionaries with '_' key containing the TL object type name.
+    Recursively processes nested dictionaries and lists.
+    """
+    if not isinstance(data, dict) or "_" not in data:
+        return data
+
+    class_name = data["_"]
+    # Import types dynamically to avoid circular imports
+    from telethon.tl import types
+
+    if not hasattr(types, class_name):
+        logger.warning(f"Unknown TL type: {class_name}")
+        return data
+
+    cls = getattr(types, class_name)
+    if not hasattr(cls, "__init__"):
+        return data
+
+    try:
+        # Get the constructor signature
+        sig = inspect.signature(cls.__init__)
+        params = {}
+
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+            if param_name in data:
+                value = data[param_name]
+                # Recursively construct nested objects
+                if isinstance(value, dict) and "_" in value:
+                    params[param_name] = _construct_tl_object_from_dict(value)
+                elif isinstance(value, list):
+                    params[param_name] = [
+                        _construct_tl_object_from_dict(item) for item in value
+                    ]
+                else:
+                    params[param_name] = value
+
+        return cls(**params)
+    except Exception as e:
+        logger.warning(f"Failed to construct TL object {class_name}: {e}")
+        return data
 
 
 def _json_safe(value: Any) -> Any:
@@ -64,10 +113,12 @@ def _json_safe(value: Any) -> Any:
 
 
 async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
-    """Best-effort resolution of entity-like parameters using Telethon.
+    """Best-effort resolution of entity-like parameters and TL object construction using Telethon.
 
-    Keys handled (singular and list): peer, from_peer, to_peer, user, user_id,
+    Handles entity resolution for: peer, from_peer, to_peer, user, user_id,
     channel, chat, chat_id, users, chats, peers.
+
+    Also handles automatic TL object construction from dictionaries with '_' key.
     """
     if not params:
         return {}
@@ -88,6 +139,20 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
         # Resolve using input entity for strings/ints
         return await client.get_input_entity(value)
 
+    def _process_value(value: Any) -> Any:
+        """Recursively process values for TL object construction and entity resolution."""
+        if isinstance(value, dict):
+            # First try to construct TL objects from dict
+            constructed = _construct_tl_object_from_dict(value)
+            if constructed is not value:  # Construction succeeded
+                return constructed
+            # If construction failed, process nested dict values
+            return {k: _process_value(v) for k, v in value.items()}
+        elif _is_list_like(value):
+            return [_process_value(item) for item in value]
+        else:
+            return value
+
     keys_to_resolve = {
         "peer",
         "from_peer",
@@ -103,6 +168,12 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
     }
 
     resolved: dict[str, Any] = dict(params)
+
+    # First pass: construct TL objects from dictionaries
+    for key in list(resolved.keys()):
+        resolved[key] = _process_value(resolved[key])
+
+    # Second pass: resolve entity-like parameters
     for key in list(resolved.keys()):
         if key in keys_to_resolve:
             value = resolved[key]
@@ -110,6 +181,7 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
                 resolved[key] = [await _resolve_one(v) for v in value]
             else:
                 resolved[key] = await _resolve_one(value)
+
     return resolved
 
 
