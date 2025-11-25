@@ -15,8 +15,6 @@ services:
       - traefik-public
     labels:
       - "traefik.enable=true"
-      - "sablier.managed=true"
-      - "sablier.enabled=true"
 
     restart: unless-stopped
     mem_limit: 128m
