@@ -40,6 +40,9 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 
 - **Case-insensitive method names**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
 - **Method name normalization**: Automatically converts method names to proper Telegram API format
+- **Automatic TL object construction**: Builds complex Telegram objects from JSON dictionaries using `"_"` keys
+- **Case-insensitive type lookup**: `inputmediatodo` → `InputMediaTodo` automatically
+- **Recursive object construction**: Handles deeply nested structures (todo lists, polls, rich media)
 - **Entity resolution**: Optional automatic resolution of usernames, IDs, and phone numbers to proper Telegram entities
 - **Safety guardrails**: Dangerous methods blocked by default (e.g., `account.DeleteAccount`, `messages.DeleteHistory`)
 - **Multi-mode support**: Works in all server modes with appropriate authentication
@@ -174,6 +177,100 @@ When `resolve: true` is set, the bridge automatically resolves:
 {"peer": "+1234567890"}      # Phone number
 ```
 
+## Automatic TL Object Construction
+
+The MTProto bridge automatically constructs complex Telegram TL objects from JSON dictionaries. Use the `"_"` key to specify the object type - the bridge handles the rest!
+
+### Simple Example
+
+```bash
+# Send a message with formatted text
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {
+          "peer": "me",
+          "message": "Hello!",
+          "entities": [
+            {
+              "_": "messageEntityBold",
+              "offset": 0,
+              "length": 5
+            }
+          ]
+        },
+        "resolve": true
+      }'
+```
+
+### Complex Example: Todo List
+
+```bash
+# Create a todo list (automatic object construction)
+curl -X POST "https://your-domain.com/mtproto-api/messages.sendMedia" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "params": {
+          "peer": "me",
+          "media": {
+            "_": "InputMediaTodo",
+            "todo": {
+              "_": "TodoList",
+              "title": {
+                "_": "TextWithEntities",
+                "text": "My Todo List",
+                "entities": []
+              },
+              "list": [
+                {
+                  "_": "TodoItem",
+                  "id": 1,
+                  "title": {
+                    "_": "TextWithEntities",
+                    "text": "Complete project documentation",
+                    "entities": []
+                  }
+                },
+                {
+                  "_": "TodoItem",
+                  "id": 2,
+                  "title": {
+                    "_": "TextWithEntities",
+                    "text": "Review code changes",
+                    "entities": []
+                  }
+                }
+              ],
+              "others_can_append": true,
+              "others_can_complete": false
+            }
+          },
+          "message": "Check out my new todo list!",
+          "random_id": 1234567890123456789
+        },
+        "resolve": true
+      }'
+```
+
+### Features
+
+- **Automatic Construction**: Objects with `"_"` key are automatically built
+- **Case-Insensitive**: `inputmediatodo`, `INPUTMEDIATODO`, `inputMediaTodo` all work
+- **Nested Objects**: Handles deeply nested structures recursively
+- **List Processing**: Arrays of objects are processed automatically
+- **Parameter Matching**: Uses constructor signatures to match JSON keys
+
+### Common TL Object Types
+
+- `InputMediaTodo` - Todo lists and checklists
+- `InputMediaPoll` - Polls and quizzes
+- `InputMediaPhoto` - Photo uploads with captions
+- `InputMediaDocument` - File and document uploads
+- `TextWithEntities` - Rich text with formatting
+- `MessageEntityBold/Italic/Url/etc.` - Text formatting entities
+- `InputPeerUser/Channel/Chat` - Peer references
 ## Safety Features
 
 ### Dangerous Method Protection

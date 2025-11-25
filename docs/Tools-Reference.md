@@ -439,12 +439,12 @@ send_message_to_phone(
 ```
 
 ### 🔧 invoke_mtproto
-**Direct Telegram API access with enhanced features**
+**Direct Telegram API access with automatic TL object construction**
 
 ```typescript
 invoke_mtproto(
   method_full_name: str,       // Full API method name (e.g., "messages.GetHistory")
-  params_json: str,           // JSON string of method parameters
+  params_json: str,           // JSON string of method parameters (supports automatic TL object construction)
   allow_dangerous: bool,      // Allow dangerous methods (default: false)
   resolve: bool              // Automatically resolve entities (default: true)
 )
@@ -452,12 +452,15 @@ invoke_mtproto(
 
 **Features:**
 - **Method name normalization**: Converts `users.getfulluser` → `users.GetFullUser`
+- **Automatic TL object construction**: Builds complex Telegram objects from JSON dictionaries
+- **Case-insensitive type lookup**: `inputmediatodo` → `InputMediaTodo` automatically
+- **Recursive object construction**: Handles deeply nested structures automatically
 - **Dangerous method protection**: Blocks delete operations by default
 - **Entity resolution**: Automatically resolves usernames, chat IDs, etc.
 - **Parameter sanitization**: Security validation and cleanup
 - **Comprehensive error handling**: Structured error responses
 
-**Use cases:** Advanced operations not covered by standard tools
+**Use cases:** Advanced operations with complex parameters, raw Telegram API access
 
 **Examples:**
 ```json
@@ -487,6 +490,86 @@ invoke_mtproto(
   "params_json": "{}"
 }}
 ```
+
+### 🔄 **Automatic TL Object Construction**
+
+`invoke_mtproto` automatically constructs complex Telegram TL objects from JSON dictionaries. Simply use the `"_"` key to specify the object type:
+
+```json
+// Create a todo list (automatic object construction)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.sendMedia",
+  "params_json": {
+    "peer": "me",
+    "media": {
+      "_": "InputMediaTodo",
+      "todo": {
+        "_": "TodoList",
+        "title": {
+          "_": "TextWithEntities",
+          "text": "My Todo List",
+          "entities": []
+        },
+        "list": [
+          {
+            "_": "TodoItem",
+            "id": 1,
+            "title": {
+              "_": "TextWithEntities",
+              "text": "Complete project documentation",
+              "entities": []
+            }
+          },
+          {
+            "_": "TodoItem",
+            "id": 2,
+            "title": {
+              "_": "TextWithEntities",
+              "text": "Review code changes",
+              "entities": []
+            }
+          }
+        ],
+        "others_can_append": true,
+        "others_can_complete": false
+      }
+    },
+    "message": "Check out my new todo list!",
+    "random_id": 1234567890123456789
+  }
+}}
+
+// Case-insensitive type names work too!
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.sendMessage",
+  "params_json": {
+    "peer": "me",
+    "message": "Hello!",
+    "entities": [
+      {
+        "_": "messageentitybold",  // lowercase works!
+        "offset": 0,
+        "length": 5
+      }
+    ]
+  }
+}}
+```
+
+**Supported Features:**
+- **Automatic Construction**: Objects with `"_"` key are automatically built
+- **Case-Insensitive**: `inputmediatodo`, `INPUTMEDIATODO`, `inputMediaTodo` all work
+- **Nested Objects**: Handles deeply nested structures recursively
+- **List Processing**: Arrays of objects are processed automatically
+- **Parameter Matching**: Uses constructor signatures to match JSON keys
+
+**Common TL Object Types:**
+- `InputMediaTodo` - Todo lists
+- `InputMediaPoll` - Polls and quizzes
+- `InputMediaPhoto` - Photo uploads
+- `InputMediaDocument` - File uploads
+- `TextWithEntities` - Rich text formatting
+- `MessageEntityBold/Italic/Url/etc.` - Text formatting entities
 
 **Dangerous Methods (blocked by default):**
 - `account.DeleteAccount`
