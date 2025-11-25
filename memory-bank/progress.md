@@ -25,9 +25,10 @@
 ### 2025-11-25
 - **Enhanced invoke_mtproto with Automatic TL Object Construction**: Extended `invoke_mtproto` to automatically construct Telethon TL objects from JSON dictionaries, enabling generic MTProto method invocation
 - **Recursive TL Construction**: Added `_construct_tl_object_from_dict()` function that recursively builds TL objects from dictionaries with `"_"` keys
+- **Case-Insensitive Type Lookup**: Added automatic case-insensitive type name resolution (`inputmediatodo` → `InputMediaTodo`, `TEXTWITHENTITIES` → `TextWithEntities`)
 - **Parameter Processing Pipeline**: Enhanced `_resolve_params()` to construct TL objects before entity resolution using `inspect.signature()` for constructor parameter matching
 - **Generic MTProto Support**: `invoke_mtproto` now works with any Telegram API method regardless of parameter complexity (todo lists, polls, complex media, etc.)
-- **Automatic Type Mapping**: Maps class names to Telethon TL types using `telethon.tl.types` introspection with validation and error handling
+- **Automatic Type Mapping**: Maps class names to Telethon TL types using `telethon.tl.types` introspection with validation, error handling, and case-insensitive resolution
 - **Nested Object Support**: Handles deeply nested structures like `InputMediaTodo` → `TodoList` → `TodoItem[]` automatically
 - **Production Testing**: Successfully created a todo list in saved messages using the enhanced `invoke_mtproto` with automatic TL object construction
 - **No Codebase Modification Required**: Users can now pass complex JSON structures without requiring manual TL object creation in the codebase

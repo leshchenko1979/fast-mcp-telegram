@@ -62,9 +62,10 @@ The fast-mcp-telegram system follows a modular MCP server architecture with clea
 
 ### 4.1. Automatic TL Object Construction (2025-11-25)
 - **Recursive TL Construction**: `_construct_tl_object_from_dict()` function builds TL objects from JSON dictionaries with `"_"` keys
+- **Case-Insensitive Type Lookup**: Automatically resolves type names regardless of casing (`inputmediatodo` → `InputMediaTodo`)
 - **Constructor Signature Inspection**: Uses `inspect.signature()` to match dictionary parameters to TL object constructors
 - **Nested Object Support**: Handles complex nested structures like `InputMediaTodo` containing `TodoList` with `TodoItem` arrays
-- **Type Mapping**: Automatic mapping of class names to `telethon.tl.types` classes with validation
+- **Type Mapping**: Automatic mapping of class names to `telethon.tl.types` classes with validation and case-insensitive resolution
 - **Parameter Processing Pipeline**: TL construction occurs before entity resolution in `_resolve_params()`
 - **Generic Method Support**: `invoke_mtproto` now works with any MTProto method regardless of parameter complexity
 - **Error Handling**: Graceful fallback with warnings for unrecognized or invalid TL types

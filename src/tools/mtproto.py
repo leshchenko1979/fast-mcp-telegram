@@ -35,17 +35,35 @@ def _construct_tl_object_from_dict(data: Any) -> Any:
     Recursively construct Telethon TL objects from dictionaries.
 
     Handles dictionaries with '_' key containing the TL object type name.
+    Supports case-insensitive type name lookup.
     Recursively processes nested dictionaries and lists.
     """
     if not isinstance(data, dict) or "_" not in data:
         return data
 
-    class_name = data["_"]
+    requested_name = data["_"]
     # Import types dynamically to avoid circular imports
     from telethon.tl import types
 
+    # Case-insensitive lookup: build mapping if not already built
+    if not hasattr(_construct_tl_object_from_dict, '_name_mapping'):
+        _construct_tl_object_from_dict._name_mapping = {}
+        for name in dir(types):
+            cls = getattr(types, name)
+            # Only include TL object classes (they have CONSTRUCTOR_ID)
+            if hasattr(cls, 'CONSTRUCTOR_ID'):
+                _construct_tl_object_from_dict._name_mapping[name.lower()] = name
+
+    # Try case-insensitive lookup first
+    name_mapping = _construct_tl_object_from_dict._name_mapping
+    if requested_name.lower() in name_mapping:
+        class_name = name_mapping[requested_name.lower()]
+        logger.debug(f"Resolved TL type '{requested_name}' to '{class_name}'")
+    else:
+        class_name = requested_name
+
     if not hasattr(types, class_name):
-        logger.warning(f"Unknown TL type: {class_name}")
+        logger.warning(f"Unknown TL type: {requested_name} (resolved to: {class_name})")
         return data
 
     cls = getattr(types, class_name)
@@ -57,7 +75,7 @@ def _construct_tl_object_from_dict(data: Any) -> Any:
         sig = inspect.signature(cls.__init__)
         params = {}
 
-        for param_name, param in sig.parameters.items():
+        for param_name in sig.parameters:
             if param_name == "self":
                 continue
             if param_name in data:
@@ -148,10 +166,9 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
                 return constructed
             # If construction failed, process nested dict values
             return {k: _process_value(v) for k, v in value.items()}
-        elif _is_list_like(value):
+        if _is_list_like(value):
             return [_process_value(item) for item in value]
-        else:
-            return value
+        return value
 
     keys_to_resolve = {
         "peer",
