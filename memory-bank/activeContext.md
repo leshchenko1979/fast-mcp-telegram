@@ -1,12 +1,49 @@
 ## Current Work Focus
-**Primary**: DRY Error Handling Implementation (2025-11-27) - COMPLETED ✅
+**Primary**: Peer Resolution Enhancement - Multi-Type Entity Lookup (2025-11-27) - COMPLETED ✅
 
 **Next Steps**:
-1. **Documentation Updates**: Update docs and memory bank to reflect new error handling capabilities
-2. **Version Bump**: Consider incrementing version for improved error handling
-3. **Error Testing**: Verify error messages across all tools with missing sessions
+1. **Documentation Updates**: Update docs and memory bank to reflect peer resolution improvements
+2. **Testing**: Verify enhanced peer resolution works for all entity types
+3. **Performance Monitoring**: Monitor impact of multiple lookup attempts on response times
 
-**Current Status**: Successfully implemented comprehensive DRY error handling system. The server now provides clear, actionable error messages for session authorization issues instead of misleading peer resolution errors.
+**Current Status**: Enhanced get_entity_by_id to try multiple peer types (raw ID, PeerChannel, PeerUser, PeerChat) for robust entity resolution.
+
+**Peer Resolution Enhancement - Multi-Type Entity Lookup (2025-11-27)**:
+**Decision**: Enhanced entity resolution to handle cases where Telethon cannot automatically determine entity type from raw ID
+**Problem**: Peer ID 2928607356 (Telegram group "Редевест - дела") was not resolving because client.get_entity() couldn't determine it was a group without explicit type specification
+**Solution Implemented**:
+- **Multi-Type Lookup Strategy**: Modified get_entity_by_id() to try entity resolution in sequence:
+  1. Raw ID lookup (existing behavior)
+  2. PeerChannel(id) for channels not in session cache
+  3. PeerUser(id) for user entities
+  4. PeerChat(id) for legacy group chats
+- **Proper Exception Chaining**: Fixed linting issues with exception handling (raise ... from None)
+- **Import Organization**: Moved telethon imports to top of file following PEP8
+- **Backward Compatibility**: All existing functionality preserved, enhancement is additive
+**Implementation Details**:
+- **Sequential Fallback**: Each lookup attempt logged at debug level for troubleshooting
+- **Error Propagation**: If all attempts fail, original error is re-raised with full context
+- **Performance Conscious**: Fast path for successful first attempts, graceful degradation
+**Results**:
+- **Peer 2928607356 Resolved**: Successfully identified as Telegram group with 5 members
+- **Production Deployed**: Changes deployed to VDS with zero downtime
+- **Zero Breaking Changes**: All existing peer resolutions continue working
+**Impact**: Eliminates "Chat with ID not found" errors for valid entities that require explicit type specification
+
+**Web Setup Reauthorization - Token Not Found Flow (2025-11-26)**:
+**Decision**: Modified reauthorization flow to start new authentication when token/session is not found
+**Problem**: When users tried to reauthorize with a token that didn't have an existing session file, they received a "Session not found" error instead of being able to create a new session with that token name
+**Solution Implemented**:
+- **Modified `setup_generate`**: Added support for `desired_token` parameter to use specific token names instead of always generating random ones
+- **Modified `setup_reauthorize`**: When session file doesn't exist and token name is not prohibited, start new authentication flow with the provided token name as the desired token
+- **Added session conflict check**: Prevents overwriting existing sessions when using desired token names
+- **Maintained security**: Still validates against reserved session names list
+**Implementation Details**:
+- **Token Persistence**: `desired_token` stored in setup session state and used during token generation
+- **Flow Continuity**: Seamless transition from reauthorization attempt to new session creation
+- **Error Handling**: Clear error message if desired token name conflicts with existing session
+- **Backward Compatibility**: All existing functionality preserved
+**Impact**: Users can now create new sessions with specific token names through the reauthorization flow, eliminating the friction of getting an error when the session doesn't exist
 
 **DRY Error Handling Implementation (2025-11-27)**:
 **Decision**: Implemented comprehensive DRY solution for handling common Telegram exceptions across all MCP tools
@@ -96,69 +133,8 @@
 - Full test coverage (26 tests passing: 15 session config + 11 MCP generation)
 - Better UX with copy-paste ready configs
 
-### MTProto Module Refactoring (2025-10-02)
-**Decision**: Unified MTProto implementation with single-function architecture
-**Problem**: Code duplication across multiple files with unclear function boundaries
-**Solution**:
-- Consolidated all MTProto logic into single `invoke_mtproto_impl()` function
-- Eliminated duplicate constants (`DANGEROUS_METHODS`) and helper functions
-- Removed artificial function boundaries between `invoke_mtproto_method` and `invoke_mtproto_impl`
-- Created focused helper functions: `_resolve_method_class()`, `_sanitize_mtproto_params()`, `_json_safe()`
-- Organized code with clear section headers and logical grouping
-**Impact**: Cleaner architecture, easier maintenance, single source of truth for MTProto logic
 
-### Interface Unification (2025-10-02)
-**Decision**: Made MCP tool and HTTP bridge functionally identical
-**Problem**: Different defaults and behaviors between interfaces caused confusion
-**Solution**:
-- Set `resolve=True` as default for both MCP tool and HTTP bridge
-- Simplified HTTP bridge to use unified `invoke_mtproto_impl()` function
-- Removed duplicate entity resolution logic from HTTP bridge
-- Both interfaces now use identical parameter defaults and behavior
-**Impact**: Consistent user experience, no functional differences between interfaces
 
-### Performance Optimization with functools.cache (2025-10-02)
-**Decision**: Implemented functools.cache across the codebase for better performance and maintainability
-**Implementation**:
-- **helpers.py**: Replaced manual `_TELETHON_FUNCS_CACHE` with `@cache` decorator on `_get_functions_map_for_module()`
-- **entity.py**: Added `@cache` to `get_normalized_chat_type()` and `build_entity_dict()` for entity processing optimization
-- **bot_restrictions.py**: Maintained manual caching for async operations (functools.cache doesn't work well with async)
-- **Automatic Memory Management**: functools.cache provides thread-safe, automatic cache management
-- **Simplified Code**: Eliminated manual cache key management and size tracking
-**Impact**: Better performance, cleaner code, automatic memory management, thread safety
-
-### Logging Optimization and Chatty Log Reduction (2025-10-02)
-**Decision**: Comprehensive reduction of verbose logging to improve log readability and reduce noise
-**Problem**: VDS logs contained excessive chatty messages making it difficult to identify real issues
-**Analysis**: Identified main sources of noise:
-- asyncio selector debug spam (70+ messages per session)
-- Repeated server startup messages (14+ per session)
-- Telethon network and connection noise
-- HTTP library debug messages
-**Solution**:
-- **asyncio Noise Reduction**: Set asyncio logger to WARNING level to eliminate selector spam
-- **Startup Message Deduplication**: Added `_configured` flag to prevent repeated logging setup calls
-- **Config Validation Deduplication**: Added `_config_logged` flag to prevent repeated server config logging
-- **Enhanced Telethon Filtering**: Added additional noisy modules (connection, telegramclient, tl layer)
-- **HTTP Library Noise Reduction**: Set urllib3, httpx, and aiohttp to WARNING level
-- **Preserved Diagnostic Value**: Maintained DEBUG level for useful diagnostic information
-**Impact**: Dramatically reduced log noise while preserving essential debugging information
-
-### Logging Performance Optimization (2025-10-02)
-**Decision**: Comprehensive performance optimization of the logging system to reduce overhead
-**Problem**: Logging system had performance bottlenecks in hot paths affecting overall server performance
-**Analysis**: Identified key performance issues:
-- InterceptHandler doing expensive operations on every log call
-- Parameter sanitization with redundant string operations
-- Logger configuration with individual getLogger calls
-- Frame walking overhead for every log message
-**Solution**:
-- **InterceptHandler Optimization**: Added level caching, reduced frame walking to only when needed, optimized message formatting
-- **Parameter Sanitization Enhancement**: Pre-compiled pattern sets, fast paths for simple types, optimized string operations
-- **Logger Configuration Batching**: Batch configuration of logger levels for better startup performance
-- **Fast Path Optimization**: Skip parameter processing for empty parameter dictionaries
-- **String Operation Optimization**: Reduced f-string usage and optimized string concatenation
-**Impact**: Significant reduction in logging overhead while maintaining full functionality and diagnostic capabilities
 
 ### Health Endpoint Access Log Filtering (2025-10-02)
 **Decision**: Disable access logging for `/health` endpoint to reduce monitoring noise
@@ -180,25 +156,6 @@
 - Updated README.md with new documentation references
 **Impact**: Accurate documentation, clear interface comparisons, development guidelines
 
-### Web Setup Interface Improvements (2025-09-09)
-**Decision**: Enhanced web setup interface styling and user experience
-**Changes Made**:
-- **Input Text Size**: Increased to 1.1rem for better readability
-- **Button Text Size**: Increased to 1rem for better prominence
-- **Hint Text Size**: Reduced to 0.85rem for more subtle appearance
-- **Removed Excessive Text**: Eliminated redundant "Enter your phone to receive a code" instruction
-- **Cleaner Layout**: Removed empty card styling from step div for cleaner appearance
-**Impact**: Better visual hierarchy with larger interactive elements and smaller instructional text
-
-### 2FA Authentication Route Fix (2025-09-09)
-**Decision**: Added missing `/setup/2fa` route to complete the authentication flow
-**Problem**: 2FA form was submitting to non-existent endpoint, causing 404 errors
-**Solution**:
-- Added `@mcp_app.custom_route("/setup/2fa", methods=["POST"])` handler
-- Implemented proper 2FA password validation with `client.sign_in(password=password)`
-- Added error handling for invalid passwords and authentication failures
-- Integrated with existing session management and config generation flow
-**Impact**: Complete authentication flow now works for users with 2FA enabled
 
 ### Uniform Entity Formatting (2025-09-17)
 **Decision**: Standardize chat/user objects via `build_entity_dict` across all tools

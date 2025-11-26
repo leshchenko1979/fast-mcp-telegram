@@ -174,11 +174,20 @@ async def setup_generate(request: Request):
     client = state.get("client")
     temp_session_path = state.get("session_path")
 
-    token = generate_bearer_token()
+    # Use desired token if specified, otherwise generate random one
+    desired_token = state.get("desired_token")
+    token = desired_token if desired_token else generate_bearer_token()
 
     src = Path(temp_session_path)
     session_dir = get_config().session_directory
     dst = session_dir / f"{token}.session"
+
+    # Check if session already exists (only when using desired token)
+    if desired_token and dst.exists():
+        return JSONResponse(
+            {"ok": False, "error": f"Session with token '{token}' already exists"},
+            status_code=409,
+        )
 
     try:
         with contextlib.suppress(Exception):
@@ -379,10 +388,30 @@ def register_web_setup_routes(mcp_app):
 
         session_path = get_config().session_directory / f"{existing_token}.session"
         if not session_path.exists():
+            # Start new auth process with this token name
+            await cleanup_stale_setup_sessions()
+
+            setup_id = str(int(time.time() * 1000))
+            temp_session_path = (
+                get_config().session_directory / f"{SETUP_SESSION_PREFIX}{setup_id}.session"
+            )
+
+            # Create client for new session
+            client = create_session_client(temp_session_path)
+            await client.connect()
+
+            _setup_sessions[setup_id] = {
+                "desired_token": existing_token,  # Remember the desired token name
+                "client": client,
+                "session_path": str(temp_session_path),
+                "authorized": False,
+                "created_at": time.time(),
+            }
+
             return templates.TemplateResponse(
                 request,
-                "fragments/error.html",
-                create_error_response("Session not found for this token"),
+                "fragments/reauthorize_phone.html",
+                {"setup_id": setup_id},
             )
 
         # Check if session needs reauthorization

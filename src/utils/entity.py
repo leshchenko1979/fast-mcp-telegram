@@ -2,7 +2,7 @@ from loguru import logger
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import InputMessagesFilterEmpty
+from telethon.tl.types import InputMessagesFilterEmpty, PeerChannel, PeerChat, PeerUser
 
 from ..client.connection import get_connected_client
 
@@ -37,6 +37,7 @@ async def get_entity_by_id(entity_id):
     """
     A wrapper around client.get_entity to handle numeric strings and log errors.
     Special handling for 'me' identifier for Saved Messages.
+    Tries multiple peer types (raw ID, PeerChannel, PeerUser, PeerChat) for better resolution.
     """
     client = await get_connected_client()
     peer = None
@@ -54,10 +55,37 @@ async def get_entity_by_id(entity_id):
         if not peer:
             raise ValueError("Entity ID cannot be null or empty")
 
-        return await client.get_entity(peer)
+        # Try multiple approaches for peer resolution
+        # 1. Try raw ID first (most common case)
+        try:
+            return await client.get_entity(peer)
+        except Exception as e1:
+            logger.debug(f"Raw ID lookup failed for {peer}: {e1}")
+
+            # 2. Try as PeerChannel (for channels that aren't in session cache)
+            try:
+                return await client.get_entity(PeerChannel(peer))
+            except Exception as e2:
+                logger.debug(f"PeerChannel lookup failed for {peer}: {e2}")
+
+                # 3. Try as PeerUser (for users)
+                try:
+                    return await client.get_entity(PeerUser(peer))
+                except Exception as e3:
+                    logger.debug(f"PeerUser lookup failed for {peer}: {e3}")
+
+                    # 4. Try as PeerChat (for legacy chats)
+                    try:
+                        return await client.get_entity(PeerChat(peer))
+                    except Exception as e4:
+                        logger.debug(f"PeerChat lookup failed for {peer}: {e4}")
+
+                        # If all attempts fail, re-raise the original error
+                        raise e1 from None
+
     except Exception as e:
         logger.warning(
-            f"Could not get entity for '{entity_id}' (parsed as '{peer}'). Error: {e}"
+            f"Could not get entity for '{entity_id}' (parsed as '{peer}') after trying all peer types. Error: {e}"
         )
         return None
 
@@ -371,11 +399,7 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
         return True
 
     # Split by comma, strip whitespace, filter out empty strings, convert to lowercase
-    chat_types = [
-        ct.strip().lower()
-        for ct in chat_type.split(',')
-        if ct.strip()
-    ]
+    chat_types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
 
     # Validate that all specified types are valid
     valid_types = {"private", "group", "channel"}

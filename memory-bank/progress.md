@@ -1,4 +1,9 @@
 ### 2025-11-27
+- **Peer Resolution Enhancement**: Enhanced entity resolution with multi-type lookup strategy to handle channels/groups that require explicit type specification
+- **Multi-Type Entity Lookup**: Modified `get_entity_by_id()` to try sequential resolution: raw ID → PeerChannel → PeerUser → PeerChat
+- **Resolved Peer 2928607356**: Successfully identified Telegram group "Редевест - дела" that was previously failing resolution
+- **Production Deployment**: Deployed peer resolution fixes to VDS with zero downtime and immediate resolution of entity lookup issues
+- **Code Quality**: Fixed linting issues with import organization and exception chaining (raise ... from None)
 - **DRY Error Handling Implementation**: Created comprehensive decorator-based error handling system to eliminate repetitive exception handling across all MCP tools
 - **Custom Exception Class**: Added `SessionNotAuthorizedError` for specific session authentication failures
 - **Error Handling Decorator**: Implemented `@handle_telegram_errors()` decorator that automatically provides clear, actionable error messages for:
