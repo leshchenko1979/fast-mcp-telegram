@@ -136,7 +136,7 @@ class ServerConfig(BaseSettings):
 
     # Logging configuration
     log_level: str = Field(
-        default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR)"
+        default="DEBUG", description="Logging level (DEBUG, INFO, WARNING, ERROR)"
     )
 
     # Backward compatibility: DISABLE_AUTH environment variable
@@ -173,7 +173,7 @@ class ServerConfig(BaseSettings):
             env_value = self.disable_auth_env.lower().strip()
             if env_value in ("true", "1", "yes", "on"):
                 return True
-            elif env_value in ("false", "0", "no", "off"):
+            if env_value in ("false", "0", "no", "off"):
                 return False
             # Invalid values are ignored, fall through to server mode logic
 

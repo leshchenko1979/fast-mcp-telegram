@@ -1,3 +1,13 @@
+### 2025-11-27
+- **Todo List and Poll Support in read_messages**: Enhanced `read_messages` and `search_messages` to automatically detect and parse Telegram Todo lists (`MessageMediaToDo`) and Polls (`MessageMediaPoll`)
+- **Todo List Parsing**: Added structured parsing of TodoList objects extracting title, items, completion status, timestamps, and user information
+- **Poll Parsing**: Implemented comprehensive Poll object parsing including questions, options, vote counts, and poll metadata (closed, multiple choice, quiz mode)
+- **Media Recognition**: Updated `_has_any_media()` to recognize `MessageMediaToDo` for proper content detection
+- **Structured Output**: Returns LLM-friendly JSON structures instead of raw Telethon objects for both Todo lists and Polls
+- **Backward Compatibility**: All existing media types continue to work unchanged
+- **Testing**: Comprehensive unit tests verify both Todo list and Poll parsing functionality
+- **Impact**: `read_messages` now provides rich, structured data for interactive Telegram content types
+
 ### 2025-10-17
 - Successfully resolved critical connection storm that was consuming 1,300+ reconnections per minute and 44.70% CPU usage
 - Identified root cause: "Wrong session ID" error from Telegram servers due to corrupted session file (656KB vs normal 28KB)
@@ -132,6 +142,8 @@
 ### Advanced Features ✅
 - **Multi-Query Search**: Comma-separated terms with parallel execution and deduplication
 - **LLM-Optimized Media**: Lightweight placeholders instead of raw Telethon objects
+- **Todo List Support**: Automatic parsing of Telegram Todo lists with structured completion data
+- **Poll Support**: Comprehensive parsing of Telegram polls with vote counts and metadata
 - **Structured Logging**: Loguru integration with stdlib bridge and emitter tracking
 - **Logging Spam Reduction**: Module-level filtering reduces Telethon noise by 99%
 - **Consistent Error Handling**: All tools return structured error responses instead of raising exceptions

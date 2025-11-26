@@ -1,7 +1,24 @@
 ## Current Work Focus
-**Primary**: Enhanced invoke_mtproto with automatic TL object construction (2025-11-25)
+**Primary**: Todo List and Poll Support in read_messages (2025-11-27) - COMPLETED ✅
 
-**Current Status**: Successfully implemented public visibility filtering with the architectural rule that private chats should never be filtered by visibility. This is a major architectural change affecting all search operations.
+**Next Steps**:
+1. **Documentation Updates**: Update docs and memory bank to reflect new capabilities
+2. **Version Bump**: Consider incrementing version for new interactive content support
+3. **Performance Testing**: Verify parsing performance with large Todo lists and polls
+
+**Current Status**: Successfully implemented Todo list and Poll support in read_messages. The system now automatically detects and parses Telegram interactive content types into structured, LLM-friendly JSON.
+
+**Todo List and Poll Support Implementation (2025-11-27)**:
+**Decision**: Enhanced `read_messages` and `search_messages` to provide rich parsing of Telegram Todo lists and Polls
+**Problem**: Todo lists and Polls were returned as raw Telethon objects, making them unusable for AI assistants
+**Solution Implemented**:
+- **Media Recognition**: Updated `_has_any_media()` to detect `MessageMediaToDo` for content identification
+- **Todo List Parsing**: Extracts structured data from `TodoList` objects including title, items, completion status, timestamps, and user information
+- **Poll Parsing**: Comprehensive extraction of poll questions, options, vote counts, and metadata (closed, multiple choice, quiz mode)
+- **LLM-Friendly Output**: Returns clean JSON structures instead of complex Telethon objects
+- **Backward Compatibility**: All existing media types continue to work unchanged
+- **Testing**: Comprehensive unit tests verify both parsing functionalities
+**Impact**: `read_messages` now provides rich, structured data for interactive Telegram content, enabling AI assistants to understand and work with Todo lists and polls effectively
 - **Connection Storm Resolved**: Eliminated 1,300+ reconnections per minute that was consuming 44.70% CPU and 95.31% memory
 - **Root Cause Identified**: "Wrong session ID" error from Telegram servers due to corrupted session file (656KB vs normal 28KB)
 - **Session Restoration**: Successfully restored original bearer token `f9NdKOLR...` with fresh, clean session data

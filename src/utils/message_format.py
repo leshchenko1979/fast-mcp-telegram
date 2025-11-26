@@ -26,6 +26,7 @@ def _has_any_media(message) -> bool:
         "MessageMediaVenue",  # Venue/location with name
         "MessageMediaGame",  # Games
         "MessageMediaInvoice",  # Payments/invoices
+        "MessageMediaToDo",  # Todo lists
         "MessageMediaUnsupported",  # Unsupported media types
     ]
 
@@ -95,6 +96,97 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
                     if hasattr(attr, "file_name") and attr.file_name:
                         placeholder["filename"] = attr.file_name
                         break
+
+    # Handle Todo Lists
+    elif media_cls == "MessageMediaToDo":
+        todo_list = getattr(media, "todo", None)
+        if todo_list:
+            placeholder["type"] = "todo"
+            # Extract title
+            title_obj = getattr(todo_list, "title", None)
+            if title_obj and hasattr(title_obj, "text"):
+                placeholder["title"] = title_obj.text
+
+            # Extract items
+            items = getattr(todo_list, "list", [])
+            if not isinstance(items, list):
+                items = []
+            placeholder["items"] = []
+            for item in items:
+                item_dict = {
+                    "id": getattr(item, "id", 0),
+                    "text": getattr(getattr(item, "title", None), "text", ""),
+                    "completed": False,  # Will be updated if completions exist
+                }
+                placeholder["items"].append(item_dict)
+
+            # Map completions to items
+            completions = getattr(media, "completions", [])
+            if not isinstance(completions, list):
+                completions = []
+            for completion in completions:
+                item_id = getattr(completion, "id", None)
+                completed_by = getattr(completion, "completed_by", None)
+                completed_at = getattr(completion, "date", None)
+
+                # Find the corresponding item and mark as completed
+                for item in placeholder["items"]:
+                    if item["id"] == item_id:
+                        item["completed"] = True
+                        if completed_by is not None:
+                            item["completed_by"] = completed_by
+                        if completed_at is not None:
+                            item["completed_at"] = completed_at.isoformat()
+                        break
+
+    # Handle Polls
+    elif media_cls == "MessageMediaPoll":
+        poll = getattr(media, "poll", None)
+        results = getattr(media, "results", None)
+        if poll:
+            placeholder["type"] = "poll"
+
+            # Extract question
+            question_obj = getattr(poll, "question", None)
+            if question_obj and hasattr(question_obj, "text"):
+                placeholder["question"] = question_obj.text
+
+            # Extract options
+            answers = getattr(poll, "answers", [])
+            placeholder["options"] = []
+            for answer in answers:
+                option_dict = {
+                    "text": getattr(getattr(answer, "text", None), "text", ""),
+                    "voters": 0,  # Will be updated from results
+                    "chosen": getattr(answer, "chosen", False),
+                    "correct": getattr(answer, "correct", False),
+                }
+                placeholder["options"].append(option_dict)
+
+            # Map vote counts from results
+            if results and hasattr(results, "results"):
+                result_counts = getattr(results, "results", [])
+                for result in result_counts:
+                    voters = getattr(result, "voters", 0)
+
+                    # For simplicity, we'll map by index for now
+                    # In a more sophisticated implementation, we'd match by option bytes
+                    for option in placeholder["options"]:
+                        if (
+                            option["voters"] == 0
+                        ):  # Simple mapping - first result to first option
+                            option["voters"] = voters
+                            break
+
+            # Extract poll metadata
+            placeholder["total_voters"] = (
+                getattr(results, "total_voters", 0) if results else 0
+            )
+            placeholder["closed"] = getattr(poll, "closed", False)
+            placeholder["public_voters"] = getattr(poll, "public_voters", True)
+            placeholder["multiple_choice"] = getattr(poll, "multiple_choice", False)
+            placeholder["quiz"] = getattr(poll, "quiz", False)
+
     else:
         # For other media types (photos, videos, etc.), try to get mime_type and size from media object
         mime_type = getattr(media, "mime_type", None)

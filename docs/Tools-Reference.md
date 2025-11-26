@@ -290,7 +290,7 @@ edit_message(
 ```
 
 ### 📖 read_messages
-**Read specific messages by ID**
+**Read specific messages by ID with rich media parsing**
 
 ```typescript
 read_messages(
@@ -298,6 +298,12 @@ read_messages(
   message_ids: number[]          // Array of message IDs to retrieve
 )
 ```
+
+**Features:**
+- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents, and other media types
+- **Structured Data**: Returns LLM-friendly JSON structures instead of raw Telegram objects
+- **Todo Lists**: Extracts titles, items, completion status, and timestamps
+- **Polls**: Includes questions, options, vote counts, and poll metadata
 
 **Examples:**
 ```json

@@ -34,8 +34,8 @@ def setup_logging():
         backtrace=True,
         diagnose=True,
         enqueue=True,
-        # Clean format - emitter info is now in the message
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {message}",
+        # Include logger name and line number for better debugging
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
     )
     # Console sink with configurable level
     logger.add(
@@ -44,8 +44,8 @@ def setup_logging():
         backtrace=True,
         diagnose=True,
         enqueue=True,
-        # Clean format - emitter info is now in the message
-        format="{time:HH:mm:ss.SSS} | {level:<8} | {message}",
+        # Include logger name and line number for better debugging
+        format="{time:HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
     )
 
     # Bridge standard logging (uvicorn, telethon, etc.) to loguru
@@ -81,21 +81,11 @@ def setup_logging():
                     frame = frame.f_back
                     depth += 1
 
-            # Optimized message formatting - avoid f-strings when possible
-            emitter_logger = record.name or "unknown"
-            emitter_func = record.funcName or "unknown"
-            emitter_line = record.lineno or "?"
+            # For bridged logs, just use the message directly since the main format includes logger info
             message = record.getMessage()
 
-            # Use string concatenation for better performance
-            formatted_message = (
-                f"{emitter_logger}:{emitter_func}:{emitter_line} - {message}"
-            )
-
             try:
-                logger.opt(depth=depth, exception=record.exc_info).log(
-                    level, formatted_message
-                )
+                logger.opt(depth=depth, exception=record.exc_info).log(level, message)
             except Exception:
                 # Fallback if anything fails
                 logger.opt(depth=depth, exception=record.exc_info).log(

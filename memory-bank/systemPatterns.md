@@ -367,6 +367,15 @@ else:
 - **Entity Resolution**: Best-effort conversion of `peer`/`user_id`-like params via `client.get_input_entity` (singular and lists)
 - **Response Policy**: Success returns JSON-safe dicts; errors use unified structured format with correct HTTP status (401/400/500)
 
+### 6.3 Interactive Media Parsing Pattern (2025-11-27)
+- **Media Recognition**: `_has_any_media()` function detects all Telegram media types including `MessageMediaToDo` and `MessageMediaPoll`
+- **Structured Parsing**: `_build_media_placeholder()` converts raw Telethon objects to LLM-friendly JSON structures
+- **Todo List Parsing**: Extracts `TodoList` → title, items array with completion status, timestamps, and user information
+- **Poll Parsing**: Extracts `Poll` → question, options with vote counts, metadata (closed, multiple choice, quiz mode)
+- **Type Safety**: Uses `isinstance()` and class name checking for reliable media type detection
+- **Backward Compatibility**: Preserves existing media parsing while adding new interactive content types
+- **LLM Optimization**: Returns lightweight, serializable structures instead of complex Telethon objects
+
 ### 7. Logging Architecture Pattern
 - **Modular Design**: Dedicated `logging_utils.py` for logging functions, `error_handling.py` for error management, `logging.py` for configuration
 - **Zero Redundancy**: Single source of truth for all logging operations with no code duplication between modules
