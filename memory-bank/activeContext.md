@@ -1,12 +1,28 @@
 ## Current Work Focus
-**Primary**: Todo List and Poll Support in read_messages (2025-11-27) - COMPLETED ✅
+**Primary**: DRY Error Handling Implementation (2025-11-27) - COMPLETED ✅
 
 **Next Steps**:
-1. **Documentation Updates**: Update docs and memory bank to reflect new capabilities
-2. **Version Bump**: Consider incrementing version for new interactive content support
-3. **Performance Testing**: Verify parsing performance with large Todo lists and polls
+1. **Documentation Updates**: Update docs and memory bank to reflect new error handling capabilities
+2. **Version Bump**: Consider incrementing version for improved error handling
+3. **Error Testing**: Verify error messages across all tools with missing sessions
 
-**Current Status**: Successfully implemented Todo list and Poll support in read_messages. The system now automatically detects and parses Telegram interactive content types into structured, LLM-friendly JSON.
+**Current Status**: Successfully implemented comprehensive DRY error handling system. The server now provides clear, actionable error messages for session authorization issues instead of misleading peer resolution errors.
+
+**DRY Error Handling Implementation (2025-11-27)**:
+**Decision**: Implemented comprehensive DRY solution for handling common Telegram exceptions across all MCP tools
+**Problem**: Server was returning misleading error messages when sessions were not authorized (e.g., "Chat not found", "readonly database") instead of clear authentication errors
+**Solution Implemented**:
+- **Custom Exception Class**: Added `SessionNotAuthorizedError` in `connection.py` for specific session auth failures
+- **DRY Decorator**: Created `@handle_telegram_errors()` decorator in `error_handling.py` that automatically handles:
+  - `SessionNotAuthorizedError` → "Session not authorized. Please authenticate..." with `action: "authenticate_session"`
+  - Database errors → Retry suggestions for temporary issues
+  - Network errors → Connection troubleshooting guidance
+  - Peer resolution errors → Clear ID validation messages
+- **Refactored All Tools**: Applied decorator to `get_chat_info`, `search_contacts`, `send_message`, `search_messages`, `invoke_mtproto`
+- **Parameter Extraction**: Flexible params extraction supporting both direct params and custom functions
+- **Error Classification**: Intelligent error message selection based on exception content
+**Impact**: Eliminated ~50 lines of repetitive exception handling code, provided consistent actionable error messages, improved user experience with clear authentication guidance
+**Testing**: Verified improved error messages return clear auth errors instead of confusing peer resolution messages
 
 **Todo List and Poll Support Implementation (2025-11-27)**:
 **Decision**: Enhanced `read_messages` and `search_messages` to provide rich parsing of Telegram Todo lists and Polls

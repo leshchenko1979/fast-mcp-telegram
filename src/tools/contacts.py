@@ -8,7 +8,7 @@ from typing import Any
 from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
 
-from src.client.connection import get_connected_client
+from src.client.connection import get_connected_client, SessionNotAuthorizedError
 from src.utils.entity import (
     _matches_public_filter,
     build_entity_dict,
@@ -16,7 +16,7 @@ from src.utils.entity import (
     get_entity_by_id,
     get_normalized_chat_type,
 )
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 
 
 async def search_contacts_native(
@@ -73,11 +73,17 @@ async def search_contacts_native(
                     yield info
                     count += 1
 
+    except SessionNotAuthorizedError as e:
+        # For async generators, we raise instead of yielding error dict
+        raise RuntimeError(
+            "Session not authorized. Please authenticate your Telegram session first."
+        ) from e
     except Exception as e:
         # For async generators, we raise instead of yielding error dict
         raise RuntimeError(f"Failed to search contacts: {e!s}") from e
 
 
+@handle_telegram_errors(operation="search_contacts")
 async def _search_contacts_as_list(
     query: str,
     limit: int = 20,
@@ -94,16 +100,8 @@ async def _search_contacts_as_list(
         "public": public,
     }
 
-    try:
-        async for item in search_contacts_native(query, limit, chat_type, public):
-            results.append(item)
-    except Exception as e:
-        return log_and_build_error(
-            operation="search_contacts",
-            error_message=f"Failed to search contacts: {e!s}",
-            params=params,
-            exception=e,
-        )
+    async for item in search_contacts_native(query, limit, chat_type, public):
+        results.append(item)
 
     if not results:
         return log_and_build_error(
@@ -207,6 +205,7 @@ search_contacts = find_chats_impl
 search_contacts_telegram = search_contacts_native
 
 
+@handle_telegram_errors(operation="get_chat_info")
 async def get_chat_info_impl(chat_id: str) -> dict[str, Any]:
     """
     Get detailed information about a specific chat (user, group, or channel).
@@ -219,27 +218,18 @@ async def get_chat_info_impl(chat_id: str) -> dict[str, Any]:
     """
     params = {"chat_id": chat_id}
 
-    try:
-        entity = await get_entity_by_id(chat_id)
+    entity = await get_entity_by_id(chat_id)
 
-        if not entity:
-            return log_and_build_error(
-                operation="get_chat_info",
-                error_message=f"Chat with ID '{chat_id}' not found",
-                params=params,
-                exception=ValueError(f"Chat with ID '{chat_id}' not found"),
-            )
-
-        # Return enriched info with counts and about/bio when applicable
-        return await build_entity_dict_enriched(entity)
-
-    except Exception as e:
+    if not entity:
         return log_and_build_error(
             operation="get_chat_info",
-            error_message=f"Failed to get chat info for '{chat_id}': {e!s}",
+            error_message=f"Chat with ID '{chat_id}' not found",
             params=params,
-            exception=e,
+            exception=ValueError(f"Chat with ID '{chat_id}' not found"),
         )
+
+    # Return enriched info with counts and about/bio when applicable
+    return await build_entity_dict_enriched(entity)
 
 
 # Backwards-compatible alias

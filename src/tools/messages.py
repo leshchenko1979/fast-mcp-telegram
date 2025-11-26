@@ -12,7 +12,7 @@ from src.client.connection import get_connected_client
 from src.config.server_config import ServerMode, get_config
 from src.tools.links import generate_telegram_links
 from src.utils.entity import build_entity_dict, get_entity_by_id
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_message_result, build_send_edit_result
 
@@ -366,6 +366,29 @@ async def _send_message_or_files(
     return None, sent_message
 
 
+def _extract_send_message_params(
+    chat_id: str,
+    message: str,
+    reply_to_msg_id: int | None = None,
+    parse_mode: str | None = None,
+    files: str | list[str] | None = None,
+) -> dict:
+    """Extract params for send_message error handling."""
+    return {
+        "chat_id": chat_id,
+        "message": message,
+        "message_length": len(message),
+        "reply_to_msg_id": reply_to_msg_id,
+        "parse_mode": parse_mode,
+        "has_reply": reply_to_msg_id is not None,
+        "has_files": bool(files),
+        "file_count": _calculate_file_count(files),
+    }
+
+
+@handle_telegram_errors(
+    operation="send_message", params_func=_extract_send_message_params
+)
 async def send_message_impl(
     chat_id: str,
     message: str,
@@ -386,63 +409,52 @@ async def send_message_impl(
             - Local file paths only work in stdio mode
             - Supports images, videos, documents, audio, etc.
     """
-    params = {
-        "chat_id": chat_id,
-        "message": message,
-        "message_length": len(message),
-        "reply_to_msg_id": reply_to_msg_id,
-        "parse_mode": parse_mode,
-        "has_reply": reply_to_msg_id is not None,
-        "has_files": bool(files),
-        "file_count": _calculate_file_count(files),
-    }
-
     # Resolve auto parse mode
     resolved_parse_mode = parse_mode
     if parse_mode == "auto":
         resolved_parse_mode = detect_message_formatting(message)
-        params["detected_parse_mode"] = resolved_parse_mode
+        # Note: params will be built by the decorator
 
-    log_operation_start("Sending message to chat", params)
+    log_operation_start(
+        "Sending message to chat",
+        _extract_send_message_params(
+            chat_id, message, reply_to_msg_id, parse_mode, files
+        ),
+    )
 
     client = await get_connected_client()
-    try:
-        chat = await get_entity_by_id(chat_id)
-        if not chat:
-            return log_and_build_error(
-                operation="send_message",
-                error_message=f"Cannot find chat with ID '{chat_id}'",
-                params=params,
-                exception=ValueError(
-                    f"Cannot find any entity corresponding to '{chat_id}'"
-                ),
-            )
-
-        # Send message with or without files
-        error, sent_message = await _send_message_or_files(
-            client,
-            chat,
-            message,
-            files,
-            reply_to_msg_id,
-            resolved_parse_mode,
-            "send_message",
-            params,
-        )
-        if error:
-            return error
-
-        result = build_send_edit_result(sent_message, chat, "sent")
-        log_operation_success("Message sent", chat_id)
-        return result
-
-    except Exception as e:
+    chat = await get_entity_by_id(chat_id)
+    if not chat:
         return log_and_build_error(
             operation="send_message",
-            error_message=f"Failed to send message: {e!s}",
-            params=params,
-            exception=e,
+            error_message=f"Cannot find chat with ID '{chat_id}'",
+            params=_extract_send_message_params(
+                chat_id, message, reply_to_msg_id, parse_mode, files
+            ),
+            exception=ValueError(
+                f"Cannot find any entity corresponding to '{chat_id}'"
+            ),
         )
+
+    # Send message with or without files
+    error, sent_message = await _send_message_or_files(
+        client,
+        chat,
+        message,
+        files,
+        reply_to_msg_id,
+        resolved_parse_mode,
+        "send_message",
+        _extract_send_message_params(
+            chat_id, message, reply_to_msg_id, parse_mode, files
+        ),
+    )
+    if error:
+        return error
+
+    result = build_send_edit_result(sent_message, chat, "sent")
+    log_operation_success("Message sent", chat_id)
+    return result
 
 
 async def edit_message_impl(

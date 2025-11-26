@@ -12,6 +12,13 @@ from ..config.logging import format_diagnostic_info
 from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR, SESSION_PATH
 
+
+class SessionNotAuthorizedError(Exception):
+    """Exception raised when a Telegram session is not authorized."""
+
+    pass
+
+
 _singleton_client = None
 
 # Token-based session management (use unified server config)
@@ -69,7 +76,9 @@ async def _get_client_by_token(token: str) -> TelegramClient:
                 logger.error(
                     f"Session not authorized for token {token[:8]}... Please authenticate first"
                 )
-                raise Exception(f"Session not authorized for token {token[:8]}...")
+                raise SessionNotAuthorizedError(
+                    f"Session not authorized for token {token[:8]}..."
+                )
 
             # Implement LRU eviction if cache is full
             if len(_session_cache) >= MAX_ACTIVE_SESSIONS:
@@ -167,7 +176,7 @@ async def get_client() -> TelegramClient:
             await client.connect()
             if not await client.is_user_authorized():
                 logger.error("Session not authorized. Please run cli_setup.py first")
-                raise Exception("Session not authorized")
+                raise SessionNotAuthorizedError("Session not authorized")
             _singleton_client = client
         except Exception as e:
             logger.error(

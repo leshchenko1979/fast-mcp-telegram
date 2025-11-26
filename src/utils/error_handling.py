@@ -6,7 +6,9 @@ across all tools and server components.
 """
 
 import traceback
+from collections.abc import Callable
 from datetime import datetime
+from functools import wraps
 from typing import Any
 
 from loguru import logger
@@ -321,3 +323,146 @@ def check_connection_error(error_text: str) -> dict[str, Any] | None:
             )
 
     return None
+
+
+def handle_telegram_errors(
+    operation: str, params_key: str = "params", params_func=None
+):
+    """
+    Decorator to handle common Telegram-related exceptions and return standardized error responses.
+
+    This decorator catches common exceptions that can occur during Telegram operations and
+    converts them to user-friendly error messages with appropriate actions.
+
+    Args:
+        operation: The operation name for error reporting
+        params_key: The parameter name in the function that contains the params dict (default: "params")
+
+    Returns:
+        Decorated function that handles common Telegram exceptions
+
+    Example:
+        @handle_telegram_errors(operation="send_message")
+        async def send_message_impl(chat_id: str, message: str, ...):
+            # function body - exceptions will be caught and handled
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Extract params from function arguments or use custom function
+            params = None
+            if params_func:
+                params = params_func(*args, **kwargs)
+            elif params_key in kwargs:
+                params = kwargs[params_key]
+            elif len(args) > 0 and hasattr(args[0], params_key):
+                # Check if first arg is self and has params attribute
+                params = getattr(args[0], params_key, None)
+
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                if "SessionNotAuthorizedError" in str(type(e)):
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Session not authorized. Please authenticate your Telegram session first.",
+                        params=params,
+                        exception=e,
+                        action="authenticate_session",
+                    )
+
+                # Handle other common Telegram errors with better messages
+                error_msg = str(e).lower()
+
+                # Database/connection errors
+                if (
+                    "readonly database" in error_msg
+                    or "database is locked" in error_msg
+                ):
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Database error occurred. This may be a temporary server issue. Please try again later.",
+                        params=params,
+                        exception=e,
+                        action="retry",
+                    )
+
+                # Network/connection errors
+                if any(
+                    pattern in error_msg
+                    for pattern in ["connection", "network", "timeout", "unreachable"]
+                ):
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Connection error occurred. Please check your internet connection and try again.",
+                        params=params,
+                        exception=e,
+                        action="retry",
+                    )
+
+                # Peer resolution errors
+                if "cannot cast" in error_msg or "peer" in error_msg:
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Unable to resolve or access the specified chat/user. Please verify the ID is correct and accessible.",
+                        params=params,
+                        exception=e,
+                    )
+
+                # Generic fallback
+                return log_and_build_error(
+                    operation=operation,
+                    error_message=f"Operation failed: {e!s}",
+                    params=params,
+                    exception=e,
+                )
+                # Handle other common Telegram errors with better messages
+                error_msg = str(e).lower()
+
+                # Database/connection errors
+                if (
+                    "readonly database" in error_msg
+                    or "database is locked" in error_msg
+                ):
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Database error occurred. This may be a temporary server issue. Please try again later.",
+                        params=params,
+                        exception=e,
+                        action="retry",
+                    )
+
+                # Network/connection errors
+                if any(
+                    pattern in error_msg
+                    for pattern in ["connection", "network", "timeout", "unreachable"]
+                ):
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Connection error occurred. Please check your internet connection and try again.",
+                        params=params,
+                        exception=e,
+                        action="retry",
+                    )
+
+                # Peer resolution errors
+                if "cannot cast" in error_msg or "peer" in error_msg:
+                    return log_and_build_error(
+                        operation=operation,
+                        error_message="Unable to resolve or access the specified chat/user. Please verify the ID is correct and accessible.",
+                        params=params,
+                        exception=e,
+                    )
+
+                # Generic fallback
+                return log_and_build_error(
+                    operation=operation,
+                    error_message=f"Operation failed: {e!s}",
+                    params=params,
+                    exception=e,
+                )
+
+        return wrapper
+
+    return decorator

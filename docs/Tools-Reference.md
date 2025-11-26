@@ -4,6 +4,42 @@
 
 This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. All tools support uniform entity schemas, consistent error handling, and MCP ToolAnnotations for better AI agent decision-making.
 
+## Error Handling
+
+This MCP server implements comprehensive error handling with clear, actionable error messages:
+
+### Session Authentication Errors
+When a Telegram session is not authorized (e.g., session file missing or expired), all tools return:
+```json
+{
+  "ok": false,
+  "error": "Session not authorized. Please authenticate your Telegram session first.",
+  "action": "authenticate_session",
+  "operation": "tool_name"
+}
+```
+
+### Common Error Types
+- **Authentication Issues**: Clear guidance to authenticate sessions
+- **Network/Connection Problems**: Troubleshooting suggestions for connectivity issues
+- **Database Errors**: Retry guidance for temporary server issues
+- **Invalid Chat IDs**: Clear validation messages for incorrect identifiers
+
+### Error Response Format
+All error responses follow this consistent structure:
+```json
+{
+  "ok": false,
+  "error": "Human-readable error message",
+  "operation": "tool_name",
+  "action": "suggested_action",  // optional: what to do next
+  "exception": {                 // optional: technical details
+    "type": "ExceptionType",
+    "message": "Technical details"
+  }
+}
+```
+
 ## ToolAnnotations for AI Guidance
 
 All tools include MCP ToolAnnotations to help AI agents make informed decisions:

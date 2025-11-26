@@ -5,7 +5,7 @@ from loguru import logger
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
-from src.client.connection import get_connected_client
+from src.client.connection import get_connected_client, SessionNotAuthorizedError
 from src.tools.links import generate_telegram_links
 from src.utils.entity import (
     _get_chat_message_count,
@@ -253,6 +253,14 @@ async def search_messages_impl(
             response["total_count"] = total_count
 
         return response
+    except SessionNotAuthorizedError as e:
+        return log_and_build_error(
+            operation="search_messages",
+            error_message="Session not authorized. Please authenticate your Telegram session first.",
+            params=params,
+            exception=e,
+            action="authenticate_session",
+        )
     except Exception as e:
         return log_and_build_error(
             operation="search_messages",

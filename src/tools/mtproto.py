@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from src.client.connection import get_connected_client
+from src.client.connection import get_connected_client, SessionNotAuthorizedError
 from src.utils.error_handling import log_and_build_error
 from src.utils.helpers import normalize_method_name
 
@@ -410,6 +410,18 @@ async def invoke_mtproto_impl(
             logger.info(f"MTProto method {normalized_method} invoked successfully")
             return safe_result
 
+        except SessionNotAuthorizedError as e:
+            return log_and_build_error(
+                operation="invoke_mtproto",
+                error_message="Session not authorized. Please authenticate your Telegram session first.",
+                params={
+                    "method_full_name": method_full_name,
+                    "normalized_method": normalized_method,
+                    "params": _json_safe(final_params),
+                },
+                exception=e,
+                action="authenticate_session",
+            )
         except Exception as e:
             return log_and_build_error(
                 operation="invoke_mtproto",

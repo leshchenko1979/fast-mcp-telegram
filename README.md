@@ -43,7 +43,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas and profile enrichment |
 | ⚡ **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
-| 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling |
+| 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages |
 | 🎯 **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
 | 🌍 **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
 

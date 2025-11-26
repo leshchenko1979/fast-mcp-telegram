@@ -1,4 +1,19 @@
 ### 2025-11-27
+- **DRY Error Handling Implementation**: Created comprehensive decorator-based error handling system to eliminate repetitive exception handling across all MCP tools
+- **Custom Exception Class**: Added `SessionNotAuthorizedError` for specific session authentication failures
+- **Error Handling Decorator**: Implemented `@handle_telegram_errors()` decorator that automatically provides clear, actionable error messages for:
+  - Session authorization issues → "Session not authorized. Please authenticate your Telegram session first."
+  - Database errors → Retry suggestions for temporary server issues
+  - Network errors → Connection troubleshooting guidance
+  - Peer resolution errors → Clear ID validation messages
+- **Refactored All Tools**: Applied decorator to `get_chat_info`, `search_contacts`, `send_message`, `search_messages`, and `invoke_mtproto` functions
+- **Parameter Extraction**: Flexible params extraction supporting both direct parameters and custom extraction functions
+- **Error Classification**: Intelligent error message selection based on exception content and context
+- **Code Reduction**: Eliminated ~50 lines of repetitive exception handling code across the codebase
+- **Improved UX**: Users now receive clear, actionable error messages instead of confusing technical errors
+- **Testing**: Verified improved error messages return proper authentication guidance instead of misleading peer resolution errors
+
+### 2025-11-27
 - **Todo List and Poll Support in read_messages**: Enhanced `read_messages` and `search_messages` to automatically detect and parse Telegram Todo lists (`MessageMediaToDo`) and Polls (`MessageMediaPoll`)
 - **Todo List Parsing**: Added structured parsing of TodoList objects extracting title, items, completion status, timestamps, and user information
 - **Poll Parsing**: Implemented comprehensive Poll object parsing including questions, options, vote counts, and poll metadata (closed, multiple choice, quiz mode)
