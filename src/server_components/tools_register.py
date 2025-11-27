@@ -57,7 +57,7 @@ def register_tools(mcp: FastMCP) -> None:
         public: bool | None = None,
         auto_expand_batches: int = 2,
         include_total_count: bool = False,
-    ):
+    ) -> dict:
         """
         Search messages across all Telegram chats (global search).
 
@@ -111,7 +111,7 @@ def register_tools(mcp: FastMCP) -> None:
         max_date: str | None = None,
         auto_expand_batches: int = 2,
         include_total_count: bool = False,
-    ):
+    ) -> dict:
         """
         Search messages within a specific Telegram chat.
 
@@ -154,7 +154,7 @@ def register_tools(mcp: FastMCP) -> None:
         reply_to_msg_id: int | None = None,
         parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
         files: str | list[str] | None = None,
-    ):
+    ) -> dict:
         """
         Send new message in Telegram chat, optionally with files.
 
@@ -199,7 +199,7 @@ def register_tools(mcp: FastMCP) -> None:
         message_id: int,
         message: str,
         parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
-    ):
+    ) -> dict:
         """
         Edit existing message in Telegram chat.
 
@@ -226,7 +226,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
     )
     @mcp_tool_with_restrictions("read_messages")
-    async def read_messages(chat_id: str, message_ids: list[int]):
+    async def read_messages(chat_id: str, message_ids: list[int]) -> list[dict]:
         """
         Read specific messages by their IDs from a Telegram chat.
 
@@ -262,7 +262,7 @@ def register_tools(mcp: FastMCP) -> None:
         limit: int = 20,
         chat_type: str | None = None,
         public: bool | None = None,
-    ):
+    ) -> list[dict] | dict:
         """
         Find Telegram chats (users, groups, channels) by name, username, or phone number.
 
@@ -312,7 +312,7 @@ def register_tools(mcp: FastMCP) -> None:
         )
     )
     @mcp_tool_with_restrictions("get_chat_info")
-    async def get_chat_info(chat_id: str):
+    async def get_chat_info(chat_id: str) -> dict:
         """
         Get detailed profile information for a specific Telegram user or chat.
 
@@ -347,7 +347,7 @@ def register_tools(mcp: FastMCP) -> None:
         reply_to_msg_id: int | None = None,
         parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
         files: str | list[str] | None = None,
-    ):
+    ) -> dict:
         """
         Send message to phone number, auto-managing Telegram contacts, optionally with files.
 
@@ -411,7 +411,7 @@ def register_tools(mcp: FastMCP) -> None:
         params_json: str,
         allow_dangerous: bool = False,
         resolve: bool = True,
-    ):
+    ) -> dict:
         """
         Execute low-level Telegram MTProto API methods directly.
 
