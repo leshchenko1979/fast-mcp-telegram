@@ -91,7 +91,7 @@ def test_server(mock_client):
     # Override the client in the connection module for testing
     import src.client.connection as conn
 
-    conn._get_client = AsyncMock(return_value=mock_client)
+    conn._get_client_by_token = AsyncMock(return_value=mock_client)
 
     # Register the actual tool functions (we can't import them directly due to decorators)
     # Instead, we'll create simplified versions for testing

@@ -4,16 +4,16 @@ Provides API endpoints and core bot features.
 """
 
 import asyncio
-import traceback
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from loguru import logger
 
 from src.client.connection import (
-    cleanup_client,
     cleanup_failed_sessions,
     cleanup_idle_sessions,
+    cleanup_session_cache,
 )
 from src.config.logging import setup_logging
 from src.config.server_config import get_config
@@ -57,12 +57,10 @@ async def lifespan(app: FastMCP):
     # Shutdown
     if _cleanup_task:
         _cleanup_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await _cleanup_task
-        except asyncio.CancelledError:
-            pass
 
-    await cleanup_client()
+    await cleanup_session_cache()
 
 
 # Initialize MCP server and logging
@@ -76,24 +74,8 @@ register_mtproto_api_routes(mcp)
 register_tools(mcp)
 
 
-def shutdown_procedure():
-    """Synchronously performs async cleanup."""
-    logger.info("Starting cleanup procedure.")
-
-    try:
-        # If running with lifespan, cleanup is handled there
-        # This function is a fallback for direct script execution without lifespan support
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(cleanup_client())
-        loop.close()
-        logger.info("Cleanup successful.")
-    except Exception as e:
-        logger.error(f"Error during cleanup: {e}\n{traceback.format_exc()}")
-
-
 def main():
-    """Entry point for console script; runs the MCP server and ensures cleanup."""
+    """Entry point for console script; runs the MCP server."""
 
     run_args = {"transport": config.transport}
     if config.transport == "http":
@@ -105,8 +87,6 @@ def main():
         mcp.run(**run_args)
     except KeyboardInterrupt:
         logger.info("KeyboardInterrupt received. Initiating shutdown.")
-    finally:
-        shutdown_procedure()
 
 
 # Run the server if this file is executed directly

@@ -19,8 +19,6 @@ class SessionNotAuthorizedError(Exception):
     pass
 
 
-_singleton_client = None
-
 # Token-based session management (use unified server config)
 MAX_ACTIVE_SESSIONS = get_config().max_active_sessions
 
@@ -43,8 +41,13 @@ async def cleanup_idle_sessions():
     async with _cache_lock:
         current_time = time.time()
         idle_tokens = []
+        default_token = get_config().session_name
 
         for token, (client, last_access) in _session_cache.items():
+            # Skip cleanup for default session to preserve legacy behavior
+            if token == default_token:
+                continue
+
             if current_time - last_access > MAX_IDLE_TIME:
                 idle_tokens.append(token)
 
@@ -194,49 +197,10 @@ async def _get_client_by_token(token: str) -> TelegramClient:
             raise
 
 
-async def get_client() -> TelegramClient:
-    global _singleton_client
-    if _singleton_client is None:
-        try:
-            client = TelegramClient(
-                SESSION_PATH,
-                API_ID,
-                API_HASH,
-                entity_cache_limit=get_config().entity_cache_limit,
-            )
-            await client.connect()
-            if not await client.is_user_authorized():
-                logger.error("Session not authorized. Please run cli_setup.py first")
-                raise SessionNotAuthorizedError("Session not authorized")
-            _singleton_client = client
-        except Exception as e:
-            logger.error(
-                "Failed to create Telegram client",
-                extra={
-                    "diagnostic_info": format_diagnostic_info(
-                        {
-                            "error": {
-                                "type": type(e).__name__,
-                                "message": str(e),
-                                "traceback": traceback.format_exc(),
-                            },
-                            "config": {
-                                "session_path": str(SESSION_PATH),
-                                "api_id_set": bool(API_ID),
-                                "api_hash_set": bool(API_HASH),
-                            },
-                        }
-                    )
-                },
-            )
-            raise
-    return _singleton_client
-
-
 async def get_connected_client() -> TelegramClient:
     """
     Get a connected Telegram client, ensuring the connection is established.
-    Supports both legacy singleton mode and token-based sessions.
+    Supports both legacy singleton mode and token-based sessions via unified cache.
 
     Returns:
         Connected TelegramClient instance
@@ -248,24 +212,19 @@ async def get_connected_client() -> TelegramClient:
     token = _current_token.get(None)
 
     if token is None:
-        # Legacy behavior: use singleton client
-        client = await get_client()
-    else:
-        # Token-based behavior: get client for specific token
-        client = await _get_client_by_token(token)
+        # Legacy/Default behavior: use configured session name as token
+        token = get_config().session_name
 
-    if not await ensure_connection(client):
+    # Get client for token (default or specific)
+    client = await _get_client_by_token(token)
+
+    if not await ensure_connection(client, token):
         raise Exception("Failed to establish connection to Telegram")
     return client
 
 
-async def ensure_connection(client: TelegramClient) -> bool:
+async def ensure_connection(client: TelegramClient, token: str) -> bool:
     """Ensure client connection with exponential backoff and circuit breaker."""
-    token = _current_token.get(None)
-    if not token:
-        # Legacy singleton mode - no backoff tracking
-        return await _ensure_connection_legacy(client)
-
     async with _failure_lock:
         current_time = time.time()
         failure_count, last_failure_time = _connection_failures.get(token, (0, 0))
@@ -362,35 +321,6 @@ async def ensure_connection(client: TelegramClient) -> bool:
         return False
 
 
-async def _ensure_connection_legacy(client: TelegramClient) -> bool:
-    """Legacy connection logic for singleton mode."""
-    try:
-        if not client.is_connected():
-            logger.warning("Client disconnected, attempting to reconnect...")
-            await client.connect()
-            if not await client.is_user_authorized():
-                logger.error("Client reconnected but not authorized")
-                return False
-            logger.info("Successfully reconnected client")
-        return client.is_connected()
-    except Exception as e:
-        logger.error(
-            f"Error ensuring connection: {e}",
-            extra={
-                "diagnostic_info": format_diagnostic_info(
-                    {
-                        "error": {
-                            "type": type(e).__name__,
-                            "message": str(e),
-                            "traceback": traceback.format_exc(),
-                        }
-                    }
-                )
-            },
-        )
-        return False
-
-
 async def _record_connection_failure(token: str) -> None:
     """Record a connection failure for backoff and circuit breaker logic."""
     async with _failure_lock:
@@ -400,17 +330,6 @@ async def _record_connection_failure(token: str) -> None:
         logger.warning(
             f"Recorded connection failure #{failure_count + 1} for token {token[:8]}..."
         )
-
-
-async def cleanup_client():
-    """Clean up the singleton client (legacy behavior)."""
-    global _singleton_client
-    if _singleton_client is not None:
-        try:
-            await _singleton_client.disconnect()
-        except Exception as e:
-            logger.error(f"Error disconnecting singleton client: {e}")
-        _singleton_client = None
 
 
 async def cleanup_session_cache():
@@ -425,14 +344,8 @@ async def cleanup_session_cache():
                     f"Error disconnecting cached client for token {token[:8]}...: {e}"
                 )
 
-        _session_cache.clear()
-        logger.info("Cleaned up all session cache entries")
-
-
-async def cleanup_all_clients():
-    """Clean up both singleton and cached clients."""
-    await cleanup_client()
-    await cleanup_session_cache()
+    _session_cache.clear()
+    logger.info("Cleaned up all session cache entries")
 
 
 async def cleanup_failed_sessions():
