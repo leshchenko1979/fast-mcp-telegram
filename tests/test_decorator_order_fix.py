@@ -17,7 +17,6 @@ To:
 """
 
 from unittest.mock import patch
-from src.config.server_config import ServerConfig, ServerMode, set_config
 
 import pytest
 
@@ -62,7 +61,9 @@ class TestDecoratorOrderFix:
             )
 
     @pytest.mark.asyncio
-    async def test_no_fallback_to_default_session_when_token_provided(self, http_auth_config):
+    async def test_no_fallback_to_default_session_when_token_provided(
+        self, http_auth_config
+    ):
         """Test that system does NOT fall back to default session when valid token is provided."""
 
         with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
@@ -156,6 +157,7 @@ class TestDecoratorOrderFix:
                 "Should fall back to default session in stdio mode"
             )
             assert result["token"] is None, "Token should be None (default session)"
+            return None
 
     @pytest.mark.asyncio
     async def test_decorator_order_verification(self):

@@ -393,7 +393,8 @@ def register_web_setup_routes(mcp_app):
 
             setup_id = str(int(time.time() * 1000))
             temp_session_path = (
-                get_config().session_directory / f"{SETUP_SESSION_PREFIX}{setup_id}.session"
+                get_config().session_directory
+                / f"{SETUP_SESSION_PREFIX}{setup_id}.session"
             )
 
             # Create client for new session

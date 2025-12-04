@@ -73,6 +73,17 @@ deploy() {
   ssh $SSH_OPTS "$VDS_USER@$VDS_HOST" "mkdir -p $VDS_PROJECT_PATH"
   end_section
 
+  start_section "💅 Code Formatting"
+  log "$BLUE" "Running ruff autofix on local source code..."
+  if ! command -v ruff &> /dev/null; then
+    log "$RED" "ruff not found. Please install it with: pip install ruff"
+    exit 1
+  fi
+  ruff check --fix --unsafe-fixes .
+  ruff format .
+  log "$GREEN" "Code formatting completed successfully"
+  end_section
+
   start_section "📦 File Transfer"
   log "$BLUE" "Transferring project files using optimized tarball transfer..."
   # Create a temporary file list including tracked and untracked files (excluding deleted and ignored files)

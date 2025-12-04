@@ -9,7 +9,6 @@ This module tests the actual issue that was found and fixed:
 
 import asyncio
 from unittest.mock import patch
-from src.config.server_config import ServerConfig, ServerMode, set_config
 
 import pytest
 

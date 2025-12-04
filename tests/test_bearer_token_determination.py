@@ -363,6 +363,7 @@ class TestEnvironmentVariableBehavior:
             with patch.dict(os.environ, {"DISABLE_AUTH": env_value}):
                 # Clear config cache and reload settings to re-evaluate environment variable
                 import importlib
+
                 import src.config.server_config as server_config
 
                 # Reset the global config cache
@@ -435,7 +436,7 @@ class TestTransportModeDetection:
     def test_transport_mode_from_environment(self, http_auth_config):
         """Test that transport is correctly determined from server mode."""
         # Test that different server modes result in correct transport
-        from src.config.server_config import ServerMode, ServerConfig, set_config
+        from src.config.server_config import ServerConfig, ServerMode, set_config
 
         test_cases = [
             (ServerMode.HTTP_AUTH, "http"),
@@ -787,7 +788,9 @@ class TestErrorHandling:
         reserved_names_upper = ["TELEGRAM", "Default", "SESSION"]
         reserved_names_mixed = ["TeLeGrAm", "DeFaUlT", "SeSsIoN"]
 
-        for upper_name, mixed_name in zip(reserved_names_upper, reserved_names_mixed):
+        for upper_name, mixed_name in zip(
+            reserved_names_upper, reserved_names_mixed, strict=False
+        ):
             # Test uppercase
             mock_headers = {"authorization": f"Bearer {upper_name}"}
             with patch(

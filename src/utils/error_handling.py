@@ -89,7 +89,7 @@ def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]
         else:
             try:
                 # Fast path for simple types
-                if isinstance(value, (int, float, bool, type(None))):
+                if isinstance(value, int | float | bool | type(None)):
                     sanitized[key] = value
                 else:
                     str_value = str(value)

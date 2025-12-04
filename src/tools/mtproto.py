@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from src.client.connection import get_connected_client, SessionNotAuthorizedError
+from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.utils.error_handling import log_and_build_error
 from src.utils.helpers import normalize_method_name
 

@@ -8,7 +8,7 @@ from typing import Any
 from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
 
-from src.client.connection import get_connected_client, SessionNotAuthorizedError
+from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.utils.entity import (
     _matches_public_filter,
     build_entity_dict,

@@ -6,7 +6,6 @@ from loguru import logger
 from src.client.connection import set_request_token
 from src.config.server_config import get_config
 
-
 # Reserved session names that cannot be used as bearer tokens
 # These are common default names that could conflict with STDIO/HTTP_NO_AUTH sessions
 RESERVED_SESSION_NAMES = frozenset(

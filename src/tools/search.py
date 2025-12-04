@@ -5,7 +5,7 @@ from loguru import logger
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
-from src.client.connection import get_connected_client, SessionNotAuthorizedError
+from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.tools.links import generate_telegram_links
 from src.utils.entity import (
     _get_chat_message_count,

@@ -10,13 +10,11 @@ from telethon import TelegramClient
 
 from ..config.logging import format_diagnostic_info
 from ..config.server_config import get_config
-from ..config.settings import API_HASH, API_ID, SESSION_DIR, SESSION_PATH
+from ..config.settings import API_HASH, API_ID, SESSION_DIR
 
 
 class SessionNotAuthorizedError(Exception):
     """Exception raised when a Telegram session is not authorized."""
-
-    pass
 
 
 # Token-based session management (use unified server config)
@@ -43,7 +41,7 @@ async def cleanup_idle_sessions():
         idle_tokens = []
         default_token = get_config().session_name
 
-        for token, (client, last_access) in _session_cache.items():
+        for token, (_client, last_access) in _session_cache.items():
             # Skip cleanup for default session to preserve legacy behavior
             if token == default_token:
                 continue
@@ -297,8 +295,7 @@ async def ensure_connection(client: TelegramClient, token: str) -> bool:
 
             # Remove from cache to force re-initialization (which will fail auth check)
             async with _cache_lock:
-                if token in _session_cache:
-                    del _session_cache[token]
+                _session_cache.pop(token, None)
 
             # Don't record as a connection failure, just fail immediately
             return False
