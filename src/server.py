@@ -5,11 +5,16 @@ Provides API endpoints and core bot features.
 
 import asyncio
 import traceback
+from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
 from loguru import logger
 
-from src.client.connection import cleanup_client
+from src.client.connection import (
+    cleanup_client,
+    cleanup_failed_sessions,
+    cleanup_idle_sessions,
+)
 from src.config.logging import setup_logging
 from src.config.server_config import get_config
 from src.server_components.health import register_health_routes
@@ -20,8 +25,48 @@ from src.server_components.web_setup import register_web_setup_routes
 # Get configuration
 config = get_config()
 
+# Background cleanup task
+_cleanup_task = None
+
+
+async def cleanup_loop():
+    """Background task to clean up failed and idle sessions."""
+    logger.info("Starting background cleanup task")
+    while True:
+        try:
+            await asyncio.sleep(60)  # Check every minute
+            await cleanup_failed_sessions()
+            await cleanup_idle_sessions()
+        except asyncio.CancelledError:
+            logger.info("Background cleanup task cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {e}")
+            await asyncio.sleep(60)  # Wait before retrying
+
+
+@asynccontextmanager
+async def lifespan(app: FastMCP):
+    """Lifecycle manager for the MCP server."""
+    # Startup
+    global _cleanup_task
+    _cleanup_task = asyncio.create_task(cleanup_loop())
+
+    yield
+
+    # Shutdown
+    if _cleanup_task:
+        _cleanup_task.cancel()
+        try:
+            await _cleanup_task
+        except asyncio.CancelledError:
+            pass
+
+    await cleanup_client()
+
+
 # Initialize MCP server and logging
-mcp = FastMCP("Telegram MCP Server")
+mcp = FastMCP("Telegram MCP Server", lifespan=lifespan)
 setup_logging()
 
 # Register routes and tools immediately (no on_startup hook available)
@@ -36,6 +81,8 @@ def shutdown_procedure():
     logger.info("Starting cleanup procedure.")
 
     try:
+        # If running with lifespan, cleanup is handled there
+        # This function is a fallback for direct script execution without lifespan support
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(cleanup_client())

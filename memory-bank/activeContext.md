@@ -8,6 +8,15 @@
 
 **Current Status**: Enhanced get_entity_by_id to try multiple peer types (raw ID, PeerChannel, PeerUser, PeerChat) for robust entity resolution.
 
+**Connection Incident (2025-12-04)**:
+**Problem**: Container crashed and restarted automatically. Prior to crash, memory usage was 99.6% (128MB limit) with continuous "wrong session ID" errors.
+**Root Cause**: A stale session (`gkM6uMom...`) was causing a reconnection loop. The log analysis incorrectly identified the active session (`f9NdKOLR...`) as the culprit due to log interleaving.
+**Resolution**: The container OOM (Out of Memory) crash acted as a "self-healing" mechanism. Upon restart, only the active/healthy session (`f9NdKOLR...`) was loaded, and the stale session was ignored.
+**Learnings**:
+1. **Diagnosis**: Don't rely on adjacent log lines in async apps. Use correlation IDs or strict token filtering.
+2. **Resource Limits**: 128MB is insufficient for multiple active sessions. Increasing to 256MB is recommended.
+3. **Lifecycle Management**: Persistent connections for idle sessions (60+ hours inactive) are wasteful. Need to implement idle timeout/disconnection.
+
 **Peer Resolution Enhancement - Multi-Type Entity Lookup (2025-11-27)**:
 **Decision**: Enhanced entity resolution to handle cases where Telethon cannot automatically determine entity type from raw ID
 **Problem**: Peer ID 2928607356 (Telegram group "Редевест - дела") was not resolving because client.get_entity() couldn't determine it was a group without explicit type specification
@@ -132,7 +141,6 @@
 - Proper security model per server mode
 - Full test coverage (26 tests passing: 15 session config + 11 MCP generation)
 - Better UX with copy-paste ready configs
-
 
 
 

@@ -34,6 +34,37 @@ _connection_failures: dict[
 ] = {}  # token -> (failure_count, last_failure_time)
 _failure_lock = asyncio.Lock()
 
+# Idle session cleanup
+MAX_IDLE_TIME = 1800  # 30 minutes in seconds
+
+
+async def cleanup_idle_sessions():
+    """Disconnect sessions that haven't been used for MAX_IDLE_TIME."""
+    async with _cache_lock:
+        current_time = time.time()
+        idle_tokens = []
+
+        for token, (client, last_access) in _session_cache.items():
+            if current_time - last_access > MAX_IDLE_TIME:
+                idle_tokens.append(token)
+
+        for token in idle_tokens:
+            client, last_access = _session_cache[token]
+            try:
+                await client.disconnect()
+                logger.info(
+                    f"Disconnected idle session for token {token[:8]}... (idle for {(current_time - last_access) / 60:.1f}m)"
+                )
+            except Exception as e:
+                logger.warning(f"Error disconnecting idle session {token[:8]}...: {e}")
+            # Remove from cache
+            del _session_cache[token]
+
+        if idle_tokens:
+            logger.info(
+                f"Cleaned up {len(idle_tokens)} idle sessions. Cache now has {len(_session_cache)} sessions"
+            )
+
 
 def generate_bearer_token() -> str:
     """Generate a cryptographically secure bearer token for session management."""
@@ -249,14 +280,15 @@ async def ensure_connection(client: TelegramClient) -> bool:
             return False
 
         # Exponential backoff: wait before retrying
-        if failure_count > 0 and (current_time - last_failure_time) < min(
-            2**failure_count, 60
-        ):
-            wait_time = min(2**failure_count, 60) - (current_time - last_failure_time)
-            logger.info(
-                f"Exponential backoff: waiting {wait_time:.1f}s before retry for token {token[:8]}..."
-            )
-            await asyncio.sleep(wait_time)
+        if failure_count > 0:
+            backoff_time = min(2**failure_count, 60)
+            wait_time = backoff_time - (current_time - last_failure_time)
+
+            if wait_time > 0:
+                logger.info(
+                    f"Exponential backoff: waiting {wait_time:.1f}s before retry for token {token[:8]}..."
+                )
+                await asyncio.sleep(wait_time)
 
     try:
         if not client.is_connected():
@@ -278,6 +310,40 @@ async def ensure_connection(client: TelegramClient) -> bool:
 
         return client.is_connected()
     except Exception as e:
+        # Check for fatal session errors that shouldn't be retried
+        error_msg = str(e).lower()
+        is_fatal = any(
+            pattern in error_msg
+            for pattern in [
+                "wrong session id",
+                "server replied with a wrong session id",
+                "auth_key_unregistered",
+                "session_revoked",
+                "user_deactivated",
+            ]
+        )
+
+        if is_fatal:
+            logger.critical(
+                f"Fatal session error for token {token[:8]}...: {e}. Removing session and stopping retries."
+            )
+            # Remove session file immediately to prevent loop
+            session_path = SESSION_DIR / f"{token}.session"
+            if session_path.exists():
+                try:
+                    session_path.unlink()
+                    logger.info(f"Removed fatal session file for token {token[:8]}...")
+                except Exception as del_e:
+                    logger.warning(f"Failed to remove fatal session file: {del_e}")
+
+            # Remove from cache to force re-initialization (which will fail auth check)
+            async with _cache_lock:
+                if token in _session_cache:
+                    del _session_cache[token]
+
+            # Don't record as a connection failure, just fail immediately
+            return False
+
         await _record_connection_failure(token)
         logger.error(
             f"Error ensuring connection for token {token[:8]}...: {e}",

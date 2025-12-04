@@ -13,6 +13,22 @@ from typing import Any
 
 from loguru import logger
 
+# Lazy import to avoid circular dependency
+_current_token = None
+
+
+def _get_current_token() -> str | None:
+    """Safely get current token from connection module."""
+    global _current_token
+    if _current_token is None:
+        try:
+            from src.client.connection import _current_token as token_var
+
+            _current_token = token_var
+        except ImportError:
+            return None
+    return _current_token.get(None) if _current_token else None
+
 
 def _log_at_level(log_level: str, message: str, extra: dict | None = None) -> None:
     """
@@ -209,6 +225,11 @@ def log_and_build_error(
         "operation": operation,
         "error_message": error_message,
     }
+
+    # Add token context if available
+    token = _get_current_token()
+    if token:
+        log_extra["token_prefix"] = f"{token[:8]}..."
 
     if params:
         log_extra["params"] = sanitize_params_for_logging(params)
