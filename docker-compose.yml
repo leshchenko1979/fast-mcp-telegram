@@ -17,9 +17,9 @@ services:
       - "traefik.enable=true"
 
     restart: unless-stopped
-    mem_limit: 128m
+    mem_limit: 256m
     cpus: 0.5
-    mem_reservation: 32m
+    mem_reservation: 64m
     command: python -m src.server
 
   setup:
