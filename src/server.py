@@ -63,9 +63,10 @@ async def lifespan(app: FastMCP):
     await cleanup_session_cache()
 
 
-# Initialize MCP server and logging
-mcp = FastMCP("Telegram MCP Server", lifespan=lifespan)
 setup_logging()
+
+# Initialize MCP server
+mcp = FastMCP("Telegram MCP Server", lifespan=lifespan)
 
 # Register routes and tools immediately (no on_startup hook available)
 register_health_routes(mcp)
@@ -83,10 +84,7 @@ def main():
             {"host": config.host, "port": config.port, "stateless_http": True}
         )
 
-    try:
-        mcp.run(**run_args)
-    except KeyboardInterrupt:
-        logger.info("KeyboardInterrupt received. Initiating shutdown.")
+    mcp.run(**run_args)
 
 
 # Run the server if this file is executed directly
