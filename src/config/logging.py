@@ -1,136 +1,127 @@
 import json
 import logging
-import sys
-from datetime import datetime
-
-from loguru import logger
+import logging.config
+import time
+from typing import Any
 
 from .server_config import get_config
-from .settings import LOG_DIR, SERVER_VERSION, SESSION_PATH
+from .settings import SERVER_VERSION, SESSION_PATH
 
-# Get current timestamp for log file name
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-LOG_PATH = LOG_DIR / f"mcp_server_{current_time}.log"
+# Module-level configuration flag
+_configured = False
+
+# Global logger instance for the module
+logger = logging.getLogger(__name__)
+
+# Filtered endpoints for AccessFilter optimization
+_FILTERED_ENDPOINTS = frozenset(["/health", "/metrics", "/status"])
+
+
+class AccessFilter(logging.Filter):
+    """Filter out noisy access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Filter out health/metric/status endpoint access logs."""
+        if record.name != "uvicorn.access":
+            return True
+        message = record.getMessage()
+        return not any(endpoint in message for endpoint in _FILTERED_ENDPOINTS)
+
+
+def create_logging_config(log_level: str) -> dict[str, Any]:
+    """Create the logging configuration dictionary."""
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "custom": {
+                "()": "src.config.logging.CustomFormatter",
+                "format": "%(message)s",
+                "datefmt": "%H:%M:%S",
+            }
+        },
+        "filters": {"access": {"()": "src.config.logging.AccessFilter"}},
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": log_level,
+                "formatter": "custom",
+                "stream": "ext://sys.stderr",
+                "filters": ["access"],
+            }
+        },
+        "loggers": {
+            # Third-party dependencies at WARNING level (suppress DEBUG noise)
+            # NOTE: These are functionally redundant with root WARNING level, but kept explicit for:
+            # - Documentation: Clear intent that these libraries should be quiet
+            # - Safety: Protects against future root logger level changes
+            # - Maintainability: Easy to adjust individual third-party loggers
+            # - Clarity: Self-documenting code showing logging strategy
+            "uvicorn": {"level": "WARNING"},
+            "uvicorn.error": {"level": "WARNING"},
+            "uvicorn.access": {"level": "WARNING"},
+            "mcp.server.lowlevel.server": {"level": "WARNING"},
+            "asyncio": {"level": "WARNING"},
+            "urllib3": {"level": "WARNING"},
+            "httpx": {"level": "WARNING"},
+            "aiohttp": {"level": "WARNING"},
+            "telethon": {"level": "WARNING"},
+            "sse_starlette.sse": {"level": "WARNING"},
+            "fastmcp": {"level": "WARNING"},
+            "logging": {"level": "WARNING"},
+            # Application code at DEBUG level (catch-all for src.* hierarchy)
+            # NOTE: Explicit opt-in for verbosity - secure by default, explicit for clarity
+            "src": {"level": "DEBUG"},
+        },
+        "root": {"level": "WARNING", "handlers": ["console"]},
+    }
+
+
+class CustomFormatter(logging.Formatter):
+    """Custom formatter matching loguru console format."""
+
+    def formatTime(self, record, datefmt=None):  # noqa: N802
+        """Format time with milliseconds."""
+        ct = time.localtime(record.created)
+        # Format as HH:mm:ss.SSS (milliseconds)
+        return time.strftime("%H:%M:%S", ct) + f".{int(record.msecs):03d}"
+
+    def format(self, record):
+        """Format log record to match loguru console output."""
+        # Use custom formatTime for time formatting
+        time_str = self.formatTime(record)
+        # Level name left-aligned to 8 characters
+        level = record.levelname.ljust(8)
+        # Include logger name, function, and line number
+        name = record.name
+        func = record.funcName
+        line = record.lineno
+        message = record.getMessage()
+        return f"{time_str} | {level} | {name}:{func}:{line} | {message}"
 
 
 def setup_logging():
-    """Configure logging with loguru."""
-    # Prevent repeated setup by checking if already configured
-    if hasattr(setup_logging, "_configured"):
+    """Configure logging with stdlib logging using canonical patterns (console only)."""
+    global _configured
+
+    # Prevent repeated setup by checking module-level flag
+    if _configured:
         return
-    setup_logging._configured = True
 
     # Get configuration
     cfg = get_config()
 
-    logger.remove()
+    # Create logging configuration
+    config = create_logging_config(cfg.log_level.upper())
 
-    # File sink with full tracebacks and diagnostics
-    logger.add(
-        LOG_PATH,
-        rotation="1 day",
-        retention="7 days",
-        level="DEBUG",  # Always keep full logs in file
-        backtrace=True,
-        diagnose=True,
-        enqueue=True,
-        # Include logger name and line number for better debugging
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
-    )
-    # Console sink with configurable level
-    logger.add(
-        sys.stderr,
-        level=cfg.log_level.upper(),  # Use configured log level
-        backtrace=True,
-        diagnose=True,
-        enqueue=True,
-        # Include logger name and line number for better debugging
-        format="{time:HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} | {message}",
-    )
+    # Apply configuration - dictConfig handles everything for synchronous logging
+    logging.config.dictConfig(config)
 
-    # Bridge standard logging (uvicorn, telethon, etc.) to loguru
-    class InterceptHandler(logging.Handler):
-        def __init__(self):
-            super().__init__()
-            # Cache level mappings for performance
-            self._level_cache = {}
+    # Mark as configured
+    _configured = True
 
-        def emit(self, record: logging.LogRecord) -> None:
-            message = record.getMessage()
-
-            # Filter out noisy access logs to reduce log spam
-            if record.name == "uvicorn.access" and any(
-                endpoint in message for endpoint in ["/health", "/metrics", "/status"]
-            ):
-                return
-
-            # Optimized level resolution with caching
-            level_name = record.levelname
-            if level_name not in self._level_cache:
-                try:
-                    self._level_cache[level_name] = logger.level(level_name).name
-                except Exception:
-                    self._level_cache[level_name] = record.levelno
-            level = self._level_cache[level_name]
-
-            # Optimized frame walking - only when needed
-            depth = 2
-            if record.exc_info:
-                frame = logging.currentframe()
-                while frame and frame.f_code.co_filename == logging.__file__:
-                    frame = frame.f_back
-                    depth += 1
-
-            # For bridged logs, just use the message directly since the main format includes logger info
-            message = record.getMessage()
-
-            try:
-                logger.opt(depth=depth, exception=record.exc_info).log(level, message)
-            except Exception:
-                # Fallback if anything fails
-                logger.opt(depth=depth, exception=record.exc_info).log(
-                    level, f"[logging_error] {message}"
-                )
-
-    # Install a single root handler
-    root_logger = logging.getLogger()
-    root_logger.handlers = [InterceptHandler()]
-    root_logger.setLevel(0)
-
-    # Configure specific library logger levels (no extra handlers so root handler applies)
-    # Batch logger configuration for better performance
-    logger_configs = [
-        ("uvicorn", logging.INFO),
-        ("uvicorn.error", logging.ERROR),
-        ("uvicorn.access", logging.WARNING),
-        ("mcp.server.lowlevel.server", logging.WARNING),
-        ("asyncio", logging.WARNING),
-        ("urllib3", logging.WARNING),
-        ("httpx", logging.WARNING),
-        ("aiohttp", logging.WARNING),
-        # Telethon configuration - keep root at DEBUG for diagnostics
-        ("telethon", logging.DEBUG),
-        # Noisy Telethon submodules lowered to INFO (suppress their DEBUG flood)
-        (
-            "telethon.network.mtprotosender",
-            logging.INFO,
-        ),  # _send_loop, _recv_loop, _handle_update, etc.
-        ("telethon.extensions.messagepacker", logging.INFO),  # packing/debug spam
-        ("telethon.network", logging.INFO),  # any other network internals
-        ("telethon.network.connection", logging.INFO),  # connection management noise
-        ("telethon.client.telegramclient", logging.INFO),  # client connection noise
-        ("telethon.tl", logging.INFO),  # TL layer noise
-        ("telethon.client.updates", logging.INFO),  # Update loop timeout spam
-        # Suppress SSE ping messages completely
-        ("sse_starlette.sse", logging.WARNING),
-    ]
-
-    for logger_name, level in logger_configs:
-        logging.getLogger(logger_name).setLevel(level)
-
-    # Log server startup information (optimized batch logging)
-    cfg = get_config()
-    startup_info = [
+    # Log server startup information
+    startup_lines = [
         "=== Telegram MCP Server Starting ===",
         f"Version: {SERVER_VERSION}",
         f"Mode: {cfg.server_mode.value}",
@@ -138,24 +129,27 @@ def setup_logging():
     ]
 
     if cfg.transport == "http":
-        startup_info.append(f"Bind: {cfg.host}:{cfg.port}")
+        startup_lines.append(f"Bind: {cfg.host}:{cfg.port}")
 
-    startup_info.extend(
+    startup_lines.extend(
         [
             f"Session file path: {SESSION_PATH.absolute()}",
-            f"Log file path: {LOG_PATH.absolute()}",
             "=====================================",
         ]
     )
 
-    # Batch log startup information
-    for info_line in startup_info:
-        logger.info(info_line)
+    # Log all startup information
+    for line in startup_lines:
+        logger.info(line)
+
+
+def cleanup_logging():
+    """Clean up logging resources.
+
+    No-op for synchronous logging configuration.
+    """
 
 
 def format_diagnostic_info(info: dict) -> str:
     """Format diagnostic information for logging."""
-    try:
-        return json.dumps(info, indent=2, default=str)
-    except Exception as e:
-        return f"Error formatting diagnostic info: {e!s}"
+    return json.dumps(info, indent=2, default=str)

@@ -6,10 +6,6 @@ from src.config.server_config import get_config
 # Base paths
 SCRIPT_DIR = Path(__file__).parent.parent.parent
 PROJECT_DIR = SCRIPT_DIR
-LOG_DIR = PROJECT_DIR / "logs"
-
-# Create directories
-LOG_DIR.mkdir(exist_ok=True)
 
 # Get configuration instance
 config = get_config()

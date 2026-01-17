@@ -109,7 +109,7 @@ graph TD
 
 ## Logging Strategy
 
-- **Structured Logging**: Loguru used for consistent, parsable logs
+- **Structured Logging**: Simple synchronous stdlib logging with dictConfig and custom formatter for consistent, parsable logs
 - **Contextual Info**: Request IDs and tokens included in log records
 - **Sanitization**: Sensitive data (phone numbers, tokens) masked
 - **Level Filtering**: verbose debug logs suppressed in production

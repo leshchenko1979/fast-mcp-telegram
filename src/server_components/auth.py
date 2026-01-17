@@ -1,10 +1,11 @@
+import logging
 from collections.abc import Callable
 from functools import wraps
 
-from loguru import logger
-
 from src.client.connection import set_request_token
 from src.config.server_config import get_config
+
+logger = logging.getLogger(__name__)
 
 # Reserved session names that cannot be used as bearer tokens
 # These are common default names that could conflict with STDIO/HTTP_NO_AUTH sessions

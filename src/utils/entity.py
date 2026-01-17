@@ -1,10 +1,13 @@
-from loguru import logger
+import logging
+
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import InputMessagesFilterEmpty, PeerChannel, PeerChat, PeerUser
 
 from ..client.connection import get_connected_client
+
+logger = logging.getLogger(__name__)
 
 # -------------------------
 # Manual caches (key-safe)

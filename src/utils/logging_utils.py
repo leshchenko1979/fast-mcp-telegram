@@ -6,16 +6,17 @@ across all tools and server components. These utilities handle consistent format
 parameter sanitization, and metadata addition for all logging operations.
 """
 
+import logging
 import traceback
 from typing import Any
-
-from loguru import logger
 
 from src.utils.error_handling import (
     _log_at_level,
     add_logging_metadata,
     sanitize_params_for_logging,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def log_operation_start(operation: str, params: dict[str, Any] | None = None) -> None:

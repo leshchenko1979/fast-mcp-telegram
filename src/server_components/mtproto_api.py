@@ -1,4 +1,5 @@
-from loguru import logger
+import logging
+
 from starlette.responses import JSONResponse
 
 from src.client.connection import set_request_token
@@ -7,6 +8,8 @@ from src.server_components.auth import extract_bearer_token_from_request
 from src.tools.mtproto import DANGEROUS_METHODS, invoke_mtproto_impl
 from src.utils.error_handling import log_and_build_error
 from src.utils.helpers import normalize_method_name
+
+logger = logging.getLogger(__name__)
 
 
 def register_mtproto_api_routes(mcp_app) -> None:

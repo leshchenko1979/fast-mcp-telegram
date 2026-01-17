@@ -219,48 +219,6 @@ uvicorn src.server:app --reload
 
 ---
 
-## 📦 Dependencies
-
-### Core Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| **fastmcp** | MCP server framework |
-| **telethon** | Telegram API client |
-| **loguru** | Structured logging |
-| **aiohttp** | Async HTTP client |
-| **python-dotenv** | Environment management |
-
-### Development Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| **pytest** | Testing framework |
-| **pytest-asyncio** | Async testing support |
-| **pytest-cov** | Coverage reporting |
-| **ruff** | Code formatting and linting |
-| **mypy** | Type checking |
-
-**Installation:** `pip install -e .[dev]` (dependencies managed via `pyproject.toml`)
-
-### Dependency Management
-
-- **pyproject.toml**: Main dependency configuration with setuptools
-- **requirements.txt**: Optional lock file for reproducible builds
-- **pip**: Standard Python package manager
-- **Dependabot**: Automated dependency updates
-- **Security**: Regular security audits of dependencies
-
-### Package Management
-
-This project uses **setuptools** and **pip** for dependency management:
-- **Standard Python tooling**: Uses setuptools.build_meta as build backend
-- **Reproducible builds**: pyproject.toml ensures consistent environments
-- **Docker optimization**: Multi-stage builds optimized for pip installations
-- **Cross-platform compatibility**: Works on all platforms with standard Python tooling
-
----
-
 ## 🔧 Code Quality
 
 ### Code Style

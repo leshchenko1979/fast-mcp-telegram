@@ -115,7 +115,8 @@ import json
 from importlib import import_module
 from typing import Any
 
-from loguru import logger
+import logging
+logger = logging.getLogger(__name__)
 
 from src.client.connection import get_connected_client
 from src.utils.error_handling import log_and_build_error

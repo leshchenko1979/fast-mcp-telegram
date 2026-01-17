@@ -5,10 +5,10 @@ Provides API endpoints and core bot features.
 
 import asyncio
 import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastmcp import FastMCP
-from loguru import logger
 
 from src.client.connection import (
     cleanup_failed_sessions,
@@ -21,6 +21,8 @@ from src.server_components.health import register_health_routes
 from src.server_components.mtproto_api import register_mtproto_api_routes
 from src.server_components.tools_register import register_tools
 from src.server_components.web_setup import register_web_setup_routes
+
+logger = logging.getLogger(__name__)
 
 # Get configuration
 config = get_config()

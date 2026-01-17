@@ -5,13 +5,14 @@ This module provides standardized error handling patterns to eliminate code dupl
 across all tools and server components.
 """
 
+import logging
 import traceback
 from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 from typing import Any
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 
 # Lazy import to avoid circular dependency
 _current_token = None
@@ -32,21 +33,21 @@ def _get_current_token() -> str | None:
 
 def _log_at_level(log_level: str, message: str, extra: dict | None = None) -> None:
     """
-    Log a message at the specified level using loguru.
+    Log a message at the specified level using stdlib logging.
 
     Args:
         log_level: The log level ('error', 'warning', 'info', 'debug')
         message: The message to log
         extra: Extra data to include in the log record
     """
-    if log_level.upper() == "ERROR":
-        logger.error(message, extra=extra)
-    elif log_level.upper() == "WARNING":
-        logger.warning(message, extra=extra)
-    elif log_level.upper() == "INFO":
-        logger.info(message, extra=extra)
-    else:
-        logger.debug(message, extra=extra)
+    level_map = {
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+    }
+    numeric_level = level_map.get(log_level.upper(), logging.DEBUG)
+    logger.log(numeric_level, message, extra=extra)
 
 
 def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]:

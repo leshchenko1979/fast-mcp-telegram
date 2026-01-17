@@ -1,7 +1,7 @@
+import logging
 from datetime import datetime
 from typing import Any
 
-from loguru import logger
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
@@ -21,6 +21,8 @@ from src.utils.error_handling import (
 )
 from src.utils.helpers import _append_dedup_until_limit
 from src.utils.message_format import _has_any_media, build_message_result
+
+logger = logging.getLogger(__name__)
 
 
 async def _process_message_for_results(

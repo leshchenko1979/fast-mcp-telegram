@@ -1,11 +1,12 @@
+import logging
 import traceback
 from typing import Any
-
-from loguru import logger
 
 from src.client.connection import get_connected_client
 from src.config.logging import format_diagnostic_info
 from src.utils.entity import get_entity_by_id
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_channel_id(channel_id: str) -> str:

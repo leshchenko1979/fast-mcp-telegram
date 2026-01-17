@@ -3,9 +3,9 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
+import logging
 from typing import Any
 
-from loguru import logger
 from telethon.tl.functions.contacts import SearchRequest
 
 from src.client.connection import SessionNotAuthorizedError, get_connected_client
@@ -17,6 +17,8 @@ from src.utils.entity import (
     get_normalized_chat_type,
 )
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
+
+logger = logging.getLogger(__name__)
 
 
 async def search_contacts_native(

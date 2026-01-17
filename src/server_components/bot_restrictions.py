@@ -5,12 +5,13 @@ This module provides decorators to restrict non-bridge tools for bot sessions,
 ensuring bots can only use the MTProto bridge functionality.
 """
 
+import logging
 from functools import wraps
-
-from loguru import logger
 
 from src.client.connection import get_connected_client
 from src.utils.error_handling import log_and_build_error
+
+logger = logging.getLogger(__name__)
 
 
 def restrict_non_bridge_for_bot_sessions(operation_name: str):

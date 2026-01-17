@@ -1,16 +1,18 @@
 import asyncio
 import base64
+import logging
 import secrets
 import time
 import traceback
 from contextvars import ContextVar
 
-from loguru import logger
 from telethon import TelegramClient
 
 from ..config.logging import format_diagnostic_info
 from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class SessionNotAuthorizedError(Exception):

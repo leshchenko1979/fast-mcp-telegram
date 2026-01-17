@@ -1,10 +1,10 @@
 import ipaddress
+import logging
 from io import BytesIO
 from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
-from loguru import logger
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
 
@@ -15,6 +15,8 @@ from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_message_result, build_send_edit_result
+
+logger = logging.getLogger(__name__)
 
 
 def detect_message_formatting(message: str) -> str | None:

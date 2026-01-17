@@ -2,6 +2,7 @@
 Server configuration using pydantic_settings for clean environment and argument handling.
 """
 
+import logging
 import os
 import sys
 from enum import Enum
@@ -10,6 +11,8 @@ from typing import Literal
 
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 def _is_test_environment() -> bool:
@@ -206,8 +209,6 @@ class ServerConfig(BaseSettings):
         # Prevent repeated logging by checking if already logged
         if hasattr(self, "_config_logged"):
             return
-
-        from loguru import logger
 
         logger.info(f"🚀 Server mode: {self.server_mode.value}")
         logger.info(f"🌐 Transport: {self.transport}")
