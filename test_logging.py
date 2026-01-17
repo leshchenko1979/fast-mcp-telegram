@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Test script to verify stdlib logging configuration works correctly."""
 
-import sys
 import os
+import sys
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from config.logging import setup_logging, logger
+from config.logging import logger, setup_logging
 
 
 def test_logging():
@@ -27,7 +27,7 @@ def test_logging():
     print("\nTesting exception logging:")
     try:
         raise ValueError("Test exception")
-    except Exception as e:
+    except Exception:
         logger.exception("An exception occurred")
 
     print("\nLogging test completed.")
