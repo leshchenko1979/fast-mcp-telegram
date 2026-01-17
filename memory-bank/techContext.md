@@ -12,7 +12,7 @@
 # Core dependencies from pyproject.toml (managed by setuptools)
 fastmcp          # MCP server framework
 telethon         # Telegram API client
-loguru           # Advanced logging
+# Logging handled by Python stdlib
 asyncio          # Async/await support (built-in)
 aiohttp          # HTTP transport for MCP
 python-dotenv    # Environment variable management
@@ -231,15 +231,20 @@ from src.tools.contacts import get_chat_info, search_contacts_telegram
 ## Logging Configuration
 
 ### Logging Architecture
-- **Loguru + stdlib bridge**: Advanced formatting and features
-- **InterceptHandler**: Bridges stdlib loggers to Loguru
-- **Emitter metadata tracking**: logger/module/function/line
-- **Module-level log level control**: For spam reduction
+- **PEP 391 dictConfig**: Canonical declarative logging configuration
+- **Synchronous StreamHandler**: Optimized console logging to stderr
+- **Custom formatter with formatTime()**: Millisecond-precision time formatting
+- **Optimized AccessFilter**: frozenset-based endpoint filtering for performance
+- **Cached configurations**: Module-level constants for static logger configs
+- **Proper handler levels**: Console handler respects log_level configuration
+- **Dependency WARNING / Own Code DEBUG**: Clear logging level separation
 
-### Spam Reduction Strategy
-- **Telethon root logger**: Set to DEBUG for important logs
-- **Noisy submodules**: Set to INFO level (mtprotosender, messagepacker, network)
-- **Performance Impact**: Reduced from 9,000+ to ~16 lines per session
+### Log Level Strategy
+- **Root logger**: WARNING level for secure-by-default behavior
+- **Third-party dependencies**: WARNING level to suppress DEBUG noise from libraries
+- **Application code**: Explicit DEBUG level for 'src.*' hierarchy (opt-in verbosity)
+- **New loggers**: Default to WARNING level (prevents accidental DEBUG spam)
+- **Selective overrides**: Specific libraries can be tuned as needed
 
 ## Tool Usage Patterns
 
