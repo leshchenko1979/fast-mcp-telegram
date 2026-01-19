@@ -65,23 +65,75 @@ SERVER_MODE=http-auth fast-mcp-telegram
 #    - Download mcp.json
 
 # ✅ Done! Use the downloaded mcp.json in your MCP client
-
-### 🔄 Reauthorizing Existing Sessions
-
-If your session becomes unauthorized (expired login, etc.):
-
-1. **Via Web Interface:** Open http://your-server.com/setup
-   - Choose from three options:
-     - **Create New Session**: Set up a new Telegram session
-     - **Reauthorize Existing Session**: Refresh an expired session
-     - **Delete Session**: Permanently remove a session file
-   - For reauthorization: Enter your existing bearer token, confirm your phone number, and complete verification
-
-2. **Via CLI:** Use the `--overwrite` flag
-   ```bash
-   fast-mcp-telegram-setup --overwrite --phone-number="+1234567890"
-   ```
 ```
+
+## 🌐 Web Setup Interface
+
+The web setup interface provides a user-friendly way to manage Telegram sessions directly from your browser. Access it at `http://your-server.com/setup` when running in `http-auth` mode.
+
+### 📱 Available Options
+
+#### 1. **Create New Session** 🔐
+Set up a completely new Telegram session:
+
+1. Click **"Create New Session"**
+2. Enter your phone number (include country code, e.g., `+1234567890`)
+3. Telegram will send you a verification code
+4. Enter the 5-digit code when prompted
+5. If 2FA is enabled, enter your password
+6. Download the generated `mcp.json` configuration file
+7. Use this file in your MCP client
+
+#### 2. **Reauthorize Existing Session** 🔄
+Refresh an expired or unauthorized session while keeping your bearer token:
+
+1. Click **"Reauthorize Existing Session"**
+2. Enter your existing bearer token
+3. Confirm your phone number
+4. Enter the verification code sent by Telegram
+5. If 2FA is enabled, enter your password
+6. Your session is refreshed with the same token
+
+#### 3. **Delete Session** 🗑️
+Permanently remove a session file:
+
+1. Click **"Delete Session"**
+2. Enter your bearer token
+3. Confirm deletion (⚠️ **This action cannot be undone**)
+4. Session file is permanently removed
+
+### 🔄 Session Management
+
+**Reauthorizing Expired Sessions:**
+- Use the **"Reauthorize Existing Session"** option
+- Your bearer token remains the same
+- No need to update MCP client configuration
+- Phone verification prevents unauthorized access
+
+**Removing Sessions:**
+- Use the **"Delete Session"** option for permanent removal
+- Requires bearer token authentication
+- Safely disconnects active connections
+- Completely removes session files from server
+
+### 🔧 Troubleshooting Web Setup
+
+**❌ "Session not found" error:**
+- Verify your bearer token is correct
+- Check that the session file exists on the server
+
+**❌ "Invalid token" error:**
+- Ensure you're not using reserved names like "telegram" or "default"
+- Bearer tokens must be URL-safe strings
+
+**❌ Phone verification issues:**
+- Include country code in phone number (+1, +44, etc.)
+- Wait for SMS or use Telegram app for code
+- Check that your phone number is registered with Telegram
+
+**❌ 2FA password issues:**
+- Use your Telegram cloud password (not app lock PIN)
+- If forgotten, reset via Telegram settings
 
 ---
 
@@ -90,8 +142,10 @@ If your session becomes unauthorized (expired login, etc.):
 | I want to... | Use this |
 |--------------|----------|
 | Use Cursor IDE or Claude Desktop locally | **CLI Setup** (above) |
-| Deploy to a remote server | **Web Setup** (above) |
+| Deploy to a remote server with web interface | **Web Setup** (above) |
 | Use multiple Telegram accounts | [Multiple Accounts](#-multiple-accounts) |
+| Manage sessions without CLI access | **Web Setup** → "Reauthorize Existing Session" |
+| Permanently remove a session | **Web Setup** → "Delete Session" |
 
 ---
 
