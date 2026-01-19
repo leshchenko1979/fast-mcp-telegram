@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div id="step">
+<main id="step">
     <h1>Telegram MCP Setup</h1>
     <p class="muted">Choose how to set up your Telegram session.</p>
 
-    <div class="option-buttons">
-        <button type="button" onclick="showNewSession()">Create New Session</button>
-        <button type="button" onclick="showReauthorize()">Reauthorize Existing Session</button>
+    <div class="option-buttons" role="group" aria-label="Setup options">
+        <button type="button" data-form="new-session" aria-expanded="false" aria-controls="new-session-form">
+            Create New Session
+        </button>
+        <button type="button" data-form="reauthorize" aria-expanded="false" aria-controls="reauthorize-form">
+            Reauthorize Existing Session
+        </button>
+        <button type="button" data-form="delete-session" aria-expanded="false" aria-controls="delete-session-form">
+            Delete Session
+        </button>
     </div>
 
-    <div id="new-session-form" style="display: none;">
-        <h2>Create New Session</h2>
+    <section id="new-session-form" class="setup-form" hidden aria-labelledby="new-session-heading">
+        <h2 id="new-session-heading">Create New Session</h2>
         <p class="muted">Enter your phone number to authenticate with Telegram.</p>
 
         <form hx-post="/setup/phone" hx-target="#step" hx-swap="innerHTML">
@@ -19,10 +26,10 @@
             <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
             <button type="submit">Send Code</button>
         </form>
-    </div>
+    </section>
 
-    <div id="reauthorize-form" style="display: none;">
-        <h2>Reauthorize Existing Session</h2>
+    <section id="reauthorize-form" class="setup-form" hidden aria-labelledby="reauthorize-heading">
+        <h2 id="reauthorize-heading">Reauthorize Existing Session</h2>
         <p class="muted">Enter your existing bearer token to reauthorize your session.</p>
 
         <form hx-post="/setup/reauthorize" hx-target="#step" hx-swap="innerHTML">
@@ -30,36 +37,101 @@
             <input id="token" name="token" type="text" placeholder="Your bearer token" required />
             <button type="submit">Check & Reauthorize</button>
         </form>
-    </div>
-</div>
+    </section>
+
+    <section id="delete-session-form" class="setup-form" hidden aria-labelledby="delete-session-heading">
+        {% include "fragments/delete_form.html" %}
+    </section>
+</main>
 
 <style>
-.option-buttons {
-    display: flex;
-    gap: 1rem;
-    margin: 2rem 0;
-}
+    .setup-form {
+        margin-top: 2rem;
+    }
 
-.option-buttons button {
-    flex: 1;
-    padding: 1rem;
-    font-size: 1.1rem;
-}
+    /* Enhanced button interactions */
+    .option-buttons button {
+        position: relative;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
 
-#new-session-form, #reauthorize-form {
-    margin-top: 2rem;
-}
+    .option-buttons button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .option-buttons button:focus {
+        outline: 2px solid #4f46e5;
+        outline-offset: 2px;
+    }
+
+    .option-buttons button[aria-expanded="true"] {
+        border-color: #4f46e5;
+        background: #1e293b;
+    }
+
+    /* Responsive design improvements */
+    @media (max-width: 640px) {
+        .option-buttons {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .option-buttons button {
+            padding: 0.875rem;
+            font-size: 1rem;
+        }
+    }
 </style>
 
 <script>
-function showNewSession() {
-    document.getElementById('new-session-form').style.display = 'block';
-    document.getElementById('reauthorize-form').style.display = 'none';
-}
+    (function () {
+        'use strict';
 
-function showReauthorize() {
-    document.getElementById('new-session-form').style.display = 'none';
-    document.getElementById('reauthorize-form').style.display = 'block';
-}
+        // Single function to handle form switching - DRY principle
+        function showForm(formName) {
+            const forms = ['new-session', 'reauthorize', 'delete-session'];
+            const buttons = document.querySelectorAll('.option-buttons button');
+
+            forms.forEach(name => {
+                const form = document.getElementById(name + '-form');
+                const button = document.querySelector(`[data-form="${name}"]`);
+
+                if (name === formName) {
+                    form.hidden = false;
+                    button?.setAttribute('aria-expanded', 'true');
+                } else {
+                    form.hidden = true;
+                    button?.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        // Event delegation for better performance and maintainability
+        document.addEventListener('click', function (e) {
+            const button = e.target.closest('[data-form]');
+            if (button) {
+                e.preventDefault();
+                showForm(button.dataset.form);
+            }
+        });
+
+        // Keyboard navigation support
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                const button = e.target.closest('[data-form]');
+                if (button) {
+                    e.preventDefault();
+                    showForm(button.dataset.form);
+                }
+            }
+        });
+
+        // Progressive enhancement: ensure forms are accessible
+        document.querySelectorAll('.setup-form').forEach(form => {
+            form.setAttribute('aria-live', 'polite');
+        });
+    })();
 </script>
 {% endblock %}

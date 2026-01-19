@@ -166,21 +166,22 @@
 - **Link Verification**: All documentation links verified and working correctly
 **Impact**: Improved user experience with clear navigation, reduced maintenance overhead, and professional documentation structure
 
-### Web Setup Reauthorization Enhancement (2025-11-18)
-**Decision**: Enhanced `/setup` endpoint with secure token-based reauthorization for existing sessions
-**Problem**: Users with expired/unauthorized sessions had to use CLI for reauthorization, creating friction
+### Web Setup Interface Enhancement (2025-11-18)
+**Decision**: Enhanced `/setup` endpoint with comprehensive session management options
+**Problem**: Users needed CLI access for session management operations, creating friction in web-only deployments
 **Solution Implemented**:
-- **Unified Setup Interface**: Single `/setup` endpoint offering both "Create New Session" and "Reauthorize Existing Session" options
-- **Token-Based Security**: Users must provide existing bearer token to reauthorize (possession = access)
+- **Three Setup Options**: Single `/setup` endpoint offering "Create New Session", "Reauthorize Existing Session", and "Delete Session"
+- **Token-Based Security**: All operations require bearer token authentication (possession = access)
 - **Phone Verification**: Required phone confirmation during reauthorization prevents account takeover
-- **Session Preservation**: Reauthorized sessions keep the same bearer token, maintaining existing configurations
+- **Session Deletion**: Secure session file removal with proper cleanup and disconnection
 - **Error Handling**: Comprehensive validation with user-friendly error messages and success confirmations
 **Security Features**:
 - No session enumeration or phone number exposure
 - Reserved session name blocking
 - Session existence and authorization status validation
 - Temporary file cleanup and TTL-based session management
-**Impact**: Improved user experience for session management while maintaining security-first approach
+- Active session disconnection before deletion
+**Impact**: Complete web-based session lifecycle management while maintaining security-first approach
 
 ### Public Visibility Filtering Implementation (2025-11-19)
 **Decision**: Added `public: bool | None` parameter to search tools with architectural rule that private chats should never be filtered by visibility

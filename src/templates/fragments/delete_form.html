@@ -1,0 +1,12 @@
+<h2>Delete Session</h2>
+<p class="muted">Enter your bearer token to permanently delete your session file.</p>
+<p class="muted" style="color: #ff6b6b; font-size: 0.9em;">
+    ⚠️ <strong>Warning:</strong> This action cannot be undone. Your session file will be permanently deleted.
+</p>
+
+<form hx-post="/setup/delete" hx-target="#step" hx-swap="innerHTML">
+    <label for="token">Bearer Token</label>
+    <input id="token" name="token" type="text" placeholder="Your bearer token" required />
+
+    <button type="submit">Delete Session</button>
+</form>

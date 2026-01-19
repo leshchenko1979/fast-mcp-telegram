@@ -71,10 +71,11 @@ SERVER_MODE=http-auth fast-mcp-telegram
 If your session becomes unauthorized (expired login, etc.):
 
 1. **Via Web Interface:** Open http://your-server.com/setup
-   - Choose "Reauthorize Existing Session"
-   - Enter your existing bearer token
-   - Confirm your phone number and complete verification
-   - Your session is reauthorized with the same token!
+   - Choose from three options:
+     - **Create New Session**: Set up a new Telegram session
+     - **Reauthorize Existing Session**: Refresh an expired session
+     - **Delete Session**: Permanently remove a session file
+   - For reauthorization: Enter your existing bearer token, confirm your phone number, and complete verification
 
 2. **Via CLI:** Use the `--overwrite` flag
    ```bash

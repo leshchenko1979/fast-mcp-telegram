@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import os
 import shutil
 import time
@@ -12,7 +13,7 @@ from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
 
-from src.client.connection import generate_bearer_token
+from src.client.connection import generate_bearer_token, _session_cache, _cache_lock
 from src.config.server_config import ServerMode, get_config
 from src.config.settings import API_HASH, API_ID
 from src.server_components.auth import RESERVED_SESSION_NAMES
@@ -32,6 +33,8 @@ templates = Jinja2Templates(
 _setup_sessions: dict[str, dict] = {}
 # Use unified config for TTL
 SETUP_SESSION_TTL_SECONDS = get_config().setup_session_ttl_seconds
+
+logger = logging.getLogger(__name__)
 
 
 # Helper functions
@@ -509,6 +512,62 @@ def register_web_setup_routes(mcp_app):
             "fragments/code_form.html",
             {"masked_phone": state["masked_phone"], "setup_id": setup_id},
         )
+
+    @mcp_app.custom_route("/setup/delete", methods=["POST"])
+    async def setup_delete(request: Request):
+        """Delete a session file by bearer token."""
+        form = await request.form()
+        token = str(form.get("token", "")).strip()
+
+        if not token:
+            return templates.TemplateResponse(
+                request,
+                "fragments/error.html",
+                create_error_response("Bearer token is required"),
+            )
+
+        # Security: Prevent reserved session names
+        if token.lower() in RESERVED_SESSION_NAMES:
+            return templates.TemplateResponse(
+                request, "fragments/error.html", create_error_response("Invalid token")
+            )
+
+        session_path = get_config().session_directory / f"{token}.session"
+        if not session_path.exists():
+            return templates.TemplateResponse(
+                request,
+                "fragments/error.html",
+                create_error_response("Session not found. Please check your bearer token."),
+            )
+
+        try:
+            # Disconnect client from cache if it's active
+            async with _cache_lock:
+                if token in _session_cache:
+                    client, _ = _session_cache[token]
+                    try:
+                        await client.disconnect()
+                    except Exception as e:
+                        # Log but don't fail the deletion
+                        logger.warning(f"Error disconnecting client for token {token[:8]}...: {e}")
+                    # Remove from cache
+                    del _session_cache[token]
+
+            # Delete the session file
+            session_path.unlink()
+
+            return templates.TemplateResponse(
+                request,
+                "fragments/success.html",
+                {"message": f"Session successfully deleted. Token {token[:8]}... is no longer valid."},
+            )
+
+        except Exception as e:
+            return templates.TemplateResponse(
+                request,
+                "fragments/error.html",
+                create_error_response(f"Failed to delete session: {e}"),
+            )
 
     @mcp_app.custom_route("/download-config/{token}", methods=["GET"])
     async def download_config(request: Request):
