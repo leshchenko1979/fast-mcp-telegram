@@ -13,7 +13,7 @@ from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
 
-from src.client.connection import generate_bearer_token, _session_cache, _cache_lock
+from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
 from src.config.server_config import ServerMode, get_config
 from src.config.settings import API_HASH, API_ID
 from src.server_components.auth import RESERVED_SESSION_NAMES
@@ -537,7 +537,9 @@ def register_web_setup_routes(mcp_app):
             return templates.TemplateResponse(
                 request,
                 "fragments/error.html",
-                create_error_response("Session not found. Please check your bearer token."),
+                create_error_response(
+                    "Session not found. Please check your bearer token."
+                ),
             )
 
         try:
@@ -549,7 +551,9 @@ def register_web_setup_routes(mcp_app):
                         await client.disconnect()
                     except Exception as e:
                         # Log but don't fail the deletion
-                        logger.warning(f"Error disconnecting client for token {token[:8]}...: {e}")
+                        logger.warning(
+                            f"Error disconnecting client for token {token[:8]}...: {e}"
+                        )
                     # Remove from cache
                     del _session_cache[token]
 
@@ -559,7 +563,9 @@ def register_web_setup_routes(mcp_app):
             return templates.TemplateResponse(
                 request,
                 "fragments/success.html",
-                {"message": f"Session successfully deleted. Token {token[:8]}... is no longer valid."},
+                {
+                    "message": f"Session successfully deleted. Token {token[:8]}... is no longer valid."
+                },
             )
 
         except Exception as e:
