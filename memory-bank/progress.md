@@ -1,3 +1,15 @@
+### 2026-01-21
+- **Voice Message Transcription Implementation - COMPLETED ✅**: Added automatic parallel voice message transcription for Telegram Premium accounts
+- **Premium Status Check**: Direct verification using User.premium attribute before attempting transcription
+- **Parallel Processing**: Uses asyncio.TaskGroup for concurrent transcription of multiple voice messages
+- **Polling for Completion**: When transcription is pending, polls every second for up to 30 seconds until completion
+- **Graceful Cancellation**: Cancels all concurrent transcriptions if any fails with "premium account required" error
+- **Integration Points**: Added transcription to read_messages_by_ids (all messages) and search_messages_in_chat (browsing messages)
+- **Media Enhancement**: Extended _build_media_placeholder to recognize voice messages and extract duration from document attributes
+- **Error Resilience**: Continues operation without transcription if unexpected errors occur
+- **PyProject.toml Consistency**: Updated Python version requirements and classifiers to match runtime environment (Python 3.11+ required)
+- **Linting Fixes**: Resolved all linting issues including exception handling, import organization, and long line handling
+
 ### 2026-01-19
 - **Web Setup Session Deletion Feature - COMPLETED ✅**: Added secure session file deletion via web interface
 - **New Route Implementation**: Added `/setup/delete` POST route with bearer token authentication
@@ -178,6 +190,15 @@
 ### 2025-09-17
 - Added optional `chat_type` filter to `find_chats` tool and implementation (users, groups, channels)
 - Updated `README.md` examples for `find_chats` to document `chat_type`
+### Voice Message Transcription Implementation (2026-01-21)
+- **Direct Premium Status Check**: Checks user's premium status directly from User.premium attribute before attempting transcription
+- **Parallel Processing**: Uses `asyncio.TaskGroup` to transcribe multiple voice messages concurrently for better performance
+- **Polling for Completion**: When transcription is pending, polls every second for up to 30 seconds until transcription completes
+- **Graceful Cancellation**: Cancels all concurrent transcription tasks when any fails with "premium account required" error
+- **Integration Points**: Added transcription to `read_messages_by_ids` (all messages) and `search_messages_in_chat` (when no search query provided)
+- **Media Metadata Enhancement**: Extended `_build_media_placeholder` to recognize voice messages and extract duration from document attributes
+- **Error Resilience**: Continues operation without transcription if unexpected errors occur, rather than failing entire message retrieval
+
 ### 2025-09-17
 - Implemented uniform chat schema across tools using `build_entity_dict`
 - Updated `find_chats` to support comma-separated multi-term queries with deduplication by `id`
@@ -217,6 +238,7 @@
 - **Tool Splitting**: Ambiguous tools split into single-purpose tools to eliminate LLM agent errors
 - **Literal Parameter Constraints**: Implemented `typing.Literal` for parameter validation and LLM guidance
 - **Server Module Split**: Moved routes/tools out of `src/server.py` into dedicated modules
+- **Voice Message Transcription**: Automatic parallel transcription of voice messages for Telegram Premium accounts with persistent non-premium detection
 
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support

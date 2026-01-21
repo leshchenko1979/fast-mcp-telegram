@@ -20,7 +20,11 @@ from src.utils.error_handling import (
     sanitize_params_for_logging,
 )
 from src.utils.helpers import _append_dedup_until_limit
-from src.utils.message_format import _has_any_media, build_message_result
+from src.utils.message_format import (
+    _has_any_media,
+    build_message_result,
+    transcribe_voice_messages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +198,8 @@ async def search_messages_impl(
                 await _execute_parallel_searches_generators(
                     generators, collected, seen_keys, limit
                 )
+
+                await transcribe_voice_messages(collected, entity)
 
                 if include_total_count:
                     total_count = await _get_chat_message_count(chat_id)

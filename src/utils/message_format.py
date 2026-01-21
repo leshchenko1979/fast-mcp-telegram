@@ -1,6 +1,14 @@
+import asyncio
+import logging
 from typing import Any
 
+from telethon.errors import RPCError
+from telethon.tl.functions.messages import TranscribeAudioRequest
+
+from src.client.connection import get_connected_client
 from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
+
+logger = logging.getLogger(__name__)
 
 
 def _has_any_media(message) -> bool:
@@ -81,6 +89,37 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
     if media_cls == "MessageMediaDocument":
         document = getattr(media, "document", None)
         if document:
+            # Check if it's a voice message or round video via attributes
+            is_voice = False
+            is_round_video = False
+            duration = None
+
+            if hasattr(document, "attributes"):
+                for attr in document.attributes:
+                    attr_cls = attr.__class__.__name__
+                    if attr_cls == "DocumentAttributeAudio":
+                        if getattr(attr, "voice", False):
+                            is_voice = True
+                        if hasattr(attr, "duration"):
+                            duration = attr.duration
+                    elif attr_cls == "DocumentAttributeVideo":
+                        if getattr(attr, "round_message", False):
+                            is_round_video = True
+                        if hasattr(attr, "duration"):
+                            duration = attr.duration
+                    elif hasattr(attr, "file_name") and attr.file_name:
+                        placeholder["filename"] = attr.file_name
+
+            if is_voice:
+                placeholder["type"] = "voice"
+                if duration is not None:
+                    placeholder["duration_seconds"] = duration
+
+            elif is_round_video:
+                placeholder["type"] = "round_video"
+                if duration is not None:
+                    placeholder["duration_seconds"] = duration
+
             # Get mime_type and file_size from document object
             mime_type = getattr(document, "mime_type", None)
             if mime_type:
@@ -90,12 +129,17 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
             if file_size is not None:
                 placeholder["approx_size_bytes"] = file_size
 
-            # Try to get filename from document attributes
-            if hasattr(document, "attributes"):
-                for attr in document.attributes:
-                    if hasattr(attr, "file_name") and attr.file_name:
-                        placeholder["filename"] = attr.file_name
-                        break
+    # Handle Voice Messages
+    elif media_cls == "MessageMediaVoice":
+        placeholder["type"] = "voice"
+        # Extract duration from the document
+        document = getattr(media, "document", None)
+        if document and hasattr(document, "attributes"):
+            # Duration is stored in document attributes
+            for attr in document.attributes:
+                if hasattr(attr, "duration") and attr.duration is not None:
+                    placeholder["duration_seconds"] = attr.duration
+                    break
 
     # Handle Todo Lists
     elif media_cls == "MessageMediaToDo":
@@ -238,3 +282,196 @@ async def build_message_result(
         result["forwarded_from"] = forward_info
 
     return result
+
+
+class PremiumRequiredError(Exception):
+    """Exception raised when transcription fails due to non-premium account."""
+
+
+async def _is_user_premium(client) -> bool:
+    """Check if the current user has Telegram Premium."""
+    try:
+        me = await client.get_me()
+        return bool(getattr(me, "premium", False))
+    except Exception as e:
+        logger.warning(f"Failed to check user premium status: {e}")
+        return False
+
+
+async def _transcribe_single_voice_message(
+    client, chat_entity, message_id: int
+) -> str | None:
+    """
+    Transcribe a single voice message.
+
+    Returns the transcription text, or raises PremiumRequiredError if account lacks premium.
+    Returns None if transcription fails for other reasons.
+
+    If transcription is pending, polls until completion.
+    """
+    try:
+        result = await client(
+            TranscribeAudioRequest(peer=chat_entity, msg_id=message_id)
+        )
+
+        # If transcription is already complete, return it
+        if (
+            hasattr(result, "text")
+            and result.text
+            and not getattr(result, "pending", False)
+        ):
+            return result.text
+
+        # If transcription is pending, poll until it's ready
+        if (
+            hasattr(result, "pending")
+            and result.pending
+            and hasattr(result, "transcription_id")
+        ):
+            transcription_id = result.transcription_id
+            logger.debug(
+                f"Transcription pending for message {message_id}, polling for completion..."
+            )
+
+            # Poll for completion (up to 30 seconds with 1-second intervals)
+            max_attempts = 30
+            for attempt in range(max_attempts):
+                await asyncio.sleep(1)  # Wait 1 second between polls
+
+                try:
+                    # Poll by calling transcribeAudio again with the same parameters
+                    poll_result = await client(
+                        TranscribeAudioRequest(peer=chat_entity, msg_id=message_id)
+                    )
+
+                    # Check if this is the same transcription (matching transcription_id)
+                    if (
+                        hasattr(poll_result, "transcription_id")
+                        and poll_result.transcription_id == transcription_id
+                    ):
+                        if hasattr(poll_result, "pending") and poll_result.pending:
+                            # Still pending, continue polling
+                            continue
+                        if hasattr(poll_result, "text") and poll_result.text:
+                            # Transcription completed
+                            logger.debug(
+                                f"Transcription completed for message {message_id} after {attempt + 1} polls"
+                            )
+                            return poll_result.text
+                        # Unexpected state
+                        logger.warning(
+                            f"Unexpected transcription state for message {message_id}"
+                        )
+                        return None
+
+                except Exception as poll_error:
+                    logger.warning(
+                        f"Error polling transcription for message {message_id}: {poll_error}"
+                    )
+                    return None
+
+            # Timeout after max attempts
+            logger.warning(
+                f"Transcription polling timeout for message {message_id} after {max_attempts} attempts"
+            )
+            return None
+
+        # No transcription available
+        logger.debug(f"No transcription available for message {message_id}")
+        return None
+
+    except RPCError as e:
+        error_msg = str(e).lower()
+        if "premium" in error_msg and "required" in error_msg:
+            raise PremiumRequiredError(
+                f"Premium account required for transcription: {e}"
+            ) from None
+        logger.warning(f"Transcription failed for message {message_id}: {e}")
+        return None
+    except Exception as e:
+        logger.warning(
+            f"Unexpected error during transcription of message {message_id}: {e}"
+        )
+        return None
+
+
+async def transcribe_voice_messages(
+    messages: list[dict[str, Any]], chat_entity
+) -> None:
+    """
+    Transcribe voice messages in the results list for premium accounts.
+
+    Args:
+        messages: List of message result dictionaries
+        chat_entity: The chat entity containing the messages
+
+    This function:
+    - Checks if the user has Telegram Premium before attempting transcription
+    - Runs transcriptions in parallel using asyncio.TaskGroup
+    - Cancels all transcription tasks if any fails with PremiumRequiredError
+    - Updates message results with transcription text when available
+    """
+
+    client = await get_connected_client()
+
+    # Check if user has premium before attempting transcription
+    is_premium = await _is_user_premium(client)
+
+    if not is_premium:
+        logger.debug(
+            "Skipping voice transcription - user does not have Telegram Premium"
+        )
+        return
+
+    # Find voice messages that need transcription
+    voice_messages = []
+    for msg in messages:
+        media = msg.get("media")
+        has_voice_type = (
+            media and isinstance(media, dict) and media.get("type") == "voice"
+        )
+        has_transcription = "transcription" in msg
+
+        if has_voice_type and not has_transcription:
+            voice_messages.append(msg)
+
+    if not voice_messages:
+        return
+
+    logger.debug(f"Found {len(voice_messages)} voice messages to transcribe")
+
+    async def transcribe_task(msg_dict: dict[str, Any]):
+        """Transcribe a single voice message and update the result dict."""
+        message_id = msg_dict["id"]
+        transcription = await _transcribe_single_voice_message(
+            client, chat_entity, message_id
+        )
+        if transcription:
+            msg_dict["transcription"] = transcription
+            logger.debug(
+                f"Transcribed voice message {message_id}: {transcription[:50]}..."
+            )
+
+    # Run transcriptions in parallel with cancellation on premium requirement
+    try:
+        async with asyncio.TaskGroup() as tg:
+            for msg_dict in voice_messages:
+                tg.create_task(transcribe_task(msg_dict))
+    except ExceptionGroup as eg:
+        # Check if it's a PremiumRequiredError group
+        premium_errors = [
+            e for e in eg.exceptions if isinstance(e, PremiumRequiredError)
+        ]
+        if premium_errors:
+            # One or more transcriptions failed due to non-premium account
+            # This shouldn't happen if we checked premium status correctly, but handle it gracefully
+            logger.info(
+                "Voice transcription cancelled - account lacks premium despite initial check"
+            )
+            # All other transcription tasks are automatically cancelled by TaskGroup
+        else:
+            # Re-raise non-premium related exception groups
+            raise
+    except Exception as e:
+        logger.warning(f"Voice transcription failed with unexpected error: {e}")
+        # Continue without transcription rather than failing the entire operation

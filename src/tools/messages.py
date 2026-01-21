@@ -14,7 +14,11 @@ from src.tools.links import generate_telegram_links
 from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
-from src.utils.message_format import build_message_result, build_send_edit_result
+from src.utils.message_format import (
+    build_message_result,
+    build_send_edit_result,
+    transcribe_voice_messages,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -657,6 +661,11 @@ async def read_messages_by_ids(
         results = await _build_message_results(
             client, messages, message_ids, entity, id_to_link, chat_dict
         )
+
+        # Transcribe voice messages for premium accounts
+        successful_results = [r for r in results if "error" not in r]
+        if successful_results:
+            await transcribe_voice_messages(successful_results, entity)
 
         successful_count = len([r for r in results if "error" not in r])
         log_operation_success(

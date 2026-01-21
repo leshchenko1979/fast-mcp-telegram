@@ -238,7 +238,7 @@ class ServerConfig(BaseSettings):
             )
 
     @classmethod
-    def from_args_and_env(cls) -> "ServerConfig":
+    def from_args_and_env(cls) -> ServerConfig:
         """Create configuration from command line arguments and environment variables.
 
         With native CLI parsing, this simply creates the config instance.

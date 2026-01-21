@@ -5,7 +5,7 @@ Get your Telegram MCP server running in minutes!
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.11+
 - Telegram API credentials ([get them here](https://my.telegram.org/auth))
 - MCP client (Cursor IDE, Claude Desktop, etc.)
 
