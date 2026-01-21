@@ -1,6 +1,6 @@
 <img alt="Hero image" src="https://github.com/user-attachments/assets/635236f6-b776-41c7-b6e5-0dd14638ecc1" />
 
-[![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
+[![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 
@@ -40,6 +40,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
 | 💬 **Advanced Messaging** | Send, edit, reply with formatting, file attachments, and phone number messaging |
+| 🎤 **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas and profile enrichment |
 | ⚡ **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
@@ -55,7 +56,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | `search_messages_in_chat` | Search within specific chat | Supports "me" for Saved Messages, optional query for latest messages |
 | `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), replies |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
-| `read_messages` | Read specific messages by ID | Batch reading, full message content with metadata |
+| `read_messages` | Read specific messages by ID | Batch reading, full message content, voice transcription for Premium accounts |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |

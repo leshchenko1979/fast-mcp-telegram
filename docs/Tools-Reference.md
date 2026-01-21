@@ -109,10 +109,13 @@ All message-returning tools (search, read, send, edit) return messages in a cons
   },
   "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
   "media": {                      // Media attachment info (optional, lightweight)
+    "type": "voice",              // Media type (voice, photo, video, etc.)
     "mime_type": "image/jpeg",    // File MIME type
     "filename": "photo.jpg",      // Original filename (if available)
-    "approx_size_bytes": 2048576  // Approximate file size
+    "approx_size_bytes": 2048576, // Approximate file size
+    "duration_seconds": 45        // Duration for audio/video (optional)
   },
+  "transcription": "Hello, this is a voice message transcription...",  // Voice transcription (Premium accounts only)
   "forwarded_from": {             // Forwarded message info (optional)
     "id": 999999999,
     "title": "Original Channel",
@@ -129,8 +132,16 @@ All message-returning tools (search, read, send, edit) return messages in a cons
 
 **Media Attachments:**
 - Lightweight metadata only (not actual files)
-- Includes MIME type, filename, and approximate size
-- Covers: photos, documents, videos, audio, voice messages, etc.
+- Includes MIME type, filename, approximate size, and media type
+- Voice messages include duration and automatic transcription (Premium accounts)
+- Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
+
+**Voice Message Transcription:**
+- Automatic transcription for Premium Telegram accounts
+- Parallel processing of multiple voice messages
+- Polling for completion (up to 30 seconds)
+- Graceful cancellation if Premium requirement fails
+- Added to `transcription` field in message results
 
 **Forwarded Messages:**
 - `forwarded_from` contains original sender info
@@ -223,7 +234,7 @@ search_messages_in_chat(
 ```
 
 **💡 Search Tips:**
-- **No query**: Returns latest messages from the chat
+- **No query**: Returns latest messages from the chat (includes voice transcription for Premium accounts)
 - **Simple terms**: Use common words that appear in messages
 - **Multiple terms**: Use comma-separated words for broader results
 - **Partial words**: Use shorter forms to catch variations (e.g., "proj" finds "project", "projects")
@@ -338,6 +349,7 @@ read_messages(
 **Features:**
 - **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents, and other media types
 - **Structured Data**: Returns LLM-friendly JSON structures instead of raw Telegram objects
+- **Voice Transcription**: Automatic transcription for Premium accounts with parallel processing
 - **Todo Lists**: Extracts titles, items, completion status, and timestamps
 - **Polls**: Includes questions, options, vote counts, and poll metadata
 

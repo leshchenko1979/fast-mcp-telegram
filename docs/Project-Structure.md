@@ -127,7 +127,7 @@ fast-mcp-telegram/
   - Multi-query support with parallel execution
   - Result deduplication and formatting
 - **`src/tools/messages.py`**: Message operations
-  - Send, edit, and read messages
+  - Send, edit, read messages, and voice transcription
   - File sending with URL and local path support
   - Message formatting and reply support
 - **`src/tools/contacts.py`**: Contact management
@@ -162,7 +162,7 @@ fast-mcp-telegram/
   - Consolidated logging functions
   - Parameter sanitization and enhancement
   - Request tracking and correlation
-- **`src/utils/message_format.py`**: Message formatting and interactive media parsing (Todo lists, polls)
+- **`src/utils/message_format.py`**: Message formatting, interactive media parsing (Todo lists, polls), and voice transcription
   - Message content formatting
   - Media placeholder generation
   - Link generation and formatting
