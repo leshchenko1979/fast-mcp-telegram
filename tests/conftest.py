@@ -98,7 +98,12 @@ def test_server(mock_client):
     @mcp.tool()
     async def search_messages(query: str, chat_id: str | None = None, limit: int = 50):
         """Search Telegram messages with advanced filtering."""
-        return {"messages": mock_client.messages.get(chat_id or "me", [])[:limit]}
+        messages = mock_client.messages.get(chat_id or "me", [])
+        if query:
+            messages = [msg for msg in messages if query.lower() in msg["text"].lower()]
+        window = messages[:limit]
+        has_more = len(messages) > len(window)
+        return {"messages": window, "has_more": has_more}
 
     @mcp.tool()
     async def send_or_edit_message(

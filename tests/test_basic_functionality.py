@@ -35,6 +35,29 @@ async def test_search_messages(client_session):
     assert isinstance(result.data, dict)
     assert "messages" in result.data
     assert len(result.data["messages"]) == 2  # Mock data has 2 messages
+    assert "has_more" in result.data
+    assert (
+        result.data["has_more"] is False
+    )  # Should be False since we have exactly 2 messages and limit=10
+
+
+@pytest.mark.asyncio
+async def test_search_messages_has_more(client_session):
+    """Test has_more flag logic when there are more messages than limit."""
+    result = await client_session.call_tool(
+        "search_messages", {"query": "Test", "chat_id": "me", "limit": 1}
+    )
+
+    assert result.data is not None
+    assert isinstance(result.data, dict)
+    assert "messages" in result.data
+    assert (
+        len(result.data["messages"]) == 1
+    )  # Should return only 1 message due to limit
+    assert "has_more" in result.data
+    assert (
+        result.data["has_more"] is True
+    )  # Should be True since there are 2 messages but limit=1
 
 
 @pytest.mark.asyncio

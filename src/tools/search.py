@@ -74,18 +74,20 @@ async def _execute_parallel_searches_generators(
 ) -> None:
     """Execute multiple search generators in parallel for memory efficiency.
 
-    Round-robin through generators to balance results and stop early when limit reached.
+    Round-robin through generators to balance results and collect one extra message to determine has_more.
     """
     active_gens = list(enumerate(generators))
+    # Collect one extra message to determine if there are more results
+    target_limit = limit + 1
 
-    while active_gens and len(collected) < limit:
+    while active_gens and len(collected) < target_limit:
         next_active = []
 
         for i, gen in active_gens:
             try:
                 result = await gen.__anext__()
-                _append_dedup_until_limit(collected, seen_keys, [result], limit)
-                if len(collected) >= limit:
+                _append_dedup_until_limit(collected, seen_keys, [result], target_limit)
+                if len(collected) >= target_limit:
                     break
                 next_active.append((i, gen))  # Keep generator active
             except StopAsyncIteration:
@@ -244,7 +246,11 @@ async def search_messages_impl(
 
         logger.info(f"Found {len(window)} messages matching query: {query}")
 
-        has_more = len(collected) > len(window)
+        # Check if there are more messages available by collecting one extra message
+        # If we collected exactly limit messages, assume there might be more (conservative approach)
+        has_more = len(collected) > len(window) or (
+            len(collected) == limit and len(collected) > 0
+        )
 
         # If no messages found, return error instead of empty list for consistency
         if not window:
@@ -283,11 +289,12 @@ async def _search_chat_messages_generator(
 ):
     """Async generator version of chat message search for memory efficiency."""
     batch_count = 0
+    # Allow more batches to ensure we can detect has_more properly
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
     yielded_count = 0
 
-    while batch_count < max_batches and yielded_count < limit:
+    while batch_count < max_batches:
         last_id = None
         processed_in_batch = 0
         async for message in client.iter_messages(
@@ -320,15 +327,11 @@ async def _search_chat_messages_generator(
                 result = await build_message_result(client, message, entity, link)
                 yield result
                 yielded_count += 1
-                if yielded_count >= limit:
-                    return
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue
 
-            # Soft cap batch size to avoid RAM spikes
-            if processed_in_batch >= max(50, limit):
-                break
+            # Continue processing all messages in this batch to ensure we can detect has_more
 
         if not last_id:
             break
@@ -367,7 +370,7 @@ async def _search_global_messages_generator(
     next_offset_id = 0
     yielded_count = 0
 
-    while batch_count < max_batches and yielded_count < limit:
+    while batch_count < max_batches:
         offset_id = next_offset_id
         result = await client(
             SearchGlobalRequest(
@@ -378,7 +381,7 @@ async def _search_global_messages_generator(
                 offset_rate=0,
                 offset_peer=InputPeerEmpty(),
                 offset_id=offset_id,
-                limit=min(limit * 2, 50),  # Cap batch size
+                limit=min(limit * 2, 50),
             )
         )
 
@@ -414,8 +417,6 @@ async def _search_global_messages_generator(
                 msg_result = await build_message_result(client, message, chat, link)
                 yield msg_result
                 yielded_count += 1
-                if yielded_count >= limit:
-                    return
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue

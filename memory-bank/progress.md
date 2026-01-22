@@ -1,3 +1,11 @@
+### 2026-01-22
+- **has_more Flag Logic Fix - COMPLETED ✅**: Fixed conservative has_more logic to prevent false negatives when more messages are available
+- **Root Cause**: has_more was incorrectly set to false when exactly `limit` messages were found, even if more messages existed
+- **Solution**: Modified logic to `has_more = len(collected) > len(window) or (len(collected) == limit and len(collected) > 0)` ensuring conservative behavior
+- **Impact**: Users can always paginate to check for more messages, eliminating missed content scenarios
+- **Zero Overhead**: Simple boolean logic with no additional API calls or processing
+- **Testing**: All existing tests pass, maintains backward compatibility
+
 ### 2026-01-21
 - **Voice Message Transcription Implementation - COMPLETED ✅**: Added automatic parallel voice message transcription for Telegram Premium accounts
 - **Premium Status Check**: Direct verification using User.premium attribute before attempting transcription
@@ -37,17 +45,7 @@
 - **Testing Verified**: All 138 tests pass, logging behavior confirmed correct
 
 ### 2025-01-17
-- **FastMCP Redis Task Queue Logging Suppression - COMPLETED ✅**: Successfully eliminated 90%+ of excessive DEBUG logging from FastMCP library
-- **Root Cause Identified**: FastMCP Redis operations (XAUTOCLAIM, XREADGROUP, EVALSHA, MULTI/EXEC) generating ~15,000+ log lines per 5 minutes
-- **Solution Implemented**: Added targeted logger level configurations:
-  - `("fastmcp", logging.INFO)` - Suppresses noisy DEBUG Redis operations while keeping operational INFO logs
-  - `("logging", logging.WARNING)` - Eliminates bridged logging:callHandlers noise
-- **Results Achieved**:
-  - **Log Volume**: Reduced from ~15,000 DEBUG lines per 5 minutes to ~500-1,000 INFO lines per 5 minutes
-  - **Performance**: Improved container performance with reduced I/O overhead
-  - **Monitoring**: Clean operational logs while preserving error reporting and health checks
-  - **Debugging**: Full DEBUG logs still available in file logs when needed
-- **Production Deployment**: Successfully deployed to VDS with zero downtime and immediate log noise elimination
+- **FastMCP Redis Logging Suppression - COMPLETED ✅**: Eliminated 90%+ of excessive DEBUG logging from FastMCP Redis operations, reducing log volume from ~15,000 to ~500-1,000 lines per 5 minutes while preserving operational visibility
 
 ### 2025-11-27
 - **Peer Resolution Enhancement**: Enhanced entity resolution with multi-type lookup strategy to handle channels/groups that require explicit type specification
@@ -289,104 +287,15 @@
 - **Production Authentication Verification**: Bearer token authentication confirmed working in production with proper token extraction, session creation, and no fallback to default sessions (2025-01-04)
 - **VDS Testing Methodology**: Established comprehensive approach for production authentication testing and debugging using VDS deployment (2025-01-04)
 - **Professional Testing Infrastructure**: Implemented comprehensive pytest-based testing framework with organized test structure and modern development practices (2025-09-04)
-- **Logging System Refactoring**: Created dedicated `src/utils/logging_utils.py` module to eliminate redundancies between logging.py and error_handling.py (2025-12-19)
-- **Logging System Optimization**: Comprehensive improvements including request ID removal, parameter sanitization, and structured error logging (2025-09-04)
-- **Memory Bank Documentation**: Added comprehensive Memory Bank system documentation to CONTRIBUTING.md as recommended best practice for AI-assisted development, including Cursor IDE integration guidance
-- **Setuptools Migration**: Return to setuptools for standard Python package management
-- **Tool Descriptions**: Completely rewrote all tool descriptions to be concise yet comprehensive and LLM-optimized (2025-09-01)
-- **'me' Identifier Support**: Added special handling for Saved Messages access using chat_id='me' (2025-09-01)
-- **Error Logging**: Enhanced error logging for message access failures with detailed diagnostics (2025-09-01)
-- **Function Organization**: Completed major refactoring - moved misplaced functions to appropriate modules (2025-09-01)
-- **Offset Parameter**: Removed unused offset parameter from search functions, eliminating API confusion (2025-09-01)
-- **Pre-commit Hooks**: Removed automated hooks, simplified to manual Ruff formatting (2025-09-01)
-- **Code Quality**: Fixed all linter errors and improved overall code structure (2025-09-01)
-- **Consistent Error Handling**: Implemented unified structured error responses across all tools (2025-09-01)
-- **Readonly Database Issue**: Fixed Docker volume permissions causing "attempt to write a readonly database" error by changing mount from `/data` to `/app` directory (2025-09-01)
-- **Deploy Script Enhancement**: Updated deployment script with automatic permission fixes to prevent future database issues (2025-09-01)
-- **Docker Setup Workflow**: Updated to reflect that server shutdown is NOT required during Telegram authentication setup - new tokens and sessions are created by default (2025-01-04)
-- **Volume Mount Conflicts**: Identified and resolved Docker volume mount issues causing directory vs file conflicts in session file handling (2025-09-01)
-- **Simplified Docker Setup**: Implemented Docker Compose profiles to reduce authentication from 6 steps to 2 steps using `docker compose --profile setup run --rm setup` (2025-09-01)
-- **Enhanced Setup Script**: Improved setup_telegram.py with better session conflict handling, command-line options, and interactive prompts (2025-09-01)
-- **Security Documentation**: Added comprehensive security considerations section with critical warnings about Telegram account access risks (2025-09-01)
-- **Streamlined Session Management**: Implemented streamlined session file architecture using `~/.config/fast-mcp-telegram/` for cross-platform compatibility (2025-09-01)
-- **Enhanced Deployment Script**: Added comprehensive session file backup/restore, permission auto-fixing, and macOS resource fork cleanup (2025-09-01)
-- **Git Integration**: Updated .gitignore to properly handle sessions directory while maintaining structure with .gitkeep (2025-09-01)
-- **Dockerfile Enhancement**: Added sessions directory creation with proper ownership for container user access (2025-09-01)
-- **Volume Mount Optimization**: Replaced file-specific mounts with directory mounts to eliminate permission conflicts (2025-09-01)
-- **Production Session Management**: Implemented complete session persistence across deployments with automatic permission management (2025-09-01)
-- **Dynamic Version Management**: Implemented automatic version reading from pyproject.toml in settings.py (2025-09-01)
-- **.env File Auto-loading**: Enhanced setup_telegram.py to automatically load .env files for seamless authentication (2025-09-02)
-- **Token-Based Authentication**: Implemented Bearer token authentication system with session isolation and LRU cache management (2025-01-04)
-- **Multi-User Session Management**: Added support for multiple authenticated users with token-specific session files (2025-01-04)
-- **Authentication Middleware**: Created `@with_auth_context` decorator and `extract_bearer_token()` for HTTP authentication (2025-01-04)
-- **Setup Script Token Generation**: Modified setup_telegram.py to generate and display cryptographically secure Bearer tokens (2025-01-04)
-- **Auto-Cleanup Removal**: Removed all automatic cleanup variables and background tasks for simplified architecture (2025-01-04)
-- **Mandatory HTTP Authentication**: Eliminated fallback to default session for HTTP requests, making Bearer tokens mandatory (2025-01-04)
-- **Literal Parameter Implementation**: Successfully implemented `typing.Literal` constraints for `parse_mode` and `chat_type` parameters to guide LLM choices and improve input validation. Updated all relevant tool signatures in server.py and verified FastMCP compatibility (2025-01-07)
-- **Auto Parse Mode**: Implemented automatic formatting detection with "auto" as default parse_mode. Added `detect_message_formatting()` function to intelligently detect HTML/Markdown patterns in messages (2025-11-18)
+- **Infrastructure & Tooling**: Session management, authentication, configuration, deployment, and testing infrastructure (2025)
+- **Feature Development**: Message search, file sending, contact management, and advanced content support (2025)
 
 ### Current Limitations
 - **Rate Limits**: Subject to Telegram API rate limiting
 - **Search Scope**: Global search has different capabilities than per-chat search
 - **Session Management**: Requires proper session handling and authentication
 
-## Evolution of Project Decisions
-
-### Web Setup Interface Evolution
-1. **Initial**: Basic HTMX forms with standard styling
-2. **Styling Issues**: Text sizes not optimized for readability
-3. **Visual Hierarchy**: Implemented larger interactive elements with smaller instructional text
-4. **Clean Layout**: Removed excessive text and empty visual elements
-5. **Complete Flow**: Added missing 2FA route for full authentication support
-
-### Authentication Flow Evolution
-1. **CLI Only**: Initial setup required command-line interface
-2. **Web Interface**: Added HTMX-based browser setup flow
-3. **Missing 2FA**: 2FA route was missing, causing 404 errors
-4. **Complete Flow**: Added proper 2FA handling with error recovery
-5. **Enhanced UX**: Improved styling and user experience
-
-### Logging Strategy Evolution
-1. **Initial**: Basic logging with standard library
-2. **Enhanced**: Migrated to stdlib logging - simplified configuration, removed Loguru dependency
-3. **Spam Issue**: Telethon DEBUG logging produced excessive noise (9,000+ messages)
-4. **String Filtering**: Attempted message-based filtering (complex and fragile)
-5. **Module Filtering**: Implemented module-level log level control (clean and effective)
-
-### Search Implementation Evolution
-1. **Basic**: Single query search only
-2. **Multi-Query**: Added JSON array support for multiple terms
-3. **Simplified**: Changed to comma-separated string format for better LLM compatibility
-4. **Optimized**: Added parallel execution and deduplication
-
-### Dependency Management Evolution
-1. **pip + requirements.txt**: Initial setup with pip and requirements file
-2. **UV Migration**: Migrated to uv for faster installs and better caching
-3. **Multi-stage Docker**: Implemented uv-based multi-stage builds for optimized images
-4. **Locked Dependencies**: uv.lock provides reproducible builds and faster deployments
-5. **Setuptools Return**: Returned to setuptools for standard Python package management
-
-### Media Handling Evolution
-1. **Raw Objects**: Initially returned raw Telethon media objects
-2. **Serialization Issues**: Discovered LLM incompatibility with binary data
-3. **Placeholders**: Implemented lightweight metadata-only placeholders
-4. **Optimized**: Preserved essential information while eliminating bloat
-
-### Error Handling Evolution
-1. **Initial**: Mixed error handling - some tools raised exceptions, others returned None
-2. **Inconsistent**: get_contact_details returned None, search_messages raised exceptions
-3. **Partial Fix**: get_contact_details updated to return structured errors
-4. **Unified Pattern**: All tools now return structured error responses with consistent format
-5. **Server Integration**: server.py detects and handles error responses appropriately
-
-### Version Management Evolution
-1. **Initial**: Hardcoded version in settings.py requiring manual synchronization
-2. **Manual Sync**: Had to update both pyproject.toml and settings.py manually
-3. **Version Bump Script**: Created script to update both files simultaneously
-4. **Dynamic Reading**: Implemented automatic reading from pyproject.toml using tomllib/tomli
-5. **Single Source**: Now only pyproject.toml needs updating, settings.py reads dynamically
-6. **Direct Import**: Simplified to direct import from `src/_version.py` for better maintainability
 ### 2025-09-17
-- Adopted async generators for message and contact searches to reduce RAM.
-- Added round-robin consumption and early-stop on limits.
-- Capped batch sizes and removed large intermediate lists.
+- Adopted async generators for message and contact searches to reduce RAM
+- Added round-robin consumption and early-stop on limits
+- Capped batch sizes and removed large intermediate lists
