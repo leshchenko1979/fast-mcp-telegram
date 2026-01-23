@@ -66,8 +66,9 @@ def create_logging_config(log_level: str) -> dict[str, Any]:
             "httpx": {"level": "WARNING"},
             "aiohttp": {"level": "WARNING"},
             "telethon": {"level": "WARNING"},
+            "telethon.network": {"level": "ERROR"},
             "sse_starlette.sse": {"level": "WARNING"},
-            "fastmcp": {"level": "WARNING"},
+            "fastmcp": {"level": "INFO"},
             "logging": {"level": "WARNING"},
             # Application code at DEBUG level (catch-all for src.* hierarchy)
             # NOTE: Explicit opt-in for verbosity - secure by default, explicit for clarity
