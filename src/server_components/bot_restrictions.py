@@ -22,6 +22,9 @@ def restrict_non_bridge_for_bot_sessions(operation_name: str):
     If it is, it returns a structured error instead of executing the tool.
     Only the MTProto bridge should be accessible to bots.
 
+    The check only runs when there's a valid token in the current request context.
+    If no token is set, it assumes this is not a bot session (bots can't authenticate).
+
     Args:
         operation_name: Name of the operation being restricted (for error reporting)
     """
@@ -29,6 +32,16 @@ def restrict_non_bridge_for_bot_sessions(operation_name: str):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            # Import here to avoid circular imports
+            from src.client.connection import _current_token
+
+            # Only check for bot sessions if we have a valid token context
+            # This prevents fallback to default session name during auth setup
+            token = _current_token.get(None)
+            if token is None:
+                # No token in context - allow operation (not a bot session)
+                return await func(*args, **kwargs)
+
             try:
                 client = await get_connected_client()
 
