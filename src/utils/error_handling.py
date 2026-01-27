@@ -439,51 +439,6 @@ def handle_telegram_errors(
                     params=params,
                     exception=e,
                 )
-                # Handle other common Telegram errors with better messages
-                error_msg = str(e).lower()
-
-                # Database/connection errors
-                if (
-                    "readonly database" in error_msg
-                    or "database is locked" in error_msg
-                ):
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Database error occurred. This may be a temporary server issue. Please try again later.",
-                        params=params,
-                        exception=e,
-                        action="retry",
-                    )
-
-                # Network/connection errors
-                if any(
-                    pattern in error_msg
-                    for pattern in ["connection", "network", "timeout", "unreachable"]
-                ):
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Connection error occurred. Please check your internet connection and try again.",
-                        params=params,
-                        exception=e,
-                        action="retry",
-                    )
-
-                # Peer resolution errors
-                if "cannot cast" in error_msg or "peer" in error_msg:
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Unable to resolve or access the specified chat/user. Please verify the ID is correct and accessible.",
-                        params=params,
-                        exception=e,
-                    )
-
-                # Generic fallback
-                return log_and_build_error(
-                    operation=operation,
-                    error_message=f"Operation failed: {e!s}",
-                    params=params,
-                    exception=e,
-                )
 
         return wrapper
 

@@ -25,6 +25,34 @@ RESERVED_SESSION_NAMES = frozenset(
 )
 
 
+def _extract_bearer_token_from_headers(headers: dict[str, str]) -> str | None:
+    """
+    Extract Bearer token from HTTP headers with validation.
+
+    Args:
+        headers: Dictionary of HTTP headers
+
+    Returns:
+        Bearer token string if valid, None otherwise
+    """
+    auth_header = headers.get("authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:].strip()
+    if not token:
+        return None
+
+    # Security validation: prevent reserved session names as bearer tokens
+    if token.lower() in RESERVED_SESSION_NAMES:
+        logger.warning(
+            f"Rejected reserved session name '{token}' as bearer token to prevent session conflicts. "
+            f"Reserved names: {sorted(RESERVED_SESSION_NAMES)}"
+        )
+        return None
+
+    return token
+
+
 def extract_bearer_token() -> str | None:
     """
     Extract Bearer token from HTTP Authorization header if running over HTTP.
@@ -40,22 +68,7 @@ def extract_bearer_token() -> str | None:
         from fastmcp.server.dependencies import get_http_headers  # type: ignore
 
         headers = get_http_headers()
-        auth_header = headers.get("authorization", "")
-        if not auth_header or not auth_header.startswith("Bearer "):
-            return None
-        token = auth_header[7:].strip()
-        if not token:
-            return None
-
-        # Security validation: prevent reserved session names as bearer tokens
-        if token.lower() in RESERVED_SESSION_NAMES:
-            logger.warning(
-                f"Rejected reserved session name '{token}' as bearer token to prevent session conflicts. "
-                f"Reserved names: {sorted(RESERVED_SESSION_NAMES)}"
-            )
-            return None
-
-        return token
+        return _extract_bearer_token_from_headers(headers)
     except Exception as e:  # pragma: no cover - defensive
         logger.warning(f"Error extracting bearer token: {e}")
         return None
@@ -130,46 +143,19 @@ def extract_bearer_token_from_request(request) -> str | None:
 
         # Prefer direct read from the incoming request (custom routes)
         try:
-            auth_header = request.headers.get("authorization", "")
+            headers = dict(request.headers)
+            token = _extract_bearer_token_from_headers(headers)
+            if token:
+                return token
         except Exception:
-            auth_header = ""
-
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-            if not token:
-                return None
-
-            # Security validation: prevent reserved session names as bearer tokens
-            if token.lower() in RESERVED_SESSION_NAMES:
-                logger.warning(
-                    f"Rejected reserved session name '{token}' as bearer token to prevent session conflicts. "
-                    f"Reserved names: {sorted(RESERVED_SESSION_NAMES)}"
-                )
-                return None
-
-            return token
+            pass
 
         # Fallback: FastMCP dependency (works in tool-execution context)
         try:  # pragma: no cover - optional path
             from fastmcp.server.dependencies import get_http_headers  # type: ignore
 
             headers = get_http_headers()
-            auth_header = headers.get("authorization", "")
-            if not auth_header or not auth_header.startswith("Bearer "):
-                return None
-            token = auth_header[7:].strip()
-            if not token:
-                return None
-
-            # Security validation: prevent reserved session names as bearer tokens
-            if token.lower() in RESERVED_SESSION_NAMES:
-                logger.warning(
-                    f"Rejected reserved session name '{token}' as bearer token to prevent session conflicts. "
-                    f"Reserved names: {sorted(RESERVED_SESSION_NAMES)}"
-                )
-                return None
-
-            return token
+            return _extract_bearer_token_from_headers(headers)
         except Exception:
             return None
     except Exception as e:  # pragma: no cover - defensive
