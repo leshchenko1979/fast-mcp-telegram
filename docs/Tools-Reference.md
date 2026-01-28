@@ -121,6 +121,18 @@ All message-returning tools (search, read, send, edit) return messages in a cons
     "title": "Original Channel",
     "type": "channel",
     "username": "original_channel"
+  },
+  "reply_markup": {               // Interactive elements (optional)
+    "type": "inline",             // "keyboard", "inline", "force_reply", "hide"
+    "rows": [                     // Button rows (for keyboard/inline types)
+      [
+        {
+          "text": "Click me!",    // Button text
+          "type": "url",          // Button type: "url", "callback_data", etc.
+          "url": "https://example.com"  // Button data (varies by type)
+        }
+      ]
+    ]
   }
 }
 ```
@@ -146,6 +158,12 @@ All message-returning tools (search, read, send, edit) return messages in a cons
 **Forwarded Messages:**
 - `forwarded_from` contains original sender info
 - Uses same entity schema as chat/sender fields
+
+**Reply Markup:**
+- `reply_markup` contains interactive keyboard and inline button elements
+- Automatically extracted from messages with keyboard markup
+- Includes button text, types (URL, callback, etc.), and associated data
+- Supports all Telegram markup types: keyboards, inline buttons, force reply, hide keyboard
 
 ## Tools Reference
 

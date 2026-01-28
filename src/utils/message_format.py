@@ -57,6 +57,10 @@ def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
     if status == "edited" and hasattr(message, "edit_date") and message.edit_date:
         result["edit_date"] = message.edit_date.isoformat()
 
+    reply_markup = _extract_reply_markup(message)
+    if reply_markup is not None:
+        result["reply_markup"] = reply_markup
+
     return result
 
 
@@ -70,6 +74,134 @@ async def get_sender_info(client, message) -> dict[str, Any] | None:
         except Exception:
             return {"id": message.sender_id, "error": "Failed to retrieve sender"}
     return None
+
+
+def _extract_reply_markup(message) -> dict[str, Any] | None:
+    """Extract and serialize reply markup from a message.
+
+    Returns a dictionary containing reply markup information if present, None otherwise.
+    """
+    reply_markup = getattr(message, "reply_markup", None)
+    if not reply_markup:
+        return None
+
+    markup_class = reply_markup.__class__.__name__
+
+    if markup_class == "ReplyKeyboardMarkup":
+        # Extract keyboard buttons organized in rows
+        rows = []
+        if hasattr(reply_markup, "rows"):
+            for row in reply_markup.rows:
+                row_buttons = []
+                if hasattr(row, "buttons"):
+                    for button in row.buttons:
+                        button_text = getattr(button, "text", "")
+                        row_buttons.append({"text": button_text})
+                rows.append(row_buttons)
+
+        return {
+            "type": "keyboard",
+            "rows": rows,
+            "resize": getattr(reply_markup, "resize", None),
+            "single_use": getattr(reply_markup, "single_use", None),
+            "selective": getattr(reply_markup, "selective", None),
+            "persistent": getattr(reply_markup, "persistent", None),
+            "placeholder": getattr(reply_markup, "placeholder", None),
+        }
+
+    if markup_class == "ReplyInlineMarkup":
+        # Extract inline buttons
+        rows = []
+        if hasattr(reply_markup, "rows"):
+            for row in reply_markup.rows:
+                row_buttons = []
+                if hasattr(row, "buttons"):
+                    for button in row.buttons:
+                        button_info = {"text": getattr(button, "text", "")}
+
+                        # Extract button-specific data based on button type
+                        button_class = button.__class__.__name__
+
+                        if button_class == "KeyboardButtonUrl":
+                            button_info.update(
+                                {
+                                    "type": "url",
+                                    "url": getattr(button, "url", ""),
+                                }
+                            )
+                        elif button_class == "KeyboardButtonCallback":
+                            button_info.update(
+                                {
+                                    "type": "callback_data",
+                                    "data": getattr(button, "data", b"").decode(
+                                        "utf-8", errors="replace"
+                                    )
+                                    if getattr(button, "data", None)
+                                    else "",
+                                }
+                            )
+                        elif button_class == "KeyboardButtonSwitchInline":
+                            button_info.update(
+                                {
+                                    "type": "switch_inline_query",
+                                    "query": getattr(button, "query", ""),
+                                }
+                            )
+                        elif button_class == "KeyboardButtonSwitchInlineSame":
+                            button_info.update(
+                                {
+                                    "type": "switch_inline_query_current_chat",
+                                    "query": getattr(button, "query", ""),
+                                }
+                            )
+                        elif button_class == "KeyboardButtonGame":
+                            button_info.update(
+                                {
+                                    "type": "callback_game",
+                                }
+                            )
+                        elif button_class == "KeyboardButtonBuy":
+                            button_info.update(
+                                {
+                                    "type": "pay",
+                                }
+                            )
+                        elif button_class == "KeyboardButtonUserProfile":
+                            button_info.update(
+                                {
+                                    "type": "user_profile",
+                                    "user_id": getattr(button, "user_id", None),
+                                }
+                            )
+                        else:
+                            button_info["type"] = "unknown"
+
+                        row_buttons.append(button_info)
+                rows.append(row_buttons)
+
+        return {
+            "type": "inline",
+            "rows": rows,
+        }
+
+    if markup_class == "ReplyKeyboardForceReply":
+        return {
+            "type": "force_reply",
+            "selective": getattr(reply_markup, "selective", None),
+            "placeholder": getattr(reply_markup, "placeholder", None),
+        }
+
+    if markup_class == "ReplyKeyboardHide":
+        return {
+            "type": "hide",
+            "selective": getattr(reply_markup, "selective", None),
+        }
+
+    # Unknown markup type
+    return {
+        "type": "unknown",
+        "class": markup_class,
+    }
 
 
 def _build_media_placeholder(message) -> dict[str, Any] | None:
@@ -280,6 +412,10 @@ async def build_message_result(
 
     if forward_info is not None:
         result["forwarded_from"] = forward_info
+
+    reply_markup = _extract_reply_markup(message)
+    if reply_markup is not None:
+        result["reply_markup"] = reply_markup
 
     return result
 
