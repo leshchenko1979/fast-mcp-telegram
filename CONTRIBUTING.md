@@ -128,8 +128,7 @@ python src/setup_telegram.py
 tests/
 ├── __init__.py                    # Tests package initialization
 ├── conftest.py                    # Shared fixtures and configuration
-├── test_*.py                      # Organized test modules by functionality
-└── README.md                      # Test documentation and guidelines
+└── test_*.py                      # Organized test modules by functionality
 ```
 
 ### Running Tests
@@ -147,6 +146,17 @@ pytest tests/ --cov=src --cov-report=html
 
 # Parallel execution
 pytest tests/ -n auto
+```
+
+#### Forum Topics Suite
+```bash
+# Focused forum topics suite
+pytest tests/test_forum_topics_minimal.py -v
+
+# Optional live integration checks (disabled by default)
+FAST_MCP_TELEGRAM_LIVE_TESTS=1 \
+FAST_MCP_TELEGRAM_FORUM_CHAT_ID=<chat_id> \
+pytest tests/test_forum_topics_minimal.py -m integration -v
 ```
 
 ### Running Tests Locally

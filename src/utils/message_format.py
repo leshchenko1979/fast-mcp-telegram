@@ -377,6 +377,20 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
     return placeholder if placeholder else None
 
 
+def _extract_topic_metadata(message: Any) -> dict[str, Any]:
+    """Extract topic_id from a Telegram message reply_to metadata."""
+    reply_to = getattr(message, "reply_to", None)
+    reply_to_msg_id = getattr(message, "reply_to_msg_id", None) or getattr(
+        reply_to, "reply_to_msg_id", None
+    )
+    forum_topic = bool(getattr(reply_to, "forum_topic", False))
+    reply_to_top_id = getattr(reply_to, "reply_to_top_id", None)
+    topic_id = reply_to_top_id or (reply_to_msg_id if forum_topic else None)
+    if topic_id is not None:
+        return {"topic_id": topic_id}
+    return {}
+
+
 async def build_message_result(
     client, message, entity_or_chat, link: str | None
 ) -> dict[str, Any]:
@@ -404,6 +418,12 @@ async def build_message_result(
     )
     if reply_to_msg_id is not None:
         result["reply_to_msg_id"] = reply_to_msg_id
+
+    # Topic metadata: derived from reply_to.forum_topic flag which Telegram
+    # sets on every message inside a forum thread. We don't gate this on
+    # entity.forum because that attribute may be absent when the entity is
+    # fetched from cache or without full channel details.
+    result.update(_extract_topic_metadata(message))
 
     if hasattr(message, "media") and message.media:
         media_placeholder = _build_media_placeholder(message)

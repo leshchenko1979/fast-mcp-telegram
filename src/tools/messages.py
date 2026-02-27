@@ -15,6 +15,7 @@ from src.utils.entity import build_entity_dict, get_entity_by_id
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import (
+    _extract_topic_metadata,
     build_message_result,
     build_send_edit_result,
     transcribe_voice_messages,
@@ -350,6 +351,8 @@ async def _send_message_or_files(
 
     Handles validation and routing to appropriate send method.
     """
+    effective_reply_to = reply_to_msg_id
+
     if files:
         # Validate and normalize files
         file_list, validation_error = _validate_file_paths(files, operation, params)
@@ -358,7 +361,7 @@ async def _send_message_or_files(
 
         # Send file(s) with caption
         sent_message = await _send_files_to_entity(
-            client, entity, file_list, message, reply_to_msg_id, parse_mode
+            client, entity, file_list, message, effective_reply_to, parse_mode
         )
         return None, sent_message
 
@@ -366,7 +369,7 @@ async def _send_message_or_files(
     sent_message = await client.send_message(
         entity=entity,
         message=message,
-        reply_to=reply_to_msg_id,
+        reply_to=effective_reply_to,
         parse_mode=parse_mode,
     )
     return None, sent_message
@@ -408,7 +411,8 @@ async def send_message_impl(
     Args:
         chat_id: The ID of the chat to send the message to
         message: The text message to send (becomes caption when files are provided)
-        reply_to_msg_id: ID of the message to reply to
+        reply_to_msg_id: ID of the message to reply to. For forum chats,
+            pass the topic root message id here to post into a topic.
         parse_mode: Parse mode ('markdown' or 'html')
         files: Single file or list of files (URLs or local paths)
             - URLs work in all modes (http:// or https://)
@@ -464,7 +468,10 @@ async def send_message_impl(
 
 
 async def edit_message_impl(
-    chat_id: str, message_id: int, new_text: str, parse_mode: str | None = None
+    chat_id: str,
+    message_id: int,
+    new_text: str,
+    parse_mode: str | None = None,
 ) -> dict[str, Any]:
     """
     Edit an existing message in a Telegram chat.
@@ -513,6 +520,8 @@ async def edit_message_impl(
         )
 
         result = build_send_edit_result(edited_message, chat, "edited")
+        result.update(_extract_topic_metadata(edited_message))
+
         log_operation_success("Message edited", chat_id)
         return result
 

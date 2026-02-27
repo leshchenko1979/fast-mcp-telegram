@@ -177,6 +177,8 @@ def build_entity_dict(entity) -> dict:
         members_count = None
         subscribers_count = None
 
+    is_forum = bool(getattr(entity, "forum", False))
+
     result = {
         "id": getattr(entity, "id", None),
         "title": title,
@@ -187,6 +189,8 @@ def build_entity_dict(entity) -> dict:
         # Counts (only when available on the given entity instance)
         "members_count": members_count,
         "subscribers_count": subscribers_count,
+        # Present only for forum-enabled channels/supergroups
+        "is_forum": True if is_forum else None,
     }
 
     # Prune None values for a compact, uniform schema

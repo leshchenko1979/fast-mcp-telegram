@@ -31,7 +31,8 @@ class MockTelegramClient:
             ],
         }
 
-    async def is_connected(self):
+    def is_connected(self):
+        # Telethon's client.is_connected() is synchronous; keep mock signature aligned.
         return self.is_connected_value
 
     async def iter_messages(self, entity, limit=50, search=None):
