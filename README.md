@@ -39,10 +39,10 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 🔍 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
-| 💬 **Advanced Messaging** | Send, edit, reply (including forum topics via `reply_to`) with formatting, file attachments, and phone number messaging |
+| 💬 **Advanced Messaging** | Send, edit, reply, post to forum topics,formatting, file attachments, and phone number messaging |
 | 🎤 **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
-| 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, `is_forum` detection, and profile enrichment |
+| 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment |
 | ⚡ **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
 | 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages |
 | 🎯 **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
@@ -58,7 +58,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
 | `read_messages` | Read specific messages by ID | Batch reading, full message content, voice transcription for Premium accounts |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
-| `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics (`topics`, `topics_has_more`), enriched data |
+| `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
 | `invoke_mtproto` | Direct Telegram API access | Raw MTProto methods, entity resolution, safety guardrails |
 
