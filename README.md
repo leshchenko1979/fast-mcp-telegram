@@ -36,10 +36,12 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 |---------|-------------|
 | 🔐 **Multi-User Authentication** | Production-ready Bearer token auth with session isolation and LRU cache management |
 | 🌐 **HTTP-MTProto Bridge** | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
-| 🔍 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
+| 🔍 **Unified Message API** | Single `get_messages` tool for search, browse, read by IDs, and post comments - 5 modes in one |
+| 💬 **Post Comments Support** | Access channel post discussion threads with full search and metadata |
+| 🔎 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
-| 💬 **Advanced Messaging** | Send, edit, reply, post to forum topics,formatting, file attachments, and phone number messaging |
+| ✉️ **Advanced Messaging** | Send, edit, reply, post to forum topics, formatting, file attachments, and phone number messaging |
 | 🎤 **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment |
@@ -111,7 +113,22 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 ### 4. Start Using!
 ```json
+// Global search across all chats
 {"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}
+
+// Get latest messages from a chat
+{"tool": "get_messages", "params": {"chat_id": "me", "limit": 10}}
+
+// Search within a specific chat
+{"tool": "get_messages", "params": {"chat_id": "@username", "query": "project"}}
+
+// Read specific messages by ID
+{"tool": "get_messages", "params": {"chat_id": "me", "message_ids": [123, 124]}}
+
+// Get channel post comments (discussion thread)
+{"tool": "get_messages", "params": {"chat_id": "-1001234567890", "post_id": 42}}
+
+// Send a message
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 
