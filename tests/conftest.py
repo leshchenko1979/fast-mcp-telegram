@@ -94,12 +94,37 @@ def test_server(mock_client):
 
     conn._get_client_by_token = AsyncMock(return_value=mock_client)
 
-    # Register the actual tool functions (we can't import them directly due to decorators)
-    # Instead, we'll create simplified versions for testing
+    # Register simplified mock versions of tools for testing
     @mcp.tool()
-    async def search_messages(query: str, chat_id: str | None = None, limit: int = 50):
-        """Search Telegram messages with advanced filtering."""
-        messages = mock_client.messages.get(chat_id or "me", [])
+    async def search_messages_globally(query: str, limit: int = 50, chat_type: str | None = None):
+        """Search across all Telegram chats."""
+        all_messages = []
+        for chat_messages in mock_client.messages.values():
+            all_messages.extend(chat_messages)
+        
+        if query:
+            all_messages = [msg for msg in all_messages if query.lower() in msg["text"].lower()]
+        window = all_messages[:limit]
+        has_more = len(all_messages) > len(window)
+        return {"messages": window, "has_more": has_more}
+
+    @mcp.tool()
+    async def get_messages(
+        chat_id: str,
+        query: str | None = None,
+        message_ids: list[int] | None = None,
+        post_id: int | None = None,
+        limit: int = 50
+    ):
+        """Unified message retrieval - search, browse, read by IDs, or get post comments."""
+        messages = mock_client.messages.get(chat_id, [])
+        
+        # Mode: Read by IDs
+        if message_ids:
+            found_messages = [msg for msg in messages if msg["id"] in message_ids]
+            return {"messages": found_messages, "has_more": False}
+        
+        # Mode: Search or browse
         if query:
             messages = [msg for msg in messages if query.lower() in msg["text"].lower()]
         window = messages[:limit]
@@ -107,20 +132,14 @@ def test_server(mock_client):
         return {"messages": window, "has_more": has_more}
 
     @mcp.tool()
-    async def send_or_edit_message(
-        chat_id: str, message: str, message_id: int | None = None
-    ):
-        """Send new message or edit existing message in Telegram chat."""
-        if message_id:
-            return {"action": "edited", "message_id": message_id, "text": message}
+    async def send_message(chat_id: str, message: str, reply_to: int | None = None):
+        """Send new message in Telegram chat."""
         return {"action": "sent", "chat_id": chat_id, "text": message}
 
     @mcp.tool()
-    async def read_messages(chat_id: str, message_ids: list[int]):
-        """Read specific messages by their IDs from a Telegram chat."""
-        messages = mock_client.messages.get(chat_id, [])
-        found_messages = [msg for msg in messages if msg["id"] in message_ids]
-        return {"messages": found_messages}
+    async def edit_message(chat_id: str, message_id: int, message: str):
+        """Edit existing message in Telegram chat."""
+        return {"action": "edited", "message_id": message_id, "text": message}
 
     return mcp
 
