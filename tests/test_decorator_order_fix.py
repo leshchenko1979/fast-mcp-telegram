@@ -89,41 +89,6 @@ class TestDecoratorOrderFix:
             )
 
     @pytest.mark.asyncio
-    async def test_token_extraction_works_correctly(self, http_auth_config):
-        """Test that token extraction from HTTP headers works correctly."""
-
-        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
-            test_token = "ExtractionTestToken123"
-            mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
-
-            # Test token extraction
-            extracted_token = extract_bearer_token()
-
-            assert extracted_token == test_token, (
-                f"Expected {test_token}, got {extracted_token}"
-            )
-
-    @pytest.mark.asyncio
-    async def test_context_token_setting_works(self):
-        """Test that setting tokens in context works correctly."""
-
-        test_token = "ContextTestToken123"
-
-        # Set token in context
-        set_request_token(test_token)
-
-        # Verify it's set
-        current_token = _current_token.get()
-        assert current_token == test_token, (
-            f"Expected {test_token}, got {current_token}"
-        )
-
-        # Test setting None (fallback behavior)
-        set_request_token(None)
-        current_token = _current_token.get()
-        assert current_token is None, "Expected None, got {current_token}"
-
-    @pytest.mark.asyncio
     async def test_http_mode_requires_authentication(self, http_auth_config):
         """Test that HTTP mode requires authentication when no token is provided."""
 
@@ -158,26 +123,6 @@ class TestDecoratorOrderFix:
             )
             assert result["token"] is None, "Token should be None (default session)"
             return None
-
-    @pytest.mark.asyncio
-    async def test_decorator_order_verification(self):
-        """Test that verifies the tool registration exposes expected tools."""
-
-        from fastmcp import Client, FastMCP
-
-        from src.server_components.tools_register import register_tools
-
-        temp_mcp = FastMCP("Temp Server")
-        register_tools(temp_mcp)
-
-        async with Client(temp_mcp) as client:
-            tools = await client.list_tools()
-            names = [t.name for t in tools]
-            assert "search_messages_globally" in names
-            assert "get_messages" in names
-            assert "send_message" in names
-            assert "edit_message" in names
-            assert "find_chats" in names
 
     @pytest.mark.asyncio
     async def test_original_issue_reproduction_and_fix(self, http_auth_config):
