@@ -289,7 +289,7 @@ def register_tools(mcp: FastMCP) -> None:
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
-        3. Search messages: search_messages_in_chat(chat_id=chat_id, query="topic")
+        3. Search messages: get_messages(chat_id=chat_id, query="topic")
 
         EXAMPLES:
         find_chats("@telegram")      # Find user by username
