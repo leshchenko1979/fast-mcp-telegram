@@ -5,17 +5,32 @@
 When creating release notes, follow this systematic approach:
 
 ### 1. Identify Changes
-- Use `git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.0$' | head -1` to find the latest major version tag (X.Y.0 format)
-- Check for any commits since the last tag: `git log --oneline <last-major-tag>..HEAD`
+- Find the latest major version tag (`X.Y.0` format):
+  ```bash
+  git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.0$' | head -1
+  ```
+- Check for commits since the last tag:
+  ```bash
+  git log --oneline <last-major-tag>..HEAD
+  ```
 - **Include all changes**: Analyze both local commits and any remote changes since the last major version
 - **Note**: Typically you'll be preparing release notes before creating the new tag
 
 ### 2. Analyze Code Changes
-- **Primary focus**: `git diff <previous-major-tag>..HEAD` - Examine user-facing code changes only
+- **Primary focus** - examine user-facing code changes only:
+  ```bash
+  git diff <previous-major-tag>..HEAD
+  ```
 - **User-facing filter**: Look for new features, bug fixes, and behavior changes that affect end users
 - **Skip internal changes**: Ignore refactoring, code cleanup, documentation, and architecture changes unless they're the only changes
-- **Final state**: `git show HEAD:<file>` - Shows final user-visible functionality
-- **Also analyze summaries**: Use `git log --onelines <previous-major-tag>..HEAD` to identify user-facing commits
+- **Final state** - shows final user-visible functionality:
+  ```bash
+  git show HEAD:<file>
+  ```
+- **Summaries** - identify user-facing commits:
+  ```bash
+  git log --oneline <previous-major-tag>..HEAD
+  ```
 - **Cross-validate**: Treat commit messages as hints, but validate against actual user-visible functionality
 - **Describe user value**: Focus on what users can now do, not implementation details
 
@@ -37,7 +52,7 @@ Use this markdown template (paste as a markdown code block in chat):
 <Main user-facing features or key improvements - NO VERSION NUMBERS>
 
 ## New Features
-- **Feature name** - What users can now do that they couldn't before
+- **`tool_name` / feature** - What users can now do (use backticks for tools, params like `chat_id`)
 - **Another feature** - User-visible capability or improvement
 
 ## Fixes
@@ -48,7 +63,7 @@ This release <briefly describe the primary user-facing value proposition>.
 
 **Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
 ```
-**Note**: Replace `<current-tag>` with the new version tag once created. Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the release title.
+**Note**: Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`). Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the release title.
 
 ### 5. Quality Checks
 - Verify all significant changes are mentioned
@@ -61,28 +76,35 @@ This release <briefly describe the primary user-facing value proposition>.
 - **User-facing focus**: Prioritize what users can now do or what problems are now solved
 - **Omit internal changes**: Don't mention refactoring, code cleanup, or internal improvements unless they're the only changes
 - **Impact over implementation**: Describe user-visible benefits, not how the code was changed
+- **Backticks in descriptions**: Wrap tool names (e.g. `get_messages`), parameter names (e.g. `reply_to`), field names (e.g. `reply_markup`), and file paths in backticks when referenced in release notes
 - **Code-first analysis**: Base descriptions on actual user-facing code changes, not commit messages
 - **Final state focus**: Describe what users can now accomplish, not the development journey
 - **Provide as markdown block**: Output release notes as a markdown code block in chat for easy copy/paste, do NOT create files
-- **Aggregate major releases**: Include all changes since the last major version (X.Y.0)
+- **Aggregate major releases**: Include all changes since the last major version (`X.Y.0`)
 - **Include recent commits**: Always analyze commits since the last tag, even if not yet tagged
 - **Omit file stats**: Never include "Files Changed" or technical implementation details
-- **Plain changelog URL**: Do not wrap the changelog URL in quotes or backticks; use a bare markdown link line like:
-  - `**Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>`
+- **Plain changelog URL**: Use a bare markdown link (no extra wrapping). Example:
+  ```
+  **Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
+  ```
 
 ### 7. Version Bump Process
-- **First**: Update version in `src/_version.py` (single source of truth for version management)
-- **Then**: Create git tag: `git tag <version>` (no "v" prefix)
-- **Next**: Push tag: `git push origin <version>`
+- **First**: Update version in `src/_version.py` (single source of truth)
+- **Then**: Commit, create tag, and push (no `v` prefix on tags):
+  ```bash
+  git add src/_version.py && git commit -m "chore: bump version to <version>"
+  git tag <version>
+  git push origin <branch> && git push origin <version>
+  ```
 - **Then**: Create GitHub release with generated notes
 - **Wait for confirmation**: Do not proceed until user confirms GitHub release is published
 - **Finally**: Send community announcement to Telegram group (only after user confirmation)
 
 **Important**:
 - Release notes are for GitHub releases only - do NOT commit release notes files to git repository
-- Version is managed in `src/_version.py` with dynamic reading in `pyproject.toml` - only update the `_version.py` file
-- There are no release files in this repository. Do not add any `RELEASE_NOTES*` or similar files to git.
-- Tags are plain semantic versions without a leading "v" (example: `0.3.0`).
+- Version is managed in `src/_version.py` with dynamic reading in `pyproject.toml` - only update `src/_version.py`
+- There are no release files in this repository. Do not add any `RELEASE_NOTES*` or similar files to git
+- Tags are plain semantic versions without a leading `v` (example: `0.3.0`)
 
 **Typical workflow**: Identify last major version → Analyze all changes since → Focus on user-facing features → Prepare release notes → Quality checks → Update version → Create tag → Push → Create GitHub release → **Wait for user confirmation** → Send community message
 
