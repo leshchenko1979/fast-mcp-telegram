@@ -12,7 +12,7 @@ from src.client.connection import get_connected_client
 from src.config.server_config import ServerMode, get_config
 from src.tools.links import generate_telegram_links
 from src.utils.discussion import get_post_discussion_info
-from src.utils.entity import build_entity_dict, get_entity_by_id
+from src.utils.entity import build_entity_dict, compute_entity_identifier, get_entity_by_id
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import (
@@ -456,13 +456,17 @@ async def send_message_impl(
             )
             effective_entity = discussion_info["discussion_peer"]
             effective_reply_to_id = discussion_info["discussion_msg_id"]
+            params["chat_id"] = discussion_info["discussion_chat_id"]
+            params["reply_to_id"] = effective_reply_to_id
+            params["has_reply"] = True
             logger.debug(
                 "Detected channel post with discussion, posting comment in discussion group"
             )
         except ValueError as e:
+            raw_msg = str(e.__cause__) if e.__cause__ is not None else str(e)
             return log_and_build_error(
                 operation="send_message",
-                error_message=str(e),
+                error_message=raw_msg,
                 params=params,
                 exception=e,
             )

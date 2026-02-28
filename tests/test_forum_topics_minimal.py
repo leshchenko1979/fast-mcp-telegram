@@ -704,6 +704,18 @@ async def test_send_message_impl_regular_chat_reply_no_discussion_lookup():
 
     mock_discussion.assert_not_awaited()
     mock_send.assert_awaited_once()
+    (
+        _client,
+        entity,
+        _text,
+        _files,
+        reply_to_msg_id,
+        _parse_mode,
+        _operation,
+        _params,
+    ) = mock_send.await_args[0]
+    assert entity is chat
+    assert reply_to_msg_id == 42
     assert result["status"] == "sent"
 
 
