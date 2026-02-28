@@ -226,39 +226,116 @@ search_messages_globally(
 }}
 ```
 
-### 📍 search_messages_in_chat
-**Search messages within a specific Telegram chat**
+### 📬 get_messages
+**Unified message retrieval - search, browse, read by IDs, or get replies**
 
 ```typescript
-search_messages_in_chat(
-  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  query?: str,                   // Search terms (optional, returns latest if omitted)
-  limit?: number = 50,          // Max results
-  min_date?: string,            // ISO date format
-  max_date?: string             // ISO date format
+get_messages(
+  chat_id: str,                  // Target chat ID (required)
+  query?: str,                   // Search terms (optional)
+  message_ids?: number[],        // Specific message IDs to retrieve
+  reply_to_id?: number,          // Get replies (post comments, forum topics, message replies)
+  limit?: number = 50,           // Max results
+  min_date?: string,             // ISO date filter
+  max_date?: string,             // ISO date filter
+  auto_expand_batches?: number = 2,  // Extra batches for filtered searches
+  include_total_count?: boolean = false  // Include total count (chat search only)
 )
 ```
 
+**5 Modes (parameter combinations):**
+1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
+2. **Browse chat**: `chat_id` only - Get latest messages
+3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
+4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message (universal)
+5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
+
+**reply_to_id automatically handles:**
+- 📢 **Channel post comments** - Detects discussion group and fetches comments
+- 📋 **Forum topic messages** - Fetches messages from forum topic
+- 💬 **Message replies** - Fetches direct replies to any message
+
+**Parameter Conflicts (will error):**
+- `message_ids` + `reply_to_id`: Cannot combine
+- `message_ids` + `query`: Cannot combine (specific IDs don't need search)
+
 **Examples:**
 ```json
-// Search in specific chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+// 1. Search in chat
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "query": "launch"
+}}
 
-// Get latest messages from Saved Messages (no query = latest messages)
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "limit": 10}}
+// 2. Browse latest messages (no query)
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "limit": 10
+}}
 
-// Multi-term search in chat (comma-separated)
-{"tool": "search_messages_in_chat", "params": {"chat_id": "telegram", "query": "update, news"}}
+// 3. Read specific messages by ID
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "message_ids": [680204, 680205]
+}}
 
-// Partial word search in chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "query": "proj"}}
+// 4. Get channel post comments (auto-detects discussion)
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 123
+}}
+
+// 5. Get forum topic messages (same parameter!)
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 52
+}}
+
+// 6. Get replies to any message
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "reply_to_id": 100
+}}
+
+// 7. Search within replies
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 123,
+  "query": "bug"
+}}
+
+// Multi-term search
+{"tool": "get_messages", "params": {
+  "chat_id": "telegram",
+  "query": "update, news"
+}}
 ```
 
-**💡 Search Tips:**
-- **No query**: Returns latest messages from the chat (includes voice transcription for Premium accounts)
-- **Simple terms**: Use common words that appear in messages
-- **Multiple terms**: Use comma-separated words for broader results
-- **Partial words**: Use shorter forms to catch variations (e.g., "proj" finds "project", "projects")
+**Response (unified format for all modes):**
+```json
+{
+  "messages": [...],           // List of message dicts
+  "has_more": false,           // Boolean (always false for message_ids mode)
+  "total_count": 123,          // Optional: only if include_total_count=true
+  "reply_to_id": 100,          // Optional: only for reply_to_id mode
+  "discussion_chat_id": "...", // Optional: only for channel posts with discussion
+  "discussion_total_count": 45 // Optional: only for channel posts with discussion
+}
+```
+
+**Features:**
+- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
+- **Voice Transcription**: Automatic for Premium accounts with parallel processing
+- **Universal Replies**: Single parameter for post comments, forum topics, and message replies
+- **Auto-Detection**: Automatically detects channel posts and uses discussion group
+- **Structured Data**: LLM-friendly JSON structures
+
+**💡 Tips:**
+- **No query**: Returns latest messages from chat
+- **Multi-term**: Use comma-separated words for broader results
+- **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
+- **reply_to_id**: Works for channel posts, forum topics, and regular message replies
+- **Forum topics**: Use topic root message ID as reply_to_id (get from get_chat_info)
 
 ### 💬 send_message
 **Send new messages with formatting and optional files**
@@ -363,38 +440,6 @@ edit_message(
   "parse_mode": "html"
 }}
 
-```
-
-### 📖 read_messages
-**Read specific messages by ID with rich media parsing**
-
-```typescript
-read_messages(
-  chat_id: str,                  // Chat identifier (see Supported Chat ID Formats above)
-  message_ids: number[]          // Array of message IDs to retrieve
-)
-```
-
-**Features:**
-- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents, and other media types
-- **Structured Data**: Returns LLM-friendly JSON structures instead of raw Telegram objects
-- **Voice Transcription**: Automatic transcription for Premium accounts with parallel processing
-- **Todo Lists**: Extracts titles, items, completion status, and timestamps
-- **Polls**: Includes questions, options, vote counts, and poll metadata
-
-**Examples:**
-```json
-// Read multiple messages from Saved Messages
-{"tool": "read_messages", "params": {
-  "chat_id": "me",
-  "message_ids": [680204, 680205, 680206]
-}}
-
-// Read from a channel
-{"tool": "read_messages", "params": {
-  "chat_id": "-1001234567890",
-  "message_ids": [123, 124, 125]
-}}
 ```
 
 ### 👥 find_chats

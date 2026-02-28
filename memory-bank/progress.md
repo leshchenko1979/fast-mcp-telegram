@@ -1,3 +1,15 @@
+### 2026-02-28
+- **Unified get_messages API (PR #960)**: Consolidated search_messages_in_chat and read_messages into a single get_messages tool
+- **Universal Replies Support**: Added reply_to_id parameter for unified handling of channel post comments, forum topic messages, and message replies
+- **Auto-Detection**: Automatically detects channel posts with discussion groups and uses appropriate chat
+- **5 Operating Modes**: Search in chat, browse chat, read by IDs, get replies, search in replies
+- **Parameter Conflict Validation**: Automatic rejection of invalid parameter combinations (message_ids+reply_to_id, message_ids+query)
+- **Discussion Metadata**: Returns discussion_chat_id and discussion_total_count for channel posts with discussions
+- **Code Cleanup**: Removed deprecated tool aliases and unused internal functions
+- **Mode Resolution**: Extracted clean orchestration with MessageRetrievalMode enum and dedicated handlers
+- **Comprehensive Testing**: 215 tests pass with full coverage of all modes
+- **Documentation**: Updated all docs to use new get_messages API with reply_to_id
+
 ### 2026-02-19
 - **invoke_mtproto Hash Sanitization Fix (Issue 11)**: Type-preserving hash handling - strings kept for messages.ImportChatInvite, integers for state methods; invalid types removed instead of coercing to 0
 - **RPC Error Normalization (Issue 11)**: Machine-readable error_code in invoke_mtproto responses using Telethon rpc_errors_dict/rpc_errors_re reverse mapping; supports USER_ALREADY_PARTICIPANT, INVITE_HASH_EXPIRED, etc.
@@ -65,7 +77,9 @@
 ### Core Functionality ✅
 - **MCP Server**: FastMCP-based server with full Telegram integration
 - **Configuration System**: Modernized pydantic-settings based configuration with three clear server modes
-- **Message Search**: Split into `search_messages_globally` and `search_messages_in_chat` for deterministic behavior
+- **Unified Message API**: `get_messages` consolidates search, browse, read by IDs, and post comments into single tool
+- **Post Comments Support**: Fetch and search channel post discussion threads with discussion metadata
+- **Message Search**: `search_messages_globally` for global search, `get_messages` for per-chat operations
 - **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
 - **File Sending**: Send single or multiple files via URLs (all modes) or local paths (stdio mode only)
 - **Contact Management**: Search and get contact details

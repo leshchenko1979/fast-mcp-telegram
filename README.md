@@ -36,10 +36,12 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 |---------|-------------|
 | 🔐 **Multi-User Authentication** | Production-ready Bearer token auth with session isolation and LRU cache management |
 | 🌐 **HTTP-MTProto Bridge** | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
-| 🔍 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
+| 🔍 **Unified Message API** | Single `get_messages` tool for search, browse, read by IDs, and replies - 5 modes in one |
+| 💬 **Universal Replies** | Get replies from channel posts, forum topics, or any message with one parameter |
+| 🔎 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
-| 💬 **Advanced Messaging** | Send, edit, reply, post to forum topics,formatting, file attachments, and phone number messaging |
+| ✉️ **Advanced Messaging** | Send, edit, reply, post to forum topics, formatting, file attachments, and phone number messaging |
 | 🎤 **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | 👥 **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment |
@@ -53,10 +55,9 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | Tool | Purpose | Key Features |
 |------|---------|--------------|
 | `search_messages_globally` | Search across all chats | Multi-term queries, date filtering, chat type filtering |
-| `search_messages_in_chat` | Search within specific chat | Supports "me" for Saved Messages, optional query for latest messages |
+| `get_messages` | Unified message retrieval | Search/browse, read by IDs, get replies (posts/topics/messages), 5 modes |
 | `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), unified `reply_to` (message or forum topic root id) |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
-| `read_messages` | Read specific messages by ID | Batch reading, full message content, voice transcription for Premium accounts |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
@@ -112,7 +113,22 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 ### 4. Start Using!
 ```json
+// Global search across all chats
 {"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}
+
+// Get latest messages from a chat
+{"tool": "get_messages", "params": {"chat_id": "me", "limit": 10}}
+
+// Search within a specific chat
+{"tool": "get_messages", "params": {"chat_id": "@username", "query": "project"}}
+
+// Read specific messages by ID
+{"tool": "get_messages", "params": {"chat_id": "me", "message_ids": [123, 124]}}
+
+// Get replies (channel posts, forum topics, or message replies)
+{"tool": "get_messages", "params": {"chat_id": "-1001234567890", "reply_to_id": 42}}
+
+// Send a message
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}
 ```
 

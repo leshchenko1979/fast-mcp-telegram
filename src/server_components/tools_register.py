@@ -9,7 +9,6 @@ from src.server_components import errors as server_errors
 from src.tools.contacts import find_chats_impl, get_chat_info_impl
 from src.tools.messages import (
     edit_message_impl,
-    read_messages_by_ids,
     send_message_impl,
     send_message_to_phone_impl,
 )
@@ -102,10 +101,12 @@ def register_tools(mcp: FastMCP) -> None:
             readOnlyHint=True, idempotentHint=True, openWorldHint=True
         )
     )
-    @mcp_tool_with_restrictions("search_messages_in_chat")
-    async def search_messages_in_chat(
+    @mcp_tool_with_restrictions("get_messages")
+    async def get_messages(
         chat_id: str,
         query: str | None = None,
+        message_ids: list[int] | None = None,
+        reply_to_id: int | None = None,
         limit: int = 50,
         min_date: str | None = None,
         max_date: str | None = None,
@@ -113,31 +114,62 @@ def register_tools(mcp: FastMCP) -> None:
         include_total_count: bool = False,
     ) -> dict:
         """
-        Search messages within a specific Telegram chat.
+        Get messages from a Telegram chat - supports search, specific IDs, and replies.
+
+        MODES (mutually exclusive):
+        1. SEARCH: chat_id + query - Search messages in chat
+        2. BROWSE: chat_id only - Get latest messages
+        3. READ BY IDs: chat_id + message_ids - Get specific messages
+        4. GET REPLIES: chat_id + reply_to_id - Get replies to a message
+        5. SEARCH REPLIES: chat_id + reply_to_id + query - Search within replies
+
+        REPLIES MODE AUTOMATICALLY HANDLES:
+        - Channel post comments (via discussion group)
+        - Forum topic messages (topic_id = root message)
+        - Regular message replies
+
+        CONFLICTS (will error):
+        - message_ids + reply_to_id: Cannot combine
+        - message_ids + query: Cannot combine
 
         FEATURES:
-        - Multiple queries: "term1, term2, term3"
+        - Multiple search queries: "term1, term2, term3"
         - Date filtering: ISO format (min_date="2024-01-01")
-        - Total count support for per-chat searches
-        - No query = returns latest messages from the chat
+        - Total count support for chat searches
+        - Automatic discussion group detection for channel posts
 
         EXAMPLES:
-        search_messages_in_chat(chat_id="me", limit=10)      # Saved Messages
-        search_messages_in_chat(chat_id="-1001234567890", query="launch")  # Specific chat
-        search_messages_in_chat(chat_id="telegram", query="update, news")  # Multi-term search
+        get_messages(chat_id="me", limit=10)  # Latest messages
+        get_messages(chat_id="-1001234567890", query="launch")  # Search
+        get_messages(chat_id="me", message_ids=[680204, 680205])  # Specific messages
+        get_messages(chat_id="-1001234567890", reply_to_id=123)  # Post comments OR topic messages
+        get_messages(chat_id="-1001234567890", reply_to_id=52)  # Forum topic messages
+        get_messages(chat_id="me", reply_to_id=100, query="bug")  # Search in replies
 
         Args:
-            chat_id: Target chat ID ('me' for Saved Messages) or specific chat
-            query: Optional search terms (comma-separated). If omitted, returns latest messages.
+            chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
+            query: Search terms (comma-separated). Optional unless global search.
+            message_ids: List of specific message IDs to retrieve. Conflicts with query/reply_to_id.
+            reply_to_id: Message ID to get replies from (post comments, forum topics, or regular replies)
             limit: Max results (recommended: ≤50)
             min_date: Min date filter (ISO format: "2024-01-01")
             max_date: Max date filter (ISO format: "2024-12-31")
-            auto_expand_batches: Extra result batches for filtered searches
-            include_total_count: Include total matching messages count (per-chat only)
+            auto_expand_batches: Extra batches for filtered searches
+            include_total_count: Include total message count (per-chat only)
+
+        Returns:
+            Dictionary with:
+            - messages: List of message dicts
+            - has_more: Boolean (always False for message_ids mode)
+            - total_count: Total messages (if include_total_count=True)
+            - reply_to_id: Original message ID (if reply_to_id used)
+            - discussion_chat_id/discussion_total_count: (if channel post with discussion)
         """
         return await search_messages_impl(
             query=query,
             chat_id=chat_id,
+            message_ids=message_ids,
+            reply_to_id=reply_to_id,
             limit=limit,
             min_date=min_date,
             max_date=max_date,
@@ -231,37 +263,6 @@ def register_tools(mcp: FastMCP) -> None:
             readOnlyHint=True, idempotentHint=True, openWorldHint=True
         )
     )
-    @mcp_tool_with_restrictions("read_messages")
-    async def read_messages(chat_id: str, message_ids: list[int]) -> list[dict]:
-        """
-        Read specific messages by their IDs from a Telegram chat.
-
-        SUPPORTED CHAT FORMATS:
-        - 'me': Saved Messages
-        - Numeric ID: User/chat ID (e.g., 133526395)
-        - Username: @channel_name or @username
-        - Channel ID: -100xxxxxxxxx
-
-        USAGE:
-        - First use search_messages_globally() or search_messages_in_chat() to find message IDs
-        - Then read specific messages using those IDs
-        - Returns full message content with metadata
-
-        EXAMPLES:
-        read_messages(chat_id="me", message_ids=[680204, 680205])  # Saved Messages
-        read_messages(chat_id="-1001234567890", message_ids=[123, 124])  # Channel
-
-        Args:
-            chat_id: Target chat identifier (use 'me' for Saved Messages)
-            message_ids: List of message IDs to retrieve (from search results)
-        """
-        return await read_messages_by_ids(chat_id, message_ids)
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
-    )
     @mcp_tool_with_restrictions("find_chats")
     async def find_chats(
         query: str,
@@ -294,7 +295,7 @@ def register_tools(mcp: FastMCP) -> None:
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
-        3. Search messages: search_messages_in_chat(chat_id=chat_id, query="topic")
+        3. Search messages: get_messages(chat_id=chat_id, query="topic")
 
         EXAMPLES:
         find_chats("@telegram")      # Find user by username

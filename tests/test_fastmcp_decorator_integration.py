@@ -154,11 +154,53 @@ class TestFastMCPToolIntegration:
 
         names = asyncio.run(list_names())
         assert "search_messages_globally" in names
-        assert "search_messages_in_chat" in names
+        assert "get_messages" in names
         assert "send_message" in names
         assert "edit_message" in names
-        assert "read_messages" in names
         assert "find_chats" in names
+
+    def test_get_messages_tool_schema(self):
+        """Verify get_messages tool exposes new parameters correctly."""
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("Temp Server")
+        register_tools(temp_mcp)
+
+        async def get_tool_schema():
+            async with Client(temp_mcp) as client:
+                tools = await client.list_tools()
+                get_messages_tool = next(
+                    t for t in tools if t.name == "get_messages"
+                )
+                return get_messages_tool.inputSchema
+
+        schema = asyncio.run(get_tool_schema())
+
+        # Verify schema structure
+        assert schema["type"] == "object"
+        properties = schema["properties"]
+
+        # New parameters: message_ids and reply_to_id
+        assert "message_ids" in properties
+        message_ids_schema = properties["message_ids"]
+        assert "array" in str(
+            message_ids_schema.get("type", message_ids_schema.get("anyOf", []))
+        )
+
+        assert "reply_to_id" in properties
+        reply_to_id_schema = properties["reply_to_id"]
+        assert "integer" in str(
+            reply_to_id_schema.get("type", reply_to_id_schema.get("anyOf", []))
+        )
+
+        # Existing parameters remain
+        assert "chat_id" in properties
+        assert "query" in properties
+        assert "limit" in properties
+        assert "auto_expand_batches" in properties
+        assert "include_total_count" in properties
 
 
 class TestEndToEndTokenFlow:
@@ -225,10 +267,9 @@ class TestDecoratorOrderRegression:
 
         names = asyncio.run(list_names())
         assert "search_messages_globally" in names
-        assert "search_messages_in_chat" in names
+        assert "get_messages" in names
         assert "send_message" in names
         assert "edit_message" in names
-        assert "read_messages" in names
         assert "find_chats" in names
 
         print(
