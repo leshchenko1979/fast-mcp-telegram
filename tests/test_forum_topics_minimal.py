@@ -10,6 +10,7 @@ from src.tools.messages import (
     _extract_send_message_params,
     _send_message_or_files,
     edit_message_impl,
+    send_message_impl,
 )
 from src.utils.message_format import _extract_topic_metadata, build_message_result
 
@@ -669,26 +670,254 @@ def test_extract_topic_metadata_without_reply_data_returns_empty():
     assert _extract_topic_metadata(message) == {}
 
 
+@pytest.mark.asyncio
+async def test_send_message_impl_regular_chat_reply_no_discussion_lookup():
+    """Non-broadcast chat with reply_to_id should bypass discussion lookup."""
+    chat = SimpleNamespace(id=123456, broadcast=False, megagroup=False)
+    sent_msg = SimpleNamespace(id=1, text="hello", date=datetime.now(UTC))
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=chat,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="123456",
+            message="hello",
+            reply_to_id=42,
+        )
+
+    mock_discussion.assert_not_awaited()
+    mock_send.assert_awaited_once()
+    (
+        _client,
+        entity,
+        _text,
+        _files,
+        reply_to_msg_id,
+        _parse_mode,
+        _operation,
+        _params,
+    ) = mock_send.await_args[0]
+    assert entity is chat
+    assert reply_to_msg_id == 42
+    assert result["status"] == "sent"
+
+
+@pytest.mark.asyncio
+async def test_send_message_impl_megagroup_non_broadcast_reply_no_discussion_lookup():
+    """Megagroup with broadcast=False and reply_to_id should bypass discussion lookup."""
+    chat = SimpleNamespace(id=-1009876543210, broadcast=False, megagroup=True)
+    sent_msg = SimpleNamespace(id=1, text="hello", date=datetime.now(UTC))
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=chat,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="-1009876543210",
+            message="hello from megagroup",
+            reply_to_id=99,
+        )
+
+    mock_discussion.assert_not_awaited()
+    mock_send.assert_awaited_once()
+    assert result["status"] == "sent"
+
+
+@pytest.mark.asyncio
+async def test_send_message_impl_channel_post_no_reply_skips_discussion_lookup():
+    """Broadcast channel without reply_to_id sends normally without discussion lookup."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+    sent_msg = SimpleNamespace(id=1, text="hello", date=datetime.now(UTC))
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="hello from broadcast",
+        )
+
+    mock_discussion.assert_not_awaited()
+    mock_send.assert_awaited_once()
+    assert result["status"] == "sent"
+
+
+@pytest.mark.asyncio
+async def test_send_message_impl_channel_post_comment_discussion_lookup_failure():
+    """Channel + reply_to_id -> failing discussion lookup returns error and skips sending."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+            side_effect=ValueError("Post 42 has no discussion thread enabled"),
+        ),
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="My comment",
+            reply_to_id=42,
+        )
+
+    mock_send.assert_not_awaited()
+    assert result["ok"] is False
+    assert "error" in result
+    assert "discussion" in result["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
+    """Channel + reply_to_id -> resolves discussion and sends to discussion group."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+    discussion_entity = SimpleNamespace(id=-1009876543210, broadcast=False)
+    discussion_info = {
+        "discussion_peer": discussion_entity,
+        "discussion_chat_id": "-1009876543210",
+        "discussion_msg_id": 999,
+        "discussion_total_count": 5,
+    }
+    sent_msg = SimpleNamespace(
+        id=100,
+        text="My comment",
+        date=datetime.now(UTC),
+    )
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ) as mock_client,
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+            return_value=discussion_info,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        mock_client.return_value = AsyncMock()
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="My comment",
+            reply_to_id=42,
+        )
+
+    mock_discussion.assert_awaited_once()
+    client_used, entity_arg, post_id_arg = mock_discussion.await_args[0]
+    assert entity_arg is channel
+    assert post_id_arg == 42
+
+    mock_send.assert_awaited_once()
+    (
+        _client,
+        entity,
+        text,
+        files,
+        reply_to_msg_id,
+        _parse_mode,
+        _operation,
+        _params,
+    ) = mock_send.await_args[0]
+    assert entity is discussion_entity
+    assert reply_to_msg_id == 999
+    assert result["status"] == "sent"
+    assert result["chat"]["id"] == discussion_entity.id
+
+
 def test_extract_send_message_params_marks_reply_target_as_reply():
     params = _extract_send_message_params(
         chat_id="-1001",
         message="hello",
-        reply_to_msg_id=77,
+        reply_to_id=77,
         parse_mode=None,
         files=None,
     )
     assert params["has_reply"] is True
+    assert params["reply_to_id"] == 77
 
 
 def test_extract_send_message_params_marks_no_reply_when_no_ids():
     params = _extract_send_message_params(
         chat_id="-1001",
         message="hello",
-        reply_to_msg_id=None,
+        reply_to_id=None,
         parse_mode=None,
         files=None,
     )
     assert params["has_reply"] is False
+    assert params["reply_to_id"] is None
 
 
 @pytest.mark.asyncio

@@ -11,7 +11,8 @@ from telethon.tl.types import InputPhoneContact
 from src.client.connection import get_connected_client
 from src.config.server_config import ServerMode, get_config
 from src.tools.links import generate_telegram_links
-from src.utils.entity import build_entity_dict, get_entity_by_id
+from src.utils.discussion import get_post_discussion_info
+from src.utils.entity import build_entity_dict, compute_entity_identifier, get_entity_by_id
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import (
@@ -378,18 +379,21 @@ async def _send_message_or_files(
 def _extract_send_message_params(
     chat_id: str,
     message: str,
-    reply_to_msg_id: int | None = None,
+    reply_to_id: int | None = None,
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
 ) -> dict:
-    """Extract params for send_message error handling."""
+    """Extract params for send_message error handling and logging.
+
+    parse_mode: Effective parse mode used for sending (resolved when input is 'auto').
+    """
     return {
         "chat_id": chat_id,
         "message": message,
         "message_length": len(message),
-        "reply_to_msg_id": reply_to_msg_id,
+        "reply_to_id": reply_to_id,
         "parse_mode": parse_mode,
-        "has_reply": reply_to_msg_id is not None,
+        "has_reply": reply_to_id is not None,
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
     }
@@ -401,7 +405,7 @@ def _extract_send_message_params(
 async def send_message_impl(
     chat_id: str,
     message: str,
-    reply_to_msg_id: int | None = None,
+    reply_to_id: int | None = None,
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
 ) -> dict[str, Any]:
@@ -411,26 +415,19 @@ async def send_message_impl(
     Args:
         chat_id: The ID of the chat to send the message to
         message: The text message to send (becomes caption when files are provided)
-        reply_to_msg_id: ID of the message to reply to. For forum chats,
-            pass the topic root message id here to post into a topic.
+        reply_to_id: ID of the message to reply to. For forum chats, pass topic root ID.
+            For channel posts, automatically posts comment in discussion group.
         parse_mode: Parse mode ('markdown' or 'html')
         files: Single file or list of files (URLs or local paths)
-            - URLs work in all modes (http:// or https://)
-            - Local file paths only work in stdio mode
-            - Supports images, videos, documents, audio, etc.
     """
-    # Resolve auto parse mode
     resolved_parse_mode = parse_mode
     if parse_mode == "auto":
         resolved_parse_mode = detect_message_formatting(message)
-        # Note: params will be built by the decorator
 
-    log_operation_start(
-        "Sending message to chat",
-        _extract_send_message_params(
-            chat_id, message, reply_to_msg_id, parse_mode, files
-        ),
+    params = _extract_send_message_params(
+        chat_id, message, reply_to_id, resolved_parse_mode, files
     )
+    log_operation_start("Sending message to chat", params)
 
     client = await get_connected_client()
     chat = await get_entity_by_id(chat_id)
@@ -438,32 +435,56 @@ async def send_message_impl(
         return log_and_build_error(
             operation="send_message",
             error_message=f"Cannot find chat with ID '{chat_id}'",
-            params=_extract_send_message_params(
-                chat_id, message, reply_to_msg_id, parse_mode, files
-            ),
+            params=params,
             exception=ValueError(
                 f"Cannot find any entity corresponding to '{chat_id}'"
             ),
         )
 
-    # Send message with or without files
+    effective_entity = chat
+    effective_reply_to_id = reply_to_id
+
+    # Channel post comment: redirect to discussion group
+    if (
+        reply_to_id is not None
+        and hasattr(chat, "broadcast")
+        and chat.broadcast
+    ):
+        try:
+            discussion_info = await get_post_discussion_info(
+                client, chat, reply_to_id
+            )
+            effective_entity = discussion_info["discussion_peer"]
+            effective_reply_to_id = discussion_info["discussion_msg_id"]
+            params["chat_id"] = discussion_info["discussion_chat_id"]
+            params["reply_to_id"] = effective_reply_to_id
+            params["has_reply"] = True
+            logger.debug(
+                "Detected channel post with discussion, posting comment in discussion group"
+            )
+        except ValueError as e:
+            return log_and_build_error(
+                operation="send_message",
+                error_message=str(e),
+                params=params,
+                exception=e,
+            )
+
     error, sent_message = await _send_message_or_files(
         client,
-        chat,
+        effective_entity,
         message,
         files,
-        reply_to_msg_id,
+        effective_reply_to_id,
         resolved_parse_mode,
         "send_message",
-        _extract_send_message_params(
-            chat_id, message, reply_to_msg_id, parse_mode, files
-        ),
+        params,
     )
     if error:
         return error
 
-    result = build_send_edit_result(sent_message, chat, "sent")
-    log_operation_success("Message sent", chat_id)
+    result = build_send_edit_result(sent_message, effective_entity, "sent")
+    log_operation_success("Message sent", params["chat_id"])
     return result
 
 
