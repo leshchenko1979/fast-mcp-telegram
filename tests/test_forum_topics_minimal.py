@@ -671,6 +671,43 @@ def test_extract_topic_metadata_without_reply_data_returns_empty():
 
 
 @pytest.mark.asyncio
+async def test_send_message_impl_channel_post_comment_discussion_lookup_failure():
+    """Channel + reply_to_id -> failing discussion lookup returns error and skips sending."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+            side_effect=ValueError("Post 42 has no discussion thread enabled"),
+        ),
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="My comment",
+            reply_to_id=42,
+        )
+
+    mock_send.assert_not_awaited()
+    assert result["ok"] is False
+    assert "error" in result
+    assert "discussion" in result["error"].lower()
+
+
+@pytest.mark.asyncio
 async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
     """Channel + reply_to_id -> resolves discussion and sends to discussion group."""
     channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
