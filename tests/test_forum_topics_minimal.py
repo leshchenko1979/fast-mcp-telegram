@@ -10,6 +10,7 @@ from src.tools.messages import (
     _extract_send_message_params,
     _send_message_or_files,
     edit_message_impl,
+    send_message_impl,
 )
 from src.utils.message_format import _extract_topic_metadata, build_message_result
 
@@ -669,11 +670,66 @@ def test_extract_topic_metadata_without_reply_data_returns_empty():
     assert _extract_topic_metadata(message) == {}
 
 
+@pytest.mark.asyncio
+async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
+    """Channel + reply_to_id -> resolves discussion and sends to discussion group."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+    discussion_entity = SimpleNamespace(id=-1009876543210, broadcast=False)
+    discussion_info = {
+        "discussion_peer": discussion_entity,
+        "discussion_chat_id": "-1009876543210",
+        "discussion_msg_id": 999,
+        "discussion_total_count": 5,
+    }
+    sent_msg = SimpleNamespace(
+        id=100,
+        text="My comment",
+        date=datetime.now(UTC),
+    )
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ) as mock_client,
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+            return_value=discussion_info,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        mock_client.return_value = AsyncMock()
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="My comment",
+            reply_to_id=42,
+        )
+
+    mock_discussion.assert_awaited_once()
+    assert mock_discussion.await_args[0][2] == 42
+    mock_send.assert_awaited_once()
+    call_args = mock_send.await_args[0]
+    assert call_args[1] is discussion_entity  # entity
+    assert call_args[4] == 999  # reply_to_msg_id
+    assert result["status"] == "sent"
+    assert result["chat"]["id"] == discussion_entity.id
+
+
 def test_extract_send_message_params_marks_reply_target_as_reply():
     params = _extract_send_message_params(
         chat_id="-1001",
         message="hello",
-        reply_to_msg_id=77,
+        reply_to_id=77,
         parse_mode=None,
         files=None,
     )
@@ -684,7 +740,7 @@ def test_extract_send_message_params_marks_no_reply_when_no_ids():
     params = _extract_send_message_params(
         chat_id="-1001",
         message="hello",
-        reply_to_msg_id=None,
+        reply_to_id=None,
         parse_mode=None,
         files=None,
     )

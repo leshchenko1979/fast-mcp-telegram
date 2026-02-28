@@ -56,7 +56,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 |------|---------|--------------|
 | `search_messages_globally` | Search across all chats | Multi-term queries, date filtering, chat type filtering |
 | `get_messages` | Unified message retrieval | Search/browse, read by IDs, get replies (posts/topics/messages), 5 modes |
-| `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), unified `reply_to` (message or forum topic root id) |
+| `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), unified `reply_to_id` (message, forum topic, or channel post comment) |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, enriched data |

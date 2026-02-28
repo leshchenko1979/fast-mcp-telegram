@@ -152,7 +152,7 @@ def test_server(mock_client):
         return {"messages": window, "has_more": has_more}
 
     @mcp.tool()
-    async def send_message(chat_id: str, message: str, reply_to: int | None = None):
+    async def send_message(chat_id: str, message: str, reply_to_id: int | None = None):
         """Send new message in Telegram chat."""
         return {"action": "sent", "chat_id": chat_id, "text": message}
 

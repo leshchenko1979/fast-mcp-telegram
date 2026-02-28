@@ -344,11 +344,16 @@ get_messages(
 send_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
   message: str,                  // Message content (becomes caption when files sent)
-  reply_to?: number,             // Reply target ID (message ID or forum topic root ID)
+  reply_to_id?: number,          // Reply target (message ID, forum topic root, or channel post for comments)
   parse_mode?: 'markdown'|'html'|'auto' = 'auto', // Text formatting (auto-detect by default)
   files?: string | string[]      // File URL(s) or local path(s)
 )
 ```
+
+**reply_to_id automatically handles:**
+- 📢 **Channel post comments** - Detects discussion group and posts comment there
+- 📋 **Forum topic messages** - Posts into forum topic
+- 💬 **Message replies** - Replies to any message
 
 **File Sending:**
 - `files`: Single file or array of files (URLs or local paths)
@@ -393,14 +398,21 @@ send_message(
   "chat_id": "@username",
   "message": "*Important:* Meeting at 3 PM",
   "parse_mode": "markdown",
-  "reply_to": 67890
+  "reply_to_id": 67890
 }}
 
-// Post into a forum topic (use topic_id from get_chat_info topics list as reply_to)
+// Post into a forum topic (use topic_id from get_chat_info topics list as reply_to_id)
 {"tool": "send_message", "params": {
   "chat_id": "-1001234567890",
   "message": "Hello forum thread!",
-  "reply_to": 52
+  "reply_to_id": 52
+}}
+
+// Post comment on channel post (auto-detects discussion group)
+{"tool": "send_message", "params": {
+  "chat_id": "-1001234567890",
+  "message": "Great post!",
+  "reply_to_id": 42
 }}
 ```
 
