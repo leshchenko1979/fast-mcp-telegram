@@ -226,39 +226,110 @@ search_messages_globally(
 }}
 ```
 
-### 📍 search_messages_in_chat
-**Search messages within a specific Telegram chat**
+### 📬 get_messages
+**Unified message retrieval - search, browse, read by IDs, or get post comments**
 
 ```typescript
-search_messages_in_chat(
-  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  query?: str,                   // Search terms (optional, returns latest if omitted)
+get_messages(
+  chat_id: str,                  // Target chat ID (required)
+  query?: str,                   // Search terms (optional)
+  message_ids?: number[],        // Specific message IDs to retrieve
+  post_id?: number,              // Channel post ID for discussion comments
   limit?: number = 50,          // Max results
-  min_date?: string,            // ISO date format
-  max_date?: string             // ISO date format
+  min_date?: string,            // ISO date filter
+  max_date?: string             // ISO date filter
 )
 ```
 
+**5 Modes (parameter combinations):**
+1. **Search in chat**: `chat_id` + `query` - Search messages in specific chat
+2. **Browse chat**: `chat_id` only - Get latest messages
+3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
+4. **Post comments**: `chat_id` + `post_id` - Get discussion thread comments
+5. **Search comments**: `chat_id` + `post_id` + `query` - Search within comments
+
+**Parameter Conflicts (will error):**
+- `message_ids` + `post_id`: Cannot combine
+- `message_ids` + `query`: Cannot combine (specific IDs don't need search)
+
 **Examples:**
 ```json
-// Search in specific chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+// 1. Search in chat
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "query": "launch"
+}}
 
-// Get latest messages from Saved Messages (no query = latest messages)
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "limit": 10}}
+// 2. Browse latest messages (no query)
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "limit": 10
+}}
 
-// Multi-term search in chat (comma-separated)
-{"tool": "search_messages_in_chat", "params": {"chat_id": "telegram", "query": "update, news"}}
+// 3. Read specific messages by ID
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "message_ids": [680204, 680205]
+}}
 
-// Partial word search in chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "query": "proj"}}
+// 4. Get channel post comments (discussion thread)
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "post_id": 123
+}}
+
+// 5. Search within post comments
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "post_id": 123,
+  "query": "bug"
+}}
+
+// Multi-term search
+{"tool": "get_messages", "params": {
+  "chat_id": "telegram",
+  "query": "update, news"
+}}
 ```
 
-**💡 Search Tips:**
-- **No query**: Returns latest messages from the chat (includes voice transcription for Premium accounts)
-- **Simple terms**: Use common words that appear in messages
-- **Multiple terms**: Use comma-separated words for broader results
-- **Partial words**: Use shorter forms to catch variations (e.g., "proj" finds "project", "projects")
+**Response:**
+- For `message_ids` mode: Returns list of message dicts
+- For other modes: Returns dict with:
+  - `messages`: List of message dicts
+  - `has_more`: Boolean indicating more results available
+  - `total_count`: Total messages (if `include_total_count=True`)
+  - `discussion_chat_id`: Discussion group ID (if `post_id` used)
+  - `discussion_total_count`: Total comments (if `post_id` used)
+  - `linked_post_id`: Original post ID (if `post_id` used)
+
+**Features:**
+- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
+- **Voice Transcription**: Automatic for Premium accounts with parallel processing
+- **Post Comments**: Access channel post discussion threads
+- **Structured Data**: LLM-friendly JSON structures
+
+**💡 Tips:**
+- **No query**: Returns latest messages from chat
+- **Multi-term**: Use comma-separated words for broader results
+- **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
+- **Post comments**: Requires discussion to be enabled on the channel post
+
+---
+
+### 📍 search_messages_in_chat [DEPRECATED]
+**Use `get_messages(chat_id, query)` instead**
+
+This is a backward-compatible alias. New code should use `get_messages`.
+
+```typescript
+search_messages_in_chat(
+  chat_id: str,
+  query?: str,
+  limit?: number = 50,
+  min_date?: string,
+  max_date?: string
+)
+```
 
 ### 💬 send_message
 **Send new messages with formatting and optional files**
@@ -365,35 +436,30 @@ edit_message(
 
 ```
 
-### 📖 read_messages
-**Read specific messages by ID with rich media parsing**
+### 📖 read_messages [DEPRECATED]
+**Use `get_messages(chat_id, message_ids)` instead**
+
+This is a backward-compatible alias. New code should use `get_messages`.
 
 ```typescript
 read_messages(
-  chat_id: str,                  // Chat identifier (see Supported Chat ID Formats above)
-  message_ids: number[]          // Array of message IDs to retrieve
+  chat_id: str,
+  message_ids: number[]
 )
 ```
 
-**Features:**
-- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents, and other media types
-- **Structured Data**: Returns LLM-friendly JSON structures instead of raw Telegram objects
-- **Voice Transcription**: Automatic transcription for Premium accounts with parallel processing
-- **Todo Lists**: Extracts titles, items, completion status, and timestamps
-- **Polls**: Includes questions, options, vote counts, and poll metadata
-
-**Examples:**
+**Migration example:**
 ```json
-// Read multiple messages from Saved Messages
+// Old way:
 {"tool": "read_messages", "params": {
   "chat_id": "me",
-  "message_ids": [680204, 680205, 680206]
+  "message_ids": [680204, 680205]
 }}
 
-// Read from a channel
-{"tool": "read_messages", "params": {
-  "chat_id": "-1001234567890",
-  "message_ids": [123, 124, 125]
+// New way (equivalent):
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "message_ids": [680204, 680205]
 }}
 ```
 
