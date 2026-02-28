@@ -30,44 +30,9 @@ from src.utils.message_format import (
 logger = logging.getLogger(__name__)
 
 
-async def _process_message_for_results(
-    client,
-    message,
-    chat_entity,
-    chat_type: str,
-    public: bool | None,
-    results: list[dict[str, Any]],
-) -> bool:
-    """Process a single message and add it to results if it matches criteria.
-
-    Returns True if the message was added, False otherwise.
-    """
-    if not message:
-        return False
-
-    # Check if message has content (text or any type of media)
-    has_content = (hasattr(message, "text") and message.text) or _has_any_media(message)
-
-    if not has_content:
-        return False
-
-    if not _matches_chat_type(chat_entity, chat_type):
-        return False
-
-    if not _matches_public_filter(chat_entity, public):
-        return False
-
-    try:
-        identifier = compute_entity_identifier(chat_entity)
-        links = await generate_telegram_links(
-            identifier, [message.id], resolved_entity=chat_entity
-        )
-        link = links.get("message_links", [None])[0]
-        results.append(await build_message_result(client, message, chat_entity, link))
-        return True
-    except Exception as e:
-        logger.warning(f"Error processing message: {e}")
-        return False
+# ============================================================================
+# Post Comments / Discussion Threads
+# ============================================================================
 
 
 async def _get_post_discussion_info(
@@ -189,6 +154,11 @@ async def _fetch_post_comments(
     return collected, metadata
 
 
+# ============================================================================
+# Search Execution Helpers
+# ============================================================================
+
+
 async def _execute_parallel_searches_generators(
     generators: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
 ) -> None:
@@ -217,6 +187,11 @@ async def _execute_parallel_searches_generators(
                 continue  # Skip errors in individual generators
 
         active_gens = next_active
+
+
+# ============================================================================
+# Main Implementation
+# ============================================================================
 
 
 async def search_messages_impl(
@@ -567,20 +542,6 @@ async def _search_chat_messages_generator(
         batch_count += 1
 
 
-async def _search_chat_messages(
-    client, entity, query, limit, chat_type, public, auto_expand_batches
-):
-    """Backward compatibility wrapper - collects generator results into list."""
-    results = []
-    async for result in _search_chat_messages_generator(
-        client, entity, query, limit, chat_type, public, auto_expand_batches
-    ):
-        results.append(result)
-        if len(results) >= limit:
-            break
-    return results[:limit]
-
-
 async def _search_global_messages_generator(
     client,
     query,
@@ -651,31 +612,3 @@ async def _search_global_messages_generator(
         if result.messages:
             next_offset_id = result.messages[-1].id
         batch_count += 1
-
-
-async def _search_global_messages(
-    client,
-    query,
-    limit,
-    min_datetime,
-    max_datetime,
-    chat_type,
-    public,
-    auto_expand_batches,
-):
-    """Backward compatibility wrapper - collects generator results into list."""
-    results = []
-    async for result in _search_global_messages_generator(
-        client,
-        query,
-        limit,
-        min_datetime,
-        max_datetime,
-        chat_type,
-        public,
-        auto_expand_batches,
-    ):
-        results.append(result)
-        if len(results) >= limit:
-            break
-    return results[:limit]

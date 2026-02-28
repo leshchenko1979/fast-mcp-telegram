@@ -54,16 +54,16 @@ Telegram search has specific limitations that AI models should understand to pro
 
 ```json
 // ✅ Good: Search in specific chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "-1001234567890", "query": "launch"}}
+{"tool": "get_messages", "params": {"chat_id": "-1001234567890", "query": "launch"}}
 
 // ✅ Good: Get latest messages (no query)
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "limit": 10}}
+{"tool": "get_messages", "params": {"chat_id": "me", "limit": 10}}
 
 // ✅ Good: Multi-term search in chat
-{"tool": "search_messages_in_chat", "params": {"chat_id": "telegram", "query": "update, news"}}
+{"tool": "get_messages", "params": {"chat_id": "telegram", "query": "update, news"}}
 
 // ✅ Good: Partial word search
-{"tool": "search_messages_in_chat", "params": {"chat_id": "me", "query": "proj"}}
+{"tool": "get_messages", "params": {"chat_id": "me", "query": "proj"}}
 ```
 
 ### Filtered Search Examples
@@ -110,7 +110,7 @@ Telegram search has specific limitations that AI models should understand to pro
 ### 2. Use Chat-Specific Search When Possible
 ```json
 // If user mentions a specific person/channel, search there first
-{"tool": "search_messages_in_chat", "params": {"chat_id": "@username", "query": "project"}}
+{"tool": "get_messages", "params": {"chat_id": "@username", "query": "project"}}
 
 // Then try global search if needed
 {"tool": "search_messages_globally", "params": {"query": "project", "limit": 20}}
@@ -150,7 +150,7 @@ Telegram search has specific limitations that AI models should understand to pro
 ### Finding Messages by Context
 ```json
 // Recent messages from a specific person
-{"tool": "search_messages_in_chat", "params": {"chat_id": "@username", "limit": 10}}
+{"tool": "get_messages", "params": {"chat_id": "@username", "limit": 10}}
 
 // Messages in a specific time period
 {"tool": "search_messages_globally", "params": {

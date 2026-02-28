@@ -9,7 +9,6 @@ from src.server_components import errors as server_errors
 from src.tools.contacts import find_chats_impl, get_chat_info_impl
 from src.tools.messages import (
     edit_message_impl,
-    read_messages_by_ids,
     send_message_impl,
     send_message_to_phone_impl,
 )
@@ -248,76 +247,6 @@ def register_tools(mcp: FastMCP) -> None:
             message_id,
             message,
             parse_mode,
-        )
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
-    )
-    @mcp_tool_with_restrictions("read_messages")
-    async def read_messages(chat_id: str, message_ids: list[int]) -> list[dict]:
-        """
-        [DEPRECATED: Use get_messages(chat_id, message_ids) instead]
-        Read specific messages by their IDs from a Telegram chat.
-
-        This is a backward-compatible alias. New code should use get_messages() instead.
-
-        EXAMPLES:
-        read_messages(chat_id="me", message_ids=[680204, 680205])
-        # Equivalent to: get_messages(chat_id="me", message_ids=[680204, 680205])
-
-        Args:
-            chat_id: Target chat identifier (use 'me' for Saved Messages)
-            message_ids: List of message IDs to retrieve
-        """
-        return await search_messages_impl(
-            chat_id=chat_id, message_ids=message_ids
-        )
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
-    )
-    @mcp_tool_with_restrictions("search_messages_in_chat")
-    async def search_messages_in_chat(
-        chat_id: str,
-        query: str | None = None,
-        limit: int = 50,
-        min_date: str | None = None,
-        max_date: str | None = None,
-        auto_expand_batches: int = 2,
-        include_total_count: bool = False,
-    ) -> dict:
-        """
-        [DEPRECATED: Use get_messages(chat_id, query) instead]
-        Search messages within a specific Telegram chat.
-
-        This is a backward-compatible alias. New code should use get_messages() instead.
-
-        EXAMPLES:
-        search_messages_in_chat(chat_id="me", limit=10)
-        # Equivalent to: get_messages(chat_id="me", limit=10)
-
-        Args:
-            chat_id: Target chat ID
-            query: Search terms (comma-separated)
-            limit: Max results
-            min_date: Min date filter (ISO format)
-            max_date: Max date filter (ISO format)
-            auto_expand_batches: Extra batches for filtered searches
-            include_total_count: Include total count
-        """
-        return await search_messages_impl(
-            query=query,
-            chat_id=chat_id,
-            limit=limit,
-            min_date=min_date,
-            max_date=max_date,
-            chat_type=None,
-            auto_expand_batches=auto_expand_batches,
-            include_total_count=include_total_count,
         )
 
     @mcp.tool(

@@ -314,23 +314,6 @@ get_messages(
 - **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
 - **Post comments**: Requires discussion to be enabled on the channel post
 
----
-
-### 📍 search_messages_in_chat [DEPRECATED]
-**Use `get_messages(chat_id, query)` instead**
-
-This is a backward-compatible alias. New code should use `get_messages`.
-
-```typescript
-search_messages_in_chat(
-  chat_id: str,
-  query?: str,
-  limit?: number = 50,
-  min_date?: string,
-  max_date?: string
-)
-```
-
 ### 💬 send_message
 **Send new messages with formatting and optional files**
 
@@ -434,33 +417,6 @@ edit_message(
   "parse_mode": "html"
 }}
 
-```
-
-### 📖 read_messages [DEPRECATED]
-**Use `get_messages(chat_id, message_ids)` instead**
-
-This is a backward-compatible alias. New code should use `get_messages`.
-
-```typescript
-read_messages(
-  chat_id: str,
-  message_ids: number[]
-)
-```
-
-**Migration example:**
-```json
-// Old way:
-{"tool": "read_messages", "params": {
-  "chat_id": "me",
-  "message_ids": [680204, 680205]
-}}
-
-// New way (equivalent):
-{"tool": "get_messages", "params": {
-  "chat_id": "me",
-  "message_ids": [680204, 680205]
-}}
 ```
 
 ### 👥 find_chats

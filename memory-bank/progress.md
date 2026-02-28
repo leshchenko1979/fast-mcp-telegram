@@ -3,10 +3,10 @@
 - **Post Comments Support**: Added post_id parameter to fetch channel post discussion threads using messages.getDiscussionMessage
 - **5 Operating Modes**: Search in chat, browse chat, read by IDs, post comments, search in comments
 - **Parameter Conflict Validation**: Automatic rejection of invalid parameter combinations (message_ids+post_id, message_ids+query)
-- **Backward Compatibility**: Kept read_messages and search_messages_in_chat as deprecated aliases
 - **Discussion Metadata**: Returns discussion_chat_id, discussion_total_count, and linked_post_id for post comments
+- **Code Cleanup**: Removed deprecated tool aliases and unused internal functions
 - **Comprehensive Testing**: Added 14 new tests covering all modes and parameter interactions (216 total tests pass)
-- **Documentation**: Updated Tools-Reference.md with new get_messages API and deprecated tool notices
+- **Documentation**: Updated all docs to use new get_messages API
 
 ### 2026-02-19
 - **invoke_mtproto Hash Sanitization Fix (Issue 11)**: Type-preserving hash handling - strings kept for messages.ImportChatInvite, integers for state methods; invalid types removed instead of coercing to 0
@@ -77,7 +77,7 @@
 - **Configuration System**: Modernized pydantic-settings based configuration with three clear server modes
 - **Unified Message API**: `get_messages` consolidates search, browse, read by IDs, and post comments into single tool
 - **Post Comments Support**: Fetch and search channel post discussion threads with discussion metadata
-- **Message Search**: Split into `search_messages_globally` and `search_messages_in_chat` (deprecated alias) for deterministic behavior
+- **Message Search**: `search_messages_globally` for global search, `get_messages` for per-chat operations
 - **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
 - **File Sending**: Send single or multiple files via URLs (all modes) or local paths (stdio mode only)
 - **Contact Management**: Search and get contact details

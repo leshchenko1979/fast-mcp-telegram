@@ -174,10 +174,9 @@ class TestDecoratorOrderFix:
             tools = await client.list_tools()
             names = [t.name for t in tools]
             assert "search_messages_globally" in names
-            assert "search_messages_in_chat" in names
+            assert "get_messages" in names
             assert "send_message" in names
             assert "edit_message" in names
-            assert "read_messages" in names
             assert "find_chats" in names
 
     @pytest.mark.asyncio

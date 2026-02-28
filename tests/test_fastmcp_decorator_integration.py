@@ -154,10 +154,9 @@ class TestFastMCPToolIntegration:
 
         names = asyncio.run(list_names())
         assert "search_messages_globally" in names
-        assert "search_messages_in_chat" in names
+        assert "get_messages" in names
         assert "send_message" in names
         assert "edit_message" in names
-        assert "read_messages" in names
         assert "find_chats" in names
 
 
@@ -225,10 +224,9 @@ class TestDecoratorOrderRegression:
 
         names = asyncio.run(list_names())
         assert "search_messages_globally" in names
-        assert "search_messages_in_chat" in names
+        assert "get_messages" in names
         assert "send_message" in names
         assert "edit_message" in names
-        assert "read_messages" in names
         assert "find_chats" in names
 
         print(

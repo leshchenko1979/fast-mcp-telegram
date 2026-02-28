@@ -53,10 +53,9 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | Tool | Purpose | Key Features |
 |------|---------|--------------|
 | `search_messages_globally` | Search across all chats | Multi-term queries, date filtering, chat type filtering |
-| `search_messages_in_chat` | Search within specific chat | Supports "me" for Saved Messages, optional query for latest messages |
+| `get_messages` | Unified message retrieval | Search/browse chat, read by IDs, post comments, 5 modes in one tool |
 | `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), unified `reply_to` (message or forum topic root id) |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
-| `read_messages` | Read specific messages by ID | Batch reading, full message content, voice transcription for Premium accounts |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
