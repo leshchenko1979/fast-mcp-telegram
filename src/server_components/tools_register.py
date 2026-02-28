@@ -102,42 +102,66 @@ def register_tools(mcp: FastMCP) -> None:
             readOnlyHint=True, idempotentHint=True, openWorldHint=True
         )
     )
-    @mcp_tool_with_restrictions("search_messages_in_chat")
-    async def search_messages_in_chat(
+    @mcp_tool_with_restrictions("get_messages")
+    async def get_messages(
         chat_id: str,
         query: str | None = None,
+        message_ids: list[int] | None = None,
+        post_id: int | None = None,
         limit: int = 50,
         min_date: str | None = None,
         max_date: str | None = None,
         auto_expand_batches: int = 2,
         include_total_count: bool = False,
-    ) -> dict:
+    ) -> dict | list[dict]:
         """
-        Search messages within a specific Telegram chat.
+        Get messages from a Telegram chat - supports search, specific IDs, and post comments.
+
+        MODES (mutually exclusive):
+        1. SEARCH: chat_id + query - Search messages in chat
+        2. BROWSE: chat_id only - Get latest messages
+        3. READ BY IDs: chat_id + message_ids - Get specific messages
+        4. POST COMMENTS: chat_id + post_id - Get discussion thread comments
+        5. SEARCH COMMENTS: chat_id + post_id + query - Search within comments
+
+        CONFLICTS (will error):
+        - message_ids + post_id: Cannot combine
+        - message_ids + query: Cannot combine
 
         FEATURES:
-        - Multiple queries: "term1, term2, term3"
+        - Multiple search queries: "term1, term2, term3"
         - Date filtering: ISO format (min_date="2024-01-01")
-        - Total count support for per-chat searches
-        - No query = returns latest messages from the chat
+        - Total count support for chat searches
+        - Post discussion threads for channels
 
         EXAMPLES:
-        search_messages_in_chat(chat_id="me", limit=10)      # Saved Messages
-        search_messages_in_chat(chat_id="-1001234567890", query="launch")  # Specific chat
-        search_messages_in_chat(chat_id="telegram", query="update, news")  # Multi-term search
+        get_messages(chat_id="me", limit=10)  # Latest messages from Saved Messages
+        get_messages(chat_id="-1001234567890", query="launch")  # Search in chat
+        get_messages(chat_id="telegram", query="update, news")  # Multi-term search
+        get_messages(chat_id="me", message_ids=[680204, 680205])  # Specific messages
+        get_messages(chat_id="-1001234567890", post_id=123)  # Comments on post
+        get_messages(chat_id="-1001234567890", post_id=123, query="bug")  # Search in comments
 
         Args:
-            chat_id: Target chat ID ('me' for Saved Messages) or specific chat
-            query: Optional search terms (comma-separated). If omitted, returns latest messages.
+            chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
+            query: Search terms (comma-separated). Optional unless global search.
+            message_ids: List of specific message IDs to retrieve. Conflicts with query/post_id.
+            post_id: Channel post ID to get discussion comments. Conflicts with message_ids.
             limit: Max results (recommended: ≤50)
             min_date: Min date filter (ISO format: "2024-01-01")
             max_date: Max date filter (ISO format: "2024-12-31")
-            auto_expand_batches: Extra result batches for filtered searches
-            include_total_count: Include total matching messages count (per-chat only)
+            auto_expand_batches: Extra batches for filtered searches
+            include_total_count: Include total message count (per-chat only)
+
+        Returns:
+            For message_ids: List of message dicts
+            For other modes: Dict with messages, has_more, and optional metadata
         """
         return await search_messages_impl(
             query=query,
             chat_id=chat_id,
+            message_ids=message_ids,
+            post_id=post_id,
             limit=limit,
             min_date=min_date,
             max_date=max_date,
@@ -234,28 +258,67 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp_tool_with_restrictions("read_messages")
     async def read_messages(chat_id: str, message_ids: list[int]) -> list[dict]:
         """
+        [DEPRECATED: Use get_messages(chat_id, message_ids) instead]
         Read specific messages by their IDs from a Telegram chat.
 
-        SUPPORTED CHAT FORMATS:
-        - 'me': Saved Messages
-        - Numeric ID: User/chat ID (e.g., 133526395)
-        - Username: @channel_name or @username
-        - Channel ID: -100xxxxxxxxx
-
-        USAGE:
-        - First use search_messages_globally() or search_messages_in_chat() to find message IDs
-        - Then read specific messages using those IDs
-        - Returns full message content with metadata
+        This is a backward-compatible alias. New code should use get_messages() instead.
 
         EXAMPLES:
-        read_messages(chat_id="me", message_ids=[680204, 680205])  # Saved Messages
-        read_messages(chat_id="-1001234567890", message_ids=[123, 124])  # Channel
+        read_messages(chat_id="me", message_ids=[680204, 680205])
+        # Equivalent to: get_messages(chat_id="me", message_ids=[680204, 680205])
 
         Args:
             chat_id: Target chat identifier (use 'me' for Saved Messages)
-            message_ids: List of message IDs to retrieve (from search results)
+            message_ids: List of message IDs to retrieve
         """
-        return await read_messages_by_ids(chat_id, message_ids)
+        return await search_messages_impl(
+            chat_id=chat_id, message_ids=message_ids
+        )
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            readOnlyHint=True, idempotentHint=True, openWorldHint=True
+        )
+    )
+    @mcp_tool_with_restrictions("search_messages_in_chat")
+    async def search_messages_in_chat(
+        chat_id: str,
+        query: str | None = None,
+        limit: int = 50,
+        min_date: str | None = None,
+        max_date: str | None = None,
+        auto_expand_batches: int = 2,
+        include_total_count: bool = False,
+    ) -> dict:
+        """
+        [DEPRECATED: Use get_messages(chat_id, query) instead]
+        Search messages within a specific Telegram chat.
+
+        This is a backward-compatible alias. New code should use get_messages() instead.
+
+        EXAMPLES:
+        search_messages_in_chat(chat_id="me", limit=10)
+        # Equivalent to: get_messages(chat_id="me", limit=10)
+
+        Args:
+            chat_id: Target chat ID
+            query: Search terms (comma-separated)
+            limit: Max results
+            min_date: Min date filter (ISO format)
+            max_date: Max date filter (ISO format)
+            auto_expand_batches: Extra batches for filtered searches
+            include_total_count: Include total count
+        """
+        return await search_messages_impl(
+            query=query,
+            chat_id=chat_id,
+            limit=limit,
+            min_date=min_date,
+            max_date=max_date,
+            chat_type=None,
+            auto_expand_batches=auto_expand_batches,
+            include_total_count=include_total_count,
+        )
 
     @mcp.tool(
         annotations=ToolAnnotations(

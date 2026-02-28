@@ -2,11 +2,12 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from telethon.tl.functions.messages import SearchGlobalRequest
+from telethon.tl.functions.messages import GetDiscussionMessageRequest, SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
 from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.tools.links import generate_telegram_links
+from src.tools.messages import read_messages_by_ids
 from src.utils.entity import (
     _get_chat_message_count,
     _matches_chat_type,
@@ -69,6 +70,125 @@ async def _process_message_for_results(
         return False
 
 
+async def _get_post_discussion_info(
+    client, channel_entity, post_id: int
+) -> dict[str, Any]:
+    """
+    Get discussion group information for a channel post.
+
+    Returns dict with:
+    - discussion_peer: The discussion chat entity
+    - discussion_chat_id: Chat ID of discussion group
+    - discussion_msg_id: Root message ID in discussion group
+    - discussion_total_count: Total comment count (if available)
+
+    Raises ValueError if post has no discussion enabled.
+    """
+    try:
+        result = await client(
+            GetDiscussionMessageRequest(
+                peer=channel_entity,
+                msg_id=post_id,
+            )
+        )
+
+        if not result or not hasattr(result, "messages") or not result.messages:
+            raise ValueError(f"Post {post_id} has no discussion thread enabled")
+
+        discussion_msg = result.messages[0]
+        discussion_peer = getattr(discussion_msg, "peer_id", None)
+
+        if not discussion_peer:
+            raise ValueError(f"Post {post_id} has no discussion peer")
+
+        # Get the discussion chat entity
+        discussion_entity = await client.get_entity(discussion_peer)
+        discussion_chat_id = compute_entity_identifier(discussion_entity)
+
+        # Get total comment count if available
+        total_count = getattr(result, "count", None)
+        if total_count is None and hasattr(discussion_msg, "replies"):
+            total_count = getattr(discussion_msg.replies, "replies", None)
+
+        return {
+            "discussion_peer": discussion_entity,
+            "discussion_chat_id": discussion_chat_id,
+            "discussion_msg_id": discussion_msg.id,
+            "discussion_total_count": total_count,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get discussion info for post {post_id}: {e}")
+        raise ValueError(
+            f"Cannot access discussion for post {post_id}: {e!s}"
+        ) from e
+
+
+async def _fetch_post_comments(
+    client,
+    channel_entity,
+    post_id: int,
+    limit: int,
+    query: str | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """
+    Fetch comments from a channel post's discussion thread.
+
+    Returns tuple of (messages, metadata):
+    - messages: List of comment message dicts
+    - metadata: Discussion metadata (chat_id, total_count, etc.)
+    """
+    # Get discussion information
+    discussion_info = await _get_post_discussion_info(client, channel_entity, post_id)
+
+    discussion_entity = discussion_info["discussion_peer"]
+    discussion_msg_id = discussion_info["discussion_msg_id"]
+
+    # Fetch comments from discussion thread
+    # Comments are replies to the root discussion message
+    collected = []
+    async for message in client.iter_messages(
+        discussion_entity,
+        reply_to=discussion_msg_id,
+        search=query if query else None,
+        limit=limit + 1,  # Fetch one extra to check has_more
+    ):
+        if not message:
+            continue
+
+        has_content = (hasattr(message, "text") and message.text) or _has_any_media(
+            message
+        )
+        if not has_content:
+            continue
+
+        try:
+            identifier = compute_entity_identifier(discussion_entity)
+            links = await generate_telegram_links(
+                identifier, [message.id], resolved_entity=discussion_entity
+            )
+            link = links.get("message_links", [None])[0]
+            result = await build_message_result(client, message, discussion_entity, link)
+            collected.append(result)
+
+            if len(collected) >= limit + 1:
+                break
+        except Exception as e:
+            logger.warning(f"Error processing comment message: {e}")
+            continue
+
+    # Transcribe voice messages if any
+    await transcribe_voice_messages(collected[:limit], discussion_entity)
+
+    metadata = {
+        "discussion_chat_id": discussion_info["discussion_chat_id"],
+        "discussion_total_count": discussion_info["discussion_total_count"],
+        "linked_post_id": post_id,
+    }
+
+    return collected, metadata
+
+
 async def _execute_parallel_searches_generators(
     generators: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
 ) -> None:
@@ -100,8 +220,10 @@ async def _execute_parallel_searches_generators(
 
 
 async def search_messages_impl(
-    query: str,
+    query: str | None = None,
     chat_id: str | None = None,
+    message_ids: list[int] | None = None,
+    post_id: int | None = None,
     limit: int = 20,
     min_date: str | None = None,  # ISO format date string
     max_date: str | None = None,  # ISO format date string
@@ -110,35 +232,56 @@ async def search_messages_impl(
     | None = None,  # True=with username, False=without username, None=no filter
     auto_expand_batches: int = 1,  # Fewer extra batches to reduce RAM
     include_total_count: bool = False,  # Whether to include total count in response
-) -> dict[str, Any]:
+) -> dict[str, Any] | list[dict[str, Any]]:
     """
-    Search for messages in Telegram chats using Telegram's global or per-chat search functionality with optional chat type and public filtering and auto-expansion for filtered results.
+    Unified message retrieval supporting search, specific message IDs, and post comments.
+
+    PARAMETER COMBINATIONS:
+    1. Search in chat: chat_id + query
+    2. Browse chat: chat_id (returns recent messages)
+    3. Read specific messages: chat_id + message_ids
+    4. Read post comments: chat_id + post_id
+    5. Search in comments: chat_id + post_id + query
+    6. Global search: query only (no chat_id)
+
+    CONFLICTS (will return error):
+    - message_ids + post_id: Cannot combine
+    - message_ids + query: Cannot combine (specific IDs don't need search)
 
     Args:
-        query: Search query string (use comma-separated terms for multiple queries). For per-chat, may be empty; for global, must not be empty. Results are merged and deduplicated.
-        chat_id: Optional chat ID to search in a specific chat. If not provided, performs a global search.
+        query: Search query string (comma-separated for multiple queries). Optional for per-chat, required for global.
+        chat_id: Target chat ID. Required for message_ids and post_id modes.
+        message_ids: List of specific message IDs to retrieve. Conflicts with query and post_id.
+        post_id: Channel post ID to retrieve discussion comments from. Conflicts with message_ids.
         limit: Maximum number of results to return
-        min_date: Optional minimum date for search results (ISO format string)
-        max_date: Optional maximum date for search results (ISO format string)
-        chat_type: Optional filter for chat type ('private', 'group', 'channel')
-        public: Optional filter for public discoverability (True=with username, False=without username, None=no filter). Never applies to private chats.
-        auto_expand_batches: Maximum additional batches to fetch if not enough filtered results (default 2)
-        include_total_count: Whether to include total count of matching messages in response (default False)
+        min_date: Minimum date filter (ISO format)
+        max_date: Maximum date filter (ISO format)
+        chat_type: Filter by chat type ('private', 'group', 'channel', comma-separated)
+        public: Filter by public discoverability (True=with username, False=without). Never applies to private chats.
+        auto_expand_batches: Additional batches to fetch for filtered searches (default 1)
+        include_total_count: Include total count in response (per-chat only, default False)
 
     Returns:
-        Dictionary containing:
-        - 'messages': List of dictionaries containing message information
-        - 'total_count': Total number of matching messages (if include_total_count=True)
-        - 'has_more': Boolean indicating if there are more results available
+        For message_ids mode: List of message dicts
+        For all other modes: Dictionary with:
+        - 'messages': List of message dicts
+        - 'has_more': Boolean indicating more results available
+        - 'total_count': Total messages (if include_total_count=True)
+        - 'discussion_chat_id': Discussion group ID (if post_id used)
+        - 'discussion_total_count': Total comments (if post_id used and available)
+        - 'linked_post_id': Original post ID (if post_id used)
 
     Note:
-        - For per-chat search (chat_id provided), an empty query returns all messages in the specified chat (optionally filtered by date).
-        - For global search (no chat_id), query must not be empty.
-        - Total count is only available for per-chat searches, not global searches.
+        - Global search requires non-empty query
+        - Per-chat search allows empty query (returns recent messages)
+        - Total count only available for per-chat searches, not global
+        - Post comments require discussion to be enabled on the channel post
     """
     params = {
         "query": query,
         "chat_id": chat_id,
+        "message_ids": message_ids,
+        "post_id": post_id,
         "limit": limit,
         "min_date": min_date,
         "max_date": max_date,
@@ -149,16 +292,100 @@ async def search_messages_impl(
         "is_global_search": chat_id is None,
         "has_query": bool(query and query.strip()),
         "has_date_filter": bool(min_date or max_date),
+        "message_count": len(message_ids) if message_ids else 0,
     }
 
-    # Normalize and validate queries
+    # Parameter conflict validation
+    if message_ids and post_id:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message="Cannot combine message_ids with post_id. Use one or the other.",
+            params=params,
+            exception=ValueError("Parameter conflict: message_ids and post_id are mutually exclusive"),
+        )
+
+    if message_ids and query:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message="Cannot combine message_ids with query. Specific message IDs don't need search.",
+            params=params,
+            exception=ValueError("Parameter conflict: message_ids and query are mutually exclusive"),
+        )
+
+    # Mode: Read specific messages by IDs
+    if message_ids is not None:
+        if not chat_id:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="chat_id is required when using message_ids",
+                params=params,
+                exception=ValueError("chat_id required for message_ids mode"),
+            )
+        # Delegate to read_messages_by_ids
+        return await read_messages_by_ids(chat_id, message_ids)
+
+    # Mode: Read post comments
+    if post_id is not None:
+        if not chat_id:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="chat_id is required when using post_id",
+                params=params,
+                exception=ValueError("chat_id required for post_id mode"),
+            )
+
+        # Fetch post comments
+        client = await get_connected_client()
+        try:
+            entity = await get_entity_by_id(chat_id)
+            if not entity:
+                raise ValueError(f"Could not find chat with ID '{chat_id}'")
+
+            collected, metadata = await _fetch_post_comments(
+                client, entity, post_id, limit, query
+            )
+
+            # Return results up to limit
+            window = collected[:limit] if limit is not None else collected
+            has_more = len(collected) > len(window) or (
+                len(collected) == limit and len(collected) > 0
+            )
+
+            if not window:
+                return log_and_build_error(
+                    operation="get_messages",
+                    error_message=f"No comments found for post {post_id}",
+                    params=params,
+                    exception=ValueError(f"No comments found for post {post_id}"),
+                )
+
+            response = {
+                "messages": window,
+                "has_more": has_more,
+                **metadata,  # Add discussion metadata
+            }
+
+            logger.info(
+                f"Retrieved {len(window)} comments from post {post_id} in chat {chat_id}"
+            )
+            return response
+
+        except Exception as e:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message=f"Failed to fetch comments for post {post_id}: {e!s}",
+                params=params,
+                exception=e,
+            )
+
+    # Normalize and validate queries for search modes
     queries: list[str] = (
         [q.strip() for q in query.split(",") if q.strip()] if query else []
     )
 
     if not chat_id and not queries:
         return log_and_build_error(
-            operation="search_messages",
+            operation="get_messages",
             error_message="Search query must not be empty for global search",
             params=params,
             exception=ValueError("Search query must not be empty for global search"),
@@ -208,7 +435,7 @@ async def search_messages_impl(
 
             except Exception as e:
                 return log_and_build_error(
-                    operation="search_messages",
+                    operation="get_messages",
                     error_message=f"Failed to search in chat '{chat_id}': {e!s}",
                     params=params,
                     exception=e,
@@ -235,7 +462,7 @@ async def search_messages_impl(
                 )
             except Exception as e:
                 return log_and_build_error(
-                    operation="search_messages",
+                    operation="get_messages",
                     error_message=f"Failed to perform global search: {e!s}",
                     params=params,
                     exception=e,
@@ -255,7 +482,7 @@ async def search_messages_impl(
         # If no messages found, return error instead of empty list for consistency
         if not window:
             return log_and_build_error(
-                operation="search_messages",
+                operation="get_messages",
                 error_message=f"No messages found matching query '{query}'",
                 params=params,
                 exception=ValueError(f"No messages found matching query '{query}'"),
@@ -269,7 +496,7 @@ async def search_messages_impl(
         return response
     except SessionNotAuthorizedError as e:
         return log_and_build_error(
-            operation="search_messages",
+            operation="get_messages",
             error_message="Session not authorized. Please authenticate your Telegram session first.",
             params=params,
             exception=e,
@@ -277,8 +504,8 @@ async def search_messages_impl(
         )
     except Exception as e:
         return log_and_build_error(
-            operation="search_messages",
-            error_message=f"Search operation failed: {e!s}",
+            operation="get_messages",
+            error_message=f"Message retrieval failed: {e!s}",
             params=params,
             exception=e,
         )
