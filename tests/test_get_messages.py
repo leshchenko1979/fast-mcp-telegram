@@ -17,16 +17,16 @@ class TestGetMessagesParameterConflicts:
     """Test parameter conflict validation."""
 
     @pytest.mark.asyncio
-    async def test_message_ids_and_post_id_conflict(self):
-        """Should reject message_ids + post_id combination."""
+    async def test_message_ids_and_reply_to_id_conflict(self):
+        """Should reject message_ids + reply_to_id combination."""
         result = await search_messages_impl(
             chat_id="me",
             message_ids=[1, 2, 3],
-            post_id=100,
+            reply_to_id=100,
         )
 
         assert "error" in result
-        assert "Cannot combine message_ids with post_id" in result["error"]
+        assert "Cannot combine message_ids with reply_to_id" in result["error"]
 
     @pytest.mark.asyncio
     async def test_message_ids_and_query_conflict(self):
@@ -51,10 +51,10 @@ class TestGetMessagesParameterConflicts:
         assert "chat_id is required" in result["error"]
 
     @pytest.mark.asyncio
-    async def test_post_id_requires_chat_id(self):
-        """Should require chat_id when using post_id."""
+    async def test_reply_to_id_requires_chat_id(self):
+        """Should require chat_id when using reply_to_id."""
         result = await search_messages_impl(
-            post_id=100,
+            reply_to_id=100,
         )
 
         assert "error" in result
@@ -125,27 +125,25 @@ class TestGetMessagesReadByIds:
         assert "messages" not in result
 
 
-class TestGetMessagesPostComments:
-    """Test post comments mode."""
+class TestGetMessagesReplies:
+    """Test replies mode (post comments, forum topics, message replies)."""
 
     @pytest.mark.asyncio
-    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
-    async def test_fetches_post_comments(self, mock_handler):
-        """Should delegate to post comments handler when post_id provided."""
+    @patch("src.tools.search._handle_replies_mode", new_callable=AsyncMock)
+    async def test_fetches_replies(self, mock_handler):
+        """Should delegate to replies handler when reply_to_id provided."""
         mock_handler.return_value = {
             "messages": [
-                {"id": 1, "text": "Comment 1"},
-                {"id": 2, "text": "Comment 2"},
+                {"id": 1, "text": "Reply 1"},
+                {"id": 2, "text": "Reply 2"},
             ],
             "has_more": False,
-            "discussion_chat_id": "-1001234567890",
-            "discussion_total_count": 10,
-            "linked_post_id": 100,
+            "reply_to_id": 100,
         }
 
         result = await search_messages_impl(
             chat_id="-1001111111111",
-            post_id=100,
+            reply_to_id=100,
             limit=50,
         )
 
@@ -153,31 +151,29 @@ class TestGetMessagesPostComments:
         mock_handler.assert_called_once()
         call_args = mock_handler.call_args
         assert call_args[0][0] == "-1001111111111"  # chat_id
-        assert call_args[0][1] == 100  # post_id
+        assert call_args[0][1] == 100  # reply_to_id
         assert call_args[0][2] == 50  # limit
         assert call_args[0][3] is None  # query
 
         # Verify response structure
         assert "messages" in result
         assert "has_more" in result
-        assert "discussion_chat_id" in result
+        assert "reply_to_id" in result
         assert len(result["messages"]) == 2
 
     @pytest.mark.asyncio
-    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
-    async def test_search_in_post_comments(self, mock_handler):
-        """Should pass query to handler when both post_id and query provided."""
+    @patch("src.tools.search._handle_replies_mode", new_callable=AsyncMock)
+    async def test_search_in_replies(self, mock_handler):
+        """Should pass query to handler when both reply_to_id and query provided."""
         mock_handler.return_value = {
             "messages": [{"id": 1, "text": "Bug report"}],
             "has_more": False,
-            "discussion_chat_id": "-1001234567890",
-            "discussion_total_count": 5,
-            "linked_post_id": 100,
+            "reply_to_id": 100,
         }
 
         result = await search_messages_impl(
             chat_id="-1001111111111",
-            post_id=100,
+            reply_to_id=100,
             query="bug",
             limit=20,
         )
@@ -188,61 +184,61 @@ class TestGetMessagesPostComments:
         assert len(result["messages"]) == 1
 
     @pytest.mark.asyncio
-    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
-    async def test_no_comments_error(self, mock_handler):
-        """Should return error when no comments found."""
+    @patch("src.tools.search._handle_replies_mode", new_callable=AsyncMock)
+    async def test_no_replies_error(self, mock_handler):
+        """Should return error when no replies found."""
         mock_handler.return_value = {
-            "error": "No comments found for post 100",
+            "error": "No replies found for message 100",
             "ok": False,
         }
 
         result = await search_messages_impl(
             chat_id="-1001111111111",
-            post_id=100,
+            reply_to_id=100,
         )
 
         assert "error" in result
 
     @pytest.mark.asyncio
-    async def test_invalid_chat_for_post_comments(self):
-        """Should return error when chat_id missing for post_id."""
+    async def test_invalid_chat_for_replies(self):
+        """Should return error when chat_id missing for reply_to_id."""
         result = await search_messages_impl(
-            post_id=100,
+            reply_to_id=100,
         )
 
         assert "error" in result
         assert "chat_id is required" in result["error"]
 
 
-class TestGetMessagesPostCommentsErrors:
-    """Error paths for post comments mode."""
+class TestGetMessagesRepliesErrors:
+    """Error paths for replies mode."""
 
     @pytest.mark.asyncio
     @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
     @patch("src.tools.search._fetch_post_comments", new_callable=AsyncMock)
-    async def test_fetch_post_comments_failure_returns_error(
+    async def test_fetch_replies_failure_returns_error(
         self, mock_fetch_comments, mock_get_entity, mock_get_client
     ):
-        """Should return error when fetching post comments raises."""
+        """Should return error when fetching replies raises."""
         mock_get_client.return_value = AsyncMock()
         mock_get_entity.return_value = Mock()
         mock_fetch_comments.side_effect = RuntimeError("network error")
 
         result = await search_messages_impl(
             chat_id="me",
-            post_id=123,
+            reply_to_id=123,
             limit=50,
         )
 
         assert isinstance(result, dict)
         assert "error" in result
-        assert "Failed to fetch comments" in result["error"]
+        assert "Failed to fetch replies" in result["error"]
 
     @pytest.mark.asyncio
     @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
-    async def test_invalid_entity_for_post_comments(
+    async def test_invalid_entity_for_replies(
         self, mock_get_entity, mock_get_client
     ):
         """Should return error when entity not found."""
@@ -251,7 +247,7 @@ class TestGetMessagesPostCommentsErrors:
 
         result = await search_messages_impl(
             chat_id="invalid_chat",
-            post_id=100,
+            reply_to_id=100,
         )
 
         assert isinstance(result, dict)

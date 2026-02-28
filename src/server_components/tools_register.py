@@ -106,7 +106,7 @@ def register_tools(mcp: FastMCP) -> None:
         chat_id: str,
         query: str | None = None,
         message_ids: list[int] | None = None,
-        post_id: int | None = None,
+        reply_to_id: int | None = None,
         limit: int = 50,
         min_date: str | None = None,
         max_date: str | None = None,
@@ -114,38 +114,43 @@ def register_tools(mcp: FastMCP) -> None:
         include_total_count: bool = False,
     ) -> dict:
         """
-        Get messages from a Telegram chat - supports search, specific IDs, and post comments.
+        Get messages from a Telegram chat - supports search, specific IDs, and replies.
 
         MODES (mutually exclusive):
         1. SEARCH: chat_id + query - Search messages in chat
         2. BROWSE: chat_id only - Get latest messages
         3. READ BY IDs: chat_id + message_ids - Get specific messages
-        4. POST COMMENTS: chat_id + post_id - Get discussion thread comments
-        5. SEARCH COMMENTS: chat_id + post_id + query - Search within comments
+        4. GET REPLIES: chat_id + reply_to_id - Get replies to a message
+        5. SEARCH REPLIES: chat_id + reply_to_id + query - Search within replies
+
+        REPLIES MODE AUTOMATICALLY HANDLES:
+        - Channel post comments (via discussion group)
+        - Forum topic messages (topic_id = root message)
+        - Regular message replies
 
         CONFLICTS (will error):
-        - message_ids + post_id: Cannot combine
+        - message_ids + reply_to_id: Cannot combine
         - message_ids + query: Cannot combine
 
         FEATURES:
         - Multiple search queries: "term1, term2, term3"
         - Date filtering: ISO format (min_date="2024-01-01")
         - Total count support for chat searches
-        - Post discussion threads for channels
+        - Automatic discussion group detection for channel posts
 
         EXAMPLES:
-        get_messages(chat_id="me", limit=10)  # Latest messages from Saved Messages
-        get_messages(chat_id="-1001234567890", query="launch")  # Search in chat
-        get_messages(chat_id="telegram", query="update, news")  # Multi-term search
+        get_messages(chat_id="me", limit=10)  # Latest messages
+        get_messages(chat_id="-1001234567890", query="launch")  # Search
         get_messages(chat_id="me", message_ids=[680204, 680205])  # Specific messages
-        get_messages(chat_id="-1001234567890", post_id=123)  # Comments on post
-        get_messages(chat_id="-1001234567890", post_id=123, query="bug")  # Search in comments
+        get_messages(chat_id="-1001234567890", reply_to_id=123)  # Post comments OR topic messages
+        get_messages(chat_id="-1001234567890", reply_to_id=52)  # Forum topic messages
+        get_messages(chat_id="me", reply_to_id=100, query="bug")  # Search in replies
 
         Args:
             chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
             query: Search terms (comma-separated). Optional unless global search.
-            message_ids: List of specific message IDs to retrieve. Conflicts with query/post_id.
-            post_id: Channel post ID to get discussion comments. Conflicts with message_ids.
+            message_ids: List of specific message IDs to retrieve. Conflicts with query/reply_to_id.
+            reply_to_id: Message ID to get replies from (post comments, forum topics, or regular replies)
             limit: Max results (recommended: ≤50)
             min_date: Min date filter (ISO format: "2024-01-01")
             max_date: Max date filter (ISO format: "2024-12-31")
@@ -157,13 +162,14 @@ def register_tools(mcp: FastMCP) -> None:
             - messages: List of message dicts
             - has_more: Boolean (always False for message_ids mode)
             - total_count: Total messages (if include_total_count=True)
-            - discussion_chat_id/discussion_total_count/linked_post_id: (if post_id used)
+            - reply_to_id: Original message ID (if reply_to_id used)
+            - discussion_chat_id/discussion_total_count: (if channel post with discussion)
         """
         return await search_messages_impl(
             query=query,
             chat_id=chat_id,
             message_ids=message_ids,
-            post_id=post_id,
+            reply_to_id=reply_to_id,
             limit=limit,
             min_date=min_date,
             max_date=max_date,

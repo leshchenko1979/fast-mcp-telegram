@@ -227,14 +227,14 @@ search_messages_globally(
 ```
 
 ### 📬 get_messages
-**Unified message retrieval - search, browse, read by IDs, or get post comments**
+**Unified message retrieval - search, browse, read by IDs, or get replies**
 
 ```typescript
 get_messages(
   chat_id: str,                  // Target chat ID (required)
   query?: str,                   // Search terms (optional)
   message_ids?: number[],        // Specific message IDs to retrieve
-  post_id?: number,              // Channel post ID for discussion comments
+  reply_to_id?: number,          // Get replies (post comments, forum topics, message replies)
   limit?: number = 50,           // Max results
   min_date?: string,             // ISO date filter
   max_date?: string,             // ISO date filter
@@ -247,11 +247,16 @@ get_messages(
 1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
 2. **Browse chat**: `chat_id` only - Get latest messages
 3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
-4. **Post comments**: `chat_id` + `post_id` - Get discussion thread comments
-5. **Search comments**: `chat_id` + `post_id` + `query` - Search within comments
+4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message (universal)
+5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
+
+**reply_to_id automatically handles:**
+- 📢 **Channel post comments** - Detects discussion group and fetches comments
+- 📋 **Forum topic messages** - Fetches messages from forum topic
+- 💬 **Message replies** - Fetches direct replies to any message
 
 **Parameter Conflicts (will error):**
-- `message_ids` + `post_id`: Cannot combine
+- `message_ids` + `reply_to_id`: Cannot combine
 - `message_ids` + `query`: Cannot combine (specific IDs don't need search)
 
 **Examples:**
@@ -274,16 +279,28 @@ get_messages(
   "message_ids": [680204, 680205]
 }}
 
-// 4. Get channel post comments (discussion thread)
+// 4. Get channel post comments (auto-detects discussion)
 {"tool": "get_messages", "params": {
   "chat_id": "-1001234567890",
-  "post_id": 123
+  "reply_to_id": 123
 }}
 
-// 5. Search within post comments
+// 5. Get forum topic messages (same parameter!)
 {"tool": "get_messages", "params": {
   "chat_id": "-1001234567890",
-  "post_id": 123,
+  "reply_to_id": 52
+}}
+
+// 6. Get replies to any message
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "reply_to_id": 100
+}}
+
+// 7. Search within replies
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 123,
   "query": "bug"
 }}
 
@@ -300,23 +317,25 @@ get_messages(
   "messages": [...],           // List of message dicts
   "has_more": false,           // Boolean (always false for message_ids mode)
   "total_count": 123,          // Optional: only if include_total_count=true
-  "discussion_chat_id": "...", // Optional: only for post_id mode
-  "discussion_total_count": 45, // Optional: only for post_id mode
-  "linked_post_id": 123        // Optional: only for post_id mode
+  "reply_to_id": 100,          // Optional: only for reply_to_id mode
+  "discussion_chat_id": "...", // Optional: only for channel posts with discussion
+  "discussion_total_count": 45 // Optional: only for channel posts with discussion
 }
 ```
 
 **Features:**
 - **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
 - **Voice Transcription**: Automatic for Premium accounts with parallel processing
-- **Post Comments**: Access channel post discussion threads
+- **Universal Replies**: Single parameter for post comments, forum topics, and message replies
+- **Auto-Detection**: Automatically detects channel posts and uses discussion group
 - **Structured Data**: LLM-friendly JSON structures
 
 **💡 Tips:**
 - **No query**: Returns latest messages from chat
 - **Multi-term**: Use comma-separated words for broader results
 - **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
-- **Post comments**: Requires discussion to be enabled on the channel post
+- **reply_to_id**: Works for channel posts, forum topics, and regular message replies
+- **Forum topics**: Use topic root message ID as reply_to_id (get from get_chat_info)
 
 ### 💬 send_message
 **Send new messages with formatting and optional files**

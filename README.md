@@ -36,8 +36,8 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 |---------|-------------|
 | 🔐 **Multi-User Authentication** | Production-ready Bearer token auth with session isolation and LRU cache management |
 | 🌐 **HTTP-MTProto Bridge** | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
-| 🔍 **Unified Message API** | Single `get_messages` tool for search, browse, read by IDs, and post comments - 5 modes in one |
-| 💬 **Post Comments Support** | Access channel post discussion threads with full search and metadata |
+| 🔍 **Unified Message API** | Single `get_messages` tool for search, browse, read by IDs, and replies - 5 modes in one |
+| 💬 **Universal Replies** | Get replies from channel posts, forum topics, or any message with one parameter |
 | 🔎 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
 | 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
@@ -55,7 +55,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | Tool | Purpose | Key Features |
 |------|---------|--------------|
 | `search_messages_globally` | Search across all chats | Multi-term queries, date filtering, chat type filtering |
-| `get_messages` | Unified message retrieval | Search/browse chat, read by IDs, post comments, 5 modes in one tool |
+| `get_messages` | Unified message retrieval | Search/browse, read by IDs, get replies (posts/topics/messages), 5 modes |
 | `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), unified `reply_to` (message or forum topic root id) |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
@@ -125,8 +125,8 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 // Read specific messages by ID
 {"tool": "get_messages", "params": {"chat_id": "me", "message_ids": [123, 124]}}
 
-// Get channel post comments (discussion thread)
-{"tool": "get_messages", "params": {"chat_id": "-1001234567890", "post_id": 42}}
+// Get replies (channel posts, forum topics, or message replies)
+{"tool": "get_messages", "params": {"chat_id": "-1001234567890", "reply_to_id": 42}}
 
 // Send a message
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello from AI!"}}

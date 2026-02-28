@@ -1,12 +1,14 @@
 ### 2026-02-28
 - **Unified get_messages API (PR #960)**: Consolidated search_messages_in_chat and read_messages into a single get_messages tool
-- **Post Comments Support**: Added post_id parameter to fetch channel post discussion threads using messages.getDiscussionMessage
-- **5 Operating Modes**: Search in chat, browse chat, read by IDs, post comments, search in comments
-- **Parameter Conflict Validation**: Automatic rejection of invalid parameter combinations (message_ids+post_id, message_ids+query)
-- **Discussion Metadata**: Returns discussion_chat_id, discussion_total_count, and linked_post_id for post comments
+- **Universal Replies Support**: Added reply_to_id parameter for unified handling of channel post comments, forum topic messages, and message replies
+- **Auto-Detection**: Automatically detects channel posts with discussion groups and uses appropriate chat
+- **5 Operating Modes**: Search in chat, browse chat, read by IDs, get replies, search in replies
+- **Parameter Conflict Validation**: Automatic rejection of invalid parameter combinations (message_ids+reply_to_id, message_ids+query)
+- **Discussion Metadata**: Returns discussion_chat_id and discussion_total_count for channel posts with discussions
 - **Code Cleanup**: Removed deprecated tool aliases and unused internal functions
-- **Comprehensive Testing**: Added 14 new tests covering all modes and parameter interactions (216 total tests pass)
-- **Documentation**: Updated all docs to use new get_messages API
+- **Mode Resolution**: Extracted clean orchestration with MessageRetrievalMode enum and dedicated handlers
+- **Comprehensive Testing**: 215 tests pass with full coverage of all modes
+- **Documentation**: Updated all docs to use new get_messages API with reply_to_id
 
 ### 2026-02-19
 - **invoke_mtproto Hash Sanitization Fix (Issue 11)**: Type-preserving hash handling - strings kept for messages.ImportChatInvite, integers for state methods; invalid types removed instead of coercing to 0

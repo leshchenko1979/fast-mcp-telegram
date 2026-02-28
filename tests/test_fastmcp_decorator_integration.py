@@ -182,17 +182,17 @@ class TestFastMCPToolIntegration:
         assert schema["type"] == "object"
         properties = schema["properties"]
 
-        # New parameters: message_ids and post_id
+        # New parameters: message_ids and reply_to_id
         assert "message_ids" in properties
         message_ids_schema = properties["message_ids"]
         assert "array" in str(
             message_ids_schema.get("type", message_ids_schema.get("anyOf", []))
         )
 
-        assert "post_id" in properties
-        post_id_schema = properties["post_id"]
+        assert "reply_to_id" in properties
+        reply_to_id_schema = properties["reply_to_id"]
         assert "integer" in str(
-            post_id_schema.get("type", post_id_schema.get("anyOf", []))
+            reply_to_id_schema.get("type", reply_to_id_schema.get("anyOf", []))
         )
 
         # Existing parameters remain
