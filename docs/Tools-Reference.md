@@ -557,11 +557,10 @@ invoke_mtproto(
 
 **Examples:**
 ```json
-// Get your own user information (with entity resolution)
+// Get your own user information
 {"tool": "invoke_mtproto", "params": {
   "method_full_name": "users.GetFullUser",
-  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}",
-  "resolve": true
+  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}"
 }}
 
 // Get account information (safe method)
@@ -586,8 +585,7 @@ invoke_mtproto(
 // Join a group via invite link - hash must be string (from t.me/+... link)
 {"tool": "invoke_mtproto", "params": {
   "method_full_name": "messages.ImportChatInvite",
-  "params_json": "{\"hash\": \"ABC123xyz\"}",
-  "resolve": false
+  "params_json": "{\"hash\": \"ABC123xyz\"}"
 }}
 ```
 

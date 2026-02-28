@@ -19,19 +19,13 @@
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "@username", "message": "Hello from curl!"},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "@username", "message": "Hello from curl!"}}'
 
 # Get message history with peer resolution
 curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "me", "limit": 10},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "me", "limit": 10}}'
 ```
 
 **Endpoint**: `POST /mtproto-api/{method}` (alias: `POST /mtproto-api/v1/{method}`)
@@ -53,7 +47,6 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 {
   "params": { "peer": "@durov", "limit": 5 },
   "params_json": "{...}",
-  "resolve": true,
   "allow_dangerous": false
 }
 ```
@@ -79,32 +72,19 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "me", "message": "Hello from MTProto API"},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "me", "message": "Hello from MTProto API"}}'
 
 # Get message history with automatic peer resolution
 curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "@telegram", "limit": 3},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "@telegram", "limit": 3}}'
 
 # Forward messages with list resolution
 curl -X POST "https://your-domain.com/mtproto-api/messages.ForwardMessages" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {
-          "from_peer": "@sourceChannel",
-          "to_peer": "me",
-          "id": [12345, 12346]
-        },
-        "resolve": true
-      }'
+  -d '{"params": {"from_peer": "@sourceChannel", "to_peer": "me", "id": [12345, 12346]}}'
 ```
 
 ### User and Chat Operations
@@ -122,10 +102,7 @@ curl -X POST "https://your-domain.com/mtproto-api/users.GetFullUser" \
 curl -X POST "https://your-domain.com/mtproto-api/channels.GetFullChannel" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"channel": {"_": "inputChannel", "channel_id": 123456, "access_hash": 0}},
-        "resolve": true
-      }'
+  -d '{"params": {"channel": {"_": "inputChannel", "channel_id": 123456, "access_hash": 0}}}'
 ```
 
 ### Advanced Operations
@@ -188,20 +165,7 @@ The MTProto bridge automatically constructs complex Telegram TL objects from JSO
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {
-          "peer": "me",
-          "message": "Hello!",
-          "entities": [
-            {
-              "_": "messageEntityBold",
-              "offset": 0,
-              "length": 5
-            }
-          ]
-        },
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "me", "message": "Hello!", "entities": [{"_": "messageEntityBold", "offset": 0, "length": 5}]}}'
 ```
 
 ### Complex Example: Todo List
@@ -249,8 +213,7 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.sendMedia" \
           },
           "message": "Check out my new todo list!",
           "random_id": 1234567890123456789
-        },
-        "resolve": true
+        }
       }'
 ```
 
@@ -364,16 +327,13 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.DeleteHistory" \
 import requests
 import json
 
-def call_mtproto(method, params, token, resolve=True):
+def call_mtproto(method, params, token):
     url = f"https://your-domain.com/mtproto-api/{method}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    data = {
-        "params": params,
-        "resolve": resolve
-    }
+    data = {"params": params}
 
     response = requests.post(url, headers=headers, json=data)
     return response.json()
@@ -387,17 +347,14 @@ result = call_mtproto("messages.SendMessage", {
 
 ### JavaScript Integration
 ```javascript
-async function callMTProto(method, params, token, resolve = true) {
+async function callMTProto(method, params, token) {
     const response = await fetch(`https://your-domain.com/mtproto-api/${method}`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-            params,
-            resolve
-        })
+        body: JSON.stringify({ params })
     });
 
     return await response.json();
@@ -439,10 +396,7 @@ Each bot session is identified by its unique Bearer token. Use this token in the
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer <bot-server-token>" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "@yourchannel", "message": "Hello from bot!"},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "@yourchannel", "message": "Hello from bot!"}}'
 ```
 
 ### Bot Limitations
