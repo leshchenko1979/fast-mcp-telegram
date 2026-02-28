@@ -383,7 +383,10 @@ def _extract_send_message_params(
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
 ) -> dict:
-    """Extract params for send_message error handling."""
+    """Extract params for send_message error handling and logging.
+
+    parse_mode: Effective parse mode used for sending (resolved when input is 'auto').
+    """
     return {
         "chat_id": chat_id,
         "message": message,
@@ -422,7 +425,7 @@ async def send_message_impl(
         resolved_parse_mode = detect_message_formatting(message)
 
     params = _extract_send_message_params(
-        chat_id, message, reply_to_id, parse_mode, files
+        chat_id, message, reply_to_id, resolved_parse_mode, files
     )
     log_operation_start("Sending message to chat", params)
 

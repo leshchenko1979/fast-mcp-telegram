@@ -745,6 +745,42 @@ async def test_send_message_impl_megagroup_non_broadcast_reply_no_discussion_loo
 
 
 @pytest.mark.asyncio
+async def test_send_message_impl_channel_post_no_reply_skips_discussion_lookup():
+    """Broadcast channel without reply_to_id sends normally without discussion lookup."""
+    channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
+    sent_msg = SimpleNamespace(id=1, text="hello", date=datetime.now(UTC))
+
+    with (
+        patch(
+            "src.tools.messages.get_connected_client",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.tools.messages.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=channel,
+        ),
+        patch(
+            "src.tools.messages.get_post_discussion_info",
+            new_callable=AsyncMock,
+        ) as mock_discussion,
+        patch(
+            "src.tools.messages._send_message_or_files",
+            new_callable=AsyncMock,
+            return_value=(None, sent_msg),
+        ) as mock_send,
+    ):
+        result = await send_message_impl(
+            chat_id="-1001234567890",
+            message="hello from broadcast",
+        )
+
+    mock_discussion.assert_not_awaited()
+    mock_send.assert_awaited_once()
+    assert result["status"] == "sent"
+
+
+@pytest.mark.asyncio
 async def test_send_message_impl_channel_post_comment_discussion_lookup_failure():
     """Channel + reply_to_id -> failing discussion lookup returns error and skips sending."""
     channel = SimpleNamespace(id=-1001234567890, broadcast=True, megagroup=False)
@@ -827,11 +863,23 @@ async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
         )
 
     mock_discussion.assert_awaited_once()
-    assert mock_discussion.await_args[0][2] == 42
+    client_used, entity_arg, post_id_arg = mock_discussion.await_args[0]
+    assert entity_arg is channel
+    assert post_id_arg == 42
+
     mock_send.assert_awaited_once()
-    call_args = mock_send.await_args[0]
-    assert call_args[1] is discussion_entity  # entity
-    assert call_args[4] == 999  # reply_to_msg_id
+    (
+        _client,
+        entity,
+        text,
+        files,
+        reply_to_msg_id,
+        _parse_mode,
+        _operation,
+        _params,
+    ) = mock_send.await_args[0]
+    assert entity is discussion_entity
+    assert reply_to_msg_id == 999
     assert result["status"] == "sent"
     assert result["chat"]["id"] == discussion_entity.id
 
