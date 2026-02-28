@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from enum import Enum, auto
 from typing import Any
 
 from telethon.tl.functions.messages import GetDiscussionMessageRequest, SearchGlobalRequest
@@ -28,6 +29,75 @@ from src.utils.message_format import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class MessageRetrievalMode(Enum):
+    """Enumeration of message retrieval modes for get_messages."""
+
+    MESSAGE_IDS = auto()
+    POST_COMMENTS = auto()
+    SEARCH = auto()
+
+
+def _resolve_mode(
+    *,
+    chat_id: str | None,
+    query: str | None,
+    message_ids: list[int] | None,
+    post_id: int | None,
+) -> MessageRetrievalMode:
+    """
+    Determine the message retrieval mode based on parameter combination.
+    
+    Raises ValueError if parameters conflict or required parameters are missing.
+    """
+    # Parameter conflict validation
+    if message_ids and post_id:
+        raise ValueError(
+            "Cannot combine message_ids with post_id. Use one or the other."
+        )
+    if message_ids and query:
+        raise ValueError(
+            "Cannot combine message_ids with query. Specific message IDs don't need search."
+        )
+
+    # Mode selection with validation
+    if message_ids is not None:
+        if not chat_id:
+            raise ValueError("chat_id is required when using message_ids")
+        return MessageRetrievalMode.MESSAGE_IDS
+
+    if post_id is not None:
+        if not chat_id:
+            raise ValueError("chat_id is required when using post_id")
+        return MessageRetrievalMode.POST_COMMENTS
+
+    # Default: search/browse mode
+    return MessageRetrievalMode.SEARCH
+
+
+# ============================================================================
+# Message IDs Mode Handler
+# ============================================================================
+
+
+async def _handle_message_ids_mode(
+    chat_id: str,
+    message_ids: list[int],
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Handle reading specific messages by IDs with unified output format."""
+    messages_list = await read_messages_by_ids(chat_id, message_ids)
+
+    # Check if it's an error (single-item list with error field)
+    if len(messages_list) == 1 and "error" in messages_list[0]:
+        return messages_list[0]
+
+    # Wrap in unified format for consistency
+    return {
+        "messages": messages_list,
+        "has_more": False,  # Reading by specific IDs never has more
+    }
 
 
 # ============================================================================
@@ -252,6 +322,154 @@ async def _execute_parallel_searches_generators(
 
 
 # ============================================================================
+# Search/Browse Mode Handler
+# ============================================================================
+
+
+async def _handle_search_mode(
+    *,
+    query: str | None,
+    chat_id: str | None,
+    limit: int,
+    min_date: str | None,
+    max_date: str | None,
+    chat_type: str | None,
+    public: bool | None,
+    auto_expand_batches: int,
+    include_total_count: bool,
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Handle search/browse mode for messages."""
+    # Normalize and validate queries
+    queries: list[str] = (
+        [q.strip() for q in query.split(",") if q.strip()] if query else []
+    )
+
+    if not chat_id and not queries:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message="Search query must not be empty for global search",
+            params=params,
+            exception=ValueError("Search query must not be empty for global search"),
+        )
+
+    min_datetime = datetime.fromisoformat(min_date) if min_date else None
+    max_datetime = datetime.fromisoformat(max_date) if max_date else None
+
+    client = await get_connected_client()
+    try:
+        total_count = None
+        collected: list[dict[str, Any]] = []
+        seen_keys = set()
+
+        if chat_id:
+            # Per-chat search/browse
+            try:
+                entity = await get_entity_by_id(chat_id)
+                if not entity:
+                    raise ValueError(f"Could not find chat with ID '{chat_id}'")
+
+                per_chat_queries = queries if queries else [""]
+                generators = [
+                    _search_chat_messages_generator(
+                        client,
+                        entity,
+                        (q or ""),
+                        limit,
+                        chat_type,
+                        public,
+                        auto_expand_batches,
+                    )
+                    for q in per_chat_queries
+                ]
+                await _execute_parallel_searches_generators(
+                    generators, collected, seen_keys, limit
+                )
+
+                await transcribe_voice_messages(collected, entity)
+
+                if include_total_count:
+                    total_count = await _get_chat_message_count(chat_id)
+
+            except Exception as e:
+                return log_and_build_error(
+                    operation="get_messages",
+                    error_message=f"Failed to search in chat '{chat_id}': {e!s}",
+                    params=params,
+                    exception=e,
+                )
+        else:
+            # Global search
+            try:
+                generators = [
+                    _search_global_messages_generator(
+                        client,
+                        q,
+                        limit,
+                        min_datetime,
+                        max_datetime,
+                        chat_type,
+                        public,
+                        auto_expand_batches,
+                    )
+                    for q in queries
+                    if q and str(q).strip()
+                ]
+                await _execute_parallel_searches_generators(
+                    generators, collected, seen_keys, limit
+                )
+            except Exception as e:
+                return log_and_build_error(
+                    operation="get_messages",
+                    error_message=f"Failed to perform global search: {e!s}",
+                    params=params,
+                    exception=e,
+                )
+
+        # Return results up to limit
+        window = collected[:limit] if limit is not None else collected
+
+        logger.info(f"Found {len(window)} messages matching query: {query}")
+
+        # Check if there are more messages available
+        has_more = len(collected) > len(window) or (
+            len(collected) == limit and len(collected) > 0
+        )
+
+        # If no messages found, return error
+        if not window:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message=f"No messages found matching query '{query}'",
+                params=params,
+                exception=ValueError(f"No messages found matching query '{query}'"),
+            )
+
+        response = {"messages": window, "has_more": has_more}
+
+        if total_count is not None:
+            response["total_count"] = total_count
+
+        return response
+
+    except SessionNotAuthorizedError as e:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message="Session not authorized. Please authenticate your Telegram session first.",
+            params=params,
+            exception=e,
+            action="authenticate_session",
+        )
+    except Exception as e:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message=f"Message retrieval failed: {e!s}",
+            params=params,
+            exception=e,
+        )
+
+
+# ============================================================================
 # Main Implementation
 # ============================================================================
 
@@ -313,6 +531,7 @@ async def search_messages_impl(
         - Total count only available for per-chat searches, not global
         - Post comments require discussion to be enabled on the channel post
     """
+    # Build params for logging
     params = {
         "query": query,
         "chat_id": chat_id,
@@ -331,187 +550,42 @@ async def search_messages_impl(
         "message_count": len(message_ids) if message_ids else 0,
     }
 
-    # Parameter conflict validation
-    if message_ids and post_id:
+    # Resolve mode and validate parameters
+    try:
+        mode = _resolve_mode(
+            chat_id=chat_id,
+            query=query,
+            message_ids=message_ids,
+            post_id=post_id,
+        )
+    except ValueError as e:
         return log_and_build_error(
             operation="get_messages",
-            error_message="Cannot combine message_ids with post_id. Use one or the other.",
+            error_message=str(e),
             params=params,
-            exception=ValueError("Parameter conflict: message_ids and post_id are mutually exclusive"),
+            exception=e,
         )
 
-    if message_ids and query:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message="Cannot combine message_ids with query. Specific message IDs don't need search.",
-            params=params,
-            exception=ValueError("Parameter conflict: message_ids and query are mutually exclusive"),
-        )
+    # Delegate to appropriate handler
+    if mode is MessageRetrievalMode.MESSAGE_IDS:
+        return await _handle_message_ids_mode(chat_id, message_ids, params)
 
-    # Mode: Read specific messages by IDs
-    if message_ids is not None:
-        if not chat_id:
-            return log_and_build_error(
-                operation="get_messages",
-                error_message="chat_id is required when using message_ids",
-                params=params,
-                exception=ValueError("chat_id required for message_ids mode"),
-            )
-        # Delegate to read_messages_by_ids and wrap in unified format
-        messages_list = await read_messages_by_ids(chat_id, message_ids)
-        
-        # Check if it's an error (single-item list with error field)
-        if len(messages_list) == 1 and "error" in messages_list[0]:
-            return messages_list[0]
-        
-        # Wrap in unified format for consistency
-        return {
-            "messages": messages_list,
-            "has_more": False,  # Reading by specific IDs never has more
-        }
-
-    # Mode: Read post comments
-    if post_id is not None:
-        if not chat_id:
-            return log_and_build_error(
-                operation="get_messages",
-                error_message="chat_id is required when using post_id",
-                params=params,
-                exception=ValueError("chat_id required for post_id mode"),
-            )
+    if mode is MessageRetrievalMode.POST_COMMENTS:
         return await _handle_post_comments_mode(chat_id, post_id, limit, query, params)
 
-    # Normalize and validate queries for search modes
-    queries: list[str] = (
-        [q.strip() for q in query.split(",") if q.strip()] if query else []
+    # Mode: Search/browse
+    return await _handle_search_mode(
+        query=query,
+        chat_id=chat_id,
+        limit=limit,
+        min_date=min_date,
+        max_date=max_date,
+        chat_type=chat_type,
+        public=public,
+        auto_expand_batches=auto_expand_batches,
+        include_total_count=include_total_count,
+        params=params,
     )
-
-    if not chat_id and not queries:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message="Search query must not be empty for global search",
-            params=params,
-            exception=ValueError("Search query must not be empty for global search"),
-        )
-    min_datetime = datetime.fromisoformat(min_date) if min_date else None
-    max_datetime = datetime.fromisoformat(max_date) if max_date else None
-    safe_params = sanitize_params_for_logging(params)
-    enhanced_params = add_logging_metadata(safe_params)
-    logger.debug(
-        "Starting Telegram search",
-        extra={"params": enhanced_params},
-    )
-    client = await get_connected_client()
-    try:
-        total_count = None
-        collected: list[dict[str, Any]] = []
-        seen_keys = set()
-
-        if chat_id:
-            # Per-chat search; allow empty queries meaning "all messages"
-            try:
-                entity = await get_entity_by_id(chat_id)
-                if not entity:
-                    raise ValueError(f"Could not find chat with ID '{chat_id}'")
-
-                per_chat_queries = queries if queries else [""]
-                generators = [
-                    _search_chat_messages_generator(
-                        client,
-                        entity,
-                        (q or ""),
-                        limit,
-                        chat_type,
-                        public,
-                        auto_expand_batches,
-                    )
-                    for q in per_chat_queries
-                ]
-                await _execute_parallel_searches_generators(
-                    generators, collected, seen_keys, limit
-                )
-
-                await transcribe_voice_messages(collected, entity)
-
-                if include_total_count:
-                    total_count = await _get_chat_message_count(chat_id)
-
-            except Exception as e:
-                return log_and_build_error(
-                    operation="get_messages",
-                    error_message=f"Failed to search in chat '{chat_id}': {e!s}",
-                    params=params,
-                    exception=e,
-                )
-        else:
-            # Global search across queries (skip empty)
-            try:
-                generators = [
-                    _search_global_messages_generator(
-                        client,
-                        q,
-                        limit,
-                        min_datetime,
-                        max_datetime,
-                        chat_type,
-                        public,
-                        auto_expand_batches,
-                    )
-                    for q in queries
-                    if q and str(q).strip()
-                ]
-                await _execute_parallel_searches_generators(
-                    generators, collected, seen_keys, limit
-                )
-            except Exception as e:
-                return log_and_build_error(
-                    operation="get_messages",
-                    error_message=f"Failed to perform global search: {e!s}",
-                    params=params,
-                    exception=e,
-                )
-
-        # Return results up to limit
-        window = collected[:limit] if limit is not None else collected
-
-        logger.info(f"Found {len(window)} messages matching query: {query}")
-
-        # Check if there are more messages available by collecting one extra message
-        # If we collected exactly limit messages, assume there might be more (conservative approach)
-        has_more = len(collected) > len(window) or (
-            len(collected) == limit and len(collected) > 0
-        )
-
-        # If no messages found, return error instead of empty list for consistency
-        if not window:
-            return log_and_build_error(
-                operation="get_messages",
-                error_message=f"No messages found matching query '{query}'",
-                params=params,
-                exception=ValueError(f"No messages found matching query '{query}'"),
-            )
-
-        response = {"messages": window, "has_more": has_more}
-
-        if total_count is not None:
-            response["total_count"] = total_count
-
-        return response
-    except SessionNotAuthorizedError as e:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message="Session not authorized. Please authenticate your Telegram session first.",
-            params=params,
-            exception=e,
-            action="authenticate_session",
-        )
-    except Exception as e:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message=f"Message retrieval failed: {e!s}",
-            params=params,
-            exception=e,
-        )
 
 
 async def _search_chat_messages_generator(
