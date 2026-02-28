@@ -3,8 +3,9 @@ Tests for the unified get_messages tool and its various modes.
 
 Tests cover:
 - Parameter conflict validation
-- Mode-specific functionality (search, browse, read by IDs, post comments)
-- Backward compatibility with read_messages and search_messages_in_chat
+- Mode-specific functionality (search, browse, read by IDs, replies)
+- Empty parameter edge cases
+- Error handling for all modes
 """
 
 import pytest
@@ -216,14 +217,14 @@ class TestGetMessagesRepliesErrors:
     @pytest.mark.asyncio
     @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
-    @patch("src.tools.search._fetch_post_comments", new_callable=AsyncMock)
+    @patch("src.tools.search._fetch_replies", new_callable=AsyncMock)
     async def test_fetch_replies_failure_returns_error(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
+        self, mock_fetch_replies, mock_get_entity, mock_get_client
     ):
         """Should return error when fetching replies raises."""
         mock_get_client.return_value = AsyncMock()
         mock_get_entity.return_value = Mock()
-        mock_fetch_comments.side_effect = RuntimeError("network error")
+        mock_fetch_replies.side_effect = RuntimeError("network error")
 
         result = await search_messages_impl(
             chat_id="me",

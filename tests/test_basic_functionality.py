@@ -92,6 +92,21 @@ async def test_get_messages_by_ids(client_session):
 
 
 @pytest.mark.asyncio
+async def test_get_messages_replies_mode(client_session):
+    """Test get_messages with reply_to_id mode (post comments, forum topics, message replies)."""
+    result = await client_session.call_tool(
+        "get_messages", {"chat_id": "me", "reply_to_id": 1}
+    )
+
+    assert result.data is not None
+    assert isinstance(result.data, dict)
+    assert "messages" in result.data
+    assert "has_more" in result.data
+    assert "reply_to_id" in result.data
+    assert result.data["reply_to_id"] == 1
+
+
+@pytest.mark.asyncio
 async def test_with_bearer_token(test_server):
     """Test with proper Bearer token authentication."""
     # For FastMCP in-memory testing, we need to set up authentication differently

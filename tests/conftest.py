@@ -113,16 +113,36 @@ def test_server(mock_client):
         chat_id: str,
         query: str | None = None,
         message_ids: list[int] | None = None,
-        post_id: int | None = None,
+        reply_to_id: int | None = None,
         limit: int = 50
     ):
-        """Unified message retrieval - search, browse, read by IDs, or get post comments."""
+        """Unified message retrieval - search, browse, read by IDs, or get replies."""
         messages = mock_client.messages.get(chat_id, [])
         
         # Mode: Read by IDs
         if message_ids:
             found_messages = [msg for msg in messages if msg["id"] in message_ids]
             return {"messages": found_messages, "has_more": False}
+        
+        # Mode: Get replies
+        if reply_to_id:
+            # Mock replies: messages with matching reply_to field
+            reply_messages = [
+                msg for msg in messages 
+                if msg.get("reply_to_msg_id") == reply_to_id
+            ]
+            if query:
+                reply_messages = [
+                    msg for msg in reply_messages 
+                    if query.lower() in msg["text"].lower()
+                ]
+            window = reply_messages[:limit]
+            has_more = len(reply_messages) > len(window)
+            return {
+                "messages": window, 
+                "has_more": has_more,
+                "reply_to_id": reply_to_id
+            }
         
         # Mode: Search or browse
         if query:

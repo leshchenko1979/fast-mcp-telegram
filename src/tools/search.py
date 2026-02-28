@@ -52,17 +52,19 @@ def _resolve_mode(
     Raises ValueError if parameters conflict or required parameters are missing.
     """
     # Parameter conflict validation
-    if message_ids and reply_to_id:
+    if message_ids is not None and reply_to_id is not None:
         raise ValueError(
             "Cannot combine message_ids with reply_to_id. Use one or the other."
         )
-    if message_ids and query:
+    if message_ids is not None and query is not None:
         raise ValueError(
             "Cannot combine message_ids with query. Specific message IDs don't need search."
         )
 
     # Mode selection with validation
     if message_ids is not None:
+        if not message_ids:
+            raise ValueError("message_ids cannot be empty when provided")
         if not chat_id:
             raise ValueError("chat_id is required when using message_ids")
         return MessageRetrievalMode.MESSAGE_IDS
@@ -191,36 +193,57 @@ async def _get_post_discussion_info(
         ) from e
 
 
-async def _fetch_post_comments(
+async def _fetch_replies(
     client,
-    channel_entity,
-    post_id: int,
+    chat_entity,
+    reply_to_id: int,
     limit: int,
     query: str | None = None,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """
-    Fetch comments from a channel post's discussion thread.
+    Fetch replies/comments for a message.
+    
+    Automatically handles:
+    - Channel posts with discussion (detects and uses discussion group)
+    - Forum topics (uses reply_to directly)
+    - Regular message replies (uses reply_to directly)
 
-    Returns tuple of (messages, metadata):
-    - messages: List of comment message dicts
-    - metadata: Discussion metadata (chat_id, total_count, etc.)
+    Returns tuple of (messages, discussion_metadata_or_none):
+    - messages: List of reply message dicts
+    - discussion_metadata: Dict with discussion info if channel post, None otherwise
     """
-    # Get discussion information
-    discussion_info = await _get_post_discussion_info(client, channel_entity, post_id)
+    effective_entity = chat_entity
+    effective_reply_to = reply_to_id
+    discussion_metadata = None
 
-    discussion_entity = discussion_info["discussion_peer"]
-    discussion_msg_id = discussion_info["discussion_msg_id"]
+    # Detect channel post with discussion
+    if hasattr(chat_entity, "broadcast") and chat_entity.broadcast:
+        try:
+            discussion_info = await _get_post_discussion_info(
+                client, chat_entity, reply_to_id
+            )
+            # Use discussion chat instead of channel
+            effective_entity = discussion_info["discussion_peer"]
+            effective_reply_to = discussion_info["discussion_msg_id"]
+            discussion_metadata = {
+                "discussion_chat_id": discussion_info["discussion_chat_id"],
+                "discussion_total_count": discussion_info["discussion_total_count"],
+                "linked_post_id": reply_to_id,
+            }
+            logger.debug("Detected channel post with discussion, using discussion chat")
+        except ValueError:
+            # No discussion enabled - will fetch replies from channel itself
+            logger.debug(f"Channel post {reply_to_id} has no discussion enabled")
 
-    # Fetch comments from discussion thread
-    # Comments are replies to the root discussion message
+    # Fetch replies/comments
     collected = []
     async for message in client.iter_messages(
-        discussion_entity,
-        reply_to=discussion_msg_id,
+        effective_entity,
+        reply_to=effective_reply_to,
         search=query if query else None,
         limit=limit + 1,  # Fetch one extra to check has_more
     ):
-        result = await _build_result_for_message(client, message, discussion_entity)
+        result = await _build_result_for_message(client, message, effective_entity)
         if not result:
             continue
 
@@ -228,16 +251,10 @@ async def _fetch_post_comments(
         if len(collected) >= limit + 1:
             break
 
-    # Transcribe voice messages if any
-    await transcribe_voice_messages(collected[:limit], discussion_entity)
+    # Transcribe voice messages
+    await transcribe_voice_messages(collected[:limit], effective_entity)
 
-    metadata = {
-        "discussion_chat_id": discussion_info["discussion_chat_id"],
-        "discussion_total_count": discussion_info["discussion_total_count"],
-        "linked_post_id": post_id,
-    }
-
-    return collected, metadata
+    return collected, discussion_metadata
 
 
 async def _handle_replies_mode(
@@ -261,30 +278,9 @@ async def _handle_replies_mode(
         if not entity:
             raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
-        # Check if this is a channel post with discussion
-        discussion_info = None
-        effective_entity = entity
-        effective_reply_to = reply_to_id
-        
-        if hasattr(entity, "broadcast") and entity.broadcast:
-            # It's a channel - try to get discussion group
-            try:
-                discussion_info = await _get_post_discussion_info(
-                    client, entity, reply_to_id
-                )
-                # Use discussion chat instead of channel
-                effective_entity = discussion_info["discussion_peer"]
-                effective_reply_to = discussion_info["discussion_msg_id"]
-                logger.debug(
-                    f"Detected channel post with discussion, using discussion chat"
-                )
-            except ValueError:
-                # No discussion enabled - will search for replies in channel itself
-                logger.debug(f"Channel post {reply_to_id} has no discussion enabled")
-                pass
-
-        collected, metadata = await _fetch_post_comments(
-            client, effective_entity, effective_reply_to, limit, query
+        # Fetch replies (handles all detection internally)
+        collected, discussion_metadata = await _fetch_replies(
+            client, entity, reply_to_id, limit, query
         )
 
         window = collected[:limit] if limit is not None else collected
@@ -308,9 +304,9 @@ async def _handle_replies_mode(
             "reply_to_id": reply_to_id,
         }
         
-        # Add discussion metadata if it was a channel post
-        if discussion_info:
-            response.update(metadata)
+        # Add discussion metadata if present (channel post with discussion)
+        if discussion_metadata:
+            response.update(discussion_metadata)
         
         return response
         
