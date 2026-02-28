@@ -259,58 +259,6 @@ class TestGetMessagesPostCommentsErrors:
         assert "Could not find chat" in result["error"]
 
 
-class TestGetMessagesPostCommentsOld:
-    """Old post comments tests (to be removed after migration)."""
-
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    @patch("src.tools.search._fetch_post_comments")
-    async def test_fetches_post_comments_old(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
-    ):
-        """Should fetch post comments when post_id provided."""
-        # Setup mocks
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_entity = Mock()
-        mock_get_entity.return_value = mock_entity
-
-        mock_fetch_comments.return_value = (
-            [
-                {"id": 1, "text": "Comment 1"},
-                {"id": 2, "text": "Comment 2"},
-            ],
-            {
-                "discussion_chat_id": "-1001234567890",
-                "discussion_total_count": 10,
-                "linked_post_id": 100,
-            },
-        )
-
-        result = await search_messages_impl(
-            chat_id="-1001111111111",
-            post_id=100,
-            limit=50,
-        )
-
-        # Verify fetch was called correctly
-        mock_fetch_comments.assert_called_once_with(
-            mock_client, mock_entity, 100, 50, None
-        )
-
-        # Verify response structure
-        assert "messages" in result
-        assert "has_more" in result
-        assert "discussion_chat_id" in result
-        assert "discussion_total_count" in result
-        assert "linked_post_id" in result
-
-        assert len(result["messages"]) == 2
-        assert result["discussion_chat_id"] == "-1001234567890"
-        assert result["linked_post_id"] == 100
-
 class TestGetMessagesSuccessPaths:
     """Test successful execution paths for different modes."""
 
