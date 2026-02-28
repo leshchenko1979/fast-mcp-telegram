@@ -103,6 +103,27 @@ class TestGetMessagesReadByIds:
         assert isinstance(result, dict)
         assert result["has_more"] is False
 
+    @pytest.mark.asyncio
+    @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
+    async def test_returns_error_when_read_messages_by_ids_returns_error(
+        self, mock_read
+    ):
+        """Should return raw error dict when read_messages_by_ids returns error."""
+        mock_read.return_value = [{"error": "Message not found", "ok": False}]
+
+        result = await search_messages_impl(
+            chat_id="me",
+            message_ids=[999],
+        )
+
+        mock_read.assert_called_once_with("me", [999])
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert result["error"] == "Message not found"
+        assert result["ok"] is False
+        # Should NOT be wrapped in {"messages": ...}
+        assert "messages" not in result
+
 
 class TestGetMessagesPostComments:
     """Test post comments mode."""
@@ -290,12 +311,12 @@ class TestGetMessagesPostCommentsOld:
         assert result["discussion_chat_id"] == "-1001234567890"
         assert result["linked_post_id"] == 100
 
-class TestBackwardCompatibility:
-    """Test backward compatibility with message_ids mode."""
+class TestGetMessagesSuccessPaths:
+    """Test successful execution paths for different modes."""
 
     @pytest.mark.asyncio
     @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
-    async def test_read_messages_mode_works(self, mock_read):
+    async def test_message_ids_mode_success(self, mock_read):
         """message_ids mode should return unified dict format."""
         mock_read.return_value = [{"id": 1, "text": "Message"}]
 
@@ -311,10 +332,8 @@ class TestBackwardCompatibility:
         assert result["has_more"] is False
 
     @pytest.mark.asyncio
-    async def test_search_in_chat_mode_requires_query_or_empty(self):
-        """search_messages_in_chat functionality should work with or without query."""
-        # This tests that chat_id alone doesn't error (browse mode)
-        # We'll test with global search error to verify logic path
+    async def test_global_search_requires_query(self):
+        """Global search without query should return error."""
         result = await search_messages_impl()
 
         assert "error" in result

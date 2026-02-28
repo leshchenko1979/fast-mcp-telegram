@@ -70,6 +70,8 @@ async def _get_post_discussion_info(
 ) -> dict[str, Any]:
     """
     Get discussion group information for a channel post.
+    
+    Caller is responsible for logging errors to avoid double-logging.
 
     Returns dict with:
     - discussion_peer: The discussion chat entity
@@ -113,7 +115,7 @@ async def _get_post_discussion_info(
         }
 
     except Exception as e:
-        logger.error(f"Failed to get discussion info for post {post_id}: {e}")
+        # Let caller handle logging to avoid double-logging
         raise ValueError(
             f"Cannot access discussion for post {post_id}: {e!s}"
         ) from e

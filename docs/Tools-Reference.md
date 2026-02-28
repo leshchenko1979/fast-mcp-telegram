@@ -244,7 +244,7 @@ get_messages(
 ```
 
 **5 Modes (parameter combinations):**
-1. **Search in chat**: `chat_id` + `query` - Search messages in specific chat
+1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
 2. **Browse chat**: `chat_id` only - Get latest messages
 3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
 4. **Post comments**: `chat_id` + `post_id` - Get discussion thread comments

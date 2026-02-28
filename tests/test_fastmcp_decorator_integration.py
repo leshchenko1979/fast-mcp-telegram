@@ -159,6 +159,49 @@ class TestFastMCPToolIntegration:
         assert "edit_message" in names
         assert "find_chats" in names
 
+    def test_get_messages_tool_schema(self):
+        """Verify get_messages tool exposes new parameters correctly."""
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("Temp Server")
+        register_tools(temp_mcp)
+
+        async def get_tool_schema():
+            async with Client(temp_mcp) as client:
+                tools = await client.list_tools()
+                get_messages_tool = next(
+                    t for t in tools if t.name == "get_messages"
+                )
+                return get_messages_tool.inputSchema
+
+        schema = asyncio.run(get_tool_schema())
+
+        # Verify schema structure
+        assert schema["type"] == "object"
+        properties = schema["properties"]
+
+        # New parameters: message_ids and post_id
+        assert "message_ids" in properties
+        message_ids_schema = properties["message_ids"]
+        assert "array" in str(
+            message_ids_schema.get("type", message_ids_schema.get("anyOf", []))
+        )
+
+        assert "post_id" in properties
+        post_id_schema = properties["post_id"]
+        assert "integer" in str(
+            post_id_schema.get("type", post_id_schema.get("anyOf", []))
+        )
+
+        # Existing parameters remain
+        assert "chat_id" in properties
+        assert "query" in properties
+        assert "limit" in properties
+        assert "auto_expand_batches" in properties
+        assert "include_total_count" in properties
+
 
 class TestEndToEndTokenFlow:
     """Test the complete token flow from HTTP request to session management."""
