@@ -136,28 +136,19 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "@username", "message": "Hello from curl!"},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "@username", "message": "Hello from curl!"}}'
 
 # Send message using params_json (works with n8n and other tools)
 curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params_json": "{\"peer\": \"@username\", \"message\": \"Hello from curl!\"}",
-        "resolve": true
-      }'
+  -d '{"params_json": "{\"peer\": \"@username\", \"message\": \"Hello from curl!\"}"}'
 
 # Get message history with peer resolution
 curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{
-        "params": {"peer": "me", "limit": 10},
-        "resolve": true
-      }'
+  -d '{"params": {"peer": "me", "limit": 10}}'
 ```
 
 **📖 For complete MTProto Bridge documentation, see [MTProto Bridge Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/MTProto-Bridge.md)**
