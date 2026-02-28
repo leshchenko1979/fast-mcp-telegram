@@ -65,7 +65,7 @@ class TestGetMessagesReadByIds:
     """Test read by message IDs mode."""
 
     @pytest.mark.asyncio
-    @patch("src.tools.search.read_messages_by_ids")
+    @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
     async def test_delegates_to_read_messages_by_ids(self, mock_read):
         """Should delegate to read_messages_by_ids when message_ids provided."""
         mock_read.return_value = [
@@ -79,16 +79,19 @@ class TestGetMessagesReadByIds:
         )
 
         mock_read.assert_called_once_with("me", [1, 2])
-        assert isinstance(result, list)
-        assert len(result) == 2
+        assert isinstance(result, dict)
+        assert "messages" in result
+        assert "has_more" in result
+        assert len(result["messages"]) == 2
+        assert result["has_more"] is False
 
     @pytest.mark.asyncio
-    @patch("src.tools.search.read_messages_by_ids")
+    @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
     async def test_message_ids_ignores_other_params(self, mock_read):
         """Should ignore limit/date filters when using message_ids."""
         mock_read.return_value = [{"id": 1, "text": "Message"}]
 
-        await search_messages_impl(
+        result = await search_messages_impl(
             chat_id="me",
             message_ids=[1],
             limit=100,
@@ -97,16 +100,152 @@ class TestGetMessagesReadByIds:
 
         # Should call with only chat_id and message_ids
         mock_read.assert_called_once_with("me", [1])
+        assert isinstance(result, dict)
+        assert result["has_more"] is False
 
 
 class TestGetMessagesPostComments:
     """Test post comments mode."""
 
     @pytest.mark.asyncio
+    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
+    async def test_fetches_post_comments(self, mock_handler):
+        """Should delegate to post comments handler when post_id provided."""
+        mock_handler.return_value = {
+            "messages": [
+                {"id": 1, "text": "Comment 1"},
+                {"id": 2, "text": "Comment 2"},
+            ],
+            "has_more": False,
+            "discussion_chat_id": "-1001234567890",
+            "discussion_total_count": 10,
+            "linked_post_id": 100,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            post_id=100,
+            limit=50,
+        )
+
+        # Verify handler was called correctly
+        mock_handler.assert_called_once()
+        call_args = mock_handler.call_args
+        assert call_args[0][0] == "-1001111111111"  # chat_id
+        assert call_args[0][1] == 100  # post_id
+        assert call_args[0][2] == 50  # limit
+        assert call_args[0][3] is None  # query
+
+        # Verify response structure
+        assert "messages" in result
+        assert "has_more" in result
+        assert "discussion_chat_id" in result
+        assert len(result["messages"]) == 2
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
+    async def test_search_in_post_comments(self, mock_handler):
+        """Should pass query to handler when both post_id and query provided."""
+        mock_handler.return_value = {
+            "messages": [{"id": 1, "text": "Bug report"}],
+            "has_more": False,
+            "discussion_chat_id": "-1001234567890",
+            "discussion_total_count": 5,
+            "linked_post_id": 100,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            post_id=100,
+            query="bug",
+            limit=20,
+        )
+
+        # Verify query was passed
+        call_args = mock_handler.call_args
+        assert call_args[0][3] == "bug"  # query
+        assert len(result["messages"]) == 1
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search._handle_post_comments_mode", new_callable=AsyncMock)
+    async def test_no_comments_error(self, mock_handler):
+        """Should return error when no comments found."""
+        mock_handler.return_value = {
+            "error": "No comments found for post 100",
+            "ok": False,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            post_id=100,
+        )
+
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_invalid_chat_for_post_comments(self):
+        """Should return error when chat_id missing for post_id."""
+        result = await search_messages_impl(
+            post_id=100,
+        )
+
+        assert "error" in result
+        assert "chat_id is required" in result["error"]
+
+
+class TestGetMessagesPostCommentsErrors:
+    """Error paths for post comments mode."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    @patch("src.tools.search._fetch_post_comments", new_callable=AsyncMock)
+    async def test_fetch_post_comments_failure_returns_error(
+        self, mock_fetch_comments, mock_get_entity, mock_get_client
+    ):
+        """Should return error when fetching post comments raises."""
+        mock_get_client.return_value = AsyncMock()
+        mock_get_entity.return_value = Mock()
+        mock_fetch_comments.side_effect = RuntimeError("network error")
+
+        result = await search_messages_impl(
+            chat_id="me",
+            post_id=123,
+            limit=50,
+        )
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert "Failed to fetch comments" in result["error"]
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_invalid_entity_for_post_comments(
+        self, mock_get_entity, mock_get_client
+    ):
+        """Should return error when entity not found."""
+        mock_get_client.return_value = AsyncMock()
+        mock_get_entity.return_value = None
+
+        result = await search_messages_impl(
+            chat_id="invalid_chat",
+            post_id=100,
+        )
+
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert "Could not find chat" in result["error"]
+
+
+class TestGetMessagesPostCommentsOld:
+    """Old post comments tests (to be removed after migration)."""
+
+    @pytest.mark.asyncio
     @patch("src.tools.search.get_connected_client")
     @patch("src.tools.search.get_entity_by_id")
     @patch("src.tools.search._fetch_post_comments")
-    async def test_fetches_post_comments(
+    async def test_fetches_post_comments_old(
         self, mock_fetch_comments, mock_get_entity, mock_get_client
     ):
         """Should fetch post comments when post_id provided."""
@@ -151,176 +290,13 @@ class TestGetMessagesPostComments:
         assert result["discussion_chat_id"] == "-1001234567890"
         assert result["linked_post_id"] == 100
 
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    @patch("src.tools.search._fetch_post_comments")
-    async def test_search_in_post_comments(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
-    ):
-        """Should search within post comments when both post_id and query provided."""
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_entity = Mock()
-        mock_get_entity.return_value = mock_entity
-
-        mock_fetch_comments.return_value = (
-            [{"id": 1, "text": "Bug report"}],
-            {
-                "discussion_chat_id": "-1001234567890",
-                "discussion_total_count": 5,
-                "linked_post_id": 100,
-            },
-        )
-
-        result = await search_messages_impl(
-            chat_id="-1001111111111",
-            post_id=100,
-            query="bug",
-            limit=20,
-        )
-
-        # Verify search query was passed to fetch
-        mock_fetch_comments.assert_called_once_with(
-            mock_client, mock_entity, 100, 20, "bug"
-        )
-
-        assert len(result["messages"]) == 1
-        assert "bug" in result["messages"][0]["text"].lower()
-
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    @patch("src.tools.search._fetch_post_comments")
-    async def test_no_comments_error(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
-    ):
-        """Should return error when no comments found."""
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_entity = Mock()
-        mock_get_entity.return_value = mock_entity
-
-        # Empty comments
-        mock_fetch_comments.return_value = (
-            [],
-            {
-                "discussion_chat_id": "-1001234567890",
-                "discussion_total_count": 0,
-                "linked_post_id": 100,
-            },
-        )
-
-        result = await search_messages_impl(
-            chat_id="-1001111111111",
-            post_id=100,
-        )
-
-        assert "error" in result
-        assert "No comments found" in result["error"]
-
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    async def test_invalid_chat_for_post_comments(
-        self, mock_get_entity, mock_get_client
-    ):
-        """Should return error when chat not found."""
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_get_entity.return_value = None  # Chat not found
-
-        result = await search_messages_impl(
-            chat_id="invalid_chat",
-            post_id=100,
-        )
-
-        assert "error" in result
-        assert "Could not find chat" in result["error"]
-
-
-class TestGetMessagesHasMoreLogic:
-    """Test has_more flag logic for post comments."""
-
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    @patch("src.tools.search._fetch_post_comments")
-    async def test_has_more_when_extra_message_collected(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
-    ):
-        """Should set has_more=True when collected limit+1 messages."""
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_entity = Mock()
-        mock_get_entity.return_value = mock_entity
-
-        # Return limit+1 messages
-        mock_fetch_comments.return_value = (
-            [
-                {"id": i, "text": f"Comment {i}"} for i in range(11)
-            ],  # 11 messages for limit=10
-            {
-                "discussion_chat_id": "-1001234567890",
-                "discussion_total_count": 20,
-                "linked_post_id": 100,
-            },
-        )
-
-        result = await search_messages_impl(
-            chat_id="-1001111111111",
-            post_id=100,
-            limit=10,
-        )
-
-        assert len(result["messages"]) == 10  # Windowed to limit
-        assert result["has_more"] is True
-
-    @pytest.mark.asyncio
-    @patch("src.tools.search.get_connected_client")
-    @patch("src.tools.search.get_entity_by_id")
-    @patch("src.tools.search._fetch_post_comments")
-    async def test_has_more_false_when_fewer_than_limit(
-        self, mock_fetch_comments, mock_get_entity, mock_get_client
-    ):
-        """Should set has_more=False when collected fewer than limit messages."""
-        mock_client = AsyncMock()
-        mock_get_client.return_value = mock_client
-
-        mock_entity = Mock()
-        mock_get_entity.return_value = mock_entity
-
-        # Return fewer than limit
-        mock_fetch_comments.return_value = (
-            [{"id": i, "text": f"Comment {i}"} for i in range(5)],  # 5 messages
-            {
-                "discussion_chat_id": "-1001234567890",
-                "discussion_total_count": 5,
-                "linked_post_id": 100,
-            },
-        )
-
-        result = await search_messages_impl(
-            chat_id="-1001111111111",
-            post_id=100,
-            limit=10,
-        )
-
-        assert len(result["messages"]) == 5
-        assert result["has_more"] is False
-
-
 class TestBackwardCompatibility:
-    """Test backward compatibility with old tool names."""
+    """Test backward compatibility with message_ids mode."""
 
     @pytest.mark.asyncio
-    @patch("src.tools.search.read_messages_by_ids")
+    @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
     async def test_read_messages_mode_works(self, mock_read):
-        """read_messages functionality should work through get_messages."""
+        """message_ids mode should return unified dict format."""
         mock_read.return_value = [{"id": 1, "text": "Message"}]
 
         result = await search_messages_impl(
@@ -329,7 +305,10 @@ class TestBackwardCompatibility:
         )
 
         mock_read.assert_called_once()
-        assert isinstance(result, list)
+        assert isinstance(result, dict)
+        assert "messages" in result
+        assert "has_more" in result
+        assert result["has_more"] is False
 
     @pytest.mark.asyncio
     async def test_search_in_chat_mode_requires_query_or_empty(self):

@@ -112,7 +112,7 @@ def register_tools(mcp: FastMCP) -> None:
         max_date: str | None = None,
         auto_expand_batches: int = 2,
         include_total_count: bool = False,
-    ) -> dict | list[dict]:
+    ) -> dict:
         """
         Get messages from a Telegram chat - supports search, specific IDs, and post comments.
 
@@ -153,8 +153,11 @@ def register_tools(mcp: FastMCP) -> None:
             include_total_count: Include total message count (per-chat only)
 
         Returns:
-            For message_ids: List of message dicts
-            For other modes: Dict with messages, has_more, and optional metadata
+            Dictionary with:
+            - messages: List of message dicts
+            - has_more: Boolean (always False for message_ids mode)
+            - total_count: Total messages (if include_total_count=True)
+            - discussion_chat_id/discussion_total_count/linked_post_id: (if post_id used)
         """
         return await search_messages_impl(
             query=query,

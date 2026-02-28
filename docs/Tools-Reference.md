@@ -235,9 +235,11 @@ get_messages(
   query?: str,                   // Search terms (optional)
   message_ids?: number[],        // Specific message IDs to retrieve
   post_id?: number,              // Channel post ID for discussion comments
-  limit?: number = 50,          // Max results
-  min_date?: string,            // ISO date filter
-  max_date?: string             // ISO date filter
+  limit?: number = 50,           // Max results
+  min_date?: string,             // ISO date filter
+  max_date?: string,             // ISO date filter
+  auto_expand_batches?: number = 2,  // Extra batches for filtered searches
+  include_total_count?: boolean = false  // Include total count (chat search only)
 )
 ```
 
@@ -292,15 +294,17 @@ get_messages(
 }}
 ```
 
-**Response:**
-- For `message_ids` mode: Returns list of message dicts
-- For other modes: Returns dict with:
-  - `messages`: List of message dicts
-  - `has_more`: Boolean indicating more results available
-  - `total_count`: Total messages (if `include_total_count=True`)
-  - `discussion_chat_id`: Discussion group ID (if `post_id` used)
-  - `discussion_total_count`: Total comments (if `post_id` used)
-  - `linked_post_id`: Original post ID (if `post_id` used)
+**Response (unified format for all modes):**
+```json
+{
+  "messages": [...],           // List of message dicts
+  "has_more": false,           // Boolean (always false for message_ids mode)
+  "total_count": 123,          // Optional: only if include_total_count=true
+  "discussion_chat_id": "...", // Optional: only for post_id mode
+  "discussion_total_count": 45, // Optional: only for post_id mode
+  "linked_post_id": 123        // Optional: only for post_id mode
+}
+```
 
 **Features:**
 - **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents

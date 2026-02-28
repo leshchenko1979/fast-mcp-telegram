@@ -35,6 +35,36 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
+async def _build_result_for_message(
+    client,
+    message,
+    chat_entity,
+) -> dict[str, Any] | None:
+    """Build result dict for a single message with link generation.
+    
+    Returns None if message is invalid or has no content.
+    """
+    if not message:
+        return None
+
+    has_content = (hasattr(message, "text") and message.text) or _has_any_media(
+        message
+    )
+    if not has_content:
+        return None
+
+    try:
+        identifier = compute_entity_identifier(chat_entity)
+        links = await generate_telegram_links(
+            identifier, [message.id], resolved_entity=chat_entity
+        )
+        link = links.get("message_links", [None])[0]
+        return await build_message_result(client, message, chat_entity, link)
+    except Exception as e:
+        logger.warning(f"Error processing message: {e}")
+        return None
+
+
 async def _get_post_discussion_info(
     client, channel_entity, post_id: int
 ) -> dict[str, Any]:
@@ -118,29 +148,13 @@ async def _fetch_post_comments(
         search=query if query else None,
         limit=limit + 1,  # Fetch one extra to check has_more
     ):
-        if not message:
+        result = await _build_result_for_message(client, message, discussion_entity)
+        if not result:
             continue
 
-        has_content = (hasattr(message, "text") and message.text) or _has_any_media(
-            message
-        )
-        if not has_content:
-            continue
-
-        try:
-            identifier = compute_entity_identifier(discussion_entity)
-            links = await generate_telegram_links(
-                identifier, [message.id], resolved_entity=discussion_entity
-            )
-            link = links.get("message_links", [None])[0]
-            result = await build_message_result(client, message, discussion_entity, link)
-            collected.append(result)
-
-            if len(collected) >= limit + 1:
-                break
-        except Exception as e:
-            logger.warning(f"Error processing comment message: {e}")
-            continue
+        collected.append(result)
+        if len(collected) >= limit + 1:
+            break
 
     # Transcribe voice messages if any
     await transcribe_voice_messages(collected[:limit], discussion_entity)
@@ -152,6 +166,52 @@ async def _fetch_post_comments(
     }
 
     return collected, metadata
+
+
+async def _handle_post_comments_mode(
+    chat_id: str,
+    post_id: int,
+    limit: int,
+    query: str | None,
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Handle fetching and returning post comments with unified error handling."""
+    client = await get_connected_client()
+    try:
+        entity = await get_entity_by_id(chat_id)
+        if not entity:
+            raise ValueError(f"Could not find chat with ID '{chat_id}'")
+
+        collected, metadata = await _fetch_post_comments(
+            client, entity, post_id, limit, query
+        )
+
+        window = collected[:limit] if limit is not None else collected
+        has_more = len(collected) > len(window)
+
+        if not window:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message=f"No comments found for post {post_id}",
+                params=params,
+                exception=ValueError(f"No comments found for post {post_id}"),
+            )
+
+        logger.info(
+            f"Retrieved {len(window)} comments from post {post_id} in chat {chat_id}"
+        )
+        return {
+            "messages": window,
+            "has_more": has_more,
+            **metadata,
+        }
+    except Exception as e:
+        return log_and_build_error(
+            operation="get_messages",
+            error_message=f"Failed to fetch comments for post {post_id}: {e!s}",
+            params=params,
+            exception=e,
+        )
 
 
 # ============================================================================
@@ -207,7 +267,7 @@ async def search_messages_impl(
     | None = None,  # True=with username, False=without username, None=no filter
     auto_expand_batches: int = 1,  # Fewer extra batches to reduce RAM
     include_total_count: bool = False,  # Whether to include total count in response
-) -> dict[str, Any] | list[dict[str, Any]]:
+) -> dict[str, Any]:
     """
     Unified message retrieval supporting search, specific message IDs, and post comments.
 
@@ -237,11 +297,10 @@ async def search_messages_impl(
         include_total_count: Include total count in response (per-chat only, default False)
 
     Returns:
-        For message_ids mode: List of message dicts
-        For all other modes: Dictionary with:
+        Dictionary with:
         - 'messages': List of message dicts
-        - 'has_more': Boolean indicating more results available
-        - 'total_count': Total messages (if include_total_count=True)
+        - 'has_more': Boolean indicating more results available (always False for message_ids mode)
+        - 'total_count': Total messages (if include_total_count=True, chat search only)
         - 'discussion_chat_id': Discussion group ID (if post_id used)
         - 'discussion_total_count': Total comments (if post_id used and available)
         - 'linked_post_id': Original post ID (if post_id used)
@@ -296,8 +355,18 @@ async def search_messages_impl(
                 params=params,
                 exception=ValueError("chat_id required for message_ids mode"),
             )
-        # Delegate to read_messages_by_ids
-        return await read_messages_by_ids(chat_id, message_ids)
+        # Delegate to read_messages_by_ids and wrap in unified format
+        messages_list = await read_messages_by_ids(chat_id, message_ids)
+        
+        # Check if it's an error (single-item list with error field)
+        if len(messages_list) == 1 and "error" in messages_list[0]:
+            return messages_list[0]
+        
+        # Wrap in unified format for consistency
+        return {
+            "messages": messages_list,
+            "has_more": False,  # Reading by specific IDs never has more
+        }
 
     # Mode: Read post comments
     if post_id is not None:
@@ -308,50 +377,7 @@ async def search_messages_impl(
                 params=params,
                 exception=ValueError("chat_id required for post_id mode"),
             )
-
-        # Fetch post comments
-        client = await get_connected_client()
-        try:
-            entity = await get_entity_by_id(chat_id)
-            if not entity:
-                raise ValueError(f"Could not find chat with ID '{chat_id}'")
-
-            collected, metadata = await _fetch_post_comments(
-                client, entity, post_id, limit, query
-            )
-
-            # Return results up to limit
-            window = collected[:limit] if limit is not None else collected
-            has_more = len(collected) > len(window) or (
-                len(collected) == limit and len(collected) > 0
-            )
-
-            if not window:
-                return log_and_build_error(
-                    operation="get_messages",
-                    error_message=f"No comments found for post {post_id}",
-                    params=params,
-                    exception=ValueError(f"No comments found for post {post_id}"),
-                )
-
-            response = {
-                "messages": window,
-                "has_more": has_more,
-                **metadata,  # Add discussion metadata
-            }
-
-            logger.info(
-                f"Retrieved {len(window)} comments from post {post_id} in chat {chat_id}"
-            )
-            return response
-
-        except Exception as e:
-            return log_and_build_error(
-                operation="get_messages",
-                error_message=f"Failed to fetch comments for post {post_id}: {e!s}",
-                params=params,
-                exception=e,
-            )
+        return await _handle_post_comments_mode(chat_id, post_id, limit, query, params)
 
     # Normalize and validate queries for search modes
     queries: list[str] = (
@@ -514,24 +540,12 @@ async def _search_chat_messages_generator(
             if not _matches_public_filter(entity, public):
                 continue
 
-            has_content = (hasattr(message, "text") and message.text) or _has_any_media(
-                message
-            )
-            if not has_content:
+            result = await _build_result_for_message(client, message, entity)
+            if not result:
                 continue
 
-            try:
-                identifier = compute_entity_identifier(entity)
-                links = await generate_telegram_links(
-                    identifier, [message.id], resolved_entity=entity
-                )
-                link = links.get("message_links", [None])[0]
-                result = await build_message_result(client, message, entity, link)
-                yield result
-                yielded_count += 1
-            except Exception as e:
-                logger.warning(f"Error processing message: {e}")
-                continue
+            yield result
+            yielded_count += 1
 
             # Continue processing all messages in this batch to ensure we can detect has_more
 
@@ -591,18 +605,10 @@ async def _search_global_messages_generator(
                 if not _matches_public_filter(chat, public):
                     continue
 
-                has_content = (
-                    hasattr(message, "text") and message.text
-                ) or _has_any_media(message)
-                if not has_content:
+                msg_result = await _build_result_for_message(client, message, chat)
+                if not msg_result:
                     continue
 
-                identifier = compute_entity_identifier(chat)
-                links = await generate_telegram_links(
-                    identifier, [message.id], resolved_entity=chat
-                )
-                link = links.get("message_links", [None])[0]
-                msg_result = await build_message_result(client, message, chat, link)
                 yield msg_result
                 yielded_count += 1
             except Exception as e:

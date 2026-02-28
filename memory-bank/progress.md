@@ -1,5 +1,5 @@
 ### 2026-02-28
-- **Unified get_messages API (PR #960)**: Consolidated search_messages_in_chat and read_messages into single get_messages tool
+- **Unified get_messages API (PR #960)**: Consolidated search_messages_in_chat and read_messages into a single get_messages tool
 - **Post Comments Support**: Added post_id parameter to fetch channel post discussion threads using messages.getDiscussionMessage
 - **5 Operating Modes**: Search in chat, browse chat, read by IDs, post comments, search in comments
 - **Parameter Conflict Validation**: Automatic rejection of invalid parameter combinations (message_ids+post_id, message_ids+query)
