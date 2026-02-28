@@ -463,10 +463,9 @@ async def send_message_impl(
                 "Detected channel post with discussion, posting comment in discussion group"
             )
         except ValueError as e:
-            raw_msg = str(e.__cause__) if e.__cause__ is not None else str(e)
             return log_and_build_error(
                 operation="send_message",
-                error_message=raw_msg,
+                error_message=str(e),
                 params=params,
                 exception=e,
             )
@@ -485,7 +484,7 @@ async def send_message_impl(
         return error
 
     result = build_send_edit_result(sent_message, effective_entity, "sent")
-    log_operation_success("Message sent", chat_id)
+    log_operation_success("Message sent", params["chat_id"])
     return result
 
 

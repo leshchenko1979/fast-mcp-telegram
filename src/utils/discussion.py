@@ -1,5 +1,6 @@
 """Shared utilities for Telegram channel post discussion threads."""
 
+import asyncio
 from typing import Any
 
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
@@ -7,7 +8,9 @@ from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from src.utils.entity import compute_entity_identifier
 
 
-async def get_post_discussion_info(client, channel_entity, post_id: int) -> dict[str, Any]:
+async def get_post_discussion_info(
+    client: Any, channel_entity: Any, post_id: int
+) -> dict[str, Any]:
     """
     Get discussion group information for a channel post.
 
@@ -52,6 +55,8 @@ async def get_post_discussion_info(client, channel_entity, post_id: int) -> dict
             "discussion_total_count": total_count,
         }
 
+    except asyncio.CancelledError:
+        raise
     except Exception as e:
         raise ValueError(
             f"Cannot access discussion for post {post_id}: {e!s}"
