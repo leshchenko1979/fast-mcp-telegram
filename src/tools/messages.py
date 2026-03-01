@@ -27,9 +27,7 @@ logger = logging.getLogger(__name__)
 
 def _normalize_parse_mode(parse_mode: str | None) -> str | None:
     """Lowercase parse_mode so HTML, AUTO, Markdown etc. are processed correctly."""
-    if parse_mode is None:
-        return None
-    return parse_mode.lower() if isinstance(parse_mode, str) else parse_mode
+    return parse_mode.lower() if parse_mode is not None else None
 
 
 def detect_message_formatting(message: str) -> str | None:
