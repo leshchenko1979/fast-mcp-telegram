@@ -23,7 +23,7 @@ fast-mcp-telegram is a production-ready Python-based MCP (Modular Control Platfo
 - **Version Management**: Dynamic version reading from pyproject.toml with Python version compatibility
 - **Deployment Automation**: Enhanced `deploy-mcp.sh` with backup/restore and cross-platform support
 - **Error Resilience**: Structured error handling with request tracking and graceful degradation
-- **LLM Optimization**: Concise tool descriptions and predictable API responses
+- **LLM Optimization**: General-purpose tools to save context space; unified schemas for automatic response processing; concise descriptions; predictable API responses
 
 ## Production Features
 - **Zero-Downtime Deployment**: Session files preserved across deployments

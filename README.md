@@ -22,6 +22,7 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 ## 📖 Table of Contents
 
 - [✨ Features](#-features)
+- [🎯 Design Philosophy](#-design-philosophy)
 - [🚀 Quick Start](#-quick-start)
 - [🏗️ Server Modes](#️-server-modes)
 - [🌐 HTTP-MTProto Bridge](#-http-mtproto-bridge)
@@ -49,6 +50,10 @@ curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
 | 🛡️ **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages |
 | 🎯 **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
 | 🌍 **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
+
+## 🎯 Design Philosophy
+
+**Save context space for LLMs by making tools as general-purpose as possible.** Fewer, more capable tools consume less of the AI's context window than many narrow-purpose tools. We consolidate functionality (e.g. `get_messages` handles search, browse, read-by-ID, and replies in one tool; `invoke_mtproto` provides raw API access for edge cases), use uniform schemas across tools so responses can be automatically processed when possible, and keep descriptions concise. We accept more parameters per tool and slightly more complex signatures in exchange for fewer tools and less context. When adding capabilities, we prefer extending existing tools over introducing new ones.
 
 ## 🛠️ Available Tools
 

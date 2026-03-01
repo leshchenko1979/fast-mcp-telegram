@@ -2,7 +2,7 @@
 
 ## Overview
 
-This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. All tools support uniform entity schemas, consistent error handling, and MCP ToolAnnotations for better AI agent decision-making.
+This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. The design philosophy is to **save context space for LLMs** by keeping tools general-purpose: fewer tools with broader capabilities (e.g. `get_messages` covers 5 modes, `invoke_mtproto` covers raw API access) consume less context than many narrow-purpose tools. We accept more parameters per tool in exchange for fewer tools. Uniform schemas across tools (entity, message, error) enable automatic processing of responses when possible. All tools support consistent error handling and MCP ToolAnnotations for better AI agent decision-making.
 
 ## Error Handling
 

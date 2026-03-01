@@ -6,6 +6,7 @@ Thank you for your interest in contributing to fast-mcp-telegram! This document 
 
 ## 📋 Table of Contents
 
+- [🎯 Design Philosophy](#-design-philosophy)
 - [🚀 Getting Started](#-getting-started)
 - [💻 Development Setup](#-development-setup)
 - [🧪 Testing](#-testing)
@@ -16,6 +17,19 @@ Thank you for your interest in contributing to fast-mcp-telegram! This document 
 - [📝 Contributing Guidelines](#-contributing-guidelines)
 - [🧠 Memory Bank System](#-memory-bank-system)
 - [🚀 Deployment](#-deployment)
+
+---
+
+## 🎯 Design Philosophy
+
+This MCP server is designed to **save context space for LLMs** by providing general-purpose tools rather than many narrow-purpose ones. Each tool description and the full tool list consume AI context; fewer, more capable tools reduce that cost. We accept more parameters per tool and slightly more complex signatures in exchange for fewer tools and less context.
+
+**Guidelines for contributors:**
+
+- **Prefer extending over adding**: Before proposing a new tool, consider whether the capability can be added as a parameter or mode to an existing tool (e.g. `get_messages` consolidates search, browse, read-by-ID, and replies).
+- **Use `invoke_mtproto` as the escape hatch**: Rare or advanced operations can go through `invoke_mtproto` instead of dedicated tools. Propose new tools only when they meaningfully simplify LLM usage beyond what parameters + `invoke_mtproto` can achieve.
+- **Keep tool descriptions concise**: Tool names and descriptions are part of the AI's context. Be direct; avoid redundant prose.
+- **Maintain uniform schemas**: Consistent response shapes (e.g. `build_entity_dict`, `build_message_result`) reduce the need for per-tool documentation and enable automatic processing of responses when possible.
 
 ---
 
