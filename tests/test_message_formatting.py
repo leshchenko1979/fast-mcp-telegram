@@ -2,9 +2,18 @@
 Tests for message formatting detection functionality.
 """
 
+from datetime import datetime
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
-from src.tools.messages import detect_message_formatting
+from src.tools.messages import (
+    detect_message_formatting,
+    edit_message_impl,
+    send_message_impl,
+    send_message_to_phone_impl,
+)
 
 
 class TestMessageFormattingDetection:
@@ -170,3 +179,267 @@ code block
     def test_parametrized_detection(self, text, expected):
         """Parametrized test for various detection scenarios."""
         assert detect_message_formatting(text) == expected
+
+
+class TestParseModeAutodetectionIntegration:
+    """Integration tests for parse mode processing in send/edit message flows."""
+
+    @pytest.mark.asyncio
+    async def test_send_message_impl_parse_mode_none_uses_no_autodetection(self):
+        """parse_mode=None skips autodetection and passes None through."""
+        chat = SimpleNamespace(id=123456, broadcast=False, megagroup=False)
+        sent_msg = SimpleNamespace(id=1, text="hello", date=datetime.now())
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.tools.messages.get_entity_by_id",
+                new_callable=AsyncMock,
+                return_value=chat,
+            ),
+            patch(
+                "src.tools.messages.get_post_discussion_info",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.tools.messages.detect_message_formatting",
+            ) as mock_detect,
+            patch(
+                "src.tools.messages._send_message_or_files",
+                new_callable=AsyncMock,
+                return_value=(None, sent_msg),
+            ) as mock_send,
+        ):
+            await send_message_impl(
+                chat_id="123456",
+                message="<b>Bold</b>",
+                parse_mode=None,
+            )
+
+        mock_detect.assert_not_called()
+        mock_send.assert_awaited_once()
+        _, _, _, _, _, resolved_parse_mode, _, _ = mock_send.await_args[0]
+        assert resolved_parse_mode is None
+
+    @pytest.mark.asyncio
+    async def test_edit_message_impl_parse_mode_none_uses_no_autodetection(self):
+        """parse_mode=None skips autodetection and passes None through."""
+        chat = SimpleNamespace(id=123456, broadcast=False, megagroup=False)
+        edited_msg = SimpleNamespace(id=1, text="<b>Bold</b>", date=datetime.now())
+
+        client = AsyncMock()
+        client.edit_message = AsyncMock(return_value=edited_msg)
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.get_entity_by_id",
+                new=AsyncMock(return_value=chat),
+            ),
+            patch(
+                "src.tools.messages.detect_message_formatting",
+            ) as mock_detect,
+        ):
+            await edit_message_impl(
+                chat_id="123456",
+                message_id=1,
+                new_text="<b>Bold</b>",
+                parse_mode=None,
+            )
+
+        mock_detect.assert_not_called()
+        client.edit_message.assert_awaited_once()
+        assert client.edit_message.await_args[1]["parse_mode"] is None
+
+    @pytest.mark.asyncio
+    async def test_send_message_to_phone_impl_parse_mode_none_uses_no_autodetection(
+        self,
+    ):
+        """parse_mode=None skips autodetection and passes None through."""
+        user = SimpleNamespace(id=999, first_name="Test")
+        sent_msg = SimpleNamespace(id=1, text="<b>Bold</b>", date=datetime.now())
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=user)
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.detect_message_formatting",
+            ) as mock_detect,
+            patch(
+                "src.tools.messages._send_message_or_files",
+                new_callable=AsyncMock,
+                return_value=(None, sent_msg),
+            ) as mock_send,
+        ):
+            await send_message_to_phone_impl(
+                phone_number="+1234567890",
+                message="<b>Bold</b>",
+                parse_mode=None,
+            )
+
+        mock_detect.assert_not_called()
+        mock_send.assert_awaited_once()
+        _, _, _, _, _, resolved_parse_mode, _, _ = mock_send.await_args[0]
+        assert resolved_parse_mode is None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "parse_mode_input,message,expected_resolved",
+        [
+            ("auto", "<b>Bold</b>", "html"),
+            ("AUTO", "<b>Bold</b>", "html"),
+            ("Auto", "<b>Bold</b>", "html"),
+            ("auto", "**bold**", "markdown"),
+            ("AUTO", "**bold**", "markdown"),
+            ("auto", "Plain text", None),
+            ("auto", "", None),
+            ("HTML", "<b>Bold</b>", "html"),
+            ("html", "<b>Bold</b>", "html"),
+            ("MARKDOWN", "**bold**", "markdown"),
+            ("markdown", "**bold**", "markdown"),
+        ],
+    )
+    async def test_send_message_impl_parse_mode_resolution(
+        self, parse_mode_input, message, expected_resolved
+    ):
+        """send_message_impl resolves and lowercases parse_mode correctly."""
+        chat = SimpleNamespace(id=123456, broadcast=False, megagroup=False)
+        sent_msg = SimpleNamespace(id=1, text=message, date=datetime.now())
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.tools.messages.get_entity_by_id",
+                new_callable=AsyncMock,
+                return_value=chat,
+            ),
+            patch(
+                "src.tools.messages.get_post_discussion_info",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.tools.messages._send_message_or_files",
+                new_callable=AsyncMock,
+                return_value=(None, sent_msg),
+            ) as mock_send,
+        ):
+            await send_message_impl(
+                chat_id="123456",
+                message=message,
+                parse_mode=parse_mode_input,
+            )
+
+        mock_send.assert_awaited_once()
+        _, _, _, _, _, resolved_parse_mode, _, _ = mock_send.await_args[0]
+        assert resolved_parse_mode == expected_resolved, (
+            f"parse_mode={parse_mode_input!r}, message={message!r} -> "
+            f"expected {expected_resolved!r}, got {resolved_parse_mode!r}"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "parse_mode_input,new_text,expected_resolved",
+        [
+            ("auto", "<i>Italic</i>", "html"),
+            ("AUTO", "# Header", "markdown"),
+            ("auto", "Plain", None),
+            ("HTML", "<b>Bold</b>", "html"),
+            ("MARKDOWN", "`code`", "markdown"),
+        ],
+    )
+    async def test_edit_message_impl_parse_mode_resolution(
+        self, parse_mode_input, new_text, expected_resolved
+    ):
+        """edit_message_impl resolves and lowercases parse_mode correctly."""
+        chat = SimpleNamespace(id=123456, broadcast=False, megagroup=False)
+        edited_msg = SimpleNamespace(id=1, text=new_text, date=datetime.now())
+
+        client = AsyncMock()
+        client.edit_message = AsyncMock(return_value=edited_msg)
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.get_entity_by_id",
+                new=AsyncMock(return_value=chat),
+            ),
+        ):
+            result = await edit_message_impl(
+                chat_id="123456",
+                message_id=1,
+                new_text=new_text,
+                parse_mode=parse_mode_input,
+            )
+
+        assert result["status"] == "edited"
+        client.edit_message.assert_awaited_once()
+        call_kwargs = client.edit_message.await_args[1]
+        assert call_kwargs["parse_mode"] == expected_resolved
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "parse_mode_input,message,expected_resolved",
+        [
+            ("AUTO", "<b>Bold</b>", "html"),
+            ("auto", "<b>Bold</b>", "html"),
+            ("Auto", "<b>Bold</b>", "html"),
+            ("AUTO", "**bold**", "markdown"),
+            ("auto", "**bold**", "markdown"),
+            ("AUTO", "just plain text", None),
+            ("HTML", "<b>Bold</b>", "html"),
+            ("html", "<b>Bold</b>", "html"),
+            ("MARKDOWN", "**bold**", "markdown"),
+            ("markdown", "**bold**", "markdown"),
+        ],
+    )
+    async def test_send_message_to_phone_impl_parse_mode_resolution(
+        self, parse_mode_input, message, expected_resolved
+    ):
+        """send_message_to_phone_impl normalizes and resolves parse_mode for phone messages."""
+        user = SimpleNamespace(id=999, first_name="Test")
+        sent_msg = SimpleNamespace(id=1, text=message, date=datetime.now())
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=user)
+
+        with (
+            patch(
+                "src.tools.messages.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages._send_message_or_files",
+                new_callable=AsyncMock,
+                return_value=(None, sent_msg),
+            ) as mock_send,
+        ):
+            result = await send_message_to_phone_impl(
+                phone_number="+1234567890",
+                message=message,
+                parse_mode=parse_mode_input,
+            )
+
+        mock_send.assert_awaited_once()
+        _, _, _, _, _, resolved_parse_mode, _, _ = mock_send.await_args[0]
+        assert resolved_parse_mode == expected_resolved, (
+            f"parse_mode={parse_mode_input!r}, message={message!r} -> "
+            f"expected {expected_resolved!r}, got {resolved_parse_mode!r}"
+        )
+        assert result["status"] == "sent"

@@ -25,6 +25,11 @@ from src.utils.message_format import (
 logger = logging.getLogger(__name__)
 
 
+def _normalize_parse_mode(parse_mode: str | None) -> str | None:
+    """Return parse_mode lowercased if not None, otherwise None. Ensures case-insensitive handling."""
+    return parse_mode.lower() if parse_mode is not None else None
+
+
 def detect_message_formatting(message: str) -> str | None:
     """
     Detect message formatting based on content patterns.
@@ -420,6 +425,7 @@ async def send_message_impl(
         parse_mode: Parse mode ('markdown' or 'html')
         files: Single file or list of files (URLs or local paths)
     """
+    parse_mode = _normalize_parse_mode(parse_mode)
     resolved_parse_mode = parse_mode
     if parse_mode == "auto":
         resolved_parse_mode = detect_message_formatting(message)
@@ -503,6 +509,7 @@ async def edit_message_impl(
         new_text: The new text content for the message
         parse_mode: Parse mode ('markdown' or 'html')
     """
+    parse_mode = _normalize_parse_mode(parse_mode)
     params = {
         "chat_id": chat_id,
         "message_id": message_id,
@@ -751,6 +758,7 @@ async def send_message_to_phone_impl(
         - contact_was_new: Whether a new contact was created during this operation
         - contact_removed: Whether the contact was removed (only if it was newly created)
     """
+    parse_mode = _normalize_parse_mode(parse_mode)
     params = {
         "phone_number": phone_number,
         "message": message,
