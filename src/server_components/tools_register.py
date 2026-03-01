@@ -218,9 +218,7 @@ def register_tools(mcp: FastMCP) -> None:
             parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
             files: Single file or list of files to send (URLs or local paths, optional)
         """
-        return await send_message_impl(
-            chat_id, message, reply_to_id, parse_mode, files
-        )
+        return await send_message_impl(chat_id, message, reply_to_id, parse_mode, files)
 
     @mcp.tool(
         annotations=ToolAnnotations(

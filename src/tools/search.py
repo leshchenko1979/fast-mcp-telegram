@@ -14,12 +14,11 @@ from src.utils.entity import (
     _get_chat_message_count,
     _matches_chat_type,
     _matches_public_filter,
+    compute_entity_identifier,
     get_entity_by_id,
 )
 from src.utils.error_handling import (
-    add_logging_metadata,
     log_and_build_error,
-    sanitize_params_for_logging,
 )
 from src.utils.helpers import _append_dedup_until_limit
 from src.utils.message_format import (
@@ -48,7 +47,7 @@ def _resolve_mode(
 ) -> MessageRetrievalMode:
     """
     Determine the message retrieval mode based on parameter combination.
-    
+
     Raises ValueError if parameters conflict or required parameters are missing.
     """
     # Parameter conflict validation
@@ -113,15 +112,13 @@ async def _build_result_for_message(
     chat_entity,
 ) -> dict[str, Any] | None:
     """Build result dict for a single message with link generation.
-    
+
     Returns None if message is invalid or has no content.
     """
     if not message:
         return None
 
-    has_content = (hasattr(message, "text") and message.text) or _has_any_media(
-        message
-    )
+    has_content = (hasattr(message, "text") and message.text) or _has_any_media(message)
     if not has_content:
         return None
 
@@ -146,7 +143,7 @@ async def _fetch_replies(
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """
     Fetch replies/comments for a message.
-    
+
     Automatically handles:
     - Channel posts with discussion (detects and uses discussion group)
     - Forum topics (uses reply_to directly)
@@ -210,7 +207,7 @@ async def _handle_replies_mode(
 ) -> dict[str, Any]:
     """
     Handle fetching replies to a message.
-    
+
     Automatically handles:
     - Channel post comments (via discussion group)
     - Forum topic messages
@@ -241,19 +238,19 @@ async def _handle_replies_mode(
         logger.info(
             f"Retrieved {len(window)} replies to message {reply_to_id} in chat {chat_id}"
         )
-        
+
         response = {
             "messages": window,
             "has_more": has_more,
             "reply_to_id": reply_to_id,
         }
-        
+
         # Add discussion metadata if present (channel post with discussion)
         if discussion_metadata:
             response.update(discussion_metadata)
-        
+
         return response
-        
+
     except Exception as e:
         return log_and_build_error(
             operation="get_messages",

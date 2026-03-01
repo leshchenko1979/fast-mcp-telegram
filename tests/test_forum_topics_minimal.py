@@ -325,13 +325,16 @@ async def test_send_message_or_files_files_with_reply_target():
     client = AsyncMock()
     entity = SimpleNamespace(id=1)
 
-    with patch(
-        "src.tools.messages._validate_file_paths",
-        return_value=(["http://example.com/photo.jpg"], None),
-    ), patch(
-        "src.tools.messages._send_files_to_entity",
-        new=AsyncMock(return_value=SimpleNamespace(id=1)),
-    ) as send_files_mock:
+    with (
+        patch(
+            "src.tools.messages._validate_file_paths",
+            return_value=(["http://example.com/photo.jpg"], None),
+        ),
+        patch(
+            "src.tools.messages._send_files_to_entity",
+            new=AsyncMock(return_value=SimpleNamespace(id=1)),
+        ) as send_files_mock,
+    ):
         error, _ = await _send_message_or_files(
             client=client,
             entity=entity,
@@ -354,13 +357,16 @@ async def test_send_message_or_files_files_without_reply_target():
     client = AsyncMock()
     entity = SimpleNamespace(id=1)
 
-    with patch(
-        "src.tools.messages._validate_file_paths",
-        return_value=(["http://example.com/photo.jpg"], None),
-    ), patch(
-        "src.tools.messages._send_files_to_entity",
-        new=AsyncMock(return_value=SimpleNamespace(id=1)),
-    ) as send_files_mock:
+    with (
+        patch(
+            "src.tools.messages._validate_file_paths",
+            return_value=(["http://example.com/photo.jpg"], None),
+        ),
+        patch(
+            "src.tools.messages._send_files_to_entity",
+            new=AsyncMock(return_value=SimpleNamespace(id=1)),
+        ) as send_files_mock,
+    ):
         error, _ = await _send_message_or_files(
             client=client,
             entity=entity,
@@ -470,7 +476,9 @@ async def test_list_forum_topics_exactly_limit_has_more_false_and_requests_plus_
     topics = [SimpleNamespace(id=i, title=f"Topic {i}") for i in range(1, 21)]
     client = AsyncMock(return_value=SimpleNamespace(topics=topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=20)
 
     request = client.await_args.args[0]
@@ -485,7 +493,9 @@ async def test_list_forum_topics_limit_plus_one_has_more_true_and_trims_output()
     topics = [SimpleNamespace(id=i, title=f"Topic {i}") for i in range(1, 22)]
     client = AsyncMock(return_value=SimpleNamespace(topics=topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=20)
 
     assert len(result["topics"]) == 20
@@ -506,7 +516,9 @@ async def test_list_forum_topics_limit_100_probes_next_page_and_sets_has_more_tr
         ]
     )
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=100)
 
     assert len(result["topics"]) == 100
@@ -532,7 +544,9 @@ async def test_list_forum_topics_limit_100_probes_next_page_and_sets_has_more_fa
         ]
     )
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=100)
 
     assert len(result["topics"]) == 100
@@ -546,7 +560,9 @@ async def test_list_forum_topics_handles_invalid_limit_with_default():
     topics = [SimpleNamespace(id=i, title=f"Topic {i}") for i in range(1, 22)]
     client = AsyncMock(return_value=SimpleNamespace(topics=topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit="not-a-number")
 
     request = client.await_args.args[0]
@@ -561,14 +577,18 @@ async def test_list_forum_topics_limit_is_clamped_to_one_and_hundred():
     entity = SimpleNamespace(id=999)
     client = AsyncMock(return_value=SimpleNamespace(topics=[]))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         await _list_forum_topics(entity, limit=0)
     req_low = client.await_args.args[0]
     assert req_low.limit == 2  # requested_limit=1 -> fetch_limit=2
 
     client.reset_mock(return_value=True)
     client.return_value = SimpleNamespace(topics=[])
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         await _list_forum_topics(entity, limit=10_000)
     req_high = client.await_args.args[0]
     assert req_high.limit == 100  # max clamp
@@ -585,7 +605,9 @@ async def test_list_forum_topics_filters_items_missing_id_or_title():
     ]
     client = AsyncMock(return_value=SimpleNamespace(topics=raw_topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=20)
 
     assert result["topics"] == [
@@ -636,7 +658,9 @@ async def test_get_chat_info_forum_topics_failure_is_non_fatal():
 def test_extract_topic_metadata_prefers_reply_to_top_id():
     message = SimpleNamespace(
         reply_to_msg_id=10,
-        reply_to=SimpleNamespace(reply_to_top_id=99, reply_to_msg_id=55, forum_topic=True),
+        reply_to=SimpleNamespace(
+            reply_to_top_id=99, reply_to_msg_id=55, forum_topic=True
+        ),
     )
     assert _extract_topic_metadata(message) == {"topic_id": 99}
 
@@ -644,7 +668,9 @@ def test_extract_topic_metadata_prefers_reply_to_top_id():
 def test_extract_topic_metadata_uses_message_reply_to_msg_id_fallback():
     message = SimpleNamespace(
         reply_to_msg_id=42,
-        reply_to=SimpleNamespace(reply_to_top_id=None, reply_to_msg_id=None, forum_topic=True),
+        reply_to=SimpleNamespace(
+            reply_to_top_id=None, reply_to_msg_id=None, forum_topic=True
+        ),
     )
     assert _extract_topic_metadata(message) == {"topic_id": 42}
 
@@ -652,7 +678,9 @@ def test_extract_topic_metadata_uses_message_reply_to_msg_id_fallback():
 def test_extract_topic_metadata_uses_reply_object_reply_to_msg_id_fallback():
     message = SimpleNamespace(
         reply_to_msg_id=None,
-        reply_to=SimpleNamespace(reply_to_top_id=None, reply_to_msg_id=77, forum_topic=True),
+        reply_to=SimpleNamespace(
+            reply_to_top_id=None, reply_to_msg_id=77, forum_topic=True
+        ),
     )
     assert _extract_topic_metadata(message) == {"topic_id": 77}
 
@@ -660,7 +688,9 @@ def test_extract_topic_metadata_uses_reply_object_reply_to_msg_id_fallback():
 def test_extract_topic_metadata_non_forum_returns_empty_even_with_reply_ids():
     message = SimpleNamespace(
         reply_to_msg_id=55,
-        reply_to=SimpleNamespace(reply_to_top_id=None, reply_to_msg_id=55, forum_topic=False),
+        reply_to=SimpleNamespace(
+            reply_to_top_id=None, reply_to_msg_id=55, forum_topic=False
+        ),
     )
     assert _extract_topic_metadata(message) == {}
 
@@ -875,7 +905,7 @@ async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
         )
 
     mock_discussion.assert_awaited_once()
-    client_used, entity_arg, post_id_arg = mock_discussion.await_args[0]
+    _client_used, entity_arg, post_id_arg = mock_discussion.await_args[0]
     assert entity_arg is channel
     assert post_id_arg == 42
 
@@ -883,8 +913,8 @@ async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
     (
         _client,
         entity,
-        text,
-        files,
+        _text,
+        _files,
         reply_to_msg_id,
         _parse_mode,
         _operation,
@@ -927,7 +957,9 @@ async def test_list_forum_topics_limit_100_underfilled_page_skips_probe_and_has_
     topics = [SimpleNamespace(id=i, title=f"Topic {i}") for i in range(1, 100)]
     client = AsyncMock(return_value=SimpleNamespace(topics=topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=100)
 
     assert len(result["topics"]) == 99
@@ -943,7 +975,9 @@ async def test_list_forum_topics_limit_100_missing_last_topic_id_disables_probe(
     topics.append(SimpleNamespace(id=None, title="Broken topic"))
     client = AsyncMock(return_value=SimpleNamespace(topics=topics))
 
-    with patch("src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)):
+    with patch(
+        "src.tools.contacts.get_connected_client", new=AsyncMock(return_value=client)
+    ):
         result = await _list_forum_topics(entity, limit=100)
 
     assert result["has_more"] is False

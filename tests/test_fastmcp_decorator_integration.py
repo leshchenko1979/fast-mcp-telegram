@@ -171,9 +171,7 @@ class TestFastMCPToolIntegration:
         async def get_tool_schema():
             async with Client(temp_mcp) as client:
                 tools = await client.list_tools()
-                get_messages_tool = next(
-                    t for t in tools if t.name == "get_messages"
-                )
+                get_messages_tool = next(t for t in tools if t.name == "get_messages")
                 return get_messages_tool.inputSchema
 
         schema = asyncio.run(get_tool_schema())

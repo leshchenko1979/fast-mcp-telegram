@@ -20,8 +20,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.client.connection import _current_token, set_request_token
-from src.server_components.auth import extract_bearer_token, with_auth_context
+from src.client.connection import _current_token
+from src.server_components.auth import with_auth_context
 
 
 class TestDecoratorOrderFix:

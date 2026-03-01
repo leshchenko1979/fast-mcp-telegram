@@ -12,7 +12,10 @@ from src.client.connection import get_connected_client
 from src.config.server_config import ServerMode, get_config
 from src.tools.links import generate_telegram_links
 from src.utils.discussion import get_post_discussion_info
-from src.utils.entity import build_entity_dict, compute_entity_identifier, get_entity_by_id
+from src.utils.entity import (
+    build_entity_dict,
+    get_entity_by_id,
+)
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import (
@@ -451,15 +454,9 @@ async def send_message_impl(
     effective_reply_to_id = reply_to_id
 
     # Channel post comment: redirect to discussion group
-    if (
-        reply_to_id is not None
-        and hasattr(chat, "broadcast")
-        and chat.broadcast
-    ):
+    if reply_to_id is not None and hasattr(chat, "broadcast") and chat.broadcast:
         try:
-            discussion_info = await get_post_discussion_info(
-                client, chat, reply_to_id
-            )
+            discussion_info = await get_post_discussion_info(client, chat, reply_to_id)
             effective_entity = discussion_info["discussion_peer"]
             effective_reply_to_id = discussion_info["discussion_msg_id"]
             params["chat_id"] = discussion_info["discussion_chat_id"]

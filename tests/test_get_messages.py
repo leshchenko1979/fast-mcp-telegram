@@ -8,8 +8,9 @@ Tests cover:
 - Error handling for all modes
 """
 
-import pytest
 from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from src.tools.search import search_messages_impl
 
@@ -239,9 +240,7 @@ class TestGetMessagesRepliesErrors:
     @pytest.mark.asyncio
     @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
-    async def test_invalid_entity_for_replies(
-        self, mock_get_entity, mock_get_client
-    ):
+    async def test_invalid_entity_for_replies(self, mock_get_entity, mock_get_client):
         """Should return error when entity not found."""
         mock_get_client.return_value = AsyncMock()
         mock_get_entity.return_value = None

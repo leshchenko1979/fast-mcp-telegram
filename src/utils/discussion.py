@@ -58,6 +58,4 @@ async def get_post_discussion_info(
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        raise ValueError(
-            f"Cannot access discussion for post {post_id}: {e!s}"
-        ) from e
+        raise ValueError(f"Cannot access discussion for post {post_id}: {e!s}") from e

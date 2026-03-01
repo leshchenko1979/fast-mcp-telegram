@@ -1,0 +1,4 @@
+{
+  "agentCanUpdateSnapshot": true,
+  "install": "pip3 install -e ."
+}

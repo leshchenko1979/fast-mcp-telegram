@@ -96,14 +96,18 @@ def test_server(mock_client):
 
     # Register simplified mock versions of tools for testing
     @mcp.tool()
-    async def search_messages_globally(query: str, limit: int = 50, chat_type: str | None = None):
+    async def search_messages_globally(
+        query: str, limit: int = 50, chat_type: str | None = None
+    ):
         """Search across all Telegram chats."""
         all_messages = []
         for chat_messages in mock_client.messages.values():
             all_messages.extend(chat_messages)
-        
+
         if query:
-            all_messages = [msg for msg in all_messages if query.lower() in msg["text"].lower()]
+            all_messages = [
+                msg for msg in all_messages if query.lower() in msg["text"].lower()
+            ]
         window = all_messages[:limit]
         has_more = len(all_messages) > len(window)
         return {"messages": window, "has_more": has_more}
@@ -114,36 +118,36 @@ def test_server(mock_client):
         query: str | None = None,
         message_ids: list[int] | None = None,
         reply_to_id: int | None = None,
-        limit: int = 50
+        limit: int = 50,
     ):
         """Unified message retrieval - search, browse, read by IDs, or get replies."""
         messages = mock_client.messages.get(chat_id, [])
-        
+
         # Mode: Read by IDs
         if message_ids:
             found_messages = [msg for msg in messages if msg["id"] in message_ids]
             return {"messages": found_messages, "has_more": False}
-        
+
         # Mode: Get replies
         if reply_to_id:
             # Mock replies: messages with matching reply_to field
             reply_messages = [
-                msg for msg in messages 
-                if msg.get("reply_to_msg_id") == reply_to_id
+                msg for msg in messages if msg.get("reply_to_msg_id") == reply_to_id
             ]
             if query:
                 reply_messages = [
-                    msg for msg in reply_messages 
+                    msg
+                    for msg in reply_messages
                     if query.lower() in msg["text"].lower()
                 ]
             window = reply_messages[:limit]
             has_more = len(reply_messages) > len(window)
             return {
-                "messages": window, 
+                "messages": window,
                 "has_more": has_more,
-                "reply_to_id": reply_to_id
+                "reply_to_id": reply_to_id,
             }
-        
+
         # Mode: Search or browse
         if query:
             messages = [msg for msg in messages if query.lower() in msg["text"].lower()]
