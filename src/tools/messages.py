@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_parse_mode(parse_mode: str | None) -> str | None:
-    """Lowercase parse_mode so HTML, AUTO, Markdown etc. are processed correctly."""
+    """Return parse_mode lowercased if not None, otherwise None. Ensures case-insensitive handling."""
     return parse_mode.lower() if parse_mode is not None else None
 
 

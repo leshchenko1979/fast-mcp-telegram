@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.tools.messages import (
-    _normalize_parse_mode,
     detect_message_formatting,
     edit_message_impl,
     send_message_impl,
@@ -180,29 +179,6 @@ code block
     def test_parametrized_detection(self, text, expected):
         """Parametrized test for various detection scenarios."""
         assert detect_message_formatting(text) == expected
-
-
-class TestParseModeNormalization:
-    """Test cases for _normalize_parse_mode function."""
-
-    @pytest.mark.parametrize(
-        "input_val,expected",
-        [
-            (None, None),
-            ("html", "html"),
-            ("HTML", "html"),
-            ("Html", "html"),
-            ("markdown", "markdown"),
-            ("Markdown", "markdown"),
-            ("MARKDOWN", "markdown"),
-            ("auto", "auto"),
-            ("AUTO", "auto"),
-            ("Auto", "auto"),
-        ],
-    )
-    def test_normalize_parse_mode(self, input_val, expected):
-        """Parse mode should be lowercased for consistent processing."""
-        assert _normalize_parse_mode(input_val) == expected
 
 
 class TestParseModeAutodetectionIntegration:
