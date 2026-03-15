@@ -113,7 +113,7 @@ async def generate_telegram_links(
             clean_username = real_username.lstrip("@")
             result["public_chat_link"] = f"https://t.me/{clean_username}"
         elif entity is not None:
-            channel_id = _normalize_channel_id(str(entity.id))
+            channel_id = _normalize_channel_id(str(getattr(entity, "id", 0)))
             result["private_chat_link"] = f"https://t.me/c/{channel_id}"
         else:
             result["note"] = "Cannot resolve chat entity. Check chat_id or username."
@@ -129,7 +129,7 @@ async def generate_telegram_links(
                     else:
                         link = f"https://t.me/{clean_username}/{msg_id}{query_string}"
                 else:
-                    channel_id = _normalize_channel_id(str(entity.id))
+                    channel_id = _normalize_channel_id(str(getattr(entity, "id", 0)))
                     if thread_id:
                         link = f"https://t.me/c/{channel_id}/{thread_id}/{msg_id}{query_string}"
                     else:

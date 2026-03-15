@@ -82,17 +82,21 @@ def _construct_tl_object_from_dict(data: Any) -> Any:
     # Import types dynamically to avoid circular imports
     from telethon.tl import types
 
-    # Case-insensitive lookup: build mapping if not already built
-    if not hasattr(_construct_tl_object_from_dict, "_name_mapping"):
-        _construct_tl_object_from_dict._name_mapping = {}
+    # Case-insensitive lookup: build mapping if not already built (module-level cache)
+    _name_mapping: dict[str, str] = getattr(
+        _construct_tl_object_from_dict,
+        "_name_mapping",
+        _construct_tl_object_from_dict.__dict__.setdefault("_name_mapping", {}),
+    )
+    if not _name_mapping:
         for name in dir(types):
             cls = getattr(types, name)
             # Only include TL object classes (they have CONSTRUCTOR_ID)
             if hasattr(cls, "CONSTRUCTOR_ID"):
-                _construct_tl_object_from_dict._name_mapping[name.lower()] = name
+                _name_mapping[name.lower()] = name
 
     # Try case-insensitive lookup first
-    name_mapping = _construct_tl_object_from_dict._name_mapping
+    name_mapping = _name_mapping
     if requested_name.lower() in name_mapping:
         class_name = name_mapping[requested_name.lower()]
         logger.debug(f"Resolved TL type '{requested_name}' to '{class_name}'")

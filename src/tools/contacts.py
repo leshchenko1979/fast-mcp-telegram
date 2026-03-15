@@ -292,9 +292,16 @@ async def get_chat_info_impl(chat_id: str, topics_limit: int = 20) -> dict[str, 
         )
 
     info = await build_entity_dict_enriched(entity)
+    if info is None:
+        return log_and_build_error(
+            operation="get_chat_info",
+            error_message="Failed to build entity info",
+            params=params,
+            exception=ValueError("build_entity_dict_enriched returned None"),
+        )
 
     # Add topics list only for forum-enabled chats.
-    if info and info.get("is_forum"):
+    if info.get("is_forum"):
         try:
             topics_result = await _list_forum_topics(entity, topics_limit)
             info["topics"] = topics_result["topics"]

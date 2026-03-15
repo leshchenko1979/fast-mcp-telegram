@@ -98,9 +98,10 @@ async def _get_client_by_token(token: str) -> TelegramClient:
         session_path = SESSION_DIR / f"{token}.session"
 
         try:
+            api_id_int = int(API_ID)
             client = TelegramClient(
                 session_path,
-                API_ID,
+                api_id_int,
                 API_HASH,
                 entity_cache_limit=get_config().entity_cache_limit,
             )

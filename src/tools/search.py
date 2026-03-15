@@ -124,6 +124,8 @@ async def _build_result_for_message(
 
     try:
         identifier = compute_entity_identifier(chat_entity)
+        if identifier is None:
+            return None
         links = await generate_telegram_links(
             identifier, [message.id], resolved_entity=chat_entity
         )
@@ -419,11 +421,9 @@ async def _handle_search_mode(
                 exception=ValueError(f"No messages found matching query '{query}'"),
             )
 
-        response = {"messages": window, "has_more": has_more}
-
+        response: dict[str, Any] = {"messages": window, "has_more": has_more}
         if total_count is not None:
             response["total_count"] = total_count
-
         return response
 
     except SessionNotAuthorizedError as e:
@@ -543,11 +543,25 @@ async def search_messages_impl(
             exception=e,
         )
 
-    # Delegate to appropriate handler
+    # Delegate to appropriate handler (_resolve_mode validates required params)
     if mode is MessageRetrievalMode.MESSAGE_IDS:
+        if chat_id is None or message_ids is None:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="chat_id and message_ids required for message_ids mode",
+                params=params,
+                exception=ValueError("Missing required params"),
+            )
         return await _handle_message_ids_mode(chat_id, message_ids, params)
 
     if mode is MessageRetrievalMode.REPLIES:
+        if chat_id is None or reply_to_id is None:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="chat_id and reply_to_id required for replies mode",
+                params=params,
+                exception=ValueError("Missing required params"),
+            )
         return await _handle_replies_mode(chat_id, reply_to_id, limit, query, params)
 
     # Mode: Search/browse

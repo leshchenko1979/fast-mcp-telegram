@@ -10,9 +10,18 @@ import traceback
 from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
-from typing import Any
+from typing import Any, TypedDict, cast
 
 logger = logging.getLogger(__name__)
+
+
+class _ConnectionErrorConfig(TypedDict, total=False):
+    """Structure for connection error pattern config."""
+
+    patterns: list[bool]
+    message: str
+    action: str | None
+
 
 # Lazy import to avoid circular dependency
 _current_token = None
@@ -180,7 +189,7 @@ def build_error_response(
     Returns:
         Standardized error response dictionary
     """
-    error_response = {
+    error_response: dict[str, Any] = {
         "ok": False,
         "error": error_message,
         "operation": operation,
@@ -229,7 +238,7 @@ def log_and_build_error(
         Standardized error response dictionary
     """
     # Build flattened error info for logging
-    log_extra = {
+    log_extra: dict[str, Any] = {
         "operation": operation,
         "error_message": error_message,
     }
@@ -295,7 +304,7 @@ def handle_tool_error(
 
     # Check for list error response (e.g., search_contacts)
     is_list_error, error_dict = is_list_error_response(result)
-    if is_list_error:
+    if is_list_error and error_dict is not None:
         return _log_and_return_error(error_dict)
 
     return None
@@ -343,13 +352,14 @@ def check_connection_error(error_text: str) -> dict[str, Any] | None:
         },
     ]
 
-    # Check each error pattern
+    # Check each error pattern (list of dicts, typed for clarity)
     for error_config in error_patterns:
-        if any(error_config["patterns"]):
+        config = cast(_ConnectionErrorConfig, error_config)
+        if any(config["patterns"]):
             return build_error_response(
-                error_message=error_config["message"],
+                error_message=config["message"],
                 operation="connection_check",
-                action=error_config["action"],
+                action=config.get("action"),
             )
 
     return None

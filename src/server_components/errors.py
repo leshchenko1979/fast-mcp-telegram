@@ -18,9 +18,12 @@ def with_error_handling(operation_name: str):
             original_func = func
             if hasattr(func, "__wrapped__"):
                 original_func = func.__wrapped__
-            elif hasattr(func, "func") and callable(func.func):
+            elif hasattr(func, "func") and callable(getattr(func, "func", None)):
                 original_func = func.func
-            original_sig = inspect.signature(original_func)
+            if callable(original_func):
+                original_sig = inspect.signature(original_func)
+            else:
+                original_sig = None
         except Exception:  # pragma: no cover - defensive
             original_sig = None
 

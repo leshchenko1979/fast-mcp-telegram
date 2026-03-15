@@ -361,8 +361,8 @@ async def _send_message_or_files(
     if files:
         # Validate and normalize files
         file_list, validation_error = _validate_file_paths(files, operation, params)
-        if validation_error:
-            return validation_error, None
+        if validation_error or file_list is None:
+            return validation_error or {}, None
 
         # Send file(s) with caption
         sent_message = await _send_files_to_entity(
@@ -532,12 +532,12 @@ async def edit_message_impl(
                 ),
             )
 
-        # Edit message
+        # Edit message (pass None when no parse mode to preserve user intent)
         edited_message = await client.edit_message(
             entity=chat,
             message=message_id,
             text=new_text,
-            parse_mode=resolved_parse_mode,
+            parse_mode=resolved_parse_mode if resolved_parse_mode else None,
         )
 
         result = build_send_edit_result(edited_message, chat, "edited")
@@ -685,7 +685,7 @@ async def read_messages_by_ids(
         id_to_link = await _build_message_link_mapping(
             chat_id, message_ids, resolved_entity=entity
         )
-        chat_dict = build_entity_dict(entity)
+        chat_dict = build_entity_dict(entity) or {}
 
         # Build results for all messages
         results = await _build_message_results(
@@ -829,7 +829,9 @@ async def send_message_to_phone_impl(
         contact_removed = False
         if remove_if_new and contact_was_new:
             try:
-                await client(DeleteContactsRequest(id=[user.id]))
+                u = user[0] if isinstance(user, list) else user
+                if hasattr(u, "access_hash") and hasattr(u, "id"):
+                    await client(DeleteContactsRequest(id=[u]))  # type: ignore[arg-type]
                 contact_removed = True
                 logger.debug(
                     f"Newly created contact {phone_number} removed after sending message"

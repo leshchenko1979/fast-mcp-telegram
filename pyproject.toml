@@ -51,6 +51,10 @@ include = ["src*"]
 [tool.setuptools.package-data]
 "*" = ["*.md"]
 
+[tool.ty.src]
+# Type-check source code only; tests use mocks and intentional loose typing
+include = ["src"]
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"

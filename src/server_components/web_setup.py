@@ -80,7 +80,7 @@ def create_session_client(session_path: Path) -> TelegramClient:
     """Create and return a configured TelegramClient."""
     return TelegramClient(
         session_path,
-        API_ID,
+        int(API_ID),
         API_HASH,
         entity_cache_limit=get_config().entity_cache_limit,
     )
@@ -141,9 +141,17 @@ async def setup_complete_reauth(request: Request):
         )
 
     client = state.get("client")
-    original_path = Path(state.get("original_session_path"))
-    temp_path = Path(state.get("temp_session_path"))
+    original_path_val = state.get("original_session_path")
+    temp_path_val = state.get("temp_session_path")
     existing_token = state.get("existing_token")
+
+    if not original_path_val or not temp_path_val or not client or not existing_token:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid setup state."}, status_code=400
+        )
+
+    original_path = Path(original_path_val)
+    temp_path = Path(temp_path_val)
 
     try:
         with contextlib.suppress(Exception):
@@ -193,6 +201,11 @@ async def setup_generate(request: Request):
 
     client = state.get("client")
     temp_session_path = state.get("session_path")
+
+    if not client or not temp_session_path:
+        return JSONResponse(
+            {"ok": False, "error": "Invalid setup state."}, status_code=400
+        )
 
     # Use desired token if specified, otherwise generate random one
     desired_token = state.get("desired_token")
@@ -323,7 +336,12 @@ def register_web_setup_routes(mcp_app):
 
         client = state.get("client")
         phone = state.get("phone")
-        masked_phone = state.get("masked_phone")
+        masked_phone = state.get("masked_phone") or ""
+
+        if not client or not phone:
+            return JSONResponse(
+                {"ok": False, "error": "Invalid setup session."}, status_code=400
+            )
 
         try:
             await client.sign_in(phone=phone, code=code)
@@ -337,7 +355,7 @@ def register_web_setup_routes(mcp_app):
             except Exception:
                 pass
             state["hint"] = hint
-            ctx = _2fa_form_context(setup_id, masked_phone, hint=hint or None)
+            ctx = _2fa_form_context(setup_id, masked_phone, hint=hint or "")
             return templates.TemplateResponse(
                 request,
                 "fragments/2fa_form.html",
@@ -369,7 +387,12 @@ def register_web_setup_routes(mcp_app):
         await cleanup_stale_setup_sessions()
 
         client = state.get("client")
-        masked_phone = state.get("masked_phone")
+        masked_phone = state.get("masked_phone") or ""
+
+        if not client:
+            return JSONResponse(
+                {"ok": False, "error": "Invalid setup session."}, status_code=400
+            )
 
         try:
             await client.sign_in(password=password)
@@ -520,6 +543,12 @@ def register_web_setup_routes(mcp_app):
             )
 
         client = state.get("client")
+        if not client:
+            return templates.TemplateResponse(
+                request,
+                "fragments/error.html",
+                create_error_response("Invalid setup session"),
+            )
 
         try:
             await client.send_code_request(phone_raw)

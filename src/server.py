@@ -7,6 +7,7 @@ import asyncio
 import contextlib
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastmcp import FastMCP
 
@@ -86,14 +87,16 @@ register_tools(mcp)
 
 def main():
     """Entry point for console script; runs the MCP server."""
-
-    run_args = {"transport": config.transport}
-    if config.transport == "http":
-        run_args.update(
-            {"host": config.host, "port": config.port, "stateless_http": True}
+    transport: Literal["stdio", "http"] = config.transport
+    if transport == "http":
+        mcp.run(
+            transport=transport,
+            host=config.host,
+            port=config.port,
+            stateless_http=True,
         )
-
-    mcp.run(**run_args)
+    else:
+        mcp.run(transport=transport)
 
 
 # Run the server if this file is executed directly

@@ -124,7 +124,7 @@ def get_normalized_chat_type(entity) -> str | None:
     return _ENTITY_TYPE_CACHE[key]
 
 
-def build_entity_dict(entity) -> dict:
+def build_entity_dict(entity) -> dict | None:
     """
     Build a uniform chat/user representation used across all tools.
 
@@ -199,7 +199,7 @@ def build_entity_dict(entity) -> dict:
     return compact
 
 
-async def _extract_forward_info(message) -> dict:
+async def _extract_forward_info(message) -> dict | None:
     """
     Extract forward information from a Telegram message in minimal format.
 
@@ -346,7 +346,7 @@ async def _extract_forward_info(message) -> dict:
     return {"sender": sender, "date": original_date, "chat": chat}
 
 
-def compute_entity_identifier(entity) -> str:
+def compute_entity_identifier(entity) -> str | None:
     """
     Compute a stable identifier string for a chat/entity suitable for link generation.
     Prefers public username; falls back to channel/chat numeric id with '-100' prefix when required.
@@ -446,7 +446,7 @@ def _matches_public_filter(entity, public: bool | None) -> bool:
     return not has_username  # public=False means no username
 
 
-async def build_entity_dict_enriched(entity_or_id) -> dict:
+async def build_entity_dict_enriched(entity_or_id) -> dict | None:
     """
     Build entity dict and include enriched fields by querying Telegram when needed.
 
@@ -484,17 +484,17 @@ async def build_entity_dict_enriched(entity_or_id) -> dict:
         if computed_type == "group":
             # Regular small groups use GetFullChatRequest with chat_id
             if entity_class == "Chat":
-                try:
-                    full = await client(
-                        GetFullChatRequest(chat_id=getattr(entity, "id", None))
-                    )
-                    full_chat = getattr(full, "full_chat", None)
-                    members_count = getattr(full_chat, "participants_count", None)
-                    about_value = getattr(full_chat, "about", None)
-                except Exception as e:
-                    logger.debug(
-                        f"GetFullChatRequest failed for chat {getattr(entity, 'id', None)}: {e}"
-                    )
+                chat_id = getattr(entity, "id", None)
+                if chat_id is not None:
+                    try:
+                        full = await client(GetFullChatRequest(chat_id=chat_id))
+                        full_chat = getattr(full, "full_chat", None)
+                        members_count = getattr(full_chat, "participants_count", None)
+                        about_value = getattr(full_chat, "about", None)
+                    except Exception as e:
+                        logger.debug(
+                            f"GetFullChatRequest failed for chat {getattr(entity, 'id', None)}: {e}"
+                        )
             else:
                 # Megagroups are Channels with megagroup=True; use GetFullChannelRequest
                 try:

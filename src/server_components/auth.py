@@ -65,7 +65,7 @@ def extract_bearer_token() -> str | None:
             return None
 
         # Imported lazily to avoid dependency during stdio runs
-        from fastmcp.server.dependencies import get_http_headers  # type: ignore
+        from fastmcp.server.dependencies import get_http_headers
 
         headers = get_http_headers()
         return _extract_bearer_token_from_headers(headers)
@@ -92,7 +92,7 @@ def with_auth_context(func: Callable) -> Callable:
             return await func(*args, **kwargs)
 
         # http-auth mode: token comes from FastMCP auth provider (SessionFileTokenVerifier)
-        from fastmcp.server.dependencies import get_access_token  # type: ignore
+        from fastmcp.server.dependencies import get_access_token
 
         access_token = get_access_token()
 
@@ -139,7 +139,7 @@ def extract_bearer_token_from_request(request) -> str | None:
 
         # Fallback: FastMCP dependency (works in tool-execution context)
         try:  # pragma: no cover - optional path
-            from fastmcp.server.dependencies import get_http_headers  # type: ignore
+            from fastmcp.server.dependencies import get_http_headers
 
             headers = get_http_headers()
             return _extract_bearer_token_from_headers(headers)

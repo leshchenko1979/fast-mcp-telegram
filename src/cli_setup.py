@@ -143,9 +143,10 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
     print(f"\n🔐 Authenticating with session: {setup_config.session_name}")
 
     # Create the client and connect
+    api_id_int = int(setup_config.api_id)
     client = TelegramClient(
         session_path,
-        setup_config.api_id,
+        api_id_int,
         setup_config.api_hash,
         entity_cache_limit=setup_config.entity_cache_limit,
     )
@@ -156,13 +157,15 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
         if setup_config.bot_token:
             # Bot authentication
             print("Authenticating as bot...")
-            await client.start(bot_token=setup_config.bot_token)
+            await client.start(bot_token=setup_config.bot_token)  # type: ignore[invalid-await]
             print("Successfully authenticated as bot!")
 
             # Test the connection by getting bot info
             me = await client.get_me()
-            print(f"Bot username: @{me.username}")
-            print(f"Bot name: {me.first_name}")
+            username = getattr(me, "username", None) or ""
+            first_name = getattr(me, "first_name", None) or "Bot"
+            print(f"Bot username: @{username}")
+            print(f"Bot name: {first_name}")
         else:
             # User authentication
             if not await client.is_user_authorized():
