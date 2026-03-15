@@ -1,3 +1,6 @@
+### 2026-03-15
+- **2FA Password Hint Display**: Fixed display of 2FA password hint in web setup flow. Template had conditional hint display but backend never passed it. Now fetches hint from Telegram API via GetPasswordRequest when SessionPasswordNeededError is raised, stores in setup session state, and passes to 2fa_form template in all three render paths (initial 2FA prompt, PasswordHashInvalidError retry, generic exception retry). Added _2fa_form_context helper for DRY template context building.
+
 ### 2026-02-28
 - **Unified get_messages API (PR #960)**: Consolidated search_messages_in_chat and read_messages into a single get_messages tool
 - **Universal Replies Support**: Added reply_to_id parameter for unified handling of channel post comments, forum topic messages, and message replies
@@ -138,6 +141,7 @@
 ### Resolved Issues ✅
 - **Critical Connection Storm Resolution**: Successfully resolved connection storm consuming 1,300+ reconnections per minute and 44.70% CPU usage. Implemented exponential backoff, circuit breaker pattern, session health monitoring, and enhanced error detection. Restored original bearer token with fresh session data while preserving user continuity. Achieved complete elimination of connection storm and normal resource usage (2025-10-17)
 - **Web Setup Interface Improvements**: Enhanced styling with larger input/button text (1.1rem/1rem) and smaller hint text (0.85rem), removed excessive instructional text, cleaned up empty card styling for better visual hierarchy (2025-09-09)
+- **2FA Password Hint Display**: Implemented display of 2FA password hint in web setup flow by fetching from `account.GetPasswordRequest`, storing in setup state, and passing to 2fa_form template via _2fa_form_context helper (2026-03-15)
 - **2FA Authentication Route Fix**: Added missing `/setup/2fa` route handler with proper password validation, error handling, and integration with session management and config generation flow (2025-09-09)
 - **Documentation and Configuration Updates**: Updated all documentation to reflect current codebase state, created comprehensive .env.example template, updated README with three server modes, simplified project structure, and updated docker-compose.yml and deploy script to use new configuration system (2025-09-08)
 - **Configuration System Modernization**: Implemented comprehensive pydantic-settings based configuration system with three clear server modes (stdio, http-no-auth, http-auth) and automatic CLI parsing. Created ServerConfig and SetupConfig classes with smart defaults and validation (2025-09-08)

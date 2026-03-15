@@ -12,6 +12,7 @@ from starlette.templating import Jinja2Templates
 from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
+from telethon.tl.functions.account import GetPasswordRequest
 
 from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
 from src.config.server_config import ServerMode, get_config
@@ -57,6 +58,22 @@ def validate_setup_session(setup_id: str) -> dict[str, Any] | None:
 def create_error_response(error: str, template: str = "fragments/error.html") -> dict:
     """Create standardized error response."""
     return {"error": error}
+
+
+def _2fa_form_context(
+    setup_id: str,
+    masked_phone: str,
+    *,
+    error: str | None = None,
+    hint: str | None = None,
+) -> dict:
+    """Build template context for 2FA form fragment."""
+    ctx: dict[str, Any] = {"setup_id": setup_id, "masked_phone": masked_phone}
+    if error:
+        ctx["error"] = error
+    if hint:
+        ctx["hint"] = hint
+    return ctx
 
 
 def create_session_client(session_path: Path) -> TelegramClient:
@@ -313,10 +330,18 @@ def register_web_setup_routes(mcp_app):
             state["authorized"] = True
             return await _complete_authentication(request, state)
         except SessionPasswordNeededError:
+            hint = ""
+            try:
+                pw = await client(GetPasswordRequest())
+                hint = (pw.hint or "").strip()
+            except Exception:
+                pass
+            state["hint"] = hint
+            ctx = _2fa_form_context(setup_id, masked_phone, hint=hint or None)
             return templates.TemplateResponse(
                 request,
                 "fragments/2fa_form.html",
-                {"setup_id": setup_id, "masked_phone": masked_phone},
+                ctx,
             )
         except Exception as e:
             return templates.TemplateResponse(
@@ -351,24 +376,28 @@ def register_web_setup_routes(mcp_app):
             state["authorized"] = True
             return await _complete_authentication(request, state)
         except PasswordHashInvalidError:
+            hint = state.get("hint") or ""
             return templates.TemplateResponse(
                 request,
                 "fragments/2fa_form.html",
-                {
-                    "setup_id": setup_id,
-                    "masked_phone": masked_phone,
-                    "error": "Invalid password. Please try again.",
-                },
+                _2fa_form_context(
+                    setup_id,
+                    masked_phone,
+                    error="Invalid password. Please try again.",
+                    hint=hint or None,
+                ),
             )
         except Exception as e:
+            hint = state.get("hint") or ""
             return templates.TemplateResponse(
                 request,
                 "fragments/2fa_form.html",
-                {
-                    "setup_id": setup_id,
-                    "masked_phone": masked_phone,
-                    "error": f"Authentication failed: {e}",
-                },
+                _2fa_form_context(
+                    setup_id,
+                    masked_phone,
+                    error=f"Authentication failed: {e}",
+                    hint=hint or None,
+                ),
             )
 
     @mcp_app.custom_route("/setup/reauthorize", methods=["POST"])
