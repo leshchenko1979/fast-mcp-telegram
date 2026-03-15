@@ -15,6 +15,7 @@ import pytest
 from src.client.connection import _current_token, set_request_token
 from src.server import mcp
 from src.server_components.auth import extract_bearer_token, with_auth_context
+from tests.conftest import make_access_token
 
 
 class TestFastMCPDecoratorOrder:
@@ -53,11 +54,11 @@ class TestFastMCPDecoratorOrder:
     ):
         """Test that @with_auth_context works correctly when called directly."""
 
-        # Mock the FastMCP framework to simulate a real tool call
-        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
-            # Set up mock headers with a valid token
-            mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
-
+        # Mock get_access_token (used by with_auth_context in http-auth mode)
+        with patch(
+            "fastmcp.server.dependencies.get_access_token",
+            return_value=make_access_token(test_token),
+        ):
             # Create a test function with the correct decorator order
             @with_auth_context
             async def test_tool():
@@ -80,10 +81,11 @@ class TestFastMCPDecoratorOrder:
     async def test_decorator_order_prevents_fallback_issue(self, http_auth_config):
         """Test that correct decorator order prevents the fallback to default session issue."""
 
-        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
-            test_token = "PreventFallbackToken123"
-            mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
-
+        test_token = "PreventFallbackToken123"
+        with patch(
+            "fastmcp.server.dependencies.get_access_token",
+            return_value=make_access_token(test_token),
+        ):
             # Test with CORRECT decorator order
             @with_auth_context
             async def correct_order_tool():
@@ -131,7 +133,7 @@ class TestFastMCPDecoratorOrder:
         # Test setting None
         set_request_token(None)
         current_token = _current_token.get()
-        assert current_token is None, "Expected None, got {current_token}"
+        assert current_token is None, f"Expected None, got {current_token}"
 
 
 class TestFastMCPToolIntegration:
@@ -208,17 +210,26 @@ class TestEndToEndTokenFlow:
     async def test_token_context_isolation(self, http_auth_config):
         """Test that token context is properly isolated between different requests."""
 
-        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
+        # Simulate token flow via get_access_token (http-auth mode)
+        token1 = "Token1"
+        token2 = "Token2"
+        with patch(
+            "fastmcp.server.dependencies.get_access_token",
+            side_effect=[
+                make_access_token(token1),
+                make_access_token(token2),
+            ],
+        ):
             # Simulate first request
-            token1 = "Token1"
-            mock_headers.return_value = {"authorization": f"Bearer {token1}"}
-            set_request_token(extract_bearer_token())
+            from fastmcp.server.dependencies import get_access_token
+
+            access_token = get_access_token()
+            set_request_token(access_token.token)
             assert _current_token.get() == token1
 
             # Simulate second request
-            token2 = "Token2"
-            mock_headers.return_value = {"authorization": f"Bearer {token2}"}
-            set_request_token(extract_bearer_token())
+            access_token = get_access_token()
+            set_request_token(access_token.token)
             assert _current_token.get() == token2
 
             # Verify tokens are different
@@ -285,10 +296,11 @@ class TestRealIssueVerification:
         # This test simulates what would happen with the WRONG decorator order
         # (which was the original bug)
 
-        with patch("fastmcp.server.dependencies.get_http_headers") as mock_headers:
-            test_token = "ReproductionTestToken123"
-            mock_headers.return_value = {"authorization": f"Bearer {test_token}"}
-
+        test_token = "ReproductionTestToken123"
+        with patch(
+            "fastmcp.server.dependencies.get_access_token",
+            return_value=make_access_token(test_token),
+        ):
             # Create a function with the CORRECT decorator order (what we have now)
             @with_auth_context
             async def correct_order_func():

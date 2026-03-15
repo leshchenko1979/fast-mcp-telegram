@@ -10,9 +10,15 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 from fastmcp import Client, FastMCP
+from fastmcp.server.auth import AccessToken
 from fastmcp.server.auth.providers.jwt import StaticTokenVerifier
 
 from src.config.server_config import ServerConfig, ServerMode, set_config
+
+
+def make_access_token(token: str) -> AccessToken:
+    """Create AccessToken for tests (used when mocking get_access_token)."""
+    return AccessToken(token=token, client_id="test", scopes=[])
 
 
 class MockTelegramClient:
@@ -200,28 +206,6 @@ def stdio_config():
     config = ServerConfig()
     config.server_mode = ServerMode.STDIO
     set_config(config)
-    return config
-
-
-# Helper functions for manual config setup
-def create_http_auth_config():
-    """Create and return HTTP auth mode config."""
-    config = ServerConfig()
-    config.server_mode = ServerMode.HTTP_AUTH
-    return config
-
-
-def create_http_no_auth_config():
-    """Create and return HTTP no-auth mode config."""
-    config = ServerConfig()
-    config.server_mode = ServerMode.HTTP_NO_AUTH
-    return config
-
-
-def create_stdio_config():
-    """Create and return STDIO mode config."""
-    config = ServerConfig()
-    config.server_mode = ServerMode.STDIO
     return config
 
 

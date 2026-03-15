@@ -1,12 +1,15 @@
 ## Current Work Focus
-**Completed**: PR #960 - Unified get_messages API with universal replies support (2026-02-28)
+**Completed**: FastMCP 3 Bearer Token Fix – Official Auth Approach (2026-03-15)
+
+**Implementation**:
+- SessionFileTokenVerifier validates tokens by checking `{session_directory}/{token}.session` exists
+- `auth=SessionFileTokenVerifier(config)` only when `require_auth` (http-auth mode)
+- `with_auth_context` uses `get_access_token()` instead of `get_http_headers()` – bypasses upstream bug #596
+- All 250 tests pass; MTProto API and web setup still use `extract_bearer_token_from_request` for direct request access
 
 **Next Steps**:
-1. **Production Testing**: Deploy and test new get_messages API in production
-2. **Monitor Usage**: Track adoption of reply_to_id for different use cases
-3. **Documentation**: Consider adding workflow examples for forum topics
-
-**Current Status**: Successfully consolidated message tools into a unified get_messages API with reply_to_id parameter that automatically handles channel post comments, forum topics, and message replies.
+1. **Production Testing**: Deploy and verify Bearer token flow in http-auth mode
+2. **Monitor**: Confirm Cursor/Streamable HTTP works with new auth provider
 
 
 - **Connection Storm Resolved**: Eliminated 1,300+ reconnections per minute that was consuming 44.70% CPU and 95.31% memory

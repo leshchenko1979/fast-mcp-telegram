@@ -134,6 +134,8 @@ return log_and_build_error(
 - **Documentation**: Tool descriptions must be clear for AI model consumption
 
 ### FastMCP Authentication Constraints
-- **Critical Parameter**: `stateless_http=True` is **REQUIRED** for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode
+- **Auth Provider (HTTP_AUTH mode)**: Uses `auth=SessionFileTokenVerifier` – FastMCP's official TokenVerifier protocol. Token extraction runs in middleware before the Mount, bypassing get_http_headers() bug (PrefectHQ/fastmcp#596)
+- **Token in Tools**: `with_auth_context` uses `get_access_token()` from fastmcp.server.dependencies, not `get_http_headers()`. Access token flows from auth middleware to tools via dependency injection
+- **Custom Routes**: `extract_bearer_token_from_request(request)` remains for MTProto API and web setup – direct request access works
+- **Critical Parameter**: `stateless_http=True` is required for HTTP transport
 - **Decorator Order**: `@with_auth_context` must be the innermost decorator on all tool functions
-- **HTTP Transport**: Authentication middleware only works correctly with `stateless_http=True` parameter

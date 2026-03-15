@@ -1,4 +1,5 @@
 ### 2026-03-15
+- **FastMCP 3 Bearer Token Fix**: Switched to FastMCP's auth=TokenVerifier to fix token extraction failure (upstream bug PrefectHQ/fastmcp#596). Created SessionFileTokenVerifier validating tokens via session file existence. `with_auth_context` now uses `get_access_token()` instead of `get_http_headers()`. Auth only enabled in http-auth mode. All 250 tests pass.
 - **2FA Password Hint Display**: Fixed display of 2FA password hint in web setup flow. Template had conditional hint display but backend never passed it. Now fetches hint from Telegram API via GetPasswordRequest when SessionPasswordNeededError is raised, stores in setup session state, and passes to 2fa_form template in all three render paths (initial 2FA prompt, PasswordHashInvalidError retry, generic exception retry). Added _2fa_form_context helper for DRY template context building.
 
 ### 2026-02-28
@@ -147,6 +148,7 @@
 - **Configuration System Modernization**: Implemented comprehensive pydantic-settings based configuration system with three clear server modes (stdio, http-no-auth, http-auth) and automatic CLI parsing. Created ServerConfig and SetupConfig classes with smart defaults and validation (2025-09-08)
 - **Server Entrypoint Slimming**: `src/server.py` now registers routes (`register_routes`) and tools (`register_tools`) on startup; tool and route logic moved to dedicated modules (2025-09-08)
 - **Tool Splitting Implementation**: Successfully implemented Item 1 from GitHub issue #1 by splitting ambiguous tools into single-purpose tools to eliminate LLM agent errors. Split `search_messages` into `search_messages_globally` and `search_messages_in_chat`, and `send_or_edit_message` into `send_message` and `edit_message`. Updated documentation and memory bank accordingly (2025-01-07)
+- **FastMCP 3 Bearer Token Fix**: Fixed token extraction failure in FastMCP 3 by switching to auth=SessionFileTokenVerifier. get_http_headers() returns wrong/empty for Streamable HTTP (bug #596). Auth middleware extracts token before Mount; tools use get_access_token() dependency. All 250 tests pass (2026-03-15)
 - **Bearer Token Authentication System**: Successfully identified and resolved the core authentication issue where bearer tokens were not being properly extracted and processed, causing incorrect fallback to default sessions (2025-01-04)
 - **Critical FastMCP Parameter Discovery**: Discovered that `stateless_http=True` parameter is essential for FastMCP to properly execute the `@with_auth_context` decorator in HTTP transport mode (2025-01-04)
 - **Decorator Order Fix**: Fixed incorrect decorator order in FastMCP tool functions - `@with_auth_context` is now the innermost decorator, ensuring proper authentication middleware execution (2025-01-04)

@@ -67,8 +67,15 @@ async def lifespan(app: FastMCP):
 
 setup_logging()
 
+# Auth provider only for http-auth mode; stdio and http-no-auth have no auth
+_auth_provider = None
+if config.require_auth:
+    from src.server_components.session_token_verifier import SessionFileTokenVerifier
+
+    _auth_provider = SessionFileTokenVerifier(config)
+
 # Initialize MCP server
-mcp = FastMCP("Telegram MCP Server", lifespan=lifespan)
+mcp = FastMCP("Telegram MCP Server", auth=_auth_provider, lifespan=lifespan)
 
 # Register routes and tools immediately (no on_startup hook available)
 register_health_routes(mcp)

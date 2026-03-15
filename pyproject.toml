@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp>=2,<3",
+    "fastmcp>=3",
     "telethon",
     "jinja2",
     "pydantic-settings"

@@ -75,12 +75,12 @@ def extract_bearer_token() -> str | None:
 
 
 def with_auth_context(func: Callable) -> Callable:
-    """Decorator to extract Bearer token and set it in request context.
+    """Decorator to set Bearer token in request context for get_client_by_token.
 
-    Behavior based on server mode:
-    - stdio: No auth (default session only)
-    - http-no-auth: Auth bypassed entirely
-    - http-auth: Auth required (Bearer token mandatory)
+    When auth is disabled (stdio, http-no-auth): uses default session (None).
+    When auth is required (http-auth): uses get_access_token() from FastMCP's
+    auth middleware. The token comes from SessionFileTokenVerifier which runs
+    before the Mount, bypassing the get_http_headers bug (FastMCP #596).
     """
 
     @wraps(func)
@@ -91,35 +91,22 @@ def with_auth_context(func: Callable) -> Callable:
             set_request_token(None)
             return await func(*args, **kwargs)
 
-        # At this point, we're in http-auth mode - authentication is required
-        token = extract_bearer_token()
+        # http-auth mode: token comes from FastMCP auth provider (SessionFileTokenVerifier)
+        from fastmcp.server.dependencies import get_access_token  # type: ignore
 
-        if not token:
-            try:
-                from fastmcp.server.dependencies import (
-                    get_http_headers,  # type: ignore
-                )
+        access_token = get_access_token()
 
-                headers = get_http_headers()
-                auth_header = headers.get("authorization", "")
-            except Exception:
-                auth_header = ""
-
-            if auth_header:
-                error_msg = (
-                    "Invalid authorization header format. Expected 'Bearer <token>' "
-                    f"but got: {auth_header[:20]}..."
-                )
-            else:
-                error_msg = (
-                    "Missing Bearer token in Authorization header. HTTP requests require "
-                    "authentication. Use: 'Authorization: Bearer <your-token>' header."
-                )
+        if access_token is None:
+            error_msg = (
+                "Missing Bearer token in Authorization header. HTTP requests require "
+                "authentication. Use: 'Authorization: Bearer <your-token>' header."
+            )
             logger.warning(f"Authentication failed: {error_msg}")
             raise Exception(error_msg)
 
-        set_request_token(token)
-        logger.info(f"Bearer token extracted for request: {token[:8]}...")
+        session_id = access_token.token
+        set_request_token(session_id)
+        logger.info(f"Bearer token from auth provider for request: {session_id[:8]}...")
 
         return await func(*args, **kwargs)
 
