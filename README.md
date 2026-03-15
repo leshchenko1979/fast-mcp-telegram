@@ -8,12 +8,12 @@
 
 ## 🌐 Demo
 
-1. Open https://tg-mcp.redevest.ru/setup to begin the authentication flow.
+1. Open https://tg-mcp.l1979.ru/setup to begin the authentication flow.
 2. After finishing, you'll receive a ready-to-use `mcp.json` with your Bearer token.
 3. Use the config with your MCP client to check out this MCP server capabilities.
 4. Or try the HTTP‑MTProto Bridge right away with curl (replace TOKEN):
 ```bash
-curl -X POST "https://tg-mcp.redevest.ru/mtproto-api/messages.SendMessage" \
+curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"params": {"peer": "me", "message": "Hello from Demo!"}}'
