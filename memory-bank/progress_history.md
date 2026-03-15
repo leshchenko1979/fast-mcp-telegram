@@ -1,5 +1,11 @@
 # Progress History (Archived 2025 Entries)
 
+## 2026 Development History
+
+### 2026-03-15
+- Replaced aiohttp with httpx for file downloads in send_message tool (URL-based media attachments)
+- Removed aiohttp dependency to consolidate on httpx (already used by FastMCP)
+
 ## 2025 Development History
 
 ### 2025-11-27 (Second Entry)

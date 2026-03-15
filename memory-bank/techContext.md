@@ -9,11 +9,11 @@
 ### Key Dependencies
 ```python
 # Core dependencies from pyproject.toml (managed by setuptools)
-fastmcp          # MCP server framework
+fastmcp          # MCP server framework (uses httpx for HTTP transport)
 telethon         # Telegram API client
 # Logging handled by Python stdlib
 asyncio          # Async/await support (built-in)
-aiohttp          # HTTP transport for MCP
+httpx            # HTTP client for file downloads and MCP transport
 python-dotenv    # Environment variable management
 ```
 

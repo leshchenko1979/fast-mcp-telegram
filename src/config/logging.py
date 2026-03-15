@@ -64,7 +64,6 @@ def create_logging_config(log_level: str) -> dict[str, Any]:
             "asyncio": {"level": "WARNING"},
             "urllib3": {"level": "WARNING"},
             "httpx": {"level": "WARNING"},
-            "aiohttp": {"level": "WARNING"},
             "telethon": {"level": "WARNING"},
             "telethon.network": {"level": "ERROR"},
             "sse_starlette.sse": {"level": "WARNING"},

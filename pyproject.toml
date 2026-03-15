@@ -25,7 +25,6 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "aiohttp",
     "fastmcp>=2,<3",
     "telethon",
     "jinja2",

@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import Any
 from urllib.parse import urlparse
 
-import aiohttp
+import httpx
 from telethon.tl.functions.contacts import DeleteContactsRequest, ImportContactsRequest
 from telethon.tl.types import InputPhoneContact
 
@@ -150,7 +150,7 @@ def _validate_url_security(url: str) -> tuple[bool, str]:
 
 
 async def _download_single_file(
-    http_client: aiohttp.ClientSession, url: str
+    http_client: httpx.AsyncClient, url: str
 ) -> bytes | str:
     """Download a single file from URL with security validation."""
 
@@ -162,27 +162,27 @@ async def _download_single_file(
     if url.startswith(("http://", "https://")):
         logger.debug(f"Downloading file from {url}")
         try:
-            async with http_client.get(url) as response:
-                # Check response size limit
-                content_length = response.headers.get("content-length")
-                config = get_config()
-                max_size_bytes = config.max_file_size_mb * 1024 * 1024
+            response = await http_client.get(url, follow_redirects=False)
+            # Check response size limit
+            content_length = response.headers.get("content-length")
+            config = get_config()
+            max_size_bytes = config.max_file_size_mb * 1024 * 1024
 
-                if content_length and int(content_length) > max_size_bytes:
-                    raise ValueError(
-                        f"File too large: {content_length} bytes (max: {max_size_bytes} bytes)"
-                    )
+            if content_length and int(content_length) > max_size_bytes:
+                raise ValueError(
+                    f"File too large: {content_length} bytes (max: {max_size_bytes} bytes)"
+                )
 
-                response.raise_for_status()
-                content = await response.read()
+            response.raise_for_status()
+            content = response.content
 
-                # Verify actual content size
-                if len(content) > max_size_bytes:
-                    raise ValueError(
-                        f"Downloaded file too large: {len(content)} bytes (max: {max_size_bytes} bytes)"
-                    )
+            # Verify actual content size
+            if len(content) > max_size_bytes:
+                raise ValueError(
+                    f"Downloaded file too large: {len(content)} bytes (max: {max_size_bytes} bytes)"
+                )
 
-                return content
+            return content
 
         except Exception as e:
             # Add URL context to error message
@@ -202,20 +202,16 @@ async def _download_urls_to_bytes(file_list: list[str]) -> list[bytes | str]:
     import asyncio
 
     # Enhanced security configuration
-    timeout = aiohttp.ClientTimeout(total=30.0, connect=10.0)
-    connector = aiohttp.TCPConnector(
-        limit=10,  # Limit concurrent connections
-        limit_per_host=2,  # Limit per host
-        ttl_dns_cache=300,  # DNS cache TTL
-        use_dns_cache=True,
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    limits = httpx.Limits(
+        max_connections=10,
+        max_keepalive_connections=2,
     )
 
-    async with aiohttp.ClientSession(
+    async with httpx.AsyncClient(
         timeout=timeout,
-        connector=connector,
-        # Disable redirects to prevent SSRF
-        allow_redirects=False,
-        # Add security headers
+        limits=limits,
+        follow_redirects=False,
         headers={
             "User-Agent": "fast-mcp-telegram/1.0",
             "Accept": "*/*",
