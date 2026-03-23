@@ -110,8 +110,8 @@ This release <briefly describe the primary user-facing value proposition>.
 
 ### 8. Community Announcement Process
 - **Prerequisite**: Only proceed after user confirms GitHub release is published
-- **Target**: Send message to `@mcp_telegram` community group
-- **Language**: Russian (primary community language)
+- **Targets**: English group [invite link](https://t.me/+U_3CpNWhXa9jZDcy); Russian `@mcp_telegram` ([t.me/mcp_telegram](https://t.me/mcp_telegram))
+- **Language**: English for the English group; Russian for the Russian group
 - **Content**: Include version number, header and key features
 - **Format**: Use Markdown formatting with emojis for better readability
 - **Structure**:

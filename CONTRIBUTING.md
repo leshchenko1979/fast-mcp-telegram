@@ -467,7 +467,7 @@ For development deployment, see the sections above. For production deployment in
 
 - **Issues**: [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/leshchenko1979/fast-mcp-telegram/discussions)
-- **Community**: [Telegram Community](https://t.me/mcp_telegram)
+- **Community**: [English](https://t.me/+U_3CpNWhXa9jZDcy) · [Russian](https://t.me/mcp_telegram)
 
 ## 📄 License
 

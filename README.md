@@ -226,7 +226,7 @@ This project is licensed under the MIT License - see the [LICENSE](https://githu
 
 **Made with ❤️ for the AI automation community**
 
-[⭐ Star us on GitHub](https://github.com/leshchenko1979/fast-mcp-telegram) • [💬 Join our community](https://t.me/mcp_telegram)
+[⭐ Star us on GitHub](https://github.com/leshchenko1979/fast-mcp-telegram) • [💬 English community](https://t.me/+U_3CpNWhXa9jZDcy) • [💬 Russian community](https://t.me/mcp_telegram)
 
 </div>
 

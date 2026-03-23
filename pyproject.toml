@@ -36,6 +36,8 @@ Homepage = "https://github.com/leshchenko1979/fast-mcp-telegram"
 Repository = "https://github.com/leshchenko1979/fast-mcp-telegram"
 Documentation = "https://github.com/leshchenko1979/fast-mcp-telegram#readme"
 Issues = "https://github.com/leshchenko1979/fast-mcp-telegram/issues"
+"Community (EN)" = "https://t.me/+U_3CpNWhXa9jZDcy"
+"Community (RU)" = "https://t.me/mcp_telegram"
 
 [project.scripts]
 fast-mcp-telegram = "src.server:main"
