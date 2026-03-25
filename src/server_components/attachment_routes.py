@@ -20,7 +20,7 @@ def _content_disposition(filename: str | None) -> str:
     raw = (filename or "attachment").replace('"', "'")
     ascii_name = raw.encode("ascii", "replace").decode("ascii") or "attachment"
     encoded = quote(raw, safe="")
-    return f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{encoded}'
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
 
 
 def _media_size_hint_for_log(message: Any) -> int | None:
