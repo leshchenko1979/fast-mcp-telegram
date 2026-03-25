@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any
@@ -5,10 +7,73 @@ from typing import Any
 from telethon.errors import RPCError
 from telethon.tl.functions.messages import TranscribeAudioRequest
 
-from src.client.connection import get_connected_client
+from src.client.connection import get_connected_client, get_request_token
+from src.config.server_config import get_config
+from src.server_components.attachment_tickets import mint_attachment_ticket
 from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
 
 logger = logging.getLogger(__name__)
+
+
+def _document_voice_and_round_note_flags(document) -> tuple[bool, bool]:
+    """Return (is_voice_message, is_round_video) from document attributes."""
+    is_voice = False
+    is_round_video = False
+    for attr in getattr(document, "attributes", []) or []:
+        ac = attr.__class__.__name__
+        if ac == "DocumentAttributeAudio" and getattr(attr, "voice", False):
+            is_voice = True
+        elif ac == "DocumentAttributeVideo" and getattr(attr, "round_message", False):
+            is_round_video = True
+    return is_voice, is_round_video
+
+
+def _message_supports_streaming_attachment(message) -> bool:
+    """Whether attachment HTTP streaming is supported for this message (documents, photos)."""
+    media = getattr(message, "media", None)
+    if not media:
+        return False
+    media_cls = media.__class__.__name__
+    if media_cls == "MessageMediaPhoto":
+        return True
+    if media_cls == "MessageMediaDocument":
+        document = getattr(media, "document", None)
+        if not document:
+            return False
+        is_voice, is_round_video = _document_voice_and_round_note_flags(document)
+        return not (is_voice or is_round_video)
+    return False
+
+
+async def _maybe_set_attachment_download_url(
+    media_dict: dict[str, Any],
+    message,
+    chat_id: int | None,
+) -> None:
+    """Set media['attachment_download_url'] when HTTP mode and DOMAIN resolves to a public origin."""
+    if chat_id is None:
+        return
+    cfg = get_config()
+    if cfg.transport != "http" or not cfg.public_base_url_normalized:
+        return
+    if not _message_supports_streaming_attachment(message):
+        return
+
+    session_token = get_request_token()
+    if session_token is None:
+        session_token = cfg.session_name
+
+    filename = media_dict.get("filename")
+    mime_type = media_dict.get("mime_type")
+    tid = await mint_attachment_ticket(
+        session_token,
+        int(chat_id),
+        int(message.id),
+        filename=filename if isinstance(filename, str) else None,
+        mime_type=mime_type if isinstance(mime_type, str) else None,
+    )
+    base = cfg.public_base_url_normalized
+    media_dict["attachment_download_url"] = f"{base}/v1/attachments/{tid}"
 
 
 def _has_any_media(message) -> bool:
@@ -221,22 +286,16 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
     if media_cls == "MessageMediaDocument":
         document = getattr(media, "document", None)
         if document:
-            # Check if it's a voice message or round video via attributes
-            is_voice = False
-            is_round_video = False
+            is_voice, is_round_video = _document_voice_and_round_note_flags(document)
             duration = None
 
             if hasattr(document, "attributes"):
                 for attr in document.attributes:
                     attr_cls = attr.__class__.__name__
-                    if attr_cls == "DocumentAttributeAudio":
-                        if getattr(attr, "voice", False):
-                            is_voice = True
-                        if hasattr(attr, "duration"):
-                            duration = attr.duration
-                    elif attr_cls == "DocumentAttributeVideo":
-                        if getattr(attr, "round_message", False):
-                            is_round_video = True
+                    if (
+                        attr_cls == "DocumentAttributeAudio"
+                        or attr_cls == "DocumentAttributeVideo"
+                    ):
                         if hasattr(attr, "duration"):
                             duration = attr.duration
                     elif hasattr(attr, "file_name") and attr.file_name:
@@ -260,6 +319,21 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
             file_size = getattr(document, "size", None)
             if file_size is not None:
                 placeholder["approx_size_bytes"] = file_size
+
+    elif media_cls == "MessageMediaPhoto":
+        placeholder["type"] = "photo"
+        ph = getattr(media, "photo", None)
+        if ph and getattr(ph, "sizes", None):
+            sized = [
+                s
+                for s in ph.sizes
+                if getattr(s, "size", None) is not None
+                and type(s).__name__ != "PhotoStrippedSize"
+            ]
+            if sized:
+                largest = max(sized, key=lambda s: getattr(s, "size", 0))
+                placeholder["approx_size_bytes"] = largest.size
+        placeholder.setdefault("mime_type", "image/jpeg")
 
     # Handle Voice Messages
     elif media_cls == "MessageMediaVoice":
@@ -429,6 +503,9 @@ async def build_message_result(
         media_placeholder = _build_media_placeholder(message)
         if media_placeholder is not None:
             result["media"] = media_placeholder
+            await _maybe_set_attachment_download_url(
+                result["media"], message, chat.get("id")
+            )
 
     if forward_info is not None:
         result["forwarded_from"] = forward_info

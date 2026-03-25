@@ -82,6 +82,11 @@ def set_request_token(token: str | None) -> None:
     _current_token.set(token)
 
 
+def get_request_token() -> str | None:
+    """Return the bearer token for the current context, or None if unset (default session applies)."""
+    return _current_token.get(None)
+
+
 async def _get_client_by_token(token: str) -> TelegramClient:
     """Get or create a TelegramClient instance for the given token."""
     async with _cache_lock:

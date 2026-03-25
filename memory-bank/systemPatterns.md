@@ -39,6 +39,7 @@ The project follows a modular architecture with clear separation of concerns:
 - **Stateless HTTP**: Uses `stateless_http=True` for proper auth context handling
 - **Decorator Pattern**: `@with_auth_context` ensures bearer token extraction and validation
 - **Tool Registration**: Tools are registered dynamically from `src/tools/` modules
+- **Custom HTTP routes**: `/health`, `/setup/*`, `/mtproto-api/*`, **`/v1/attachments/{uuid}`** — attachment downloads are **intentionally unauthenticated** (UUID is the capability); minting happens inside authenticated tool flows and stores `session_token` on the ticket for Telethon access
 
 ### Configuration System
 - **Pydantic Settings**: Type-safe configuration from env vars and `.env` files

@@ -1,4 +1,18 @@
 ## Current Work Focus
+**Completed**: HTTP attachment streaming (2026-03-25)
+
+**Implementation**:
+- **`DOMAIN`** drives public attachment URLs via **`public_base_url_normalized`** (no separate `PUBLIC_BASE_URL`); **`ATTACHMENT_TICKET_TTL_SECONDS`** in `ServerConfig`; `.env.example` updated
+- In-memory UUID tickets (`attachment_tickets.py`) bind `session_token`, `chat_id`, `message_id`, filename/mime TTL
+- **`GET /v1/attachments/{uuid}`** — no `Authorization`; `handle_attachment_download` uses ticket’s session + Telethon `iter_download`
+- **`message_format.build_message_result`** sets **`media.attachment_download_url`** when `transport == http` and public base URL set (documents except voice/round-video, photos)
+- **`get_request_token()`** on `connection` for minting context; default session name when token unset
+- README, SECURITY.md, Tools-Reference.md updated; tests in `tests/test_attachment_streaming.py`
+
+**Operational notes**: Treat attachment URLs as secrets; single-replica in-memory tickets.
+
+---
+
 **Completed**: FastMCP 3 Bearer Token Fix – Official Auth Approach (2026-03-15)
 
 **Implementation**:
