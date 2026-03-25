@@ -43,13 +43,15 @@ When creating release notes, follow this systematic approach:
 - **SECONDARY**: Internal improvements only if there are no user-facing features to highlight
 - **OMIT**: Refactoring, code quality improvements, documentation changes, and meta changes unless they're the only changes
 - **CONCISE**: If there are user-facing features, omit all internal improvements to keep notes focused on value
+- **Fixes vs new work**: Do not list under **Fixes** items that only polish or correct behavior of features introduced in the same release; describe those features once under **New Features**. Reserve **Fixes** for regressions or bugs unrelated to that release's new capabilities.
+- **Major dependency milestones**: When the stack changes in a user-visible way (e.g. FastMCP 3.x), call it out under **New Features**, not only in prose.
 
 ### 4. Format Release Notes
 
 Use this markdown template (paste as a markdown code block in chat):
 
 ```markdown
-<Main user-facing features or key improvements - NO VERSION NUMBERS>
+<One short sentence: main value — NO VERSION NUMBERS in this line>
 
 ## New Features
 - **`tool_name` / feature** - What users can now do (use backticks for tools, params like `chat_id`)
@@ -63,7 +65,7 @@ This release <briefly describe the primary user-facing value proposition>.
 
 **Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
 ```
-**Note**: Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`). Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the release title.
+**Note**: Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`). Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the opening line. Omit the **Fixes** section entirely if everything user-facing is already covered under **New Features** (see prioritization above).
 
 ### 5. Quality Checks
 - Verify all significant changes are mentioned
@@ -97,8 +99,9 @@ This release <briefly describe the primary user-facing value proposition>.
   git push origin <branch> && git push origin <version>
   ```
 - **Then**: Create GitHub release with generated notes
+- **Prefilled release URL** (optional): GitHub accepts query params on the new-release form (`tag`, `target`, `title`, `body`). Build the query with `urllib.parse.urlencode`, then open `https://github.com/leshchenko1979/fast-mcp-telegram/releases/new?` + that string. Push the tag first so the form can resolve it.
 - **Wait for confirmation**: Do not proceed until user confirms GitHub release is published
-- **Finally**: Send community announcement to Telegram group (only after user confirmation)
+- **Finally**: Send community announcement to Telegram (only after user confirmation)
 
 **Important**:
 - Release notes are for GitHub releases only - do NOT commit release notes files to git repository
@@ -112,10 +115,12 @@ This release <briefly describe the primary user-facing value proposition>.
 - **Prerequisite**: Only proceed after user confirms GitHub release is published
 - **Targets**: English group [invite link](https://t.me/+U_3CpNWhXa9jZDcy); Russian `@mcp_telegram` ([t.me/mcp_telegram](https://t.me/mcp_telegram))
 - **Language**: English for the English group; Russian for the Russian group
-- **Content**: Include version number, header and key features
-- **Format**: Use Markdown formatting with emojis for better readability
+- **Content**: Include version number, short header line, and key features aligned with the GitHub release
+- **Telegram formatting (required for `send_message`)**: Use **HTML**, not Markdown. Telegram Markdown modes often mangle mixed punctuation and code; HTML is reliable. Call `send_message` with `parse_mode="html"`. Allowed tags include `<b>`, `<i>`, `<code>`, `<a href="https://...">text</a>`. Escape `&`, `<`, `>` in literal text if needed (`&amp;`, `&lt;`, `&gt;`).
+- **Presentation**: Emojis and checkmark lines are fine; use `<b>` for the version line and emphasis, `<code>` for parameter and field names
 - **Structure**:
-  - Version header with date
-  - Categorized feature highlights with checkmarks
-  - GitHub link to the release
+  - Version header with date (e.g. `🚀 <b>fast-mcp-telegram 0.x.y</b> · YYYY-MM-DD`)
+  - Feature highlights (e.g. lines starting with ✅)
+  - GitHub release link via `<a href="https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/0.x.y">…</a>`
 - **Timing**: Send only after user confirms GitHub release is published
+- **Private English group**: If the invite-only group is not discoverable via `find_chats`, give the user the HTML message to paste manually
