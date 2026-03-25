@@ -20,6 +20,15 @@ _DOMAIN_PLACEHOLDER_VALUES: frozenset[str] = frozenset(
 )
 
 
+def _is_loopback_http_host(host_with_optional_port: str) -> bool:
+    """True only for localhost / 127.0.0.1 with optional :port (not localhosting.com, etc.)."""
+    h = host_with_optional_port.lower()
+    if h in ("localhost", "127.0.0.1"):
+        return True
+    host, sep, _ = h.partition(":")
+    return bool(sep) and host in ("localhost", "127.0.0.1")
+
+
 def _is_test_environment() -> bool:
     """Detect if we're running in a test environment where CLI parsing should be disabled."""
     # Check for pytest-related environment variables
@@ -233,7 +242,7 @@ class ServerConfig(BaseSettings):
         if "://" in raw:
             return raw.rstrip("/")
         host_part = raw.split("/", 1)[0].lower()
-        if host_part.startswith(("localhost", "127.0.0.1")):
+        if _is_loopback_http_host(host_part):
             return f"http://{raw}".rstrip("/")
         return f"https://{raw}".rstrip("/")
 

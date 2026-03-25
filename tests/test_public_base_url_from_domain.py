@@ -13,8 +13,13 @@ import pytest
         ("https://tg-mcp.example.com", "https://tg-mcp.example.com"),
         ("https://tg-mcp.example.com/", "https://tg-mcp.example.com"),
         ("http://127.0.0.1:8000", "http://127.0.0.1:8000"),
+        ("localhost", "http://localhost"),
         ("localhost:9000", "http://localhost:9000"),
+        ("127.0.0.1", "http://127.0.0.1"),
         ("127.0.0.1:8000", "http://127.0.0.1:8000"),
+        # Must not use startswith: impostor public hosts get https
+        ("localhosting.com", "https://localhosting.com"),
+        ("127.0.0.1.evil.com", "https://127.0.0.1.evil.com"),
     ],
 )
 def test_public_base_url_normalized_from_domain(
