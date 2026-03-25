@@ -41,7 +41,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | 💬 **Universal Replies** | Get replies from channel posts, forum topics, or any message with one parameter |
 | 🔎 **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication |
 | 🏗️ **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support |
-| 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, and album support |
+| 📁 **Secure File Handling** | Rich media sharing with SSRF protection, size limits, album support, optional HTTP attachment streaming when **`DOMAIN`** is set to a real host |
 | ✉️ **Advanced Messaging** | Send, edit, reply, post to forum topics, formatting, file attachments, and phone number messaging |
 | 🎤 **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | 📊 **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
@@ -173,6 +173,20 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 ```
 
 **📖 For complete MTProto Bridge documentation, see [MTProto Bridge Guide](https://github.com/leshchenko1979/fast-mcp-telegram/blob/master/docs/MTProto-Bridge.md)**
+
+## 📎 Attachment download URLs (HTTP)
+
+When the server uses **HTTP** (not stdio) and **`DOMAIN`** is set to your real public host (same value as for `/setup` and MCP config — not the placeholder `your-domain.com`), message results from `get_messages` / search can include **`media.attachment_download_url`** for **photos** and **file documents** (not voice notes or round videos). The link base is derived from **`DOMAIN`**: hostname-only values get `https://` (or `http://` for `localhost` / `127.0.0.1`); you can also set a full URL such as `https://tg-mcp.example.com`.
+
+- **`GET /v1/attachments/{uuid}`** streams the file. **No `Authorization` header** is required; the random UUID is the capability until expiry.
+- Configure **`ATTACHMENT_TICKET_TTL_SECONDS`** (default 3600) for ticket lifetime. Tickets live **in process memory** only — a restart drops them; use one replica unless you add external state later.
+- Do not share these URLs in untrusted channels; anyone with the link can download while the ticket is valid. See **[SECURITY.md](SECURITY.md)**.
+
+Example:
+
+```bash
+curl -sS -o file.pdf "https://tg-mcp.example.com/v1/attachments/<uuid-from-tool-response>"
+```
 
 ## 📚 Documentation
 

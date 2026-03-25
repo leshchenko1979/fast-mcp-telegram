@@ -14,6 +14,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
 
+# DOMAIN values treated as unset: no public origin for MCP URLs or attachment links.
+_DOMAIN_PLACEHOLDER_VALUES: frozenset[str] = frozenset(
+    {"your-domain.com", "your-server.com"}
+)
+
+
+def _is_loopback_http_host(host_with_optional_port: str) -> bool:
+    """True only for localhost / 127.0.0.1 with optional :port (not localhosting.com, etc.)."""
+    h = host_with_optional_port.lower()
+    if h in ("localhost", "127.0.0.1"):
+        return True
+    host, sep, _ = h.partition(":")
+    return bool(sep) and host in ("localhost", "127.0.0.1")
+
 
 def _is_test_environment() -> bool:
     """Detect if we're running in a test environment where CLI parsing should be disabled."""
@@ -105,10 +119,15 @@ class ServerConfig(BaseSettings):
         description="Phone number for Telegram authentication (include country code)",
     )
 
-    # Web setup configuration
+    # Web setup, MCP URL generation, and attachment_download_url base (HTTP transport).
     domain: str = Field(
         default="your-domain.com",
-        description="Domain for web setup and config generation",
+        validation_alias=AliasChoices("domain", "DOMAIN"),
+        description=(
+            "Public host or full URL: web setup, generated MCP config, and attachment links. "
+            "Host only → https:// added (http:// for localhost/127.0.0.1). "
+            "Placeholder values disable public attachment URLs."
+        ),
     )
 
     # Session management
@@ -135,6 +154,16 @@ class ServerConfig(BaseSettings):
     )
     block_private_ips: bool = Field(
         default=True, description="Block access to private IP ranges"
+    )
+
+    attachment_ticket_ttl_seconds: int = Field(
+        default=3600,
+        ge=60,
+        le=86400 * 7,
+        validation_alias=AliasChoices(
+            "attachment_ticket_ttl_seconds", "ATTACHMENT_TICKET_TTL_SECONDS"
+        ),
+        description="TTL for in-memory attachment download tickets (seconds)",
     )
 
     # Logging configuration
@@ -203,6 +232,19 @@ class ServerConfig(BaseSettings):
     def session_path(self) -> Path:
         """Get full session file path (without .session extension - Telethon adds it)."""
         return self.session_directory / self.session_name
+
+    @property
+    def public_base_url_normalized(self) -> str:
+        """Public origin for attachment links, derived from DOMAIN (no trailing slash)."""
+        raw = (self.domain or "").strip()
+        if not raw or raw.lower() in _DOMAIN_PLACEHOLDER_VALUES:
+            return ""
+        if "://" in raw:
+            return raw.rstrip("/")
+        host_part = raw.split("/", 1)[0].lower()
+        if _is_loopback_http_host(host_part):
+            return f"http://{raw}".rstrip("/")
+        return f"https://{raw}".rstrip("/")
 
     def validate_config(self) -> None:
         """Validate configuration and log important information."""

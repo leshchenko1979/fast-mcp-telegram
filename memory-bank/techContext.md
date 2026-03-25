@@ -10,12 +10,18 @@
 ```python
 # Core dependencies from pyproject.toml (managed by setuptools)
 fastmcp          # MCP server framework (uses httpx for HTTP transport)
-telethon         # Telegram API client
+telethon         # Telegram API client (iter_download for attachment streaming)
 # Logging handled by Python stdlib
 asyncio          # Async/await support (built-in)
 httpx            # HTTP client for file downloads and MCP transport
 python-dotenv    # Environment variable management
 ```
+
+### Attachment streaming (HTTP)
+- **Routes**: `register_attachment_routes` in `src/server_components/attachment_routes.py` — `GET /v1/attachments/{ticket_id}` via FastMCP `custom_route`; **Starlette `StreamingResponse`**
+- **Tickets**: `src/server_components/attachment_tickets.py` — asyncio-locked in-memory map
+- **URLs in JSON**: `src/utils/message_format.py` — `_maybe_set_attachment_download_url` after `_build_media_placeholder`
+- **Config**: `domain` / `DOMAIN`, `public_base_url_normalized` (derived for attachments), `attachment_ticket_ttl_seconds`
 
 **Dependency Management**: setuptools with pyproject.toml for package management
 **Version Management**: Single source of truth in `src/_version.py` with direct import approach

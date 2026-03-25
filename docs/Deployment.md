@@ -185,7 +185,7 @@ curl -s https://your-domain.com/health
 | `SERVER_MODE` | Server mode (stdio, http-no-auth, http-auth) | `stdio` | All |
 | `HOST` | Bind address | Auto-adjusts based on mode | HTTP modes |
 | `PORT` | Service port | `8000` | HTTP modes |
-| `DOMAIN` | Domain for Traefik routing and web setup | `your-domain.com` | HTTP modes |
+| `DOMAIN` | Public host for Traefik, web setup, generated MCP URL, and **`media.attachment_download_url`** (when not a placeholder) | `your-domain.com` | HTTP modes |
 | `API_ID` | Telegram API ID | Required | Setup |
 | `API_HASH` | Telegram API hash | Required | Setup |
 | `MAX_ACTIVE_SESSIONS` | LRU cache limit for concurrent sessions | `10` | All |

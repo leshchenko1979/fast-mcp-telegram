@@ -24,6 +24,16 @@
 4. **Network Security**: Use HTTPS/TLS and consider IP restrictions
 5. **Session Management**: Regularly clean up unused sessions and tokens
 
+## Attachment download URLs (HTTP)
+
+When **`DOMAIN`** is set to a non-placeholder public host and the server runs over **HTTP**, tools that return formatted messages may include **`media.attachment_download_url`** pointing to **`GET /v1/attachments/{uuid}`** (same public origin as web setup / MCP URL, derived from **`DOMAIN`**).
+
+- **No Bearer token on download**: The UUID in the path is a **secret capability**. Anyone who obtains the URL can download the associated media until the ticket expires.
+- **TTL**: Controlled by **`ATTACHMENT_TICKET_TTL_SECONDS`** (see `.env.example`). Use the shortest TTL that fits your workflow.
+- **Single process**: Tickets are stored **in memory**. A process restart invalidates all tickets. Multiple workers or replicas without shared storage will not see each other’s tickets.
+- **Session binding**: The server uses the Telegram session that minted the ticket to stream bytes; the HTTP client does not send session credentials.
+- **Mitigations**: Use HTTPS at the edge, keep TTL low, avoid pasting links into public logs or chats, and treat leaked URLs like leaked file access.
+
 ## File Security
 
 ### SSRF Protection

@@ -18,6 +18,7 @@ from src.client.connection import (
 )
 from src.config.logging import setup_logging
 from src.config.server_config import get_config
+from src.server_components.attachment_routes import register_attachment_routes
 from src.server_components.health import register_health_routes
 from src.server_components.mtproto_api import register_mtproto_api_routes
 from src.server_components.tools_register import register_tools
@@ -82,6 +83,7 @@ mcp = FastMCP("Telegram MCP Server", auth=_auth_provider, lifespan=lifespan)
 register_health_routes(mcp)
 register_web_setup_routes(mcp)
 register_mtproto_api_routes(mcp)
+register_attachment_routes(mcp)
 register_tools(mcp)
 
 

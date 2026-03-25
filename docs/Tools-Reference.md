@@ -116,7 +116,8 @@ All message-returning tools (search, read, send, edit) return messages in a cons
     "mime_type": "image/jpeg",    // File MIME type
     "filename": "photo.jpg",      // Original filename (if available)
     "approx_size_bytes": 2048576, // Approximate file size
-    "duration_seconds": 45        // Duration for audio/video (optional)
+    "duration_seconds": 45,       // Duration for audio/video (optional)
+    "attachment_download_url": "https://your-mcp-host.example/v1/attachments/<uuid>"  // HTTP mode + real DOMAIN only; see README — secret URL, no Authorization on GET
   },
   "transcription": "Hello, this is a voice message transcription...",  // Voice transcription (Premium accounts only)
   "forwarded_from": {             // Forwarded message info (optional)
@@ -150,6 +151,7 @@ All message-returning tools (search, read, send, edit) return messages in a cons
 - Includes MIME type, filename, approximate size, and media type
 - Voice messages include duration and automatic transcription (Premium accounts)
 - Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
+- **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not a placeholder), documents (non-voice, non-round-video) and photos may include this URL (origin from **`DOMAIN`**). **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
 
 **Voice Message Transcription:**
 - Automatic transcription for Premium Telegram accounts
