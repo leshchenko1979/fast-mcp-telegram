@@ -1,6 +1,7 @@
 """Attachment ticket store and unauthenticated GET /v1/attachments/{ticket_id} streaming."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 import pytest_asyncio
@@ -157,3 +158,195 @@ async def test_stream_when_get_messages_returns_empty_list():
         resp = await handle_attachment_download(req)
 
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_client_unavailable_returns_503_and_clears_request_token():
+    tid = await mint_attachment_ticket("sess-clear", -1001, 3)
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+    recorded: list = []
+
+    with (
+        patch(
+            "src.server_components.attachment_routes.set_request_token",
+            side_effect=lambda t: recorded.append(t),
+        ),
+        patch(
+            "src.server_components.attachment_routes.get_connected_client",
+            new=AsyncMock(side_effect=RuntimeError("no client")),
+        ),
+    ):
+        resp = await handle_attachment_download(req)
+
+    assert resp.status_code == 503
+    assert recorded == ["sess-clear", None]
+
+
+@pytest.mark.asyncio
+async def test_get_messages_raises_returns_502():
+    tid = await mint_attachment_ticket("sess-tok", -1001, 7)
+
+    class FakeClient:
+        async def get_messages(self, chat_id, ids):
+            raise RuntimeError("rpc fail")
+
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+
+    with patch(
+        "src.server_components.attachment_routes.get_connected_client",
+        new=AsyncMock(return_value=FakeClient()),
+    ):
+        resp = await handle_attachment_download(req)
+
+    assert resp.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_get_messages_returns_none_404():
+    tid = await mint_attachment_ticket("sess-tok", -1001, 7)
+
+    class FakeClient:
+        async def get_messages(self, chat_id, ids):
+            return None
+
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+
+    with patch(
+        "src.server_components.attachment_routes.get_connected_client",
+        new=AsyncMock(return_value=FakeClient()),
+    ):
+        resp = await handle_attachment_download(req)
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stream_message_without_media_404():
+    tid = await mint_attachment_ticket("sess-tok", -1001, 7)
+
+    class FakeMsg:
+        media = None
+
+    class FakeClient:
+        async def get_messages(self, chat_id, ids):
+            return [FakeMsg()]
+
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+
+    with patch(
+        "src.server_components.attachment_routes.get_connected_client",
+        new=AsyncMock(return_value=FakeClient()),
+    ):
+        resp = await handle_attachment_download(req)
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_stream_defaults_filename_and_mime_type_when_missing():
+    tid = await mint_attachment_ticket(
+        "sess-tok",
+        -1001,
+        7,
+        filename=None,
+        mime_type=None,
+    )
+
+    class FakeMsg:
+        media = object()
+
+    class FakeClient:
+        async def get_messages(self, chat_id, ids):
+            return [FakeMsg()]
+
+        async def iter_download(self, *args, **kwargs):
+            yield b"x"
+
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+
+    with patch(
+        "src.server_components.attachment_routes.get_connected_client",
+        new=AsyncMock(return_value=FakeClient()),
+    ):
+        resp = await handle_attachment_download(req)
+
+    assert resp.status_code == 200
+    assert resp.media_type == "application/octet-stream"
+    cd = resp.headers.get("content-disposition") or resp.headers.get(
+        "Content-Disposition"
+    )
+    assert cd is not None
+    assert "attachment" in cd.lower()
+    assert "filename=" in cd
+    assert 'filename=""' not in cd
+
+
+@pytest.mark.asyncio
+async def test_stream_content_disposition_with_non_ascii_filename():
+    original_filename = "résumé 2024.txt"
+    tid = await mint_attachment_ticket(
+        "sess-tok",
+        -1001,
+        7,
+        filename=original_filename,
+        mime_type="text/plain",
+    )
+
+    class FakeMsg:
+        media = object()
+
+    class FakeClient:
+        async def get_messages(self, chat_id, ids):
+            return [FakeMsg()]
+
+        async def iter_download(self, *args, **kwargs):
+            yield b"x"
+
+    req = MagicMock()
+    req.path_params = {"ticket_id": tid}
+
+    with patch(
+        "src.server_components.attachment_routes.get_connected_client",
+        new=AsyncMock(return_value=FakeClient()),
+    ):
+        resp = await handle_attachment_download(req)
+
+    cd = resp.headers.get("content-disposition") or resp.headers.get(
+        "Content-Disposition"
+    )
+    assert cd is not None
+    cd_lower = cd.lower()
+    assert "attachment" in cd_lower
+    assert "filename=" in cd
+    parts = cd.split(";")
+    ascii_filename_part = next(
+        (p for p in parts if "filename=" in p and "filename*=" not in p.lower()), ""
+    )
+    if ascii_filename_part:
+        ascii_filename = ascii_filename_part.split("=", 1)[1].strip().strip('"')
+        assert all(ord(ch) < 128 for ch in ascii_filename)
+
+    assert "filename*=" in cd_lower
+    encoded = quote(original_filename, safe="")
+    assert f"utf-8''{encoded.lower()}" in cd_lower
+
+
+@pytest.mark.asyncio
+async def test_media_size_hint_from_document_on_media():
+    from src.server_components.attachment_routes import _media_size_hint_for_log
+
+    class FakeDoc:
+        size = 42
+
+    class FakeMedia:
+        document = FakeDoc()
+
+    class FakeMsg:
+        media = FakeMedia()
+
+    assert _media_size_hint_for_log(FakeMsg()) == 42

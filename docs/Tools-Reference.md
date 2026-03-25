@@ -151,7 +151,7 @@ All message-returning tools (search, read, send, edit) return messages in a cons
 - Includes MIME type, filename, approximate size, and media type
 - Voice messages include duration and automatic transcription (Premium accounts)
 - Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
-- **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not placeholder), documents (non-voice, non-round-video) and photos may include this URL (origin from **`DOMAIN`**). **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
+- **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not a placeholder), documents (non-voice, non-round-video) and photos may include this URL (origin from **`DOMAIN`**). **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
 
 **Voice Message Transcription:**
 - Automatic transcription for Premium Telegram accounts

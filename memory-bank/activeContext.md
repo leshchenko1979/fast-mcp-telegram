@@ -6,8 +6,8 @@
 - In-memory UUID tickets (`attachment_tickets.py`) bind `session_token`, `chat_id`, `message_id`, filename/mime TTL
 - **`GET /v1/attachments/{uuid}`** — no `Authorization`; `handle_attachment_download` uses ticket’s session + Telethon `iter_download`
 - **`message_format.build_message_result`** sets **`media.attachment_download_url`** when `transport == http` and public base URL set (documents except voice/round-video, photos)
-- **`get_request_token()`** on `connection` for minting context; default session name when token unset
-- README, SECURITY.md, Tools-Reference.md updated; tests in `tests/test_attachment_streaming.py`
+- **`get_request_token()`** on `connection` for minting context; default session name when the token is unset
+- README, SECURITY.md, Tools-Reference.md updated; tests in `tests/test_attachment_streaming.py` and `tests/test_message_format_attachment_urls.py`
 
 **Operational notes**: Treat attachment URLs as secrets; single-replica in-memory tickets.
 
