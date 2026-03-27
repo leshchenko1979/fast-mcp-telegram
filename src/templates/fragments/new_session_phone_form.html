@@ -1,0 +1,13 @@
+<section id="new-session-form" class="setup-form" hidden aria-labelledby="new-session-heading">
+    <h2 id="new-session-heading">Create New Session</h2>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <p class="muted">Enter your phone number to authenticate with Telegram.</p>
+
+    <form hx-post="/setup/phone" hx-target="#setup-flow" hx-swap="innerHTML">
+        <label for="phone">Phone number</label>
+        <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
+        <button type="submit">Send Code</button>
+    </form>
+</section>

@@ -1,11 +1,11 @@
-<h1>MCP Configuration</h1>
+<h2>MCP Configuration</h2>
 <p class="muted">
     Authentication successful. Your session is saved on the server.<br>
     Copy or download the configuration below to use in your MCP client or AI IDE.
 </p>
 
 <div class="card" style="margin-bottom:12px;">
-    <pre style="white-space:pre-wrap;">{{ config_json }}</pre>
+    <pre id="mcp-config-pre" style="white-space:pre-wrap;">{{ config_json }}</pre>
 </div>
 
 <form action="/download-config/{{ token }}" method="get" style="display:inline-block;">
@@ -13,5 +13,9 @@
 </form>
 
 <button type="button" id="copyBtn"
-    onclick="(async ()=>{await navigator.clipboard.writeText(document.querySelector('pre').innerText); const btn=document.getElementById('copyBtn'); const prev=btn.innerText; btn.innerText='✓ Copied'; setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
+    onclick="(async ()=>{const btn=document.getElementById('copyBtn'); const pre=document.getElementById('mcp-config-pre'); const prev=btn.innerText; try{if(!pre){throw new Error('Config block not found');} await navigator.clipboard.writeText(pre.innerText); btn.innerText='Copied';}catch(_){btn.innerText='Copy failed';} setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
     to Clipboard</button>
+
+<div style="margin: 1rem 0;">
+    <button type="button" onclick="window.location.assign('/setup')">Back to setup</button>
+</div>
