@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from starlette.requests import Request
-from starlette.responses import JSONResponse, PlainTextResponse
+from starlette.responses import PlainTextResponse
 from starlette.templating import Jinja2Templates
 from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
@@ -58,6 +58,13 @@ def validate_setup_session(setup_id: str) -> dict[str, Any] | None:
 def create_error_response(error: str, template: str = "fragments/error.html") -> dict:
     """Create standardized error response."""
     return {"error": error}
+
+
+def _setup_error_fragment(request: Request, error: str):
+    """Return consistent HTML error fragment for setup flow."""
+    return templates.TemplateResponse(
+        request, "fragments/error.html", create_error_response(error)
+    )
 
 
 def _2fa_form_context(
@@ -112,7 +119,7 @@ async def _cleanup_session_state(state: dict[str, Any]):
             await client.disconnect()
 
     # Remove temporary session files
-    try:
+    with contextlib.suppress(Exception):
         if isinstance(session_path, str) and session_path:
             p = Path(session_path)
             if (
@@ -120,8 +127,6 @@ async def _cleanup_session_state(state: dict[str, Any]):
                 or p.name.startswith(REAUTH_SESSION_PREFIX)
             ) and p.exists():
                 p.unlink(missing_ok=True)
-    except Exception:
-        pass
 
 
 async def setup_complete_reauth(request: Request):
@@ -130,15 +135,11 @@ async def setup_complete_reauth(request: Request):
     setup_id = str(form.get("setup_id", "")).strip()
 
     if not setup_id or setup_id not in _setup_sessions:
-        return JSONResponse(
-            {"ok": False, "error": "Invalid setup session."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Invalid setup session.")
 
     state = _setup_sessions[setup_id]
     if not state.get("authorized"):
-        return JSONResponse(
-            {"ok": False, "error": "Not authorized yet."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Not authorized yet.")
 
     client = state.get("client")
     original_path_val = state.get("original_session_path")
@@ -146,9 +147,7 @@ async def setup_complete_reauth(request: Request):
     existing_token = state.get("existing_token")
 
     if not original_path_val or not temp_path_val or not client or not existing_token:
-        return JSONResponse(
-            {"ok": False, "error": "Invalid setup state."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Invalid setup state.")
 
     original_path = Path(original_path_val)
     temp_path = Path(temp_path_val)
@@ -189,27 +188,21 @@ async def setup_generate(request: Request):
     setup_id = str(form.get("setup_id", "")).strip()
 
     if not setup_id or setup_id not in _setup_sessions:
-        return JSONResponse(
-            {"ok": False, "error": "Invalid setup session."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Invalid setup session.")
 
     state = _setup_sessions[setup_id]
     if not state.get("authorized"):
-        return JSONResponse(
-            {"ok": False, "error": "Not authorized yet."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Not authorized yet.")
 
     client = state.get("client")
     temp_session_path = state.get("session_path")
 
     if not client or not temp_session_path:
-        return JSONResponse(
-            {"ok": False, "error": "Invalid setup state."}, status_code=400
-        )
+        return _setup_error_fragment(request, "Invalid setup state.")
 
     # Use desired token if specified, otherwise generate random one
     desired_token = state.get("desired_token")
-    token = desired_token if desired_token else generate_bearer_token()
+    token = desired_token or generate_bearer_token()
 
     src = Path(temp_session_path)
     session_dir = get_config().session_directory
@@ -217,9 +210,8 @@ async def setup_generate(request: Request):
 
     # Check if session already exists (only when using desired token)
     if desired_token and dst.exists():
-        return JSONResponse(
-            {"ok": False, "error": f"Session with token '{token}' already exists"},
-            status_code=409,
+        return _setup_error_fragment(
+            request, f"Session with token '{token}' already exists"
         )
 
     try:
@@ -232,10 +224,7 @@ async def setup_generate(request: Request):
         if src.exists():
             src.rename(dst)
     except Exception as e:
-        return JSONResponse(
-            {"ok": False, "error": f"Failed to persist session: {e}"},
-            status_code=500,
-        )
+        return _setup_error_fragment(request, f"Failed to persist session: {e}")
 
     domain = get_config().domain
     # Web setup always uses HTTP_AUTH mode
@@ -295,12 +284,11 @@ def register_web_setup_routes(mcp_app):
             await client.send_code_request(phone_raw)
         except PhoneNumberFloodError:
             await client.disconnect()
+            temp_session_path.unlink(missing_ok=True)
             return templates.TemplateResponse(
                 request,
-                "fragments/code_form.html",
+                "fragments/new_session_phone_form.html",
                 {
-                    "masked_phone": masked,
-                    "setup_id": setup_id,
                     "error": "Too many attempts. Please wait before retrying.",
                 },
             )
@@ -328,9 +316,7 @@ def register_web_setup_routes(mcp_app):
 
         state = validate_setup_session(setup_id)
         if not state:
-            return JSONResponse(
-                {"ok": False, "error": "Invalid setup session."}, status_code=400
-            )
+            return _setup_error_fragment(request, "Invalid setup session.")
 
         await cleanup_stale_setup_sessions()
 
@@ -339,9 +325,7 @@ def register_web_setup_routes(mcp_app):
         masked_phone = state.get("masked_phone") or ""
 
         if not client or not phone:
-            return JSONResponse(
-                {"ok": False, "error": "Invalid setup session."}, status_code=400
-            )
+            return _setup_error_fragment(request, "Invalid setup session.")
 
         try:
             await client.sign_in(phone=phone, code=code)
@@ -349,11 +333,9 @@ def register_web_setup_routes(mcp_app):
             return await _complete_authentication(request, state)
         except SessionPasswordNeededError:
             hint = ""
-            try:
+            with contextlib.suppress(Exception):
                 pw = await client(GetPasswordRequest())
                 hint = (pw.hint or "").strip()
-            except Exception:
-                pass
             state["hint"] = hint
             ctx = _2fa_form_context(setup_id, masked_phone, hint=hint or "")
             return templates.TemplateResponse(
@@ -380,9 +362,7 @@ def register_web_setup_routes(mcp_app):
 
         state = validate_setup_session(setup_id)
         if not state:
-            return JSONResponse(
-                {"ok": False, "error": "Invalid setup session."}, status_code=400
-            )
+            return _setup_error_fragment(request, "Invalid setup session.")
 
         await cleanup_stale_setup_sessions()
 
@@ -390,9 +370,7 @@ def register_web_setup_routes(mcp_app):
         masked_phone = state.get("masked_phone") or ""
 
         if not client:
-            return JSONResponse(
-                {"ok": False, "error": "Invalid setup session."}, status_code=400
-            )
+            return _setup_error_fragment(request, "Invalid setup session.")
 
         try:
             await client.sign_in(password=password)

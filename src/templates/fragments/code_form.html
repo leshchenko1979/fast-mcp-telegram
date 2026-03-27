@@ -1,10 +1,10 @@
-<h1>Verify Code</h1>
+<h2>Verify Code</h2>
 {% if error %}
 <div class="error">{{ error }}</div>
 {% endif %}
 <p class="muted">We sent a code to {{ masked_phone }}. Enter it below.</p>
 
-<form hx-post="/setup/verify" hx-target="#step" hx-swap="innerHTML">
+<form hx-post="/setup/verify" hx-target="#setup-flow" hx-swap="innerHTML">
     <input type="hidden" name="setup_id" value="{{ setup_id }}" />
     <label for="code">Code</label>
     <input id="code" name="code" type="text" placeholder="12345" required />

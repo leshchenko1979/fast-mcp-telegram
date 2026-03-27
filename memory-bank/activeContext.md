@@ -1,15 +1,15 @@
 ## Current Work Focus
-**Completed**: HTTP attachment streaming (2026-03-25)
+**Completed**: Web setup UX and consistency fixes (2026-03-27)
 
 **Implementation**:
-- **`DOMAIN`** drives public attachment URLs via **`public_base_url_normalized`** (no separate `PUBLIC_BASE_URL`); **`ATTACHMENT_TICKET_TTL_SECONDS`** in `ServerConfig`; `.env.example` updated
-- In-memory UUID tickets (`attachment_tickets.py`) bind `session_token`, `chat_id`, `message_id`, filename/mime TTL
-- **`GET /v1/attachments/{uuid}`** — no `Authorization`; `handle_attachment_download` uses ticket’s session + Telethon `iter_download`
-- **`message_format.build_message_result`** sets **`media.attachment_download_url`** when `transport == http` and public base URL set (documents except voice/round-video, photos)
-- **`get_request_token()`** on `connection` for minting context; default session name when the token is unset
-- README, SECURITY.md, Tools-Reference.md updated; tests in `tests/test_attachment_streaming.py` and `tests/test_message_format_attachment_urls.py`
+- Kept setup mode buttons persistent by moving HTMX swaps to nested `#setup-flow` and changing setup forms to target that region
+- Added `new_session_phone_form` fragment and fixed flood path to return phone step with error (instead of code step), with temp session file cleanup
+- Unified setup flow errors to HTML fragments for UX consistency (replacing JSON in HTMX-rendered paths)
+- Added missing error block for reauthorize phone step, normalized headings, moved 2FA hint before password field
+- Improved config fragment copy behavior with a stable `pre` id and fallback feedback; added return-to-setup buttons for success/config
+- Added focused tests in `tests/test_web_setup.py` for flood handling and invalid setup session HTML error rendering
 
-**Operational notes**: Treat attachment URLs as secrets; single-replica in-memory tickets.
+**Operational notes**: Setup sessions remain in-memory and process-local; single-replica assumptions still apply.
 
 ---
 

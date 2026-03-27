@@ -5,7 +5,7 @@
     <h1>Telegram MCP Setup</h1>
     <p class="muted">Choose how to set up your Telegram session.</p>
 
-    <div class="option-buttons" role="group" aria-label="Setup options">
+    <div id="setup-toolbar" class="option-buttons" role="group" aria-label="Setup options">
         <button type="button" data-form="new-session" aria-expanded="false" aria-controls="new-session-form">
             Create New Session
         </button>
@@ -17,31 +17,24 @@
         </button>
     </div>
 
-    <section id="new-session-form" class="setup-form" hidden aria-labelledby="new-session-heading">
-        <h2 id="new-session-heading">Create New Session</h2>
-        <p class="muted">Enter your phone number to authenticate with Telegram.</p>
+    <div id="setup-flow" aria-live="polite">
+        {% include "fragments/new_session_phone_form.html" %}
 
-        <form hx-post="/setup/phone" hx-target="#step" hx-swap="innerHTML">
-            <label for="phone">Phone number</label>
-            <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
-            <button type="submit">Send Code</button>
-        </form>
-    </section>
+        <section id="reauthorize-form" class="setup-form" hidden aria-labelledby="reauthorize-heading">
+            <h2 id="reauthorize-heading">Reauthorize Existing Session</h2>
+            <p class="muted">Enter your existing bearer token to reauthorize your session.</p>
 
-    <section id="reauthorize-form" class="setup-form" hidden aria-labelledby="reauthorize-heading">
-        <h2 id="reauthorize-heading">Reauthorize Existing Session</h2>
-        <p class="muted">Enter your existing bearer token to reauthorize your session.</p>
+            <form hx-post="/setup/reauthorize" hx-target="#setup-flow" hx-swap="innerHTML">
+                <label for="token">Bearer Token</label>
+                <input id="token" name="token" type="text" placeholder="Your bearer token" required />
+                <button type="submit">Check & Reauthorize</button>
+            </form>
+        </section>
 
-        <form hx-post="/setup/reauthorize" hx-target="#step" hx-swap="innerHTML">
-            <label for="token">Bearer Token</label>
-            <input id="token" name="token" type="text" placeholder="Your bearer token" required />
-            <button type="submit">Check & Reauthorize</button>
-        </form>
-    </section>
-
-    <section id="delete-session-form" class="setup-form" hidden aria-labelledby="delete-session-heading">
-        {% include "fragments/delete_form.html" %}
-    </section>
+        <section id="delete-session-form" class="setup-form" hidden aria-labelledby="delete-session-heading">
+            {% include "fragments/delete_form.html" %}
+        </section>
+    </div>
 </main>
 
 <style>
@@ -92,11 +85,14 @@
         // Single function to handle form switching - DRY principle
         function showForm(formName) {
             const forms = ['new-session', 'reauthorize', 'delete-session'];
-            const buttons = document.querySelectorAll('.option-buttons button');
 
             forms.forEach(name => {
                 const form = document.getElementById(name + '-form');
                 const button = document.querySelector(`[data-form="${name}"]`);
+                if (!form) {
+                    window.location.assign('/setup');
+                    return;
+                }
 
                 if (name === formName) {
                     form.hidden = false;
@@ -128,10 +124,6 @@
             }
         });
 
-        // Progressive enhancement: ensure forms are accessible
-        document.querySelectorAll('.setup-form').forEach(form => {
-            form.setAttribute('aria-live', 'polite');
-        });
     })();
 </script>
 {% endblock %}

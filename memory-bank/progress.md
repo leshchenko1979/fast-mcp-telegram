@@ -1,3 +1,10 @@
+### 2026-03-27
+- **Web setup UX consistency**: Moved setup interactions to a nested HTMX target (`#setup-flow`) so the top-level mode buttons remain visible and users can restart flows predictably.
+- **Flood-error path fix**: `PhoneNumberFloodError` on `/setup/phone` now returns the phone-entry fragment with an error message and cleans temporary session artifacts instead of showing a broken code-entry step.
+- **Setup error rendering unification**: HTMX-facing setup failures now render `fragments/error.html` instead of JSON payloads, preventing raw JSON from being injected into the UI.
+- **Fragment polish**: Added reauthorize-phone error display, moved 2FA hint above password field, normalized headings, added return-to-setup actions on success/config, and hardened config copy interaction feedback.
+- **Coverage**: Added `tests/test_web_setup.py` for flood handling and invalid setup-session HTML error behavior.
+
 ### 2026-03-15
 - **FastMCP 3 Bearer Token Fix**: Switched to FastMCP's auth=TokenVerifier to fix token extraction failure (upstream bug PrefectHQ/fastmcp#596). Created SessionFileTokenVerifier validating tokens via session file existence. `with_auth_context` now uses `get_access_token()` instead of `get_http_headers()`. Auth only enabled in http-auth mode. All 250 tests pass.
 - **2FA Password Hint Display**: Fixed display of 2FA password hint in web setup flow. Template had conditional hint display but backend never passed it. Now fetches hint from Telegram API via GetPasswordRequest when SessionPasswordNeededError is raised, stores in setup session state, and passes to 2fa_form template in all three render paths (initial 2FA prompt, PasswordHashInvalidError retry, generic exception retry). Added _2fa_form_context helper for DRY template context building.
