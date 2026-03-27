@@ -8,7 +8,8 @@
     <input type="hidden" name="setup_id" value="{{ setup_id }}" />
 
     <label for="phone">Phone number</label>
-    <input id="phone" name="phone" type="tel" placeholder="+1234567890" required />
+    <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+1234567890" required />
+    <p class="muted">Use international format with country code, for example: +14155552671.</p>
 
     <button type="submit">Send Code</button>
 </form>

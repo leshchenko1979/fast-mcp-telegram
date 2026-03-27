@@ -48,6 +48,29 @@ def mask_phone_number(phone: str) -> str:
     return f"{first}{'*' * max(0, len(phone) - 5)}{last}"
 
 
+def _normalize_phone_number(phone: str) -> str:
+    """Normalize phone input to Telegram-compatible E.164-like form."""
+    raw = (phone or "").strip()
+    if not raw:
+        return ""
+    if raw.startswith("+"):
+        digits = "".join(ch for ch in raw[1:] if ch.isdigit())
+        return f"+{digits}" if digits else ""
+    digits = "".join(ch for ch in raw if ch.isdigit())
+    return f"+{digits}" if digits else ""
+
+
+def _is_valid_phone_number(phone: str) -> bool:
+    """Validate normalized Telegram phone number format."""
+    if not phone.startswith("+"):
+        return False
+    digits = phone[1:]
+    # Country code must not start with 0 and total digits should fit E.164.
+    return (
+        digits.isdigit() and len(digits) >= 7 and len(digits) <= 15 and digits[0] != "0"
+    )
+
+
 def validate_setup_session(setup_id: str) -> dict[str, Any] | None:
     """Validate setup session exists and return state, or None if invalid."""
     if not setup_id or setup_id not in _setup_sessions:
@@ -267,7 +290,15 @@ def register_web_setup_routes(mcp_app):
     @mcp_app.custom_route("/setup/phone", methods=["POST"])
     async def setup_phone(request: Request):
         form = await request.form()
-        phone_raw = str(form.get("phone", "")).strip()
+        phone_raw = _normalize_phone_number(str(form.get("phone", "")))
+        if not _is_valid_phone_number(phone_raw):
+            return templates.TemplateResponse(
+                request,
+                "fragments/new_session_phone_form.html",
+                {
+                    "error": "Enter a valid phone number in international format, e.g. +1234567890."
+                },
+            )
 
         masked = mask_phone_number(phone_raw)
         await cleanup_stale_setup_sessions()
@@ -510,7 +541,16 @@ def register_web_setup_routes(mcp_app):
     async def setup_reauthorize_phone(request: Request):
         form = await request.form()
         setup_id = str(form.get("setup_id", "")).strip()
-        phone_raw = str(form.get("phone", "")).strip()
+        phone_raw = _normalize_phone_number(str(form.get("phone", "")))
+        if not _is_valid_phone_number(phone_raw):
+            return templates.TemplateResponse(
+                request,
+                "fragments/reauthorize_phone.html",
+                {
+                    "setup_id": setup_id,
+                    "error": "Enter a valid phone number in international format, e.g. +1234567890.",
+                },
+            )
 
         state = validate_setup_session(setup_id)
         if not state:
@@ -537,6 +577,16 @@ def register_web_setup_routes(mcp_app):
                 {
                     "setup_id": setup_id,
                     "error": "Too many attempts. Please wait before retrying.",
+                },
+            )
+        except Exception as e:
+            logger.warning("Failed to send reauthorization code: %s", e)
+            return templates.TemplateResponse(
+                request,
+                "fragments/reauthorize_phone.html",
+                {
+                    "setup_id": setup_id,
+                    "error": f"Failed to send code: {e}",
                 },
             )
 

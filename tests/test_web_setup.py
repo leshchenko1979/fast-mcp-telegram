@@ -94,3 +94,86 @@ async def test_setup_verify_invalid_session_returns_html_error(
 
     assert response.template == "fragments/error.html"
     assert response.context["error"] == "Invalid setup session."
+
+
+@pytest.mark.asyncio
+async def test_setup_reauthorize_phone_handles_send_code_failure(
+    monkeypatch, setup_routes
+):
+    web_setup._setup_sessions.clear()
+    setup_id = "reauth-1"
+
+    class _Client:
+        async def send_code_request(self, _phone):
+            raise RuntimeError("rpc fail")
+
+    web_setup._setup_sessions[setup_id] = {
+        "client": _Client(),
+        "created_at": 9999999999,
+    }
+
+    def _template_response(_request, template_name, context=None):
+        return SimpleNamespace(template=template_name, context=context or {})
+
+    monkeypatch.setattr(web_setup.templates, "TemplateResponse", _template_response)
+
+    handler = setup_routes[("/setup/reauthorize/phone", ("POST",))]
+    response = await handler(
+        _FakeRequest({"setup_id": setup_id, "phone": "+1234567890"})
+    )
+
+    assert response.template == "fragments/reauthorize_phone.html"
+    assert "Failed to send code" in response.context["error"]
+
+
+@pytest.mark.asyncio
+async def test_setup_reauthorize_phone_rejects_invalid_phone(monkeypatch, setup_routes):
+    web_setup._setup_sessions.clear()
+    setup_id = "reauth-2"
+    web_setup._setup_sessions[setup_id] = {
+        "client": object(),
+        "created_at": 9999999999,
+    }
+
+    def _template_response(_request, template_name, context=None):
+        return SimpleNamespace(template=template_name, context=context or {})
+
+    monkeypatch.setattr(web_setup.templates, "TemplateResponse", _template_response)
+
+    handler = setup_routes[("/setup/reauthorize/phone", ("POST",))]
+    response = await handler(_FakeRequest({"setup_id": setup_id, "phone": "123"}))
+
+    assert response.template == "fragments/reauthorize_phone.html"
+    assert "international format" in response.context["error"]
+
+
+@pytest.mark.asyncio
+async def test_setup_reauthorize_phone_normalizes_formatted_phone(
+    monkeypatch, setup_routes
+):
+    web_setup._setup_sessions.clear()
+    setup_id = "reauth-3"
+    seen = {"phone": None}
+
+    class _Client:
+        async def send_code_request(self, phone):
+            seen["phone"] = phone
+            return
+
+    web_setup._setup_sessions[setup_id] = {
+        "client": _Client(),
+        "created_at": 9999999999,
+    }
+
+    def _template_response(_request, template_name, context=None):
+        return SimpleNamespace(template=template_name, context=context or {})
+
+    monkeypatch.setattr(web_setup.templates, "TemplateResponse", _template_response)
+
+    handler = setup_routes[("/setup/reauthorize/phone", ("POST",))]
+    response = await handler(
+        _FakeRequest({"setup_id": setup_id, "phone": "+1 (415) 555-2671"})
+    )
+
+    assert response.template == "fragments/code_form.html"
+    assert seen["phone"] == "+14155552671"
