@@ -18,28 +18,39 @@
     </div>
 
     <div id="setup-flow" aria-live="polite">
-        {% include "fragments/new_session_phone_form.html" %}
+        <section id="new-session-form" class="setup-form" hidden aria-labelledby="new-session-heading">
+            {% include "fragments/new_session_phone_form_body.html" %}
+        </section>
 
         <section id="reauthorize-form" class="setup-form" hidden aria-labelledby="reauthorize-heading">
-            <h2 id="reauthorize-heading">Reauthorize Existing Session</h2>
-            <p class="muted">Enter your existing bearer token to reauthorize your session.</p>
-
-            <form hx-post="/setup/reauthorize" hx-target="#setup-flow" hx-swap="innerHTML">
-                <label for="token">Bearer Token</label>
-                <input id="token" name="token" type="text" placeholder="Your bearer token" required />
-                <button type="submit">Check & Reauthorize</button>
-            </form>
+            {% include "fragments/reauthorize_token_form_body.html" %}
         </section>
 
         <section id="delete-session-form" class="setup-form" hidden aria-labelledby="delete-session-heading">
-            {% include "fragments/delete_form.html" %}
+            {% include "fragments/delete_form_body.html" %}
         </section>
     </div>
 </main>
 
 <style>
+    #step>h1 {
+        margin-bottom: 8px;
+    }
+
     .setup-form {
-        margin-top: 2rem;
+        margin-top: 1.5rem;
+    }
+
+    #setup-flow {
+        margin-top: 1rem;
+    }
+
+    .option-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 12px;
+        margin-bottom: 16px;
     }
 
     /* Enhanced button interactions */
@@ -47,6 +58,7 @@
         position: relative;
         transition: all 0.2s ease;
         border: 2px solid transparent;
+        margin-top: 0;
     }
 
     .option-buttons button:hover {
@@ -82,18 +94,30 @@
     (function () {
         'use strict';
 
-        // Single function to handle form switching - DRY principle
+        const BRANCH_IDS = ['new-session', 'reauthorize', 'delete-session'];
+
+        /** True when initial three sections are still in the DOM (HTMX has not replaced the shell). */
+        function setupShellIntact() {
+            return BRANCH_IDS.every((name) => document.getElementById(name + '-form'));
+        }
+
         function showForm(formName) {
-            const forms = ['new-session', 'reauthorize', 'delete-session'];
+            if (!BRANCH_IDS.includes(formName)) {
+                return;
+            }
 
-            forms.forEach(name => {
+            // After HTMX swaps #setup-flow, branch sections may be missing. Reload with ?branch= so
+            // the full shell is restored and the chosen branch opens (avoid hiding the only visible block first).
+            if (!setupShellIntact()) {
+                const u = new URL('/setup', window.location.origin);
+                u.searchParams.set('branch', formName);
+                window.location.assign(u.pathname + u.search);
+                return;
+            }
+
+            BRANCH_IDS.forEach((name) => {
                 const form = document.getElementById(name + '-form');
-                const button = document.querySelector(`[data-form="${name}"]`);
-                if (!form) {
-                    window.location.assign('/setup');
-                    return;
-                }
-
+                const button = document.querySelector('[data-form="' + name + '"]');
                 if (name === formName) {
                     form.hidden = false;
                     button?.setAttribute('aria-expanded', 'true');
@@ -104,7 +128,6 @@
             });
         }
 
-        // Event delegation for better performance and maintainability
         document.addEventListener('click', function (e) {
             const button = e.target.closest('[data-form]');
             if (button) {
@@ -113,13 +136,23 @@
             }
         });
 
-        // Keyboard navigation support
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' || e.key === ' ') {
                 const button = e.target.closest('[data-form]');
                 if (button) {
                     e.preventDefault();
                     showForm(button.dataset.form);
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(window.location.search);
+            const branch = params.get('branch');
+            if (branch && BRANCH_IDS.includes(branch)) {
+                showForm(branch);
+                if (window.history.replaceState) {
+                    window.history.replaceState({}, '', '/setup');
                 }
             }
         });

@@ -1,0 +1,9 @@
+<h2 id="reauthorize-heading">Reauthorize Existing Session</h2>
+{% include "fragments/inline_error.html" %}
+<p class="muted">Enter your existing bearer token to reauthorize your session.</p>
+
+<form hx-post="/setup/reauthorize" hx-target="#setup-flow" hx-swap="innerHTML">
+    <label for="token">Bearer Token</label>
+    <input id="token" name="token" type="text" placeholder="Your bearer token" required />
+    <button type="submit">Check & Reauthorize</button>
+</form>

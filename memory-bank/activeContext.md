@@ -1,13 +1,13 @@
 ## Current Work Focus
-**Completed**: Web setup UX and consistency fixes (2026-03-27)
+**Completed**: Web setup UX, consistency, and same-step errors (2026-03-27)
 
 **Implementation**:
-- Kept setup mode buttons persistent by moving HTMX swaps to nested `#setup-flow` and changing setup forms to target that region
-- Added `new_session_phone_form` fragment and fixed flood path to return phone step with error (instead of code step), with temp session file cleanup
-- Unified setup flow errors to HTML fragments for UX consistency (replacing JSON in HTMX-rendered paths)
-- Added missing error block for reauthorize phone step, normalized headings, moved 2FA hint before password field
-- Improved config fragment copy behavior with a stable `pre` id and fallback feedback; added return-to-setup buttons for success/config
-- Added focused tests in `tests/test_web_setup.py` for flood handling and invalid setup session HTML error rendering
+- Nested `#setup-flow` HTMX target; toolbar `showForm` reloads with `?branch=` when branch sections are missing after swaps
+- Phone/reauthorize/delete token steps use inline `<div class="error">` on the matching fragment; `delete_form_body` + `delete_session_form` mirror reauthorize token fragments
+- Reauthorize token step and delete branch no longer use `error.html` for validation or missing session; expired reauth phone step returns `reauthorize_token_form` with recovery copy
+- Terminal `error.html` uses `.error` for the message and **Back to setup**; wizard-only failures still use `_setup_error_fragment`
+- Reauthorize unknown token shows fixed guidance; `.warning` class in `base.html` for delete warning (no emoji)
+- Tests in `tests/test_web_setup.py` cover delete/reauthorize same-step responses and fragment visibility
 
 **Operational notes**: Setup sessions remain in-memory and process-local; single-replica assumptions still apply.
 

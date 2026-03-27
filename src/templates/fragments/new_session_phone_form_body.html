@@ -1,11 +1,9 @@
-<h2 id="reauthorize-phone-heading">Confirm Phone Number</h2>
+<h2 id="new-session-heading">Create New Session</h2>
 {% include "fragments/inline_error.html" %}
-<p class="muted">Enter your phone number to reauthorize this session.</p>
+<p class="muted">Enter your phone number to authenticate with Telegram.</p>
 <p class="muted">Use international format with country code, for example: +14155552671.</p>
 
-<form hx-post="/setup/reauthorize/phone" hx-target="#setup-flow" hx-swap="innerHTML">
-    <input type="hidden" name="setup_id" value="{{ setup_id }}" />
-
+<form hx-post="/setup/phone" hx-target="#setup-flow" hx-swap="innerHTML">
     <label for="phone">Phone number</label>
     <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+1234567890" required />
     <button type="submit">Send Code</button>

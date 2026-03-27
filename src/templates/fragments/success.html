@@ -2,9 +2,9 @@
 <p class="muted">{{ message }}</p>
 
 {% if token %}
-<div class="card" style="margin: 1rem 0;">
+<div class="card mt-block">
     <strong>Your bearer token:</strong><br>
-    <code style="word-break: break-all;">{{ token }}</code>
+    <code class="token-display">{{ token }}</code>
 </div>
 
 <p class="muted">
@@ -13,6 +13,6 @@
 </p>
 {% endif %}
 
-<div style="margin: 1rem 0;">
+<div class="setup-actions">
     <button type="button" onclick="window.location.assign('/setup')">Back to setup</button>
 </div>

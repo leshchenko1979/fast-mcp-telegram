@@ -1,7 +1,5 @@
 <h2>Verify Code</h2>
-{% if error %}
-<div class="error">{{ error }}</div>
-{% endif %}
+{% include "fragments/inline_error.html" %}
 <p class="muted">We sent a code to {{ masked_phone }}. Enter it below.</p>
 
 <form hx-post="/setup/verify" hx-target="#setup-flow" hx-swap="innerHTML">

@@ -1,7 +1,8 @@
-<h2>Delete Session</h2>
+<h2 id="delete-session-heading">Delete Session</h2>
+{% include "fragments/inline_error.html" %}
 <p class="muted">Enter your bearer token to permanently delete your session file.</p>
-<p class="muted" style="color: #ff6b6b; font-size: 0.9em;">
-    ⚠️ <strong>Warning:</strong> This action cannot be undone. Your session file will be permanently deleted.
+<p class="warning">
+    <strong>Warning:</strong> This action cannot be undone. Your session file will be permanently deleted.
 </p>
 
 <form hx-post="/setup/delete" hx-target="#setup-flow" hx-swap="innerHTML">

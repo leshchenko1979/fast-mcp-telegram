@@ -24,8 +24,42 @@ from src.utils.mcp_config import generate_mcp_config_json
 SETUP_SESSION_PREFIX = "setup-"
 REAUTH_SESSION_PREFIX = "reauth-"
 
-# Templates (Phase 1)
-# Use the project-level templates directory: /app/src/templates
+REAUTHORIZE_NO_SESSION_MESSAGE = (
+    "This token is not registered on this server yet. To use a new token, choose "
+    "Create New Session. To refresh an existing one, enter the same bearer token "
+    "you already use with this server."
+)
+
+REAUTH_SETUP_EXPIRED_MESSAGE = (
+    "This setup step has expired or is no longer valid. Open Reauthorize Existing "
+    "Session and enter your bearer token again to continue."
+)
+
+REAUTH_SESSION_CHECK_FAILED_MESSAGE = (
+    "Unable to read or verify this session. Check your bearer token and try again."
+)
+
+REAUTH_PREPARE_FAILED_MESSAGE = "Unable to start reauthorization. Please try again."
+
+DELETE_SESSION_FAILED_MESSAGE = (
+    "Could not delete the session. Try again or contact the administrator."
+)
+
+INVALID_SETUP_SESSION_MESSAGE = "Invalid setup session."
+NOT_AUTHORIZED_MESSAGE = "Not authorized yet."
+INVALID_SETUP_STATE_MESSAGE = "Invalid setup state."
+PHONE_INVALID_MESSAGE = (
+    "Enter a valid phone number in international format, e.g. +1234567890."
+)
+PHONE_FLOOD_MESSAGE = "Too many attempts. Please wait before retrying."
+BEARER_TOKEN_REQUIRED_MESSAGE = "Bearer token is required."
+INVALID_TOKEN_MESSAGE = "Invalid token."
+SESSION_NOT_FOUND_MESSAGE = "Session not found. Please check your bearer token."
+REAUTH_COMPLETE_FAILED_MESSAGE = (
+    "Failed to complete reauthorization. Please try again from setup."
+)
+
+# Project templates directory (resolved from this package)
 templates = Jinja2Templates(
     directory=os.path.join(os.path.dirname(__file__), "..", "templates")
 )
@@ -78,16 +112,14 @@ def validate_setup_session(setup_id: str) -> dict[str, Any] | None:
     return _setup_sessions[setup_id]
 
 
-def create_error_response(error: str, template: str = "fragments/error.html") -> dict:
-    """Create standardized error response."""
-    return {"error": error}
+def _fragment(request: Request, template: str, context: dict[str, Any] | None = None):
+    """Render an HTML fragment or full page template."""
+    return templates.TemplateResponse(request, template, context or {})
 
 
 def _setup_error_fragment(request: Request, error: str):
-    """Return consistent HTML error fragment for setup flow."""
-    return templates.TemplateResponse(
-        request, "fragments/error.html", create_error_response(error)
-    )
+    """Return HTML error fragment for setup flow."""
+    return _fragment(request, "fragments/error.html", {"error": error})
 
 
 def _2fa_form_context(
@@ -158,11 +190,11 @@ async def setup_complete_reauth(request: Request):
     setup_id = str(form.get("setup_id", "")).strip()
 
     if not setup_id or setup_id not in _setup_sessions:
-        return _setup_error_fragment(request, "Invalid setup session.")
+        return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
     state = _setup_sessions[setup_id]
     if not state.get("authorized"):
-        return _setup_error_fragment(request, "Not authorized yet.")
+        return _setup_error_fragment(request, NOT_AUTHORIZED_MESSAGE)
 
     client = state.get("client")
     original_path_val = state.get("original_session_path")
@@ -170,7 +202,7 @@ async def setup_complete_reauth(request: Request):
     existing_token = state.get("existing_token")
 
     if not original_path_val or not temp_path_val or not client or not existing_token:
-        return _setup_error_fragment(request, "Invalid setup state.")
+        return _setup_error_fragment(request, INVALID_SETUP_STATE_MESSAGE)
 
     original_path = Path(original_path_val)
     temp_path = Path(temp_path_val)
@@ -188,7 +220,7 @@ async def setup_complete_reauth(request: Request):
         # Clean up
         state.clear()
 
-        return templates.TemplateResponse(
+        return _fragment(
             request,
             "fragments/success.html",
             {
@@ -198,11 +230,8 @@ async def setup_complete_reauth(request: Request):
         )
 
     except Exception as e:
-        return templates.TemplateResponse(
-            request,
-            "fragments/error.html",
-            {"error": f"Failed to complete reauthorization: {e}"},
-        )
+        logger.warning("Failed to complete reauthorization: %s", e)
+        return _setup_error_fragment(request, REAUTH_COMPLETE_FAILED_MESSAGE)
 
 
 async def setup_generate(request: Request):
@@ -211,17 +240,17 @@ async def setup_generate(request: Request):
     setup_id = str(form.get("setup_id", "")).strip()
 
     if not setup_id or setup_id not in _setup_sessions:
-        return _setup_error_fragment(request, "Invalid setup session.")
+        return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
     state = _setup_sessions[setup_id]
     if not state.get("authorized"):
-        return _setup_error_fragment(request, "Not authorized yet.")
+        return _setup_error_fragment(request, NOT_AUTHORIZED_MESSAGE)
 
     client = state.get("client")
     temp_session_path = state.get("session_path")
 
     if not client or not temp_session_path:
-        return _setup_error_fragment(request, "Invalid setup state.")
+        return _setup_error_fragment(request, INVALID_SETUP_STATE_MESSAGE)
 
     # Use desired token if specified, otherwise generate random one
     desired_token = state.get("desired_token")
@@ -267,7 +296,7 @@ async def setup_generate(request: Request):
         }
     )
 
-    return templates.TemplateResponse(
+    return _fragment(
         request,
         "fragments/config.html",
         {"setup_id": setup_id, "token": token, "config_json": config_json},
@@ -285,19 +314,17 @@ def register_web_setup_routes(mcp_app):
     @mcp_app.custom_route("/setup", methods=["GET"])
     async def setup_get(request):
         await cleanup_stale_setup_sessions()
-        return templates.TemplateResponse(request, "setup.html")
+        return _fragment(request, "setup.html")
 
     @mcp_app.custom_route("/setup/phone", methods=["POST"])
     async def setup_phone(request: Request):
         form = await request.form()
         phone_raw = _normalize_phone_number(str(form.get("phone", "")))
         if not _is_valid_phone_number(phone_raw):
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/new_session_phone_form.html",
-                {
-                    "error": "Enter a valid phone number in international format, e.g. +1234567890."
-                },
+                {"error": PHONE_INVALID_MESSAGE},
             )
 
         masked = mask_phone_number(phone_raw)
@@ -316,12 +343,10 @@ def register_web_setup_routes(mcp_app):
         except PhoneNumberFloodError:
             await client.disconnect()
             temp_session_path.unlink(missing_ok=True)
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/new_session_phone_form.html",
-                {
-                    "error": "Too many attempts. Please wait before retrying.",
-                },
+                {"error": PHONE_FLOOD_MESSAGE},
             )
 
         _setup_sessions[setup_id] = {
@@ -333,7 +358,7 @@ def register_web_setup_routes(mcp_app):
             "created_at": time.time(),
         }
 
-        return templates.TemplateResponse(
+        return _fragment(
             request,
             "fragments/code_form.html",
             {"masked_phone": masked, "setup_id": setup_id},
@@ -347,7 +372,7 @@ def register_web_setup_routes(mcp_app):
 
         state = validate_setup_session(setup_id)
         if not state:
-            return _setup_error_fragment(request, "Invalid setup session.")
+            return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
         await cleanup_stale_setup_sessions()
 
@@ -356,7 +381,7 @@ def register_web_setup_routes(mcp_app):
         masked_phone = state.get("masked_phone") or ""
 
         if not client or not phone:
-            return _setup_error_fragment(request, "Invalid setup session.")
+            return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
         try:
             await client.sign_in(phone=phone, code=code)
@@ -369,13 +394,9 @@ def register_web_setup_routes(mcp_app):
                 hint = (pw.hint or "").strip()
             state["hint"] = hint
             ctx = _2fa_form_context(setup_id, masked_phone, hint=hint or "")
-            return templates.TemplateResponse(
-                request,
-                "fragments/2fa_form.html",
-                ctx,
-            )
+            return _fragment(request, "fragments/2fa_form.html", ctx)
         except Exception as e:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/code_form.html",
                 {
@@ -393,7 +414,7 @@ def register_web_setup_routes(mcp_app):
 
         state = validate_setup_session(setup_id)
         if not state:
-            return _setup_error_fragment(request, "Invalid setup session.")
+            return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
         await cleanup_stale_setup_sessions()
 
@@ -401,7 +422,7 @@ def register_web_setup_routes(mcp_app):
         masked_phone = state.get("masked_phone") or ""
 
         if not client:
-            return _setup_error_fragment(request, "Invalid setup session.")
+            return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
         try:
             await client.sign_in(password=password)
@@ -409,7 +430,7 @@ def register_web_setup_routes(mcp_app):
             return await _complete_authentication(request, state)
         except PasswordHashInvalidError:
             hint = state.get("hint") or ""
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/2fa_form.html",
                 _2fa_form_context(
@@ -421,7 +442,7 @@ def register_web_setup_routes(mcp_app):
             )
         except Exception as e:
             hint = state.get("hint") or ""
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/2fa_form.html",
                 _2fa_form_context(
@@ -438,45 +459,26 @@ def register_web_setup_routes(mcp_app):
         existing_token = str(form.get("token", "")).strip()
 
         if not existing_token:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response("Bearer token is required"),
+                "fragments/reauthorize_token_form.html",
+                {"error": BEARER_TOKEN_REQUIRED_MESSAGE},
             )
 
         # Security: Prevent reserved session names
         if existing_token.lower() in RESERVED_SESSION_NAMES:
-            return templates.TemplateResponse(
-                request, "fragments/error.html", create_error_response("Invalid token")
+            return _fragment(
+                request,
+                "fragments/reauthorize_token_form.html",
+                {"error": INVALID_TOKEN_MESSAGE},
             )
 
         session_path = get_config().session_directory / f"{existing_token}.session"
         if not session_path.exists():
-            # Start new auth process with this token name
-            await cleanup_stale_setup_sessions()
-
-            setup_id = str(int(time.time() * 1000))
-            temp_session_path = (
-                get_config().session_directory
-                / f"{SETUP_SESSION_PREFIX}{setup_id}.session"
-            )
-
-            # Create client for new session
-            client = create_session_client(temp_session_path)
-            await client.connect()
-
-            _setup_sessions[setup_id] = {
-                "desired_token": existing_token,  # Remember the desired token name
-                "client": client,
-                "session_path": str(temp_session_path),
-                "authorized": False,
-                "created_at": time.time(),
-            }
-
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/reauthorize_phone.html",
-                {"setup_id": setup_id},
+                "fragments/reauthorize_token_form.html",
+                {"error": REAUTHORIZE_NO_SESSION_MESSAGE},
             )
 
         # Check if session needs reauthorization
@@ -487,16 +489,17 @@ def register_web_setup_routes(mcp_app):
             await client.disconnect()
 
             if is_authorized:
-                return templates.TemplateResponse(
+                return _fragment(
                     request,
                     "fragments/success.html",
                     {"message": "Your session is already authorized and working!"},
                 )
         except Exception as e:
-            return templates.TemplateResponse(
+            logger.warning("Error checking session for reauthorize: %s", e)
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response(f"Error checking session: {e}"),
+                "fragments/reauthorize_token_form.html",
+                {"error": REAUTH_SESSION_CHECK_FAILED_MESSAGE},
             )
 
         # Session needs reauthorization - create temp session for reauth
@@ -524,17 +527,18 @@ def register_web_setup_routes(mcp_app):
             }
 
             # Ask for phone number since we can't extract it securely from session
-            return templates.TemplateResponse(
+            return _fragment(
                 request, "fragments/reauthorize_phone.html", {"setup_id": setup_id}
             )
 
         except Exception as e:
+            logger.warning("Failed to prepare reauthorization: %s", e)
             await client.disconnect()
             temp_session_path.unlink(missing_ok=True)
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response(f"Failed to prepare reauthorization: {e}"),
+                "fragments/reauthorize_token_form.html",
+                {"error": REAUTH_PREPARE_FAILED_MESSAGE},
             )
 
     @mcp_app.custom_route("/setup/reauthorize/phone", methods=["POST"])
@@ -543,45 +547,39 @@ def register_web_setup_routes(mcp_app):
         setup_id = str(form.get("setup_id", "")).strip()
         phone_raw = _normalize_phone_number(str(form.get("phone", "")))
         if not _is_valid_phone_number(phone_raw):
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/reauthorize_phone.html",
-                {
-                    "setup_id": setup_id,
-                    "error": "Enter a valid phone number in international format, e.g. +1234567890.",
-                },
+                {"setup_id": setup_id, "error": PHONE_INVALID_MESSAGE},
             )
 
         state = validate_setup_session(setup_id)
         if not state:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response("Invalid setup session"),
+                "fragments/reauthorize_token_form.html",
+                {"error": REAUTH_SETUP_EXPIRED_MESSAGE},
             )
 
         client = state.get("client")
         if not client:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response("Invalid setup session"),
+                "fragments/reauthorize_token_form.html",
+                {"error": REAUTH_SETUP_EXPIRED_MESSAGE},
             )
 
         try:
             await client.send_code_request(phone_raw)
         except PhoneNumberFloodError:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/reauthorize_phone.html",
-                {
-                    "setup_id": setup_id,
-                    "error": "Too many attempts. Please wait before retrying.",
-                },
+                {"setup_id": setup_id, "error": PHONE_FLOOD_MESSAGE},
             )
         except Exception as e:
             logger.warning("Failed to send reauthorization code: %s", e)
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/reauthorize_phone.html",
                 {
@@ -593,7 +591,7 @@ def register_web_setup_routes(mcp_app):
         state["phone"] = phone_raw
         state["masked_phone"] = mask_phone_number(phone_raw)
 
-        return templates.TemplateResponse(
+        return _fragment(
             request,
             "fragments/code_form.html",
             {"masked_phone": state["masked_phone"], "setup_id": setup_id},
@@ -606,26 +604,26 @@ def register_web_setup_routes(mcp_app):
         token = str(form.get("token", "")).strip()
 
         if not token:
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response("Bearer token is required"),
+                "fragments/delete_session_form.html",
+                {"error": BEARER_TOKEN_REQUIRED_MESSAGE},
             )
 
         # Security: Prevent reserved session names
         if token.lower() in RESERVED_SESSION_NAMES:
-            return templates.TemplateResponse(
-                request, "fragments/error.html", create_error_response("Invalid token")
+            return _fragment(
+                request,
+                "fragments/delete_session_form.html",
+                {"error": INVALID_TOKEN_MESSAGE},
             )
 
         session_path = get_config().session_directory / f"{token}.session"
         if not session_path.exists():
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response(
-                    "Session not found. Please check your bearer token."
-                ),
+                "fragments/delete_session_form.html",
+                {"error": SESSION_NOT_FOUND_MESSAGE},
             )
 
         try:
@@ -646,7 +644,7 @@ def register_web_setup_routes(mcp_app):
             # Delete the session file
             session_path.unlink()
 
-            return templates.TemplateResponse(
+            return _fragment(
                 request,
                 "fragments/success.html",
                 {
@@ -655,10 +653,11 @@ def register_web_setup_routes(mcp_app):
             )
 
         except Exception as e:
-            return templates.TemplateResponse(
+            logger.warning("Failed to delete session: %s", e)
+            return _fragment(
                 request,
-                "fragments/error.html",
-                create_error_response(f"Failed to delete session: {e}"),
+                "fragments/delete_session_form.html",
+                {"error": DELETE_SESSION_FAILED_MESSAGE},
             )
 
     @mcp_app.custom_route("/download-config/{token}", methods=["GET"])

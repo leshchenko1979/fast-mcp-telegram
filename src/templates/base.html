@@ -33,12 +33,18 @@
         h1,
         h2,
         h3 {
-            margin: 0 0 16px;
+            margin: 0 0 12px;
+            line-height: 1.25;
+        }
+
+        p {
+            margin: 0 0 12px;
+            line-height: 1.45;
         }
 
         label {
             display: block;
-            margin: 12px 0 6px;
+            margin: 0;
             font-weight: 600;
         }
 
@@ -63,7 +69,7 @@
         }
 
         button {
-            margin-top: 14px;
+            margin-top: 0;
             padding: 10px 16px;
             border: 1px solid #2a3556;
             background: #1a2442;
@@ -81,11 +87,19 @@
         .muted {
             color: #9aa3b2;
             font-size: 0.85rem;
+            margin: 0 0 12px;
         }
 
         .error {
             color: #ff6b6b;
-            margin-top: 8px;
+            margin: 0 0 12px;
+        }
+
+        .warning {
+            color: #ff6b6b;
+            font-size: 0.9rem;
+            margin: 0 0 12px;
+            line-height: 1.45;
         }
 
         .card {
@@ -93,6 +107,58 @@
             border: 1px solid #2a3556;
             border-radius: 8px;
             background: #0f1528;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        /* Avoid flex gap + paragraph .muted margin stacking inside forms */
+        form>p,
+        form>div.muted {
+            margin: 0;
+        }
+
+        form button {
+            align-self: flex-start;
+        }
+
+        /* Extra space between fields and primary submit (on top of flex gap) */
+        form>button[type="submit"] {
+            margin-top: 12px;
+        }
+
+        /* Primary actions below body copy / cards */
+        .setup-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .mt-block {
+            margin: 1rem 0;
+        }
+
+        .mb-sm {
+            margin-bottom: 12px;
+        }
+
+        .pre-wrap {
+            white-space: pre-wrap;
+        }
+
+        .form-inline {
+            display: inline-block;
+            margin-top: 0;
+        }
+
+        code.token-display {
+            word-break: break-all;
         }
     </style>
 </head>

@@ -1,7 +1,7 @@
 <h2>Error</h2>
-<p class="muted">{{ error }}</p>
+<div class="error">{{ error }}</div>
 
-<div style="margin: 1rem 0;">
-    {# Full navigation: HTMX replaced #step so history.back() often has nowhere useful to go. #}
-    <button type="button" onclick="window.location.assign('/setup')">← Return to setup</button>
+<div class="setup-actions">
+    {# HTMX replaced #setup-flow; avoid history.back() — no useful prior page. #}
+    <button type="button" onclick="window.location.assign('/setup')">Back to setup</button>
 </div>

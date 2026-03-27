@@ -3,7 +3,8 @@
 - **Flood-error path fix**: `PhoneNumberFloodError` on `/setup/phone` now returns the phone-entry fragment with an error message and cleans temporary session artifacts instead of showing a broken code-entry step.
 - **Setup error rendering unification**: HTMX-facing setup failures now render `fragments/error.html` instead of JSON payloads, preventing raw JSON from being injected into the UI.
 - **Fragment polish**: Added reauthorize-phone error display, moved 2FA hint above password field, normalized headings, added return-to-setup actions on success/config, and hardened config copy interaction feedback.
-- **Coverage**: Added `tests/test_web_setup.py` for flood handling and invalid setup-session HTML error behavior.
+- **Same-step error UX**: Delete and reauthorize token failures (and reauth phone step expiry) return `delete_session_form` / `reauthorize_token_form` with inline errors; `error.html` reserved for unavoidable wizard failures; shared **Back to setup** and `.error` styling on terminal errors.
+- **Coverage**: Extended `tests/test_web_setup.py` for same-step templates, fragment visibility, and invalid setup-session HTML error behavior.
 
 ### 2026-03-15
 - **FastMCP 3 Bearer Token Fix**: Switched to FastMCP's auth=TokenVerifier to fix token extraction failure (upstream bug PrefectHQ/fastmcp#596). Created SessionFileTokenVerifier validating tokens via session file existence. `with_auth_context` now uses `get_access_token()` instead of `get_http_headers()`. Auth only enabled in http-auth mode. All 250 tests pass.
