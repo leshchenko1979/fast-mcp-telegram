@@ -42,6 +42,9 @@ async def test_setup_phone_flood_returns_phone_form_without_session(
     cfg = ServerConfig()
     cfg.session_dir = str(tmp_path)
     set_config(cfg)
+    monkeypatch.setattr(web_setup.time, "time", lambda: 1234.567)
+    temp_session_path = tmp_path / "setup-1234567.session"
+    temp_session_path.write_text("temp-session")
 
     class _Client:
         async def connect(self):
@@ -69,6 +72,7 @@ async def test_setup_phone_flood_returns_phone_form_without_session(
     assert response.template == "fragments/new_session_phone_form.html"
     assert "Too many attempts" in response.context["error"]
     assert len(web_setup._setup_sessions) == 0
+    assert not temp_session_path.exists()
 
 
 @pytest.mark.asyncio
