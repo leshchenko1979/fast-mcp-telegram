@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -129,14 +130,10 @@ def extract_bearer_token_from_request(request) -> str | None:
             return None
 
         # Prefer direct read from the incoming request (custom routes)
-        try:
+        with contextlib.suppress(Exception):
             headers = dict(request.headers)
-            token = _extract_bearer_token_from_headers(headers)
-            if token:
+            if token := _extract_bearer_token_from_headers(headers):
                 return token
-        except Exception:
-            pass
-
         # Fallback: FastMCP dependency (works in tool-execution context)
         try:  # pragma: no cover - optional path
             from fastmcp.server.dependencies import get_http_headers

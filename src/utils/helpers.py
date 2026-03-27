@@ -40,10 +40,7 @@ def normalize_method_name(method: str) -> str:
     if cls.endswith("Request"):
         cls = cls[: -len("Request")]
 
-    # Try to resolve real Telethon Request class by case-insensitive match
-    # Build and cache a lowercase->BaseName map per module for efficiency
-    base_name = _resolve_request_base_name_case_insensitive(module, cls)
-    if base_name:
+    if base_name := _resolve_request_base_name_case_insensitive(module, cls):
         return f"{module}.{base_name}"
 
     # Preserve caller's casing if it includes uppercase; otherwise capitalize first letter

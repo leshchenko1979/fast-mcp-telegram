@@ -35,13 +35,12 @@ def _media_size_hint_for_log(message: Any) -> int | None:
     photo = getattr(media, "photo", None)
     if photo is not None:
         sizes = getattr(photo, "sizes", None) or []
-        sized = [
+        if sized := [
             s
             for s in sizes
             if getattr(s, "size", None) is not None
             and type(s).__name__ != "PhotoStrippedSize"
-        ]
-        if sized:
+        ]:
             largest = max(sized, key=lambda s: getattr(s, "size", 0))
             return getattr(largest, "size", None)
     return None

@@ -50,9 +50,7 @@ def with_error_handling(operation_name: str):
             try:
                 result = await func(*args, **kwargs)
                 error_response = handle_tool_error(result, operation_name, params)
-                if error_response:
-                    return error_response
-                return result
+                return error_response or result
             except Exception as e:
                 return log_and_build_error(
                     operation=operation_name,

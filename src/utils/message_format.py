@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from telethon.errors import RPCError
@@ -13,6 +14,26 @@ from src.server_components.attachment_tickets import mint_attachment_ticket
 from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
 
 logger = logging.getLogger(__name__)
+
+_KNOWN_MEDIA_CLASSES = frozenset(
+    {
+        "MessageMediaPhoto",
+        "MessageMediaDocument",
+        "MessageMediaAudio",
+        "MessageMediaVoice",
+        "MessageMediaVideo",
+        "MessageMediaWebPage",
+        "MessageMediaGeo",
+        "MessageMediaContact",
+        "MessageMediaPoll",
+        "MessageMediaDice",
+        "MessageMediaVenue",
+        "MessageMediaGame",
+        "MessageMediaInvoice",
+        "MessageMediaToDo",
+        "MessageMediaUnsupported",
+    }
+)
 
 
 def _document_voice_and_round_note_flags(document) -> tuple[bool, bool]:
@@ -80,28 +101,123 @@ def _has_any_media(message) -> bool:
     """Check if message contains any type of media content."""
     if not hasattr(message, "media") or message.media is None:
         return False
+    return message.media.__class__.__name__ in _KNOWN_MEDIA_CLASSES
 
-    media = message.media
-    media_class = media.__class__.__name__
 
-    # Check for all known media types
-    return media_class in [
-        "MessageMediaPhoto",  # Photos
-        "MessageMediaDocument",  # Documents, files, audio, video files
-        "MessageMediaAudio",  # Audio files
-        "MessageMediaVoice",  # Voice messages
-        "MessageMediaVideo",  # Videos
-        "MessageMediaWebPage",  # Link previews
-        "MessageMediaGeo",  # Location
-        "MessageMediaContact",  # Contact cards
-        "MessageMediaPoll",  # Polls
-        "MessageMediaDice",  # Dice animations
-        "MessageMediaVenue",  # Venue/location with name
-        "MessageMediaGame",  # Games
-        "MessageMediaInvoice",  # Payments/invoices
-        "MessageMediaToDo",  # Todo lists
-        "MessageMediaUnsupported",  # Unsupported media types
-    ]
+def _decode_callback_data(button) -> str:
+    data = getattr(button, "data", None)
+    return data.decode("utf-8", errors="replace") if data else ""
+
+
+def _inline_button_extra_url(button) -> dict[str, Any]:
+    return {"type": "url", "url": getattr(button, "url", "")}
+
+
+def _inline_button_extra_callback(button) -> dict[str, Any]:
+    return {"type": "callback_data", "data": _decode_callback_data(button)}
+
+
+def _inline_button_extra_switch_inline(button) -> dict[str, Any]:
+    return {"type": "switch_inline_query", "query": getattr(button, "query", "")}
+
+
+def _inline_button_extra_switch_inline_same(button) -> dict[str, Any]:
+    return {
+        "type": "switch_inline_query_current_chat",
+        "query": getattr(button, "query", ""),
+    }
+
+
+def _inline_button_extra_game(_button) -> dict[str, Any]:
+    return {"type": "callback_game"}
+
+
+def _inline_button_extra_buy(_button) -> dict[str, Any]:
+    return {"type": "pay"}
+
+
+def _inline_button_extra_user_profile(button) -> dict[str, Any]:
+    return {"type": "user_profile", "user_id": getattr(button, "user_id", None)}
+
+
+_INLINE_BUTTON_SERIALIZERS: dict[str, Callable[[Any], dict[str, Any]]] = {
+    "KeyboardButtonUrl": _inline_button_extra_url,
+    "KeyboardButtonCallback": _inline_button_extra_callback,
+    "KeyboardButtonSwitchInline": _inline_button_extra_switch_inline,
+    "KeyboardButtonSwitchInlineSame": _inline_button_extra_switch_inline_same,
+    "KeyboardButtonGame": _inline_button_extra_game,
+    "KeyboardButtonBuy": _inline_button_extra_buy,
+    "KeyboardButtonUserProfile": _inline_button_extra_user_profile,
+}
+
+
+def _extract_reply_markup(message) -> dict[str, Any] | None:
+    """Extract and serialize reply markup from a message if present."""
+    reply_markup = getattr(message, "reply_markup", None)
+    if not reply_markup:
+        return None
+
+    markup_class = reply_markup.__class__.__name__
+
+    if markup_class == "ReplyKeyboardMarkup":
+        rows = []
+        if hasattr(reply_markup, "rows"):
+            for row in reply_markup.rows:
+                row_buttons = []
+                if hasattr(row, "buttons"):
+                    row_buttons.extend(
+                        {"text": getattr(button, "text", "")} for button in row.buttons
+                    )
+                rows.append(row_buttons)
+
+        return {
+            "type": "keyboard",
+            "rows": rows,
+            "resize": getattr(reply_markup, "resize", None),
+            "single_use": getattr(reply_markup, "single_use", None),
+            "selective": getattr(reply_markup, "selective", None),
+            "persistent": getattr(reply_markup, "persistent", None),
+            "placeholder": getattr(reply_markup, "placeholder", None),
+        }
+
+    if markup_class == "ReplyInlineMarkup":
+        rows = []
+        if hasattr(reply_markup, "rows"):
+            for row in reply_markup.rows:
+                row_buttons = []
+                if hasattr(row, "buttons"):
+                    for button in row.buttons:
+                        text = getattr(button, "text", "")
+                        btn_cls = button.__class__.__name__
+                        serializer = _INLINE_BUTTON_SERIALIZERS.get(btn_cls)
+                        extra = (
+                            serializer(button) if serializer else {"type": "unknown"}
+                        )
+                        row_buttons.append({"text": text, **extra})
+                rows.append(row_buttons)
+
+        return {
+            "type": "inline",
+            "rows": rows,
+        }
+
+    if markup_class == "ReplyKeyboardForceReply":
+        return {
+            "type": "force_reply",
+            "selective": getattr(reply_markup, "selective", None),
+            "placeholder": getattr(reply_markup, "placeholder", None),
+        }
+
+    if markup_class == "ReplyKeyboardHide":
+        return {
+            "type": "hide",
+            "selective": getattr(reply_markup, "selective", None),
+        }
+
+    return {
+        "type": "unknown",
+        "class": markup_class,
+    }
 
 
 def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
@@ -118,7 +234,6 @@ def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
         "sender": sender_dict,
     }
 
-    # Add edit_date for edited messages
     if status == "edited" and hasattr(message, "edit_date") and message.edit_date:
         result["edit_date"] = message.edit_date.isoformat()
 
@@ -141,132 +256,124 @@ async def get_sender_info(client, message) -> dict[str, Any] | None:
     return None
 
 
-def _extract_reply_markup(message) -> dict[str, Any] | None:
-    """Extract and serialize reply markup from a message.
+def _document_duration_and_filename(document) -> tuple[int | None, str | None]:
+    """Duration and filename from document.attributes (audio/video and filename attrs)."""
+    duration = None
+    filename = None
+    for attr in getattr(document, "attributes", []) or []:
+        ac = attr.__class__.__name__
+        if ac in ("DocumentAttributeAudio", "DocumentAttributeVideo"):
+            if hasattr(attr, "duration"):
+                duration = attr.duration
+        elif hasattr(attr, "file_name") and attr.file_name:
+            filename = attr.file_name
+    return duration, filename
 
-    Returns a dictionary containing reply markup information if present, None otherwise.
-    """
-    reply_markup = getattr(message, "reply_markup", None)
-    if not reply_markup:
-        return None
 
-    markup_class = reply_markup.__class__.__name__
+def _first_document_attribute_duration(document) -> int | None:
+    return next(
+        (
+            attr.duration
+            for attr in getattr(document, "attributes", []) or []
+            if hasattr(attr, "duration") and attr.duration is not None
+        ),
+        None,
+    )
 
-    if markup_class == "ReplyKeyboardMarkup":
-        # Extract keyboard buttons organized in rows
-        rows = []
-        if hasattr(reply_markup, "rows"):
-            for row in reply_markup.rows:
-                row_buttons = []
-                if hasattr(row, "buttons"):
-                    for button in row.buttons:
-                        button_text = getattr(button, "text", "")
-                        row_buttons.append({"text": button_text})
-                rows.append(row_buttons)
 
-        return {
-            "type": "keyboard",
-            "rows": rows,
-            "resize": getattr(reply_markup, "resize", None),
-            "single_use": getattr(reply_markup, "single_use", None),
-            "selective": getattr(reply_markup, "selective", None),
-            "persistent": getattr(reply_markup, "persistent", None),
-            "placeholder": getattr(reply_markup, "placeholder", None),
+def _apply_document_mime_and_size(placeholder: dict[str, Any], document) -> None:
+    if mime_type := getattr(document, "mime_type", None):
+        placeholder["mime_type"] = mime_type
+    file_size = getattr(document, "size", None)
+    if file_size is not None:
+        placeholder["approx_size_bytes"] = file_size
+
+
+def _fill_document_media_placeholder(placeholder: dict[str, Any], document) -> None:
+    """Populate placeholder fields for MessageMediaDocument (voice note, round video, file)."""
+    is_voice, is_round_video = _document_voice_and_round_note_flags(document)
+    duration, filename = _document_duration_and_filename(document)
+    if filename:
+        placeholder["filename"] = filename
+    if is_voice:
+        placeholder["type"] = "voice"
+    elif is_round_video:
+        placeholder["type"] = "round_video"
+    if (is_voice or is_round_video) and duration is not None:
+        placeholder["duration_seconds"] = duration
+    _apply_document_mime_and_size(placeholder, document)
+
+
+def _fill_todo_media_placeholder(placeholder: dict[str, Any], media, todo_list) -> None:
+    """Populate placeholder fields for MessageMediaToDo."""
+    placeholder["type"] = "todo"
+    title_obj = getattr(todo_list, "title", None)
+    if title_obj and hasattr(title_obj, "text"):
+        placeholder["title"] = title_obj.text
+
+    items = getattr(todo_list, "list", [])
+    if not isinstance(items, list):
+        items = []
+    placeholder["items"] = []
+    for item in items:
+        item_dict = {
+            "id": getattr(item, "id", 0),
+            "text": getattr(getattr(item, "title", None), "text", ""),
+            "completed": False,
         }
+        placeholder["items"].append(item_dict)
 
-    if markup_class == "ReplyInlineMarkup":
-        # Extract inline buttons
-        rows = []
-        if hasattr(reply_markup, "rows"):
-            for row in reply_markup.rows:
-                row_buttons = []
-                if hasattr(row, "buttons"):
-                    for button in row.buttons:
-                        button_info = {"text": getattr(button, "text", "")}
+    completions = getattr(media, "completions", [])
+    if not isinstance(completions, list):
+        completions = []
+    for completion in completions:
+        item_id = getattr(completion, "id", None)
+        completed_by = getattr(completion, "completed_by", None)
+        completed_at = getattr(completion, "date", None)
 
-                        # Extract button-specific data based on button type
-                        button_class = button.__class__.__name__
+        for pl_item in placeholder["items"]:
+            if pl_item["id"] == item_id:
+                pl_item["completed"] = True
+                if completed_by is not None:
+                    pl_item["completed_by"] = completed_by
+                if completed_at is not None:
+                    pl_item["completed_at"] = completed_at.isoformat()
+                break
 
-                        if button_class == "KeyboardButtonUrl":
-                            button_info.update(
-                                {
-                                    "type": "url",
-                                    "url": getattr(button, "url", ""),
-                                }
-                            )
-                        elif button_class == "KeyboardButtonCallback":
-                            button_info.update(
-                                {
-                                    "type": "callback_data",
-                                    "data": getattr(button, "data", b"").decode(
-                                        "utf-8", errors="replace"
-                                    )
-                                    if getattr(button, "data", None)
-                                    else "",
-                                }
-                            )
-                        elif button_class == "KeyboardButtonSwitchInline":
-                            button_info.update(
-                                {
-                                    "type": "switch_inline_query",
-                                    "query": getattr(button, "query", ""),
-                                }
-                            )
-                        elif button_class == "KeyboardButtonSwitchInlineSame":
-                            button_info.update(
-                                {
-                                    "type": "switch_inline_query_current_chat",
-                                    "query": getattr(button, "query", ""),
-                                }
-                            )
-                        elif button_class == "KeyboardButtonGame":
-                            button_info.update(
-                                {
-                                    "type": "callback_game",
-                                }
-                            )
-                        elif button_class == "KeyboardButtonBuy":
-                            button_info.update(
-                                {
-                                    "type": "pay",
-                                }
-                            )
-                        elif button_class == "KeyboardButtonUserProfile":
-                            button_info.update(
-                                {
-                                    "type": "user_profile",
-                                    "user_id": getattr(button, "user_id", None),
-                                }
-                            )
-                        else:
-                            button_info["type"] = "unknown"
 
-                        row_buttons.append(button_info)
-                rows.append(row_buttons)
+def _fill_poll_media_placeholder(placeholder: dict[str, Any], poll, results) -> None:
+    """Populate placeholder fields for MessageMediaPoll."""
+    placeholder["type"] = "poll"
 
-        return {
-            "type": "inline",
-            "rows": rows,
+    question_obj = getattr(poll, "question", None)
+    if question_obj and hasattr(question_obj, "text"):
+        placeholder["question"] = question_obj.text
+
+    answers = getattr(poll, "answers", [])
+    placeholder["options"] = []
+    for answer in answers:
+        option_dict = {
+            "text": getattr(getattr(answer, "text", None), "text", ""),
+            "voters": 0,
+            "chosen": getattr(answer, "chosen", False),
+            "correct": getattr(answer, "correct", False),
         }
+        placeholder["options"].append(option_dict)
 
-    if markup_class == "ReplyKeyboardForceReply":
-        return {
-            "type": "force_reply",
-            "selective": getattr(reply_markup, "selective", None),
-            "placeholder": getattr(reply_markup, "placeholder", None),
-        }
+    if results and hasattr(results, "results"):
+        result_counts = getattr(results, "results", [])
+        for result in result_counts:
+            voters = getattr(result, "voters", 0)
+            for option in placeholder["options"]:
+                if option["voters"] == 0:
+                    option["voters"] = voters
+                    break
 
-    if markup_class == "ReplyKeyboardHide":
-        return {
-            "type": "hide",
-            "selective": getattr(reply_markup, "selective", None),
-        }
-
-    # Unknown markup type
-    return {
-        "type": "unknown",
-        "class": markup_class,
-    }
+    placeholder["total_voters"] = getattr(results, "total_voters", 0) if results else 0
+    placeholder["closed"] = getattr(poll, "closed", False)
+    placeholder["public_voters"] = getattr(poll, "public_voters", True)
+    placeholder["multiple_choice"] = getattr(poll, "multiple_choice", False)
+    placeholder["quiz"] = getattr(poll, "quiz", False)
 
 
 def _build_media_placeholder(message) -> dict[str, Any] | None:
@@ -280,175 +387,56 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
 
     placeholder: dict[str, Any] = {}
 
-    media_cls = media.__class__.__name__
+    match media.__class__.__name__:
+        case "MessageMediaDocument":
+            if document := getattr(media, "document", None):
+                _fill_document_media_placeholder(placeholder, document)
 
-    # Extract document-specific information
-    if media_cls == "MessageMediaDocument":
-        document = getattr(media, "document", None)
-        if document:
-            is_voice, is_round_video = _document_voice_and_round_note_flags(document)
-            duration = None
+        case "MessageMediaPhoto":
+            placeholder["type"] = "photo"
+            ph = getattr(media, "photo", None)
+            if (
+                ph
+                and getattr(ph, "sizes", None)
+                and (
+                    sized := [
+                        s
+                        for s in ph.sizes
+                        if getattr(s, "size", None) is not None
+                        and type(s).__name__ != "PhotoStrippedSize"
+                    ]
+                )
+            ):
+                largest = max(sized, key=lambda s: getattr(s, "size", 0))
+                placeholder["approx_size_bytes"] = largest.size
+            placeholder.setdefault("mime_type", "image/jpeg")
 
-            if hasattr(document, "attributes"):
-                for attr in document.attributes:
-                    attr_cls = attr.__class__.__name__
-                    if (
-                        attr_cls == "DocumentAttributeAudio"
-                        or attr_cls == "DocumentAttributeVideo"
-                    ):
-                        if hasattr(attr, "duration"):
-                            duration = attr.duration
-                    elif hasattr(attr, "file_name") and attr.file_name:
-                        placeholder["filename"] = attr.file_name
+        case "MessageMediaVoice":
+            placeholder["type"] = "voice"
+            if document := getattr(media, "document", None):
+                dur = _first_document_attribute_duration(document)
+                if dur is not None:
+                    placeholder["duration_seconds"] = dur
 
-            if is_voice:
-                placeholder["type"] = "voice"
-                if duration is not None:
-                    placeholder["duration_seconds"] = duration
+        case "MessageMediaToDo":
+            if todo_list := getattr(media, "todo", None):
+                _fill_todo_media_placeholder(placeholder, media, todo_list)
 
-            elif is_round_video:
-                placeholder["type"] = "round_video"
-                if duration is not None:
-                    placeholder["duration_seconds"] = duration
+        case "MessageMediaPoll":
+            poll = getattr(media, "poll", None)
+            results = getattr(media, "results", None)
+            if poll:
+                _fill_poll_media_placeholder(placeholder, poll, results)
 
-            # Get mime_type and file_size from document object
-            mime_type = getattr(document, "mime_type", None)
-            if mime_type:
+        case _:
+            if mime_type := getattr(media, "mime_type", None):
                 placeholder["mime_type"] = mime_type
 
-            file_size = getattr(document, "size", None)
+            file_size = getattr(media, "size", None)
             if file_size is not None:
                 placeholder["approx_size_bytes"] = file_size
 
-    elif media_cls == "MessageMediaPhoto":
-        placeholder["type"] = "photo"
-        ph = getattr(media, "photo", None)
-        if ph and getattr(ph, "sizes", None):
-            sized = [
-                s
-                for s in ph.sizes
-                if getattr(s, "size", None) is not None
-                and type(s).__name__ != "PhotoStrippedSize"
-            ]
-            if sized:
-                largest = max(sized, key=lambda s: getattr(s, "size", 0))
-                placeholder["approx_size_bytes"] = largest.size
-        placeholder.setdefault("mime_type", "image/jpeg")
-
-    # Handle Voice Messages
-    elif media_cls == "MessageMediaVoice":
-        placeholder["type"] = "voice"
-        # Extract duration from the document
-        document = getattr(media, "document", None)
-        if document and hasattr(document, "attributes"):
-            # Duration is stored in document attributes
-            for attr in document.attributes:
-                if hasattr(attr, "duration") and attr.duration is not None:
-                    placeholder["duration_seconds"] = attr.duration
-                    break
-
-    # Handle Todo Lists
-    elif media_cls == "MessageMediaToDo":
-        todo_list = getattr(media, "todo", None)
-        if todo_list:
-            placeholder["type"] = "todo"
-            # Extract title
-            title_obj = getattr(todo_list, "title", None)
-            if title_obj and hasattr(title_obj, "text"):
-                placeholder["title"] = title_obj.text
-
-            # Extract items
-            items = getattr(todo_list, "list", [])
-            if not isinstance(items, list):
-                items = []
-            placeholder["items"] = []
-            for item in items:
-                item_dict = {
-                    "id": getattr(item, "id", 0),
-                    "text": getattr(getattr(item, "title", None), "text", ""),
-                    "completed": False,  # Will be updated if completions exist
-                }
-                placeholder["items"].append(item_dict)
-
-            # Map completions to items
-            completions = getattr(media, "completions", [])
-            if not isinstance(completions, list):
-                completions = []
-            for completion in completions:
-                item_id = getattr(completion, "id", None)
-                completed_by = getattr(completion, "completed_by", None)
-                completed_at = getattr(completion, "date", None)
-
-                # Find the corresponding item and mark as completed
-                for item in placeholder["items"]:
-                    if item["id"] == item_id:
-                        item["completed"] = True
-                        if completed_by is not None:
-                            item["completed_by"] = completed_by
-                        if completed_at is not None:
-                            item["completed_at"] = completed_at.isoformat()
-                        break
-
-    # Handle Polls
-    elif media_cls == "MessageMediaPoll":
-        poll = getattr(media, "poll", None)
-        results = getattr(media, "results", None)
-        if poll:
-            placeholder["type"] = "poll"
-
-            # Extract question
-            question_obj = getattr(poll, "question", None)
-            if question_obj and hasattr(question_obj, "text"):
-                placeholder["question"] = question_obj.text
-
-            # Extract options
-            answers = getattr(poll, "answers", [])
-            placeholder["options"] = []
-            for answer in answers:
-                option_dict = {
-                    "text": getattr(getattr(answer, "text", None), "text", ""),
-                    "voters": 0,  # Will be updated from results
-                    "chosen": getattr(answer, "chosen", False),
-                    "correct": getattr(answer, "correct", False),
-                }
-                placeholder["options"].append(option_dict)
-
-            # Map vote counts from results
-            if results and hasattr(results, "results"):
-                result_counts = getattr(results, "results", [])
-                for result in result_counts:
-                    voters = getattr(result, "voters", 0)
-
-                    # For simplicity, we'll map by index for now
-                    # In a more sophisticated implementation, we'd match by option bytes
-                    for option in placeholder["options"]:
-                        if (
-                            option["voters"] == 0
-                        ):  # Simple mapping - first result to first option
-                            option["voters"] = voters
-                            break
-
-            # Extract poll metadata
-            placeholder["total_voters"] = (
-                getattr(results, "total_voters", 0) if results else 0
-            )
-            placeholder["closed"] = getattr(poll, "closed", False)
-            placeholder["public_voters"] = getattr(poll, "public_voters", True)
-            placeholder["multiple_choice"] = getattr(poll, "multiple_choice", False)
-            placeholder["quiz"] = getattr(poll, "quiz", False)
-
-    else:
-        # For other media types (photos, videos, etc.), try to get mime_type and size from media object
-        mime_type = getattr(media, "mime_type", None)
-        if mime_type:
-            placeholder["mime_type"] = mime_type
-
-        file_size = getattr(media, "size", None)
-        if file_size is not None:
-            placeholder["approx_size_bytes"] = file_size
-
-    # Return None if no meaningful media metadata was extracted
-    return placeholder if placeholder else None
+    return placeholder or None
 
 
 def _extract_topic_metadata(message: Any) -> dict[str, Any]:
@@ -460,9 +448,7 @@ def _extract_topic_metadata(message: Any) -> dict[str, Any]:
     forum_topic = bool(getattr(reply_to, "forum_topic", False))
     reply_to_top_id = getattr(reply_to, "reply_to_top_id", None)
     topic_id = reply_to_top_id or (reply_to_msg_id if forum_topic else None)
-    if topic_id is not None:
-        return {"topic_id": topic_id}
-    return {}
+    return {"topic_id": topic_id} if topic_id is not None else {}
 
 
 async def build_message_result(
@@ -493,18 +479,15 @@ async def build_message_result(
     if reply_to_msg_id is not None:
         result["reply_to_msg_id"] = reply_to_msg_id
 
-    # Topic metadata: derived from reply_to.forum_topic flag which Telegram
-    # sets on every message inside a forum thread. We don't gate this on
-    # entity.forum because that attribute may be absent when the entity is
-    # fetched from cache or without full channel details.
-    result.update(_extract_topic_metadata(message))
+    # Topic metadata: derived from reply_to.forum_topic (set on forum thread messages).
+    result |= _extract_topic_metadata(message)
 
     if hasattr(message, "media") and message.media:
         media_placeholder = _build_media_placeholder(message)
         if media_placeholder is not None:
             result["media"] = media_placeholder
             await _maybe_set_attachment_download_url(
-                result["media"], message, chat.get("id")
+                result["media"], message, chat.get("id") if chat else None
             )
 
     if forward_info is not None:
@@ -527,27 +510,19 @@ async def _is_user_premium(client) -> bool:
         me = await client.get_me()
         return bool(getattr(me, "premium", False))
     except Exception as e:
-        logger.warning(f"Failed to check user premium status: {e}")
+        logger.warning("Failed to check user premium status: %s", e)
         return False
 
 
 async def _transcribe_single_voice_message(
     client, chat_entity, message_id: int
 ) -> str | None:
-    """
-    Transcribe a single voice message.
-
-    Returns the transcription text, or raises PremiumRequiredError if account lacks premium.
-    Returns None if transcription fails for other reasons.
-
-    If transcription is pending, polls until completion.
-    """
+    """Transcribe a single voice message; poll when pending. Raises PremiumRequiredError if required."""
     try:
         result = await client(
             TranscribeAudioRequest(peer=chat_entity, msg_id=message_id)
         )
 
-        # If transcription is already complete, return it
         if (
             hasattr(result, "text")
             and result.text
@@ -555,7 +530,6 @@ async def _transcribe_single_voice_message(
         ):
             return result.text
 
-        # If transcription is pending, poll until it's ready
         if (
             hasattr(result, "pending")
             and result.pending
@@ -563,54 +537,53 @@ async def _transcribe_single_voice_message(
         ):
             transcription_id = result.transcription_id
             logger.debug(
-                f"Transcription pending for message {message_id}, polling for completion..."
+                "Transcription pending for message %s, polling for completion...",
+                message_id,
             )
 
-            # Poll for completion (up to 30 seconds with 1-second intervals)
             max_attempts = 30
             for attempt in range(max_attempts):
-                await asyncio.sleep(1)  # Wait 1 second between polls
+                await asyncio.sleep(1)
 
                 try:
-                    # Poll by calling transcribeAudio again with the same parameters
                     poll_result = await client(
                         TranscribeAudioRequest(peer=chat_entity, msg_id=message_id)
                     )
 
-                    # Check if this is the same transcription (matching transcription_id)
                     if (
                         hasattr(poll_result, "transcription_id")
                         and poll_result.transcription_id == transcription_id
                     ):
                         if hasattr(poll_result, "pending") and poll_result.pending:
-                            # Still pending, continue polling
                             continue
                         if hasattr(poll_result, "text") and poll_result.text:
-                            # Transcription completed
                             logger.debug(
-                                f"Transcription completed for message {message_id} after {attempt + 1} polls"
+                                "Transcription completed for message %s after %s polls",
+                                message_id,
+                                attempt + 1,
                             )
                             return poll_result.text
-                        # Unexpected state
                         logger.warning(
-                            f"Unexpected transcription state for message {message_id}"
+                            "Unexpected transcription state for message %s", message_id
                         )
                         return None
 
                 except Exception as poll_error:
                     logger.warning(
-                        f"Error polling transcription for message {message_id}: {poll_error}"
+                        "Error polling transcription for message %s: %s",
+                        message_id,
+                        poll_error,
                     )
                     return None
 
-            # Timeout after max attempts
             logger.warning(
-                f"Transcription polling timeout for message {message_id} after {max_attempts} attempts"
+                "Transcription polling timeout for message %s after %s attempts",
+                message_id,
+                max_attempts,
             )
             return None
 
-        # No transcription available
-        logger.debug(f"No transcription available for message {message_id}")
+        logger.debug("No transcription available for message %s", message_id)
         return None
 
     except RPCError as e:
@@ -619,11 +592,13 @@ async def _transcribe_single_voice_message(
             raise PremiumRequiredError(
                 f"Premium account required for transcription: {e}"
             ) from None
-        logger.warning(f"Transcription failed for message {message_id}: {e}")
+        logger.warning("Transcription failed for message %s: %s", message_id, e)
         return None
     except Exception as e:
         logger.warning(
-            f"Unexpected error during transcription of message {message_id}: {e}"
+            "Unexpected error during transcription of message %s: %s",
+            message_id,
+            e,
         )
         return None
 
@@ -631,23 +606,9 @@ async def _transcribe_single_voice_message(
 async def transcribe_voice_messages(
     messages: list[dict[str, Any]], chat_entity
 ) -> None:
-    """
-    Transcribe voice messages in the results list for premium accounts.
-
-    Args:
-        messages: List of message result dictionaries
-        chat_entity: The chat entity containing the messages
-
-    This function:
-    - Checks if the user has Telegram Premium before attempting transcription
-    - Runs transcriptions in parallel using asyncio.TaskGroup
-    - Cancels all transcription tasks if any fails with PremiumRequiredError
-    - Updates message results with transcription text when available
-    """
-
+    """Transcribe voice message dicts in parallel; TaskGroup cancels peers on PremiumRequiredError."""
     client = await get_connected_client()
 
-    # Check if user has premium before attempting transcription
     is_premium = await _is_user_premium(client)
 
     if not is_premium:
@@ -656,7 +617,6 @@ async def transcribe_voice_messages(
         )
         return
 
-    # Find voice messages that need transcription
     voice_messages = []
     for msg in messages:
         media = msg.get("media")
@@ -671,10 +631,9 @@ async def transcribe_voice_messages(
     if not voice_messages:
         return
 
-    logger.debug(f"Found {len(voice_messages)} voice messages to transcribe")
+    logger.debug("Found %s voice messages to transcribe", len(voice_messages))
 
-    async def transcribe_task(msg_dict: dict[str, Any]):
-        """Transcribe a single voice message and update the result dict."""
+    async def transcribe_task(msg_dict: dict[str, Any]) -> None:
         message_id = msg_dict["id"]
         transcription = await _transcribe_single_voice_message(
             client, chat_entity, message_id
@@ -682,29 +641,24 @@ async def transcribe_voice_messages(
         if transcription:
             msg_dict["transcription"] = transcription
             logger.debug(
-                f"Transcribed voice message {message_id}: {transcription[:50]}..."
+                "Transcribed voice message %s: %s...",
+                message_id,
+                transcription[:50],
             )
 
-    # Run transcriptions in parallel with cancellation on premium requirement
     try:
         async with asyncio.TaskGroup() as tg:
             for msg_dict in voice_messages:
                 tg.create_task(transcribe_task(msg_dict))
     except ExceptionGroup as eg:
-        # Check if it's a PremiumRequiredError group
         premium_errors = [
             e for e in eg.exceptions if isinstance(e, PremiumRequiredError)
         ]
         if premium_errors:
-            # One or more transcriptions failed due to non-premium account
-            # This shouldn't happen if we checked premium status correctly, but handle it gracefully
             logger.info(
                 "Voice transcription cancelled - account lacks premium despite initial check"
             )
-            # All other transcription tasks are automatically cancelled by TaskGroup
         else:
-            # Re-raise non-premium related exception groups
             raise
     except Exception as e:
-        logger.warning(f"Voice transcription failed with unexpected error: {e}")
-        # Continue without transcription rather than failing the entire operation
+        logger.warning("Voice transcription failed with unexpected error: %s", e)

@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from starlette.responses import JSONResponse
@@ -79,11 +80,11 @@ def register_mtproto_api_routes(mcp_app) -> None:
             return JSONResponse(error, status_code=400)
 
         # Log method with sanitized info (no raw values)
-        try:
+        with contextlib.suppress(Exception):
             token_preview = "none"
             if config.require_auth:
                 token_value = extract_bearer_token_from_request(request) or ""
-                token_preview = (token_value[:8] + "...") if token_value else "missing"
+                token_preview = f"{token_value[:8]}..." if token_value else "missing"
             logger.info(
                 "Invoking MTProto API",
                 extra={
@@ -94,9 +95,6 @@ def register_mtproto_api_routes(mcp_app) -> None:
                     else [],
                 },
             )
-        except Exception:
-            pass
-
         # Convert params dict to JSON string for the implementation
         import json
 

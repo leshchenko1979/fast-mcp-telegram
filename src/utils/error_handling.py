@@ -85,17 +85,11 @@ def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]
         if any(phone_key in key_lower for phone_key in phone_keys) and isinstance(
             value, str
         ):
-            if len(value) > 5:
-                sanitized[key] = f"{value[:3]}***{value[-2:]}"
-            else:
-                sanitized[key] = "***"
-        # Optimized message content truncation
+            sanitized[key] = f"{value[:3]}***{value[-2:]}" if len(value) > 5 else "***"
         elif key in message_keys and isinstance(value, str) and len(value) > 100:
             sanitized[key] = f"{value[:100]}... (truncated)"
-        # Optimized long text truncation
         elif isinstance(value, str) and len(value) > 200:
             sanitized[key] = f"{value[:200]}... (truncated)"
-        # Optimized other value handling
         else:
             try:
                 # Fast path for simple types
@@ -123,14 +117,10 @@ def add_logging_metadata(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Parameters with added metadata
     """
-    enhanced_params = params.copy()
-    enhanced_params.update(
-        {
-            "timestamp": datetime.now().isoformat(),
-            "param_count": len(params),
-        }
-    )
-    return enhanced_params
+    return params | {
+        "timestamp": datetime.now().isoformat(),
+        "param_count": len(params),
+    }
 
 
 def is_error_response(result: Any) -> bool:
@@ -243,9 +233,7 @@ def log_and_build_error(
         "error_message": error_message,
     }
 
-    # Add token context if available
-    token = _get_current_token()
-    if token:
+    if token := _get_current_token():
         log_extra["token_prefix"] = f"{token[:8]}..."
 
     if params:

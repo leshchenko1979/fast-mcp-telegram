@@ -1,7 +1,9 @@
+import contextlib
 import ipaddress
 import logging
+import re
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -46,8 +48,6 @@ def detect_message_formatting(message: str) -> str | None:
         return None
 
     # Check for HTML tags first (higher precedence)
-    import re
-
     html_pattern = r"<[^>]+>"
     if re.search(html_pattern, message):
         return "html"
@@ -66,11 +66,14 @@ def detect_message_formatting(message: str) -> str | None:
         r"^\-\s",  # - bullet points (require space after dash)
     ]
 
-    for pattern in markdown_patterns:
-        if re.search(pattern, message, re.MULTILINE):
-            return "markdown"
-
-    return None
+    return next(
+        (
+            "markdown"
+            for pattern in markdown_patterns
+            if re.search(pattern, message, re.MULTILINE)
+        ),
+        None,
+    )
 
 
 def _validate_url_security(url: str) -> tuple[bool, str]:
@@ -135,13 +138,10 @@ def _validate_url_security(url: str) -> tuple[bool, str]:
 
         # Block private IP ranges if enabled
         if config.block_private_ips:
-            try:
+            with contextlib.suppress(ValueError):
                 ip = ipaddress.ip_address(hostname)
                 if ip.is_private or ip.is_loopback or ip.is_link_local:
                     return False, f"Private IP access blocked: {hostname}"
-            except ValueError:
-                # Not an IP address, check if it's a valid domain
-                pass
 
         return True, ""
 
@@ -323,7 +323,7 @@ async def _send_files_to_entity(
         result = await client.send_file(
             entity=entity,
             file=file_objects,
-            caption=message if message else None,
+            caption=message or None,
             reply_to=reply_to_msg_id,
             parse_mode=parse_mode,
             force_document=False,  # Send as photos, not documents
@@ -334,7 +334,7 @@ async def _send_files_to_entity(
     result = await client.send_file(
         entity=entity,
         file=file_list,
-        caption=message if message else None,
+        caption=message or None,
         reply_to=reply_to_msg_id,
         parse_mode=parse_mode,
     )
@@ -426,7 +426,7 @@ async def send_message_impl(
     """
     parse_mode = _normalize_parse_mode(parse_mode)
     resolved_parse_mode = parse_mode
-    if parse_mode == "auto":
+    if resolved_parse_mode == "auto":
         resolved_parse_mode = detect_message_formatting(message)
 
     params = _extract_send_message_params(
@@ -537,7 +537,7 @@ async def edit_message_impl(
             entity=chat,
             message=message_id,
             text=new_text,
-            parse_mode=resolved_parse_mode if resolved_parse_mode else None,
+            parse_mode=cast(Any, resolved_parse_mode or None),
         )
 
         result = build_send_edit_result(edited_message, chat, "edited")
@@ -590,12 +590,14 @@ def _find_message_by_id(messages: list, requested_id: int, idx: int):
         if candidate is not None and getattr(candidate, "id", None) == requested_id:
             return candidate
 
-    # Fallback: search through all messages
-    for m in messages:
-        if m is not None and getattr(m, "id", None) == requested_id:
-            return m
-
-    return None
+    return next(
+        (
+            m
+            for m in messages
+            if m is not None and getattr(m, "id", None) == requested_id
+        ),
+        None,
+    )
 
 
 async def _build_message_results(
@@ -692,12 +694,11 @@ async def read_messages_by_ids(
             client, messages, message_ids, entity, id_to_link, chat_dict
         )
 
-        # Transcribe voice messages for premium accounts
         successful_results = [r for r in results if "error" not in r]
         if successful_results:
             await transcribe_voice_messages(successful_results, entity)
 
-        successful_count = len([r for r in results if "error" not in r])
+        successful_count = len(successful_results)
         log_operation_success(
             f"Retrieved {successful_count} messages out of {len(message_ids)} requested",
         )
@@ -752,6 +753,10 @@ async def send_message_to_phone_impl(
         - contact_removed: Whether the contact was removed (only if it was newly created)
     """
     parse_mode = _normalize_parse_mode(parse_mode)
+    resolved_parse_mode = parse_mode
+    if resolved_parse_mode == "auto":
+        resolved_parse_mode = detect_message_formatting(message)
+
     params = {
         "phone_number": phone_number,
         "message": message,
@@ -760,16 +765,12 @@ async def send_message_to_phone_impl(
         "last_name": last_name,
         "remove_if_new": remove_if_new,
         "reply_to_msg_id": reply_to_msg_id,
-        "parse_mode": parse_mode,
+        "parse_mode": resolved_parse_mode,
         "has_reply": reply_to_msg_id is not None,
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
     }
-
-    # Resolve auto parse mode
-    resolved_parse_mode = parse_mode
     if parse_mode == "auto":
-        resolved_parse_mode = detect_message_formatting(message)
         params["detected_parse_mode"] = resolved_parse_mode
 
     log_operation_start("Sending message to phone number", params)
@@ -831,7 +832,7 @@ async def send_message_to_phone_impl(
             try:
                 u = user[0] if isinstance(user, list) else user
                 if hasattr(u, "access_hash") and hasattr(u, "id"):
-                    await client(DeleteContactsRequest(id=[u]))  # type: ignore[arg-type]
+                    await client(DeleteContactsRequest(id=cast(Any, [u])))
                 contact_removed = True
                 logger.debug(
                     f"Newly created contact {phone_number} removed after sending message"
@@ -840,7 +841,7 @@ async def send_message_to_phone_impl(
                 logger.warning(
                     f"Failed to remove newly created contact {phone_number}: {e}"
                 )
-        elif remove_if_new and not contact_was_new:
+        elif remove_if_new:
             logger.debug(
                 f"Contact {phone_number} was existing, not removing (remove_if_new=True but contact was not new)"
             )

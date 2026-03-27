@@ -22,7 +22,7 @@ def register_health_routes(mcp_app):
             hours_since_access = (current_time - last_access) / 3600
             session_info.append(
                 {
-                    "token_prefix": token[:8] + "...",
+                    "token_prefix": f"{token[:8]}...",
                     "hours_since_access": round(hours_since_access, 2),
                     "is_connected": client.is_connected() if client else False,
                     "last_access": time.ctime(last_access),
@@ -38,7 +38,7 @@ def register_health_routes(mcp_app):
                 "active_sessions": len(_session_cache),
                 "max_sessions": MAX_ACTIVE_SESSIONS,
                 "session_files": sum(
-                    1 for p in Path(SESSION_DIR).glob("*.session") if p.is_file()
+                    bool(p.is_file()) for p in Path(SESSION_DIR).glob("*.session")
                 ),
                 "setup_sessions": len(_setup_sessions),
                 "sessions": session_info,

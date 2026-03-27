@@ -57,8 +57,7 @@ async def search_contacts_native(
                     continue
                 if not _matches_public_filter(user, public):
                     continue
-                info = build_entity_dict(user)
-                if info:
+                if info := build_entity_dict(user):
                     yield info
                     count += 1
 
@@ -71,8 +70,7 @@ async def search_contacts_native(
                     continue
                 if not _matches_public_filter(chat, public):
                     continue
-                info = build_entity_dict(chat)
-                if info:
+                if info := build_entity_dict(chat):
                     yield info
                     count += 1
 
@@ -147,10 +145,7 @@ async def find_chats_impl(
     # Single term: use backward-compatible wrapper
     if len(terms) <= 1:
         result = await _search_contacts_as_list(query, limit, chat_type, public)
-        if isinstance(result, list):
-            return {"chats": result}
-        return result  # Error case
-
+        return {"chats": result} if isinstance(result, list) else result
     try:
         # Start all generators
         generators = [
@@ -179,11 +174,8 @@ async def find_chats_impl(
 
                     next_active.append((i, gen))  # Keep generator active
 
-                except StopAsyncIteration:
-                    continue  # Generator exhausted
                 except Exception:
-                    continue  # Skip errors in individual generators
-
+                    continue  # Generator exhausted
             active_gens = next_active
 
         return {"chats": merged[:limit]}
@@ -211,7 +203,7 @@ search_contacts_telegram = search_contacts_native
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     """Return compact forum topics list for forum-enabled chats."""
     try:
-        requested_limit = int(limit) if limit is not None else 20
+        requested_limit = limit if limit is not None else 20
     except (TypeError, ValueError):
         requested_limit = 20
     requested_limit = max(1, min(requested_limit, 100))

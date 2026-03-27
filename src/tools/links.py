@@ -1,6 +1,8 @@
 import logging
 import traceback
-from typing import Any
+from typing import Any, cast
+
+from telethon.tl.tlobject import TLObject
 
 from src.client.connection import get_connected_client
 from src.config.logging import format_diagnostic_info
@@ -12,6 +14,27 @@ logger = logging.getLogger(__name__)
 def _normalize_channel_id(channel_id: str) -> str:
     """Normalize channel ID by removing -100 prefix for private channels."""
     return channel_id[4:] if channel_id.startswith("-100") else channel_id
+
+
+def _username_slug(username: str) -> str:
+    """Strip leading @ for t.me URL path segments."""
+    return username.lstrip("@")
+
+
+def _private_chat_base(entity: TLObject) -> str:
+    channel_id = _normalize_channel_id(str(getattr(entity, "id", 0)))
+    return f"https://t.me/c/{channel_id}"
+
+
+def _append_message_path(
+    base_url: str,
+    thread_id: int | None,
+    message_id: int,
+    query_string: str,
+) -> str:
+    if thread_id:
+        return f"{base_url}/{thread_id}/{message_id}{query_string}"
+    return f"{base_url}/{message_id}{query_string}"
 
 
 def _build_query_string(
@@ -29,21 +52,21 @@ def _build_query_string(
         query_params.append(f"t={media_timestamp}")
 
     query_string = "&".join(query_params)
-    return "?" + query_string if query_string else ""
+    return f"?{query_string}" if query_string else ""
 
 
 async def _resolve_entity_for_links(
     chat_id: str,
     username: str | None = None,
-    resolved_entity=None,
-) -> tuple[bool, str | None, object | None]:
+    resolved_entity: TLObject | None = None,
+) -> tuple[bool, str | None, TLObject | None]:
     """
     Resolve entity information for link generation.
 
     Returns (is_public, username, entity)
     """
     if resolved_entity is not None:
-        entity = resolved_entity
+        entity: TLObject | None = resolved_entity
     else:
         await get_connected_client()
         entity = await get_entity_by_id(chat_id)
@@ -55,7 +78,7 @@ async def _resolve_entity_for_links(
     is_public = False
 
     if entity is not None and hasattr(entity, "username") and entity.username:
-        real_username = entity.username
+        real_username = cast(str, entity.username)
         is_public = True
 
     return is_public, real_username, entity
@@ -68,7 +91,7 @@ async def generate_telegram_links(
     thread_id: int | None = None,
     comment_id: int | None = None,
     media_timestamp: int | None = None,
-    resolved_entity=None,
+    resolved_entity: TLObject | None = None,
 ) -> dict[str, Any]:
     """
     Generate various formats of Telegram links according to official spec.
@@ -105,16 +128,14 @@ async def generate_telegram_links(
             chat_id, username, resolved_entity
         )
 
-        result = {}
+        result: dict[str, Any] = {}
         query_string = _build_query_string(thread_id, comment_id, media_timestamp)
 
         # Generate chat links
         if is_public and real_username:
-            clean_username = real_username.lstrip("@")
-            result["public_chat_link"] = f"https://t.me/{clean_username}"
+            result["public_chat_link"] = f"https://t.me/{_username_slug(real_username)}"
         elif entity is not None:
-            channel_id = _normalize_channel_id(str(getattr(entity, "id", 0)))
-            result["private_chat_link"] = f"https://t.me/c/{channel_id}"
+            result["private_chat_link"] = _private_chat_base(entity)
         else:
             result["note"] = "Cannot resolve chat entity. Check chat_id or username."
 
@@ -123,18 +144,12 @@ async def generate_telegram_links(
             result["message_links"] = []
             for msg_id in message_ids:
                 if is_public and real_username:
-                    clean_username = real_username.lstrip("@")
-                    if thread_id:
-                        link = f"https://t.me/{clean_username}/{thread_id}/{msg_id}{query_string}"
-                    else:
-                        link = f"https://t.me/{clean_username}/{msg_id}{query_string}"
+                    base = f"https://t.me/{_username_slug(real_username)}"
                 else:
-                    channel_id = _normalize_channel_id(str(getattr(entity, "id", 0)))
-                    if thread_id:
-                        link = f"https://t.me/c/{channel_id}/{thread_id}/{msg_id}{query_string}"
-                    else:
-                        link = f"https://t.me/c/{channel_id}/{msg_id}{query_string}"
-                result["message_links"].append(link)
+                    base = _private_chat_base(cast(TLObject, entity))
+                result["message_links"].append(
+                    _append_message_path(base, thread_id, msg_id, query_string)
+                )
 
         # Add default note if not set
         if "note" not in result:

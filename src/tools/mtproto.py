@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import inspect
 import json
 import logging
@@ -52,8 +53,7 @@ def _normalize_rpc_error_code(exception: Exception) -> str | None:
     Returns:
         Error code string (e.g., "INVITE_HASH_EXPIRED") or None
     """
-    code = _RPC_CLASS_TO_CODE.get(type(exception))
-    if code:
+    if code := _RPC_CLASS_TO_CODE.get(type(exception)):
         return code
     if isinstance(exception, RPCError):
         msg = getattr(exception, "message", str(exception))
@@ -189,12 +189,10 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
 
     async def _resolve_one(value: Any) -> Any:
         # Pass-through for already-resolved TL objects
-        try:
+        with contextlib.suppress(Exception):
             # Telethon TL objects usually have to_dict
             if hasattr(value, "to_dict") or getattr(value, "_", None):
                 return value
-        except Exception:
-            pass
         # Resolve using input entity for strings/ints
         return await client.get_input_entity(value)
 
@@ -295,15 +293,12 @@ def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
     if "hash" in sanitized:
         hash_value = sanitized["hash"]
         if isinstance(hash_value, str):
-            trimmed = hash_value.strip()
-            if trimmed:
+            if trimmed := hash_value.strip():
                 sanitized["hash"] = trimmed
             else:
                 del sanitized["hash"]
         elif isinstance(hash_value, int):
-            if 0 <= hash_value <= 0xFFFFFFFF:
-                pass  # keep as int for difference/history methods
-            else:
+            if not 0 <= hash_value <= 0xFFFFFFFF:
                 logger.warning(f"Hash out of bounds: {hash_value}, removing")
                 del sanitized["hash"]
         else:

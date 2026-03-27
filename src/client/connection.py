@@ -193,7 +193,7 @@ async def _get_client_by_token(token: str) -> TelegramClient:
                                 "message": str(e),
                                 "traceback": traceback.format_exc(),
                             },
-                            "token": token[:8] + "...",
+                            "token": f"{token[:8]}...",
                             "session_path": str(session_path),
                             "auto_deleted": is_auth_error and session_path.exists(),
                         }
@@ -406,7 +406,7 @@ async def get_session_health_stats() -> dict:
         }
 
         for token, (failure_count, last_failure_time) in _connection_failures.items():
-            stats["failure_details"][token[:8] + "..."] = {
+            stats["failure_details"][f"{token[:8]}..."] = {
                 "failure_count": failure_count,
                 "hours_since_last_failure": (current_time - last_failure_time) / 3600,
                 "circuit_breaker_open": failure_count >= 5

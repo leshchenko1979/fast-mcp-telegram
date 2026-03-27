@@ -50,7 +50,6 @@ def _resolve_mode(
 
     Raises ValueError if parameters conflict or required parameters are missing.
     """
-    # Parameter conflict validation
     if message_ids is not None and reply_to_id is not None:
         raise ValueError(
             "Cannot combine message_ids with reply_to_id. Use one or the other."
@@ -60,7 +59,6 @@ def _resolve_mode(
             "Cannot combine message_ids with query. Specific message IDs don't need search."
         )
 
-    # Mode selection with validation
     if message_ids is not None:
         if not message_ids:
             raise ValueError("message_ids cannot be empty when provided")
@@ -73,13 +71,7 @@ def _resolve_mode(
             raise ValueError("chat_id is required when using reply_to_id")
         return MessageRetrievalMode.REPLIES
 
-    # Default: search/browse mode
     return MessageRetrievalMode.SEARCH
-
-
-# ============================================================================
-# Message IDs Mode Handler
-# ============================================================================
 
 
 async def _handle_message_ids_mode(
@@ -90,20 +82,13 @@ async def _handle_message_ids_mode(
     """Handle reading specific messages by IDs with unified output format."""
     messages_list = await read_messages_by_ids(chat_id, message_ids)
 
-    # Check if it's an error (single-item list with error field)
     if len(messages_list) == 1 and "error" in messages_list[0]:
         return messages_list[0]
 
-    # Wrap in unified format for consistency
     return {
         "messages": messages_list,
-        "has_more": False,  # Reading by specific IDs never has more
+        "has_more": False,
     }
-
-
-# ============================================================================
-# Post Comments / Discussion Threads
-# ============================================================================
 
 
 async def _build_result_for_message(
@@ -159,13 +144,11 @@ async def _fetch_replies(
     effective_reply_to = reply_to_id
     discussion_metadata = None
 
-    # Detect channel post with discussion
     if hasattr(chat_entity, "broadcast") and chat_entity.broadcast:
         try:
             discussion_info = await get_post_discussion_info(
                 client, chat_entity, reply_to_id
             )
-            # Use discussion chat instead of channel
             effective_entity = discussion_info["discussion_peer"]
             effective_reply_to = discussion_info["discussion_msg_id"]
             discussion_metadata = {
@@ -175,16 +158,14 @@ async def _fetch_replies(
             }
             logger.debug("Detected channel post with discussion, using discussion chat")
         except ValueError:
-            # No discussion enabled - will fetch replies from channel itself
             logger.debug(f"Channel post {reply_to_id} has no discussion enabled")
 
-    # Fetch replies/comments
     collected = []
     async for message in client.iter_messages(
         effective_entity,
         reply_to=effective_reply_to,
-        search=query if query else None,
-        limit=limit + 1,  # Fetch one extra to check has_more
+        search=query or None,
+        limit=limit + 1,
     ):
         result = await _build_result_for_message(client, message, effective_entity)
         if not result:
@@ -194,7 +175,6 @@ async def _fetch_replies(
         if len(collected) >= limit + 1:
             break
 
-    # Transcribe voice messages
     await transcribe_voice_messages(collected[:limit], effective_entity)
 
     return collected, discussion_metadata
@@ -221,7 +201,6 @@ async def _handle_replies_mode(
         if not entity:
             raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
-        # Fetch replies (handles all detection internally)
         collected, discussion_metadata = await _fetch_replies(
             client, entity, reply_to_id, limit, query
         )
@@ -247,9 +226,8 @@ async def _handle_replies_mode(
             "reply_to_id": reply_to_id,
         }
 
-        # Add discussion metadata if present (channel post with discussion)
         if discussion_metadata:
-            response.update(discussion_metadata)
+            response |= discussion_metadata
 
         return response
 
@@ -262,11 +240,6 @@ async def _handle_replies_mode(
         )
 
 
-# ============================================================================
-# Search Execution Helpers
-# ============================================================================
-
-
 async def _execute_parallel_searches_generators(
     generators: list, collected: list[dict[str, Any]], seen_keys: set, limit: int
 ) -> None:
@@ -275,7 +248,6 @@ async def _execute_parallel_searches_generators(
     Round-robin through generators to balance results and collect one extra message to determine has_more.
     """
     active_gens = list(enumerate(generators))
-    # Collect one extra message to determine if there are more results
     target_limit = limit + 1
 
     while active_gens and len(collected) < target_limit:
@@ -287,19 +259,76 @@ async def _execute_parallel_searches_generators(
                 _append_dedup_until_limit(collected, seen_keys, [result], target_limit)
                 if len(collected) >= target_limit:
                     break
-                next_active.append((i, gen))  # Keep generator active
+                next_active.append((i, gen))
             except StopAsyncIteration:
-                continue  # Generator exhausted
+                continue
             except Exception as e:
                 logger.warning(f"Error in search generator {i}: {e}")
-                continue  # Skip errors in individual generators
+                continue
 
         active_gens = next_active
 
 
-# ============================================================================
-# Search/Browse Mode Handler
-# ============================================================================
+async def _collect_messages_in_chat(
+    client,
+    chat_id: str,
+    queries: list[str],
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+    auto_expand_batches: int,
+    include_total_count: bool,
+    collected: list[dict[str, Any]],
+    seen_keys: set[Any],
+) -> int | None:
+    entity = await get_entity_by_id(chat_id)
+    if not entity:
+        raise ValueError(f"Could not find chat with ID '{chat_id}'")
+    per_chat_queries = queries or [""]
+    generators = [
+        _search_chat_messages_generator(
+            client,
+            entity,
+            (q or ""),
+            limit,
+            chat_type,
+            public,
+            auto_expand_batches,
+        )
+        for q in per_chat_queries
+    ]
+    await _execute_parallel_searches_generators(generators, collected, seen_keys, limit)
+    await transcribe_voice_messages(collected, entity)
+    return await _get_chat_message_count(chat_id) if include_total_count else None
+
+
+async def _collect_messages_global(
+    client,
+    queries: list[str],
+    limit: int,
+    min_datetime: datetime | None,
+    max_datetime: datetime | None,
+    chat_type: str | None,
+    public: bool | None,
+    auto_expand_batches: int,
+    collected: list[dict[str, Any]],
+    seen_keys: set[Any],
+) -> None:
+    generators = [
+        _search_global_messages_generator(
+            client,
+            q,
+            limit,
+            min_datetime,
+            max_datetime,
+            chat_type,
+            public,
+            auto_expand_batches,
+        )
+        for q in queries
+        if q and str(q).strip()
+    ]
+    await _execute_parallel_searches_generators(generators, collected, seen_keys, limit)
 
 
 async def _handle_search_mode(
@@ -316,7 +345,6 @@ async def _handle_search_mode(
     params: dict[str, Any],
 ) -> dict[str, Any]:
     """Handle search/browse mode for messages."""
-    # Normalize and validate queries
     queries: list[str] = (
         [q.strip() for q in query.split(",") if q.strip()] if query else []
     )
@@ -336,37 +364,22 @@ async def _handle_search_mode(
     try:
         total_count = None
         collected: list[dict[str, Any]] = []
-        seen_keys = set()
+        seen_keys: set[Any] = set()
 
         if chat_id:
-            # Per-chat search/browse
             try:
-                entity = await get_entity_by_id(chat_id)
-                if not entity:
-                    raise ValueError(f"Could not find chat with ID '{chat_id}'")
-
-                per_chat_queries = queries if queries else [""]
-                generators = [
-                    _search_chat_messages_generator(
-                        client,
-                        entity,
-                        (q or ""),
-                        limit,
-                        chat_type,
-                        public,
-                        auto_expand_batches,
-                    )
-                    for q in per_chat_queries
-                ]
-                await _execute_parallel_searches_generators(
-                    generators, collected, seen_keys, limit
+                total_count = await _collect_messages_in_chat(
+                    client,
+                    chat_id,
+                    queries,
+                    limit,
+                    chat_type,
+                    public,
+                    auto_expand_batches,
+                    include_total_count,
+                    collected,
+                    seen_keys,
                 )
-
-                await transcribe_voice_messages(collected, entity)
-
-                if include_total_count:
-                    total_count = await _get_chat_message_count(chat_id)
-
             except Exception as e:
                 return log_and_build_error(
                     operation="get_messages",
@@ -375,24 +388,18 @@ async def _handle_search_mode(
                     exception=e,
                 )
         else:
-            # Global search
             try:
-                generators = [
-                    _search_global_messages_generator(
-                        client,
-                        q,
-                        limit,
-                        min_datetime,
-                        max_datetime,
-                        chat_type,
-                        public,
-                        auto_expand_batches,
-                    )
-                    for q in queries
-                    if q and str(q).strip()
-                ]
-                await _execute_parallel_searches_generators(
-                    generators, collected, seen_keys, limit
+                await _collect_messages_global(
+                    client,
+                    queries,
+                    limit,
+                    min_datetime,
+                    max_datetime,
+                    chat_type,
+                    public,
+                    auto_expand_batches,
+                    collected,
+                    seen_keys,
                 )
             except Exception as e:
                 return log_and_build_error(
@@ -402,17 +409,14 @@ async def _handle_search_mode(
                     exception=e,
                 )
 
-        # Return results up to limit
         window = collected[:limit] if limit is not None else collected
 
         logger.info(f"Found {len(window)} messages matching query: {query}")
 
-        # Check if there are more messages available
         has_more = len(collected) > len(window) or (
             len(collected) == limit and len(collected) > 0
         )
 
-        # If no messages found, return error
         if not window:
             return log_and_build_error(
                 operation="get_messages",
@@ -443,39 +447,25 @@ async def _handle_search_mode(
         )
 
 
-# ============================================================================
-# Main Implementation
-# ============================================================================
-
-
 async def search_messages_impl(
     query: str | None = None,
     chat_id: str | None = None,
     message_ids: list[int] | None = None,
     reply_to_id: int | None = None,
     limit: int = 20,
-    min_date: str | None = None,  # ISO format date string
-    max_date: str | None = None,  # ISO format date string
-    chat_type: str | None = None,  # 'private', 'group', 'channel', or None
-    public: bool
-    | None = None,  # True=with username, False=without username, None=no filter
-    auto_expand_batches: int = 1,  # Fewer extra batches to reduce RAM
-    include_total_count: bool = False,  # Whether to include total count in response
+    min_date: str | None = None,
+    max_date: str | None = None,
+    chat_type: str | None = None,
+    public: bool | None = None,
+    auto_expand_batches: int = 1,
+    include_total_count: bool = False,
 ) -> dict[str, Any]:
     """
-    Unified message retrieval supporting search, specific message IDs, and replies.
+    Unified message retrieval: search, browse, read by IDs, or list replies.
 
-    PARAMETER COMBINATIONS:
-    1. Search in chat: chat_id + query
-    2. Browse chat: chat_id (returns recent messages)
-    3. Read specific messages: chat_id + message_ids
-    4. Get replies: chat_id + reply_to_id (post comments, forum topics, message replies)
-    5. Search in replies: chat_id + reply_to_id + query
-    6. Global search: query only (no chat_id)
-
-    CONFLICTS (will return error):
-    - message_ids + reply_to_id: Cannot combine
-    - message_ids + query: Cannot combine (specific IDs don't need search)
+    Modes: chat + optional query (browse if query empty); chat + message_ids;
+    chat + reply_to_id (optional query filters replies); global search (query only).
+    message_ids cannot be combined with query or reply_to_id.
 
     Args:
         query: Search query string (comma-separated for multiple queries). Optional for per-chat, required for global.
@@ -502,13 +492,10 @@ async def search_messages_impl(
         - 'discussion_chat_id': Discussion group ID (if channel post with discussion)
         - 'discussion_total_count': Total replies (if available)
 
-    Note:
-        - Global search requires non-empty query
-        - Per-chat search allows empty query (returns recent messages)
-        - Total count only available for per-chat searches, not global
-        - reply_to_id automatically detects channel posts and uses discussion group
+    Global search requires a non-empty query; per-chat allows empty query (recent
+    messages). include_total_count applies only to per-chat search. Channel
+    post replies use the linked discussion group when available.
     """
-    # Build params for logging
     params = {
         "query": query,
         "chat_id": chat_id,
@@ -527,7 +514,6 @@ async def search_messages_impl(
         "message_count": len(message_ids) if message_ids else 0,
     }
 
-    # Resolve mode and validate parameters
     try:
         mode = _resolve_mode(
             chat_id=chat_id,
@@ -543,7 +529,6 @@ async def search_messages_impl(
             exception=e,
         )
 
-    # Delegate to appropriate handler (_resolve_mode validates required params)
     if mode is MessageRetrievalMode.MESSAGE_IDS:
         if chat_id is None or message_ids is None:
             return log_and_build_error(
@@ -564,7 +549,6 @@ async def search_messages_impl(
             )
         return await _handle_replies_mode(chat_id, reply_to_id, limit, query, params)
 
-    # Mode: Search/browse
     return await _handle_search_mode(
         query=query,
         chat_id=chat_id,
@@ -584,23 +568,18 @@ async def _search_chat_messages_generator(
 ):
     """Async generator version of chat message search for memory efficiency."""
     batch_count = 0
-    # Allow more batches to ensure we can detect has_more properly
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
-    yielded_count = 0
 
     while batch_count < max_batches:
         last_id = None
-        processed_in_batch = 0
         async for message in client.iter_messages(
             entity, search=query, offset_id=next_offset_id
         ):
             if not message:
                 continue
             last_id = getattr(message, "id", None) or last_id
-            processed_in_batch += 1
 
-            # Check if message should be yielded
             if not _matches_chat_type(entity, chat_type):
                 continue
 
@@ -612,9 +591,6 @@ async def _search_chat_messages_generator(
                 continue
 
             yield result
-            yielded_count += 1
-
-            # Continue processing all messages in this batch to ensure we can detect has_more
 
         if not last_id:
             break
@@ -637,7 +613,6 @@ async def _search_global_messages_generator(
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
-    yielded_count = 0
 
     while batch_count < max_batches:
         offset_id = next_offset_id
@@ -677,7 +652,6 @@ async def _search_global_messages_generator(
                     continue
 
                 yield msg_result
-                yielded_count += 1
             except Exception as e:
                 logger.warning(f"Error processing message: {e}")
                 continue

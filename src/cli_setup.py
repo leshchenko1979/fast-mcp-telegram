@@ -120,7 +120,7 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
 
     # Note: Telethon adds .session extension automatically to session_path
     # So we pass session_path without .session, and Telethon creates session_path.session
-    actual_session_file = Path(str(session_path) + ".session")
+    actual_session_file = Path(f"{session_path!s}.session")
     print(f"Session will be saved to: {actual_session_file}")
     print(f"Session directory: {session_dir}")
 

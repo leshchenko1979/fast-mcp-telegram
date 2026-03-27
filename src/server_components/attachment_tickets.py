@@ -47,8 +47,8 @@ async def mint_attachment_ticket(
     expires_at = time.time() + float(cfg.attachment_ticket_ttl_seconds)
     rec = AttachmentTicket(
         session_token=session_token,
-        chat_id=int(chat_id),
-        message_id=int(message_id),
+        chat_id=chat_id,
+        message_id=message_id,
         expires_at=expires_at,
         filename=filename,
         mime_type=mime_type,

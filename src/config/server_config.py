@@ -23,7 +23,7 @@ _DOMAIN_PLACEHOLDER_VALUES: frozenset[str] = frozenset(
 def _is_loopback_http_host(host_with_optional_port: str) -> bool:
     """True only for localhost / 127.0.0.1 with optional :port (not localhosting.com, etc.)."""
     h = host_with_optional_port.lower()
-    if h in ("localhost", "127.0.0.1"):
+    if h in {"localhost", "127.0.0.1"}:
         return True
     host, sep, _ = h.partition(":")
     return bool(sep) and host in ("localhost", "127.0.0.1")
@@ -192,9 +192,7 @@ class ServerConfig(BaseSettings):
     @property
     def transport(self) -> Literal["stdio", "http"]:
         """Transport type based on server mode."""
-        if self.server_mode == ServerMode.STDIO:
-            return "stdio"
-        return "http"
+        return "stdio" if self.server_mode == ServerMode.STDIO else "http"
 
     @property
     def disable_auth(self) -> bool:

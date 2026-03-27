@@ -3,6 +3,7 @@ import logging
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
 from telethon.tl.functions.users import GetFullUserRequest
+from telethon.tl.tlobject import TLObject
 from telethon.tl.types import InputMessagesFilterEmpty, PeerChannel, PeerChat, PeerUser
 
 from ..client.connection import get_connected_client
@@ -58,39 +59,32 @@ async def get_entity_by_id(entity_id):
         if not peer:
             raise ValueError("Entity ID cannot be null or empty")
 
-        # Try multiple approaches for peer resolution
-        # 1. Try raw ID first (most common case)
-        try:
-            return await client.get_entity(peer)
-        except Exception as e1:
-            logger.debug(f"Raw ID lookup failed for {peer}: {e1}")
+        candidates: list = [peer]
+        if isinstance(peer, int):
+            candidates.extend([PeerChannel(peer), PeerUser(peer), PeerChat(peer)])
 
-            # 2. Try as PeerChannel (for channels that aren't in session cache)
+        last_error: Exception | None = None
+        for candidate in candidates:
             try:
-                return await client.get_entity(PeerChannel(peer))
-            except Exception as e2:
-                logger.debug(f"PeerChannel lookup failed for {peer}: {e2}")
-
-                # 3. Try as PeerUser (for users)
-                try:
-                    return await client.get_entity(PeerUser(peer))
-                except Exception as e3:
-                    logger.debug(f"PeerUser lookup failed for {peer}: {e3}")
-
-                    # 4. Try as PeerChat (for legacy chats)
-                    try:
-                        return await client.get_entity(PeerChat(peer))
-                    except Exception as e4:
-                        logger.debug(f"PeerChat lookup failed for {peer}: {e4}")
-
-                        # If all attempts fail, re-raise the original error
-                        raise e1 from None
+                return await client.get_entity(candidate)
+            except Exception as err:
+                last_error = err
+                logger.debug("get_entity failed for %r: %s", candidate, last_error)
+        if last_error:
+            raise last_error
 
     except Exception as e:
         logger.warning(
             f"Could not get entity for '{entity_id}' (parsed as '{peer}') after trying all peer types. Error: {e}"
         )
         return None
+
+
+def _cache_channel_normalized_type(entity, cache_key: tuple) -> str:
+    """Map Channel / ChannelForbidden to 'group' (megagroup) or 'channel'."""
+    resolved = "group" if bool(getattr(entity, "megagroup", False)) else "channel"
+    _ENTITY_TYPE_CACHE[cache_key] = resolved
+    return resolved
 
 
 def get_normalized_chat_type(entity) -> str | None:
@@ -108,18 +102,13 @@ def get_normalized_chat_type(entity) -> str | None:
         return _ENTITY_TYPE_CACHE[key]
 
     if entity_class == "User":
-        return "private"
-    if entity_class == "Chat":
-        return "group"
-    if entity_class in ["Channel", "ChannelForbidden"]:
-        is_megagroup = bool(getattr(entity, "megagroup", False))
-        is_broadcast = bool(getattr(entity, "broadcast", False))
-        if is_megagroup:
-            return "group"
-        if is_broadcast:
-            return "channel"
-        _ENTITY_TYPE_CACHE[key] = "channel"
+        _ENTITY_TYPE_CACHE[key] = "private"
         return _ENTITY_TYPE_CACHE[key]
+    if entity_class == "Chat":
+        _ENTITY_TYPE_CACHE[key] = "group"
+        return _ENTITY_TYPE_CACHE[key]
+    if entity_class in ["Channel", "ChannelForbidden"]:
+        return _cache_channel_normalized_type(entity, key)
     _ENTITY_TYPE_CACHE[key] = None
     return _ENTITY_TYPE_CACHE[key]
 
@@ -150,15 +139,11 @@ def build_entity_dict(entity) -> dict | None:
     # Derive a robust title: explicit title → full name → @username
     raw_title = getattr(entity, "title", None)
     full_name = f"{first_name or ''} {last_name or ''}".strip()
-    title = raw_title or (
-        full_name if full_name else (f"@{username}" if username else None)
-    )
+    title = raw_title or (full_name or (f"@{username}" if username else None))
 
     normalized_type = get_normalized_chat_type(entity)
-    computed_type = (
-        normalized_type
-        if normalized_type
-        else (entity.__class__.__name__ if hasattr(entity, "__class__") else None)
+    computed_type = normalized_type or (
+        entity.__class__.__name__ if hasattr(entity, "__class__") else None
     )
 
     # Opportunistic counts: available only on certain entity variants
@@ -199,6 +184,31 @@ def build_entity_dict(entity) -> dict | None:
     return compact
 
 
+def _forward_peer_id_and_type_label(peer) -> tuple[object | None, str]:
+    """Return a stable id and Telethon-style type label for TL Peer-like objects."""
+    if peer is None:
+        return None, "Unknown"
+    if hasattr(peer, "user_id"):
+        return peer.user_id, "User"
+    if hasattr(peer, "channel_id"):
+        return peer.channel_id, "Channel"
+    if hasattr(peer, "chat_id"):
+        return peer.chat_id, "Chat"
+    return str(peer), "Unknown"
+
+
+def _forward_stub_entity_dict(entity_id: object, type_label: str) -> dict:
+    """Minimal entity-shaped dict when full resolution is unavailable."""
+    return {
+        "id": entity_id,
+        "title": None,
+        "type": type_label,
+        "username": None,
+        "first_name": None,
+        "last_name": None,
+    }
+
+
 async def _extract_forward_info(message) -> dict | None:
     """
     Extract forward information from a Telegram message in minimal format.
@@ -220,128 +230,46 @@ async def _extract_forward_info(message) -> dict | None:
     if not forward:
         return None
 
-    # Extract forward date and convert to ISO format if present
-    forward_date = getattr(forward, "date", None)
     original_date = None
-    if forward_date:
+    if forward_date := getattr(forward, "date", None):
         try:
             original_date = forward_date.isoformat()
         except Exception:
             original_date = str(forward_date)
 
-    # Extract original sender information with full entity resolution
     sender = None
-    from_id = getattr(forward, "from_id", None)
-    if from_id:
-        # Extract user ID from PeerUser or other peer types
-        sender_id = None
-        if hasattr(from_id, "user_id"):
-            sender_id = from_id.user_id
-        elif hasattr(from_id, "channel_id"):
-            sender_id = from_id.channel_id
-        elif hasattr(from_id, "chat_id"):
-            sender_id = from_id.chat_id
-        else:
-            sender_id = str(from_id)
-
-        # Try to resolve the full entity information
+    if from_id := getattr(forward, "from_id", None):
+        sender_id, type_label = _forward_peer_id_and_type_label(from_id)
         if sender_id:
             try:
                 sender_entity = await get_entity_by_id(sender_id)
-                if sender_entity:
-                    sender = build_entity_dict(sender_entity)
-                else:
-                    # Fallback to basic info if entity resolution fails
-                    sender = {
-                        "id": sender_id,
-                        "title": None,
-                        "type": "User"
-                        if hasattr(from_id, "user_id")
-                        else "Channel"
-                        if hasattr(from_id, "channel_id")
-                        else "Chat"
-                        if hasattr(from_id, "chat_id")
-                        else "Unknown",
-                        "username": None,
-                        "first_name": None,
-                        "last_name": None,
-                    }
+                sender = (
+                    build_entity_dict(sender_entity)
+                    if sender_entity
+                    else _forward_stub_entity_dict(sender_id, type_label)
+                )
             except Exception as e:
                 logger.warning(
                     f"Failed to resolve forwarded sender entity {sender_id}: {e}"
                 )
-                # Fallback to basic info
-                sender = {
-                    "id": sender_id,
-                    "title": None,
-                    "type": "User"
-                    if hasattr(from_id, "user_id")
-                    else "Channel"
-                    if hasattr(from_id, "channel_id")
-                    else "Chat"
-                    if hasattr(from_id, "chat_id")
-                    else "Unknown",
-                    "username": None,
-                    "first_name": None,
-                    "last_name": None,
-                }
+                sender = _forward_stub_entity_dict(sender_id, type_label)
 
-    # Extract source chat information with full entity resolution
     chat = None
-    saved_from_peer = getattr(forward, "saved_from_peer", None)
-    if saved_from_peer:
-        # Extract chat ID from peer types
-        chat_id = None
-        if hasattr(saved_from_peer, "user_id"):
-            chat_id = saved_from_peer.user_id
-        elif hasattr(saved_from_peer, "channel_id"):
-            chat_id = saved_from_peer.channel_id
-        elif hasattr(saved_from_peer, "chat_id"):
-            chat_id = saved_from_peer.chat_id
-        else:
-            chat_id = str(saved_from_peer)
-
-        # Try to resolve the full entity information
+    if saved_from_peer := getattr(forward, "saved_from_peer", None):
+        chat_id, type_label = _forward_peer_id_and_type_label(saved_from_peer)
         if chat_id:
             try:
                 chat_entity = await get_entity_by_id(chat_id)
-                if chat_entity:
-                    chat = build_entity_dict(chat_entity)
-                else:
-                    # Fallback to basic info if entity resolution fails
-                    chat = {
-                        "id": chat_id,
-                        "title": None,
-                        "type": "User"
-                        if hasattr(saved_from_peer, "user_id")
-                        else "Channel"
-                        if hasattr(saved_from_peer, "channel_id")
-                        else "Chat"
-                        if hasattr(saved_from_peer, "chat_id")
-                        else "Unknown",
-                        "username": None,
-                        "first_name": None,
-                        "last_name": None,
-                    }
+                chat = (
+                    build_entity_dict(chat_entity)
+                    if chat_entity
+                    else _forward_stub_entity_dict(chat_id, type_label)
+                )
             except Exception as e:
                 logger.warning(
                     f"Failed to resolve forwarded chat entity {chat_id}: {e}"
                 )
-                # Fallback to basic info
-                chat = {
-                    "id": chat_id,
-                    "title": None,
-                    "type": "User"
-                    if hasattr(saved_from_peer, "user_id")
-                    else "Channel"
-                    if hasattr(saved_from_peer, "channel_id")
-                    else "Chat"
-                    if hasattr(saved_from_peer, "chat_id")
-                    else "Unknown",
-                    "username": None,
-                    "first_name": None,
-                    "last_name": None,
-                }
+                chat = _forward_stub_entity_dict(chat_id, type_label)
 
     return {"sender": sender, "date": original_date, "chat": chat}
 
@@ -353,8 +281,7 @@ def compute_entity_identifier(entity) -> str | None:
     """
     if entity is None:
         return None
-    username = getattr(entity, "username", None)
-    if username:
+    if username := getattr(entity, "username", None):
         return username
     entity_id = getattr(entity, "id", None)
     if entity_id is None:
@@ -410,7 +337,7 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
 
     # Validate that all specified types are valid
     valid_types = {"private", "group", "channel"}
-    if not all(ct in valid_types for ct in chat_types):
+    if any(ct not in valid_types for ct in chat_types):
         return False
 
     normalized_type = get_normalized_chat_type(entity)
@@ -440,10 +367,66 @@ def _matches_public_filter(entity, public: bool | None) -> bool:
 
     has_username = bool(getattr(entity, "username", None))
 
-    if public:
-        return has_username  # public=True means has username
+    return has_username if public else not has_username
 
-    return not has_username  # public=False means no username
+
+async def _fetch_enrichment_fields(
+    client,
+    entity,
+    computed_type: str | None,
+    entity_class: str,
+) -> tuple[int | None, int | None, str | None, str | None]:
+    """Load optional counts, about, and bio via Telethon full-info requests."""
+    members_count: int | None = None
+    subscribers_count: int | None = None
+    about_value: str | None = None
+    bio_value: str | None = None
+
+    if computed_type == "group":
+        if entity_class == "Chat":
+            chat_id = getattr(entity, "id", None)
+            if chat_id is not None:
+                try:
+                    full = await client(GetFullChatRequest(chat_id=chat_id))
+                    full_chat = getattr(full, "full_chat", None)
+                    members_count = getattr(full_chat, "participants_count", None)
+                    about_value = getattr(full_chat, "about", None)
+                except Exception as e:
+                    logger.debug(
+                        f"GetFullChatRequest failed for chat {getattr(entity, 'id', None)}: {e}"
+                    )
+        else:
+            try:
+                full = await client(GetFullChannelRequest(channel=entity))
+                full_chat = getattr(full, "full_chat", None)
+                members_count = getattr(full_chat, "participants_count", None)
+                about_value = getattr(full_chat, "about", None)
+            except Exception as e:
+                logger.debug(
+                    f"GetFullChannelRequest (megagroup) failed for {getattr(entity, 'id', None)}: {e}"
+                )
+
+    elif computed_type == "channel":
+        try:
+            full = await client(GetFullChannelRequest(channel=entity))
+            full_chat = getattr(full, "full_chat", None)
+            subscribers_count = getattr(full_chat, "participants_count", None)
+            about_value = getattr(full_chat, "about", None)
+        except Exception as e:
+            logger.debug(
+                f"GetFullChannelRequest (channel) failed for {getattr(entity, 'id', None)}: {e}"
+            )
+
+    elif computed_type == "private":
+        try:
+            full_user = await client(GetFullUserRequest(id=entity))
+            bio_value = getattr(full_user, "about", None)
+        except Exception as e:
+            logger.debug(
+                f"GetFullUserRequest failed for user {getattr(entity, 'id', None)}: {e}"
+            )
+
+    return members_count, subscribers_count, about_value, bio_value
 
 
 async def build_entity_dict_enriched(entity_or_id) -> dict | None:
@@ -461,75 +444,27 @@ async def build_entity_dict_enriched(entity_or_id) -> dict | None:
     - users.GetFullUserRequest for private users
     """
     try:
-        # Resolve if an id/username was provided
-        entity = entity_or_id
-        if not getattr(entity_or_id, "__class__", None):
-            entity = await get_entity_by_id(entity_or_id)
+        entity = (
+            entity_or_id
+            if isinstance(entity_or_id, TLObject)
+            else await get_entity_by_id(entity_or_id)
+        )
 
         base = build_entity_dict(entity)
         if not base:
             return None
 
         computed_type = base.get("type")
-        members_count: int | None = None
-        subscribers_count: int | None = None
-        about_value: str | None = None
-        bio_value: str | None = None
-
         client = await get_connected_client()
-
-        # Distinguish Chat vs Channel classes to pick proper request
         entity_class = entity.__class__.__name__ if hasattr(entity, "__class__") else ""
 
-        if computed_type == "group":
-            # Regular small groups use GetFullChatRequest with chat_id
-            if entity_class == "Chat":
-                chat_id = getattr(entity, "id", None)
-                if chat_id is not None:
-                    try:
-                        full = await client(GetFullChatRequest(chat_id=chat_id))
-                        full_chat = getattr(full, "full_chat", None)
-                        members_count = getattr(full_chat, "participants_count", None)
-                        about_value = getattr(full_chat, "about", None)
-                    except Exception as e:
-                        logger.debug(
-                            f"GetFullChatRequest failed for chat {getattr(entity, 'id', None)}: {e}"
-                        )
-            else:
-                # Megagroups are Channels with megagroup=True; use GetFullChannelRequest
-                try:
-                    full = await client(GetFullChannelRequest(channel=entity))
-                    full_chat = getattr(full, "full_chat", None)
-                    members_count = getattr(full_chat, "participants_count", None)
-                    about_value = getattr(full_chat, "about", None)
-                except Exception as e:
-                    logger.debug(
-                        f"GetFullChannelRequest (megagroup) failed for {getattr(entity, 'id', None)}: {e}"
-                    )
+        (
+            members_count,
+            subscribers_count,
+            about_value,
+            bio_value,
+        ) = await _fetch_enrichment_fields(client, entity, computed_type, entity_class)
 
-        elif computed_type == "channel":
-            # Broadcast channels via GetFullChannelRequest
-            try:
-                full = await client(GetFullChannelRequest(channel=entity))
-                full_chat = getattr(full, "full_chat", None)
-                subscribers_count = getattr(full_chat, "participants_count", None)
-                about_value = getattr(full_chat, "about", None)
-            except Exception as e:
-                logger.debug(
-                    f"GetFullChannelRequest (channel) failed for {getattr(entity, 'id', None)}: {e}"
-                )
-
-        elif computed_type == "private":
-            # Users: get bio via GetFullUserRequest
-            try:
-                full_user = await client(GetFullUserRequest(id=entity))
-                bio_value = getattr(full_user, "about", None)
-            except Exception as e:
-                logger.debug(
-                    f"GetFullUserRequest failed for user {getattr(entity, 'id', None)}: {e}"
-                )
-
-        # Merge counts into the base dict, pruning None
         if members_count is not None:
             base["members_count"] = members_count
         if subscribers_count is not None:
@@ -541,11 +476,12 @@ async def build_entity_dict_enriched(entity_or_id) -> dict | None:
         return base
     except Exception as e:
         logger.warning(f"Failed to build entity dict with counts: {e}")
-        # Fallback to simple version without counts
         try:
-            entity = entity_or_id
-            if not getattr(entity_or_id, "__class__", None):
-                entity = await get_entity_by_id(entity_or_id)
+            entity = (
+                entity_or_id
+                if isinstance(entity_or_id, TLObject)
+                else await get_entity_by_id(entity_or_id)
+            )
             return build_entity_dict(entity)
         except Exception:
             return None

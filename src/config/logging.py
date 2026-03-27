@@ -25,7 +25,7 @@ class AccessFilter(logging.Filter):
         if record.name != "uvicorn.access":
             return True
         message = record.getMessage()
-        return not any(endpoint in message for endpoint in _FILTERED_ENDPOINTS)
+        return all(endpoint not in message for endpoint in _FILTERED_ENDPOINTS)
 
 
 def create_logging_config(log_level: str) -> dict[str, Any]:
