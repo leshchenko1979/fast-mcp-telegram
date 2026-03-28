@@ -19,7 +19,11 @@ from src.utils.entity import (
     get_entity_by_id,
 )
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
-from src.utils.logging_utils import log_operation_start, log_operation_success
+from src.utils.logging_utils import (
+    log_operation_start,
+    log_operation_success,
+    mask_phone_number_for_log,
+)
 from src.utils.message_format import (
     _extract_topic_metadata,
     build_message_result,
@@ -776,6 +780,7 @@ async def send_message_to_phone_impl(
     log_operation_start("Sending message to phone number", params)
 
     client = await get_connected_client()
+    phone_for_log = mask_phone_number_for_log(phone_number)
     try:
         # Step 1: Check if contact already exists by trying to get entity
         contact_was_new = False
@@ -785,11 +790,11 @@ async def send_message_to_phone_impl(
             # Try to get existing contact by phone number
             user = await client.get_entity(phone_number)
             logger.debug(
-                f"Contact {phone_number} already exists, using existing contact"
+                f"Contact {phone_for_log} already exists, using existing contact"
             )
         except Exception:
             # Contact doesn't exist, create new one
-            logger.debug(f"Contact {phone_number} doesn't exist, creating new contact")
+            logger.debug(f"Contact {phone_for_log} doesn't exist, creating new contact")
             contact = InputPhoneContact(
                 client_id=0,
                 phone=phone_number,
@@ -800,7 +805,10 @@ async def send_message_to_phone_impl(
             result = await client(ImportContactsRequest([contact]))
 
             if not result.users:
-                error_msg = f"Failed to add contact. Phone number '{phone_number}' might not be registered on Telegram."
+                error_msg = (
+                    f"Failed to add contact. Phone number '{phone_for_log}' might not "
+                    "be registered on Telegram."
+                )
                 return log_and_build_error(
                     operation="send_message_to_phone",
                     error_message=error_msg,
@@ -810,7 +818,7 @@ async def send_message_to_phone_impl(
 
             user = result.users[0]
             contact_was_new = True
-            logger.debug(f"Successfully created new contact for {phone_number}")
+            logger.debug(f"Successfully created new contact for {phone_for_log}")
 
         # Step 2: Send the message (with files if provided)
         error, sent_message = await _send_message_or_files(
@@ -835,15 +843,16 @@ async def send_message_to_phone_impl(
                     await client(DeleteContactsRequest(id=cast(Any, [u])))
                 contact_removed = True
                 logger.debug(
-                    f"Newly created contact {phone_number} removed after sending message"
+                    f"Newly created contact {phone_for_log} removed after sending message"
                 )
             except Exception as e:
                 logger.warning(
-                    f"Failed to remove newly created contact {phone_number}: {e}"
+                    f"Failed to remove newly created contact {phone_for_log}: {e}"
                 )
         elif remove_if_new:
             logger.debug(
-                f"Contact {phone_number} was existing, not removing (remove_if_new=True but contact was not new)"
+                f"Contact {phone_for_log} was existing, not removing "
+                "(remove_if_new=True but contact was not new)"
             )
 
         # Build result using existing pattern
@@ -858,7 +867,7 @@ async def send_message_to_phone_impl(
             }
         )
 
-        log_operation_success("Message sent to phone number", phone_number)
+        log_operation_success("Message sent to phone number", phone_for_log)
         return result
 
     except Exception as e:

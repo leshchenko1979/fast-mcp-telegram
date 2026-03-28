@@ -19,6 +19,17 @@ from src.utils.error_handling import (
 logger = logging.getLogger(__name__)
 
 
+def mask_phone_number_for_log(phone: str) -> str:
+    """
+    Mask a phone number for safe logging.
+
+    Uses the same rules as sanitize_params_for_logging for phone_* keys.
+    """
+    if not isinstance(phone, str) or not phone:
+        return "***"
+    return "***" if len(phone) <= 5 else f"{phone[:3]}***{phone[-2:]}"
+
+
 def log_operation_start(operation: str, params: dict[str, Any] | None = None) -> None:
     """
     Log the start of an operation with consistent format.

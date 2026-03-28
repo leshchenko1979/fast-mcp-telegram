@@ -72,6 +72,9 @@ def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]
     if not params:
         return {}
 
+    # Lazy import avoids circular dependency with logging_utils.mask_phone_number_for_log
+    from src.utils.logging_utils import mask_phone_number_for_log
+
     # Pre-compile common patterns for performance
     phone_keys = {"phone", "phone_number", "mobile"}
     message_keys = {"message", "new_text", "text"}
@@ -85,7 +88,7 @@ def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]
         if any(phone_key in key_lower for phone_key in phone_keys) and isinstance(
             value, str
         ):
-            sanitized[key] = f"{value[:3]}***{value[-2:]}" if len(value) > 5 else "***"
+            sanitized[key] = mask_phone_number_for_log(value)
         elif key in message_keys and isinstance(value, str) and len(value) > 100:
             sanitized[key] = f"{value[:100]}... (truncated)"
         elif isinstance(value, str) and len(value) > 200:
