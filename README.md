@@ -147,6 +147,38 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 | **HTTP_NO_AUTH** | HTTP | Disabled | Development HTTP server |
 | **HTTP_AUTH** | HTTP | Required (Bearer token) | Production deployment |
 
+### HTTP_AUTH Authentication Options
+
+**Header-Based Auth (Recommended):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-server.com/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer AbCdEfGh123456789..."
+      }
+    }
+  }
+}
+```
+
+**URL-Based Auth (For Limited Clients):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-server.com/v1/url_auth/AbCdEfGh123456789.../mcp"
+    }
+  }
+}
+```
+
+| Auth Method | Security | Use When |
+|------------|----------|----------|
+| Header-based | Higher (token not in logs) | Standard MCP clients (Cursor, Claude Code) |
+| URL-based | Lower (token in logs) | Clients that cannot set custom headers |
+
 ## 🌐 HTTP-MTProto Bridge
 
 **Direct curl access to any Telegram API method** - Execute any Telegram MTProto method via HTTP requests with automatic entity resolution and safety guardrails.

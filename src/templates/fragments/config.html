@@ -1,19 +1,50 @@
 <h2>MCP Configuration</h2>
 <p class="muted">
-    Authentication successful. Your session is saved on the server.<br>
-    Copy or download the configuration below to use in your MCP client or AI IDE.
+    Authentication successful. Your session is saved on the server.
 </p>
 
+<h3>Option 1: Header-Based Auth (Recommended)</h3>
+<p class="muted">
+    Add the <code>Authorization</code> header to your requests. More secure since the token is not in the URL.
+</p>
 <div class="card mb-sm">
-    <pre id="mcp-config-pre" class="pre-wrap">{{ config_json }}</pre>
+    <pre id="header-config-pre" class="pre-wrap">{{ header_config_json }}</pre>
+</div>
+<div class="setup-actions">
+    <button type="button" onclick="copyConfig('header-config-pre', this)">Copy Header Config</button>
+</div>
+
+<h3>Option 2: URL-Based Auth (For Limited Clients)</h3>
+<p class="muted">
+    Include the token in the URL path. Use this only if your client cannot set custom headers.
+    <span class="warning">Warning: Token will appear in URLs and server logs.</span>
+</p>
+<div class="card mb-sm">
+    <pre id="url-config-pre" class="pre-wrap">{{ url_config_json }}</pre>
+</div>
+<div class="setup-actions">
+    <button type="button" onclick="copyConfig('url-config-pre', this)">Copy URL Config</button>
 </div>
 
 <div class="setup-actions">
-    <form action="/download-config/{{ token }}" method="get" class="form-inline">
-        <button type="submit">Download JSON</button>
-    </form>
-    <button type="button" id="copyBtn"
-        onclick="(async ()=>{const btn=document.getElementById('copyBtn'); const pre=document.getElementById('mcp-config-pre'); const prev=btn.innerText; try{if(!pre){throw new Error('Config block not found');} await navigator.clipboard.writeText(pre.innerText); btn.innerText='Copied';}catch(_){btn.innerText='Copy failed';} setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
-        to Clipboard</button>
     <button type="button" onclick="window.location.assign('/setup')">Back to setup</button>
 </div>
+
+<script>
+    async function copyConfig(preId, btn) {
+        const pre = document.getElementById(preId);
+        if (!pre) {
+            return;
+        }
+        const originalText = btn.innerText;
+        try {
+            await navigator.clipboard.writeText(pre.innerText);
+            btn.innerText = 'Copied';
+        } catch (_) {
+            btn.innerText = 'Copy failed';
+        }
+        setTimeout(() => {
+            btn.innerText = originalText;
+        }, 2000);
+    }
+</script>

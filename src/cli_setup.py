@@ -66,6 +66,17 @@ class SetupConfig(ServerConfig):
                 "Provide via --phone-number or --bot-token argument, or corresponding environment variables."
             )
 
+        # Validate session name doesn't contain slashes (would break URL-based auth and file paths)
+        if (
+            self.server_mode != ServerMode.HTTP_AUTH
+            and self.session_name
+            and "/" in self.session_name
+        ):
+            raise ValueError(
+                "Session name cannot contain '/' character. "
+                "This would break URL-based authentication and file path handling."
+            )
+
 
 def generate_bearer_token() -> str:
     """Generate a cryptographically secure bearer token for session management."""
@@ -157,7 +168,10 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
         if setup_config.bot_token:
             # Bot authentication
             print("Authenticating as bot...")
-            await client.start(bot_token=setup_config.bot_token)  # type: ignore[invalid-await]
+            # Telethon's start() may return coroutine when event loop is running
+            result = client.start(bot_token=setup_config.bot_token)
+            if asyncio.iscoroutine(result):
+                await result
             print("Successfully authenticated as bot!")
 
             # Test the connection by getting bot info
@@ -233,6 +247,13 @@ def _print_mode_instructions(
             f"   Configure your server domain via DOMAIN env var (currently: {domain or 'your-server.com'})"
         )
         print("   The Bearer token above is required for authentication")
+        print("\n   Two auth methods are supported:")
+        print("   1. Header-based (recommended):")
+        print("      url: https://your-domain.com/v1/mcp")
+        print("      headers: {Authorization: Bearer <token>}")
+        print("   2. URL-based (for limited clients):")
+        print("      url: https://your-domain.com/v1/url_auth/<token>/mcp")
+        print("      (Token visible in URLs and logs)")
     elif mode == ServerMode.HTTP_NO_AUTH:
         print("\n💡 For HTTP_NO_AUTH mode (development):")
         print("   Start server with: fast-mcp-telegram --mode http-no-auth")

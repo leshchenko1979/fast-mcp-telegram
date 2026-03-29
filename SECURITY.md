@@ -9,6 +9,19 @@
 - **HTTP Authentication**: Mandatory Bearer tokens for HTTP transport (`Authorization: Bearer <token>`)
 - **Development Mode**: `DISABLE_AUTH=true` bypasses authentication for development
 
+### Authentication Methods
+
+**Header-Based Auth (Recommended):**
+- Token sent in `Authorization: Bearer <token>` header
+- Token does not appear in URL or server access logs
+- Use this for production environments
+
+**URL-Based Auth (For Limited Clients):**
+- Token included in URL path: `/v1/url_auth/{token}/mcp/...`
+- Token appears in URLs and server access logs
+- Use only when header-based auth is not possible
+- Same token validation applies (reserved names blocked)
+
 ## Multi-User Security Model
 
 - **Session Separation**: Each user gets their own authenticated session file
