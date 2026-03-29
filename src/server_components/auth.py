@@ -8,6 +8,11 @@ from src.config.server_config import get_config
 
 logger = logging.getLogger(__name__)
 
+
+class AuthenticationError(Exception):
+    """Exception raised when authentication fails."""
+
+
 # Reserved session names that cannot be used as bearer tokens
 # These are common default names that could conflict with STDIO/HTTP_NO_AUTH sessions
 RESERVED_SESSION_NAMES = frozenset(
@@ -103,7 +108,7 @@ def with_auth_context(func: Callable) -> Callable:
                 "authentication. Use: 'Authorization: Bearer <your-token>' header."
             )
             logger.warning(f"Authentication failed: {error_msg}")
-            raise Exception(error_msg)
+            raise AuthenticationError(error_msg)
 
         session_id = access_token.token
         set_request_token(session_id)

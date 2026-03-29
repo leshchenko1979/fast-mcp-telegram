@@ -225,7 +225,7 @@ async def get_connected_client() -> TelegramClient:
     client = await _get_client_by_token(token)
 
     if not await ensure_connection(client, token):
-        raise Exception("Failed to establish connection to Telegram")
+        raise ConnectionError("Failed to establish connection to Telegram")
     return client
 
 

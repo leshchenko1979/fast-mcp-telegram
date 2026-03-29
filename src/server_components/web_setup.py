@@ -54,6 +54,7 @@ PHONE_INVALID_MESSAGE = (
 PHONE_FLOOD_MESSAGE = "Too many attempts. Please wait before retrying."
 BEARER_TOKEN_REQUIRED_MESSAGE = "Bearer token is required."
 INVALID_TOKEN_MESSAGE = "Invalid token."
+TOKEN_WITH_SLASH_MESSAGE = "Token cannot contain '/' character."
 SESSION_NOT_FOUND_MESSAGE = "Session not found. Please check your bearer token."
 REAUTH_COMPLETE_FAILED_MESSAGE = (
     "Failed to complete reauthorization. Please try again from setup."
@@ -279,13 +280,23 @@ async def setup_generate(request: Request):
         return _setup_error_fragment(request, f"Failed to persist session: {e}")
 
     domain = get_config().domain
-    # Web setup always uses HTTP_AUTH mode
-    config_json = generate_mcp_config_json(
+
+    # Generate both header-based and URL-based configs
+    # Header-based (recommended)
+    header_config_json = generate_mcp_config_json(
         ServerMode.HTTP_AUTH,
         session_name="",  # Not used for HTTP_AUTH
         bearer_token=token,
         domain=domain,
     )
+
+    # URL-based (for clients without header support)
+    import json
+
+    from src.server_components.auth_middleware import generate_url_based_config
+
+    url_config = generate_url_based_config(domain or "your-server.com", token)
+    url_config_json = json.dumps(url_config, indent=2)
 
     state.clear()
     state.update(
@@ -299,7 +310,12 @@ async def setup_generate(request: Request):
     return _fragment(
         request,
         "fragments/config.html",
-        {"setup_id": setup_id, "token": token, "config_json": config_json},
+        {
+            "setup_id": setup_id,
+            "token": token,
+            "header_config_json": header_config_json,
+            "url_config_json": url_config_json,
+        },
     )
 
 
@@ -473,6 +489,14 @@ def register_web_setup_routes(mcp_app):
                 {"error": INVALID_TOKEN_MESSAGE},
             )
 
+        # Security: reject tokens containing slashes
+        if "/" in existing_token:
+            return _fragment(
+                request,
+                "fragments/reauthorize_token_form.html",
+                {"error": TOKEN_WITH_SLASH_MESSAGE},
+            )
+
         session_path = get_config().session_directory / f"{existing_token}.session"
         if not session_path.exists():
             return _fragment(
@@ -616,6 +640,14 @@ def register_web_setup_routes(mcp_app):
                 request,
                 "fragments/delete_session_form.html",
                 {"error": INVALID_TOKEN_MESSAGE},
+            )
+
+        # Security: reject tokens containing slashes
+        if "/" in token:
+            return _fragment(
+                request,
+                "fragments/delete_session_form.html",
+                {"error": TOKEN_WITH_SLASH_MESSAGE},
             )
 
         session_path = get_config().session_directory / f"{token}.session"

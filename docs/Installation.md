@@ -218,11 +218,14 @@ SESSION_NAME=telegram          # Session identifier
 <details>
 <summary><b>Production HTTP (With Auth)</b> - Click to expand</summary>
 
+The server supports two authentication methods:
+
+**Header-Based Auth (Recommended):**
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "url": "https://your-server.com",
+      "url": "https://your-server.com/v1/mcp",
       "headers": {
         "Authorization": "Bearer your_token_from_setup"
       }
@@ -231,8 +234,24 @@ SESSION_NAME=telegram          # Session identifier
 }
 ```
 
+**URL-Based Auth (For Limited Clients):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-server.com/v1/url_auth/your_token_from_setup/mcp"
+    }
+  }
+}
+```
+
+| Method | Security | Use When |
+|--------|----------|----------|
+| Header-based | Higher (token not in logs) | Standard MCP clients (Cursor, Claude Code) |
+| URL-based | Lower (token in logs) | Clients that cannot set custom headers |
+
 **Getting the token:**
-- **Web Setup:** Automatically included in downloaded `mcp.json`
+- **Web Setup:** Automatically included in downloaded `mcp.json` (both options provided)
 - **CLI Setup:** Displayed in terminal output after authentication
 </details>
 

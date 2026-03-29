@@ -138,11 +138,14 @@ The deployment script will:
 
 **For HTTP_AUTH mode (production with Bearer token):**
 
+The server supports two authentication methods:
+
+**Header-Based Auth (Recommended):**
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "url": "https://your-domain.com",
+      "url": "https://your-domain.com/v1/mcp",
       "headers": {
         "Authorization": "Bearer AbCdEfGh123456789KLmnOpQr..."
       }
@@ -150,6 +153,22 @@ The deployment script will:
   }
 }
 ```
+
+**URL-Based Auth (For Limited Clients):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-domain.com/v1/url_auth/AbCdEfGh123456789KLmnOpQr.../mcp"
+    }
+  }
+}
+```
+
+| Method | Security | Use When |
+|--------|----------|----------|
+| Header-based | Higher (token not in logs) | Standard MCP clients (Cursor, Claude Code) |
+| URL-based | Lower (token in logs) | Clients that cannot set custom headers |
 
 **For HTTP_NO_AUTH mode (development HTTP server):**
 

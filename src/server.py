@@ -19,6 +19,7 @@ from src.client.connection import (
 from src.config.logging import setup_logging
 from src.config.server_config import get_config
 from src.server_components.attachment_routes import register_attachment_routes
+from src.server_components.auth_middleware import UrlTokenMiddleware
 from src.server_components.health import register_health_routes
 from src.server_components.mtproto_api import register_mtproto_api_routes
 from src.server_components.tools_register import register_tools
@@ -91,11 +92,24 @@ def main():
     """Entry point for console script; runs the MCP server."""
     transport: Literal["stdio", "http"] = config.transport
     if transport == "http":
-        mcp.run(
-            transport=transport,
+        # Use http_app() to get the Starlette application so we can add middleware
+        app = mcp.http_app(
+            path="/v1/mcp",
+            stateless_http=True,
+        )
+
+        # Add URL token middleware for clients that can't set headers
+        if config.require_auth:
+            app = UrlTokenMiddleware(app, config)
+
+        # Run with uvicorn
+        import uvicorn
+
+        uvicorn.run(
+            app,
             host=config.host,
             port=config.port,
-            stateless_http=True,
+            log_level="info",
         )
     else:
         mcp.run(transport=transport)

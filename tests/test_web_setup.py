@@ -59,7 +59,7 @@ def test_new_session_phone_htmx_fragment_section_is_not_hidden():
     )
     m = re.search(r'<section[^>]*id="new-session-form"[^>]*>', html)
     assert m is not None
-    assert "hidden" not in m.group(0).lower()
+    assert "hidden" not in m[0].lower()
 
 
 def test_reauthorize_token_htmx_fragment_section_is_not_hidden():
@@ -71,7 +71,7 @@ def test_reauthorize_token_htmx_fragment_section_is_not_hidden():
     )
     m = re.search(r'<section[^>]*id="reauthorize-form"[^>]*>', html)
     assert m is not None
-    assert "hidden" not in m.group(0).lower()
+    assert "hidden" not in m[0].lower()
 
 
 def test_delete_session_htmx_fragment_section_is_not_hidden():
@@ -83,7 +83,7 @@ def test_delete_session_htmx_fragment_section_is_not_hidden():
     )
     m = re.search(r'<section[^>]*id="delete-session-form"[^>]*>', html)
     assert m is not None
-    assert "hidden" not in m.group(0).lower()
+    assert "hidden" not in m[0].lower()
 
 
 @pytest.mark.asyncio

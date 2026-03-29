@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import quote
+
+if TYPE_CHECKING:
+    from telethon.types import Message
 
 from starlette.responses import Response, StreamingResponse
 
@@ -68,16 +71,14 @@ async def handle_attachment_download(request: Any) -> Response | StreamingRespon
             return Response(status_code=502)
 
         # Telethon returns one Message when ids is int; list/TotalList when ids is a sequence.
-        if raw is None:
+        if raw is None or (isinstance(raw, list) and len(raw) == 0):
             return Response(status_code=404)
-        try:
-            message = raw[0]
-        except TypeError:
-            message = raw
-        except IndexError:
-            return Response(status_code=404)
+        # Handle both single Message and list of messages
+        message = raw[0] if isinstance(raw, list) else raw
         if not getattr(message, "media", None):
             return Response(status_code=404)
+        # Telethon returns Message | list[Message] | None; narrow to Message
+        message = cast("Message", message)
 
         cfg = get_config()
         max_bytes = cfg.max_file_size_mb * 1024 * 1024
@@ -97,8 +98,11 @@ async def handle_attachment_download(request: Any) -> Response | StreamingRespon
         async def body():
             t0 = time.perf_counter()
             total = 0
+            media = getattr(message, "media", None)
+            if media is None:
+                return
             try:
-                async for chunk in client.iter_download(message, limit=max_bytes):
+                async for chunk in client.iter_download(media, limit=max_bytes):
                     total += len(chunk)
                     yield chunk
             except Exception as e:
