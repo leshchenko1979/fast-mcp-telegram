@@ -204,9 +204,9 @@ async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     """Return compact forum topics list for forum-enabled chats."""
     try:
         requested_limit = limit if limit is not None else 20
+        requested_limit = max(1, min(requested_limit, 100))
     except (TypeError, ValueError):
         requested_limit = 20
-    requested_limit = max(1, min(requested_limit, 100))
 
     # Overfetch by one where possible. At API cap (100) we use a follow-up probe.
     fetch_limit = min(requested_limit + 1, 100)
