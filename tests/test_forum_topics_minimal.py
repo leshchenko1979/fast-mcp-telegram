@@ -298,10 +298,13 @@ async def test_edit_message_in_forum_includes_topic_id_only():
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.editing.get_connected_client",
             new=AsyncMock(return_value=client),
         ),
-        patch("src.tools.messages.get_entity_by_id", new=AsyncMock(return_value=chat)),
+        patch(
+            "src.tools.messages.editing.get_entity_by_id",
+            new=AsyncMock(return_value=chat),
+        ),
     ):
         result = await edit_message_impl(
             chat_id="-1001",
@@ -327,11 +330,11 @@ async def test_send_message_or_files_files_with_reply_target():
 
     with (
         patch(
-            "src.tools.messages._validate_file_paths",
+            "src.tools.messages.sending._validate_file_paths",
             return_value=(["http://example.com/photo.jpg"], None),
         ),
         patch(
-            "src.tools.messages._send_files_to_entity",
+            "src.tools.messages.sending._send_files_to_entity",
             new=AsyncMock(return_value=SimpleNamespace(id=1)),
         ) as send_files_mock,
     ):
@@ -359,11 +362,11 @@ async def test_send_message_or_files_files_without_reply_target():
 
     with (
         patch(
-            "src.tools.messages._validate_file_paths",
+            "src.tools.messages.sending._validate_file_paths",
             return_value=(["http://example.com/photo.jpg"], None),
         ),
         patch(
-            "src.tools.messages._send_files_to_entity",
+            "src.tools.messages.sending._send_files_to_entity",
             new=AsyncMock(return_value=SimpleNamespace(id=1)),
         ) as send_files_mock,
     ):
@@ -410,10 +413,13 @@ async def test_edit_message_non_forum_omits_topic_id():
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.editing.get_connected_client",
             new=AsyncMock(return_value=client),
         ),
-        patch("src.tools.messages.get_entity_by_id", new=AsyncMock(return_value=chat)),
+        patch(
+            "src.tools.messages.editing.get_entity_by_id",
+            new=AsyncMock(return_value=chat),
+        ),
     ):
         result = await edit_message_impl(
             chat_id="-1001",
@@ -450,10 +456,13 @@ async def test_edit_message_forum_no_ids_omits_topic_id():
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.editing.get_connected_client",
             new=AsyncMock(return_value=client),
         ),
-        patch("src.tools.messages.get_entity_by_id", new=AsyncMock(return_value=chat)),
+        patch(
+            "src.tools.messages.editing.get_entity_by_id",
+            new=AsyncMock(return_value=chat),
+        ),
     ):
         result = await edit_message_impl(
             chat_id="-1001",
@@ -708,20 +717,20 @@ async def test_send_message_impl_regular_chat_reply_no_discussion_lookup():
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.sending.get_connected_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "src.tools.messages.get_entity_by_id",
+            "src.tools.messages.sending.get_entity_by_id",
             new_callable=AsyncMock,
             return_value=chat,
         ),
         patch(
-            "src.tools.messages.get_post_discussion_info",
+            "src.tools.messages.sending.get_post_discussion_info",
             new_callable=AsyncMock,
         ) as mock_discussion,
         patch(
-            "src.tools.messages._send_message_or_files",
+            "src.tools.messages.sending._send_message_or_files",
             new_callable=AsyncMock,
             return_value=(None, sent_msg),
         ) as mock_send,
@@ -757,20 +766,20 @@ async def test_send_message_impl_megagroup_non_broadcast_reply_no_discussion_loo
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.sending.get_connected_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "src.tools.messages.get_entity_by_id",
+            "src.tools.messages.sending.get_entity_by_id",
             new_callable=AsyncMock,
             return_value=chat,
         ),
         patch(
-            "src.tools.messages.get_post_discussion_info",
+            "src.tools.messages.sending.get_post_discussion_info",
             new_callable=AsyncMock,
         ) as mock_discussion,
         patch(
-            "src.tools.messages._send_message_or_files",
+            "src.tools.messages.sending._send_message_or_files",
             new_callable=AsyncMock,
             return_value=(None, sent_msg),
         ) as mock_send,
@@ -794,20 +803,20 @@ async def test_send_message_impl_channel_post_no_reply_skips_discussion_lookup()
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.sending.get_connected_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "src.tools.messages.get_entity_by_id",
+            "src.tools.messages.sending.get_entity_by_id",
             new_callable=AsyncMock,
             return_value=channel,
         ),
         patch(
-            "src.tools.messages.get_post_discussion_info",
+            "src.tools.messages.sending.get_post_discussion_info",
             new_callable=AsyncMock,
         ) as mock_discussion,
         patch(
-            "src.tools.messages._send_message_or_files",
+            "src.tools.messages.sending._send_message_or_files",
             new_callable=AsyncMock,
             return_value=(None, sent_msg),
         ) as mock_send,
@@ -829,21 +838,21 @@ async def test_send_message_impl_channel_post_comment_discussion_lookup_failure(
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.sending.get_connected_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "src.tools.messages.get_entity_by_id",
+            "src.tools.messages.sending.get_entity_by_id",
             new_callable=AsyncMock,
             return_value=channel,
         ),
         patch(
-            "src.tools.messages.get_post_discussion_info",
+            "src.tools.messages.sending.get_post_discussion_info",
             new_callable=AsyncMock,
             side_effect=ValueError("Post 42 has no discussion thread enabled"),
         ),
         patch(
-            "src.tools.messages._send_message_or_files",
+            "src.tools.messages.sending._send_message_or_files",
             new_callable=AsyncMock,
         ) as mock_send,
     ):
@@ -878,21 +887,21 @@ async def test_send_message_impl_channel_post_comment_redirects_to_discussion():
 
     with (
         patch(
-            "src.tools.messages.get_connected_client",
+            "src.tools.messages.sending.get_connected_client",
             new_callable=AsyncMock,
         ) as mock_client,
         patch(
-            "src.tools.messages.get_entity_by_id",
+            "src.tools.messages.sending.get_entity_by_id",
             new_callable=AsyncMock,
             return_value=channel,
         ),
         patch(
-            "src.tools.messages.get_post_discussion_info",
+            "src.tools.messages.sending.get_post_discussion_info",
             new_callable=AsyncMock,
             return_value=discussion_info,
         ) as mock_discussion,
         patch(
-            "src.tools.messages._send_message_or_files",
+            "src.tools.messages.sending._send_message_or_files",
             new_callable=AsyncMock,
             return_value=(None, sent_msg),
         ) as mock_send,

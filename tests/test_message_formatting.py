@@ -192,23 +192,23 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.sending.get_connected_client",
                 new_callable=AsyncMock,
             ),
             patch(
-                "src.tools.messages.get_entity_by_id",
+                "src.tools.messages.sending.get_entity_by_id",
                 new_callable=AsyncMock,
                 return_value=chat,
             ),
             patch(
-                "src.tools.messages.get_post_discussion_info",
+                "src.tools.messages.sending.get_post_discussion_info",
                 new_callable=AsyncMock,
             ),
             patch(
-                "src.tools.messages.detect_message_formatting",
+                "src.tools.messages.core.detect_message_formatting",
             ) as mock_detect,
             patch(
-                "src.tools.messages._send_message_or_files",
+                "src.tools.messages.sending._send_message_or_files",
                 new_callable=AsyncMock,
                 return_value=(None, sent_msg),
             ) as mock_send,
@@ -235,15 +235,15 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.editing.get_connected_client",
                 new=AsyncMock(return_value=client),
             ),
             patch(
-                "src.tools.messages.get_entity_by_id",
+                "src.tools.messages.editing.get_entity_by_id",
                 new=AsyncMock(return_value=chat),
             ),
             patch(
-                "src.tools.messages.detect_message_formatting",
+                "src.tools.messages.core.detect_message_formatting",
             ) as mock_detect,
         ):
             await edit_message_impl(
@@ -270,14 +270,14 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.phone.get_connected_client",
                 new=AsyncMock(return_value=client),
             ),
             patch(
-                "src.tools.messages.detect_message_formatting",
+                "src.tools.messages.core.detect_message_formatting",
             ) as mock_detect,
             patch(
-                "src.tools.messages._send_message_or_files",
+                "src.tools.messages.phone._send_message_or_files",
                 new_callable=AsyncMock,
                 return_value=(None, sent_msg),
             ) as mock_send,
@@ -319,20 +319,20 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.sending.get_connected_client",
                 new_callable=AsyncMock,
             ),
             patch(
-                "src.tools.messages.get_entity_by_id",
+                "src.tools.messages.sending.get_entity_by_id",
                 new_callable=AsyncMock,
                 return_value=chat,
             ),
             patch(
-                "src.tools.messages.get_post_discussion_info",
+                "src.tools.messages.sending.get_post_discussion_info",
                 new_callable=AsyncMock,
             ),
             patch(
-                "src.tools.messages._send_message_or_files",
+                "src.tools.messages.sending._send_message_or_files",
                 new_callable=AsyncMock,
                 return_value=(None, sent_msg),
             ) as mock_send,
@@ -373,11 +373,11 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.editing.get_connected_client",
                 new=AsyncMock(return_value=client),
             ),
             patch(
-                "src.tools.messages.get_entity_by_id",
+                "src.tools.messages.editing.get_entity_by_id",
                 new=AsyncMock(return_value=chat),
             ),
         ):
@@ -421,11 +421,11 @@ class TestParseModeAutodetectionIntegration:
 
         with (
             patch(
-                "src.tools.messages.get_connected_client",
+                "src.tools.messages.phone.get_connected_client",
                 new=AsyncMock(return_value=client),
             ),
             patch(
-                "src.tools.messages._send_message_or_files",
+                "src.tools.messages.phone._send_message_or_files",
                 new_callable=AsyncMock,
                 return_value=(None, sent_msg),
             ) as mock_send,
