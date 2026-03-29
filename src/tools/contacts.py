@@ -203,7 +203,7 @@ search_contacts_telegram = search_contacts_native
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     """Return compact forum topics list for forum-enabled chats."""
     try:
-        requested_limit = int(limit) if limit is not None else 20
+        requested_limit = limit if limit is not None else 20
     except (TypeError, ValueError):
         requested_limit = 20
     requested_limit = max(1, min(requested_limit, 100))

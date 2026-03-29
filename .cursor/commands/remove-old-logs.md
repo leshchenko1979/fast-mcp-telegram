@@ -1,2 +1,0 @@
-Remove log files from /logs that are more than a day old. Use only shell commands:
-find logs -name "*.log" -mtime +1 -delete

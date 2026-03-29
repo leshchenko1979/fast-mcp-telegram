@@ -1,7 +1,8 @@
 ---
+name: telegram-patterns
 description: Telegram-specific patterns and Telethon library usage
-alwaysApply: false
 ---
+
 # Telegram-Specific Patterns
 
 ## Entity Resolution

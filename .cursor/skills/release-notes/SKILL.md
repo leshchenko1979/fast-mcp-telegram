@@ -1,3 +1,9 @@
+---
+name: Release Notes Generation
+description: Generate release notes for fast-mcp-telegram GitHub releases
+disable-model-invocation: true
+---
+
 # Release Notes Generation
 
 ## Process for Creating Release Notes
