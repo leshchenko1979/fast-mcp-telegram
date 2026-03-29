@@ -82,6 +82,9 @@ def _validate_file_paths(
     """
     Normalize and validate file paths with security checks.
 
+    Local paths (non-URL strings) are rejected unless the server runs in stdio mode;
+    HTTP transports (http-no-auth, http-auth) only accept http(s) URLs.
+
     Returns:
         (file_list, error): file_list if valid, error dict if validation fails
     """

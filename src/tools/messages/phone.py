@@ -50,7 +50,8 @@ async def send_message_to_phone_impl(
         remove_if_new: Whether to remove the contact if it was newly created (default: False)
         reply_to_msg_id: ID of the message to reply to (optional)
         parse_mode: Parse mode for message formatting (optional)
-        files: Single file or list of files (URLs or local paths)
+        files: Single file or list of files. URLs (http/https) work in all server modes;
+            local filesystem paths are only allowed in stdio mode (blocked for HTTP transports).
 
     Returns:
         Dictionary with operation results consistent with send_message format, plus:
