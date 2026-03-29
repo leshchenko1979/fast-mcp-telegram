@@ -324,10 +324,10 @@ async def test_stream_content_disposition_with_non_ascii_filename():
     assert "attachment" in cd_lower
     assert "filename=" in cd
     parts = cd.split(";")
-    ascii_filename_part = next(
-        (p for p in parts if "filename=" in p and "filename*=" not in p.lower()), ""
-    )
-    if ascii_filename_part:
+    if ascii_filename_part := next(
+        (p for p in parts if "filename=" in p and "filename*=" not in p.lower()),
+        "",
+    ):
         ascii_filename = ascii_filename_part.split("=", 1)[1].strip().strip('"')
         assert all(ord(ch) < 128 for ch in ascii_filename)
 

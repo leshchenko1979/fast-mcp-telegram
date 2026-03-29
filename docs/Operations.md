@@ -199,8 +199,11 @@ docker exec fast-mcp-telegram df -h
 
 #### Authentication Failures
 ```bash
-# Check Bearer token format
+# Check Bearer token format (header-based auth)
 curl -H "Authorization: Bearer YOUR_TOKEN" https://your-domain.com/health
+
+# Alternative: Check URL-based auth (token in path)
+curl https://your-domain.com/v1/url_auth/YOUR_TOKEN/mcp
 
 # Verify session file exists
 ls -la ~/.config/fast-mcp-telegram/
@@ -208,6 +211,9 @@ ls -la ~/.config/fast-mcp-telegram/
 # Check logs for authentication errors
 docker compose logs fast-mcp-telegram | grep -i auth
 ```
+
+**URL-Based Auth Note:**
+If using URL-based auth (token in path like `/v1/url_auth/{token}/mcp/...`), ensure your client sends requests to the correct URL format. The token will appear in server access logs.
 
 #### Session Issues
 ```bash
