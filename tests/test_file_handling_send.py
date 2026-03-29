@@ -25,6 +25,11 @@ def test_force_document_mixed_list() -> None:
     assert force_document_for_file_list(["https://x/a/1.jpg", "https://y/b/doc.pdf"]) is True
 
 
+def test_force_document_windows_style_path_with_forward_slashes() -> None:
+    """os.path.basename handles C:/tmp/image.jpg; backslash paths need a Windows runtime."""
+    assert force_document_for_file_list(["C:/tmp/image.jpg"]) is False
+
+
 @pytest.mark.asyncio
 async def test_prepare_files_for_send_downloads_http_url() -> None:
     mock_bytes = b"fake-content"
@@ -50,3 +55,70 @@ async def test_prepare_files_for_send_keeps_local_path() -> None:
         out = await prepare_files_for_send(["/tmp/local.pdf"])
     dl.assert_not_called()
     assert out == ["/tmp/local.pdf"]
+
+
+@pytest.mark.asyncio
+async def test_prepare_files_for_send_multiple_http_urls() -> None:
+    b1, b2 = b"a", b"b"
+    with patch(
+        "src.tools.messages.file_handling._download_urls_to_bytes",
+        new_callable=AsyncMock,
+        return_value=[b1, b2],
+    ) as dl:
+        out = await prepare_files_for_send(
+            [
+                "https://a.com/first/one.png",
+                "https://b.com/second/two.png",
+            ]
+        )
+    dl.assert_awaited_once_with(
+        ["https://a.com/first/one.png", "https://b.com/second/two.png"]
+    )
+    assert len(out) == 2
+    assert out[0].name == "one.png"
+    assert out[0].getvalue() == b1
+    assert out[1].name == "two.png"
+    assert out[1].getvalue() == b2
+
+
+@pytest.mark.asyncio
+async def test_prepare_files_for_send_mixed_local_and_url() -> None:
+    data = b"remote"
+    with patch(
+        "src.tools.messages.file_handling._download_urls_to_bytes",
+        new_callable=AsyncMock,
+        return_value=[data],
+    ) as dl:
+        out = await prepare_files_for_send(
+            ["/tmp/local.txt", "https://x/a/session.bin"]
+        )
+    dl.assert_awaited_once_with(["https://x/a/session.bin"])
+    assert out[0] == "/tmp/local.txt"
+    assert out[1].name == "session.bin"
+    assert out[1].getvalue() == data
+
+
+@pytest.mark.asyncio
+async def test_prepare_files_for_send_fallback_name_when_url_has_no_filename() -> None:
+    mock_bytes = b"x"
+    with patch(
+        "src.tools.messages.file_handling._download_urls_to_bytes",
+        new_callable=AsyncMock,
+        return_value=[mock_bytes],
+    ) as dl:
+        out = await prepare_files_for_send(["https://example.com/"])
+    dl.assert_awaited_once_with(["https://example.com/"])
+    assert out[0].name == "file"
+    assert out[0].getvalue() == mock_bytes
+
+
+@pytest.mark.asyncio
+async def test_prepare_files_for_send_passes_through_str_from_downloader() -> None:
+    with patch(
+        "src.tools.messages.file_handling._download_urls_to_bytes",
+        new_callable=AsyncMock,
+        return_value=["not-bytes"],
+    ) as dl:
+        out = await prepare_files_for_send(["https://example.com/x.bin"])
+    dl.assert_awaited_once()
+    assert out == ["not-bytes"]
