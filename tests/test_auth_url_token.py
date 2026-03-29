@@ -46,7 +46,15 @@ class TestPathPattern:
         """Test non-matching path without token."""
         path = "/v1/mcp/tools/call"
         match = PATH_PATTERN.match(path)
+        # /v1/mcp without /url_auth/ prefix should not match
         assert match is None
+
+    def test_path_without_trailing_slash(self):
+        """Test path without trailing slash after mcp."""
+        path = "/v1/url_auth/MyToken123/mcp"
+        match = PATH_PATTERN.match(path)
+        assert match is not None
+        assert match.group(1) == "MyToken123"
 
     def test_invalid_path_root(self):
         """Test non-matching path at root."""
@@ -117,11 +125,11 @@ class TestUrlTokenMiddleware:
         mock_app.return_value = JSONResponse({"status": "ok"})
         await middleware.dispatch(request, mock_app)
 
-        # Verify the auth header was injected
-        headers_list = request.headers.__dict__["_list"]
-        auth_headers = [h for h in headers_list if b"authorization:" in h]
+        # Verify the auth header was injected via scope
+        headers_list = request.scope.get("headers", [])
+        auth_headers = [h for h in headers_list if h[0] == b"authorization"]
         assert len(auth_headers) == 1
-        assert auth_headers[0] == b"authorization:Bearer MyToken123"
+        assert auth_headers[0] == (b"authorization", b"Bearer MyToken123")
 
     @pytest.mark.asyncio
     async def test_passes_through_non_matching_path(self, middleware, mock_app):

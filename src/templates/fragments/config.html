@@ -11,9 +11,7 @@
     <pre id="header-config-pre" class="pre-wrap">{{ header_config_json }}</pre>
 </div>
 <div class="setup-actions">
-    <button type="button" id="copyHeaderBtn"
-        onclick="(async ()=>{const btn=document.getElementById('copyHeaderBtn'); const pre=document.getElementById('header-config-pre'); const prev=btn.innerText; try{if(!pre){throw new Error('Config block not found');} await navigator.clipboard.writeText(pre.innerText); btn.innerText='Copied';}catch(_){btn.innerText='Copy failed';} setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
-        Header Config</button>
+    <button type="button" onclick="copyConfig('header-config-pre', this)">Copy Header Config</button>
 </div>
 
 <h3>Option 2: URL-Based Auth (For Limited Clients)</h3>
@@ -25,11 +23,28 @@
     <pre id="url-config-pre" class="pre-wrap">{{ url_config_json }}</pre>
 </div>
 <div class="setup-actions">
-    <button type="button" id="copyUrlBtn"
-        onclick="(async ()=>{const btn=document.getElementById('copyUrlBtn'); const pre=document.getElementById('url-config-pre'); const prev=btn.innerText; try{if(!pre){throw new Error('Config block not found');} await navigator.clipboard.writeText(pre.innerText); btn.innerText='Copied';}catch(_){btn.innerText='Copy failed';} setTimeout(()=>btn.innerText=prev, 2000);})()">Copy
-        URL Config</button>
+    <button type="button" onclick="copyConfig('url-config-pre', this)">Copy URL Config</button>
 </div>
 
 <div class="setup-actions">
     <button type="button" onclick="window.location.assign('/setup')">Back to setup</button>
 </div>
+
+<script>
+    async function copyConfig(preId, btn) {
+        const pre = document.getElementById(preId);
+        if (!pre) {
+            return;
+        }
+        const originalText = btn.innerText;
+        try {
+            await navigator.clipboard.writeText(pre.innerText);
+            btn.innerText = 'Copied';
+        } catch (_) {
+            btn.innerText = 'Copy failed';
+        }
+        setTimeout(() => {
+            btn.innerText = originalText;
+        }, 2000);
+    }
+</script>

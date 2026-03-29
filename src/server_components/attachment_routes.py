@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 from urllib.parse import quote
 
-if TYPE_CHECKING:
-    from telethon.types import Message
-
 from starlette.responses import Response, StreamingResponse
+from telethon.types import Message
 
 from src.client.connection import get_connected_client, set_request_token
 from src.config.server_config import get_config

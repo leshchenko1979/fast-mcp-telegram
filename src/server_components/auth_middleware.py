@@ -43,12 +43,13 @@ logger = logging.getLogger(__name__)
 #   /v1/url_auth/TOKEN/mcp/tools/call -> /v1/mcp/tools/call (with token)
 #   /v1/url_auth/TOKEN/mcp/resources/read -> /v1/mcp/resources/read (with token)
 #   /v1/url_auth/TOKEN/mcp/initialize -> /v1/mcp/initialize (with token)
+#   /v1/url_auth/TOKEN/mcp -> /v1/mcp (with token, no trailing slash)
 #
 # Non-matching:
 #   /v1/mcp/... -> Not matched (header-based auth)
 #   /health -> Not matched
 #   /setup -> Not matched
-PATH_PATTERN = re.compile(r"^/v1/url_auth/([^/]+)/mcp/")
+PATH_PATTERN = re.compile(r"^/v1/url_auth/([^/]+)/mcp")
 
 
 class UrlTokenMiddleware(BaseHTTPMiddleware):
@@ -73,11 +74,6 @@ class UrlTokenMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._config = config
 
-    @property
-    def _domain(self) -> str:
-        """Get the configured domain."""
-        return self._config.domain or "your-server.com"
-
     async def dispatch(self, request: Request, call_next):
         """Process the request and inject auth header if URL contains token."""
         path = request.url.path
@@ -101,48 +97,21 @@ class UrlTokenMiddleware(BaseHTTPMiddleware):
 
         # Rewrite path: /v1/url_auth/{token}/mcp/{method} -> /v1/mcp/{method}
         # This makes FastMCP receive the request at its normal mount point
-        new_path = f"/v1/mcp/{path[len(match.group(0)) :]}"
-        # Modify scope directly since request.url is read-only
-        request.scope["path"] = new_path
+        remaining = path[len(match.group(0)) :]
+        # Remove leading slash if present, so /v1/mcp//tools becomes /v1/mcp/tools
+        remaining = remaining.lstrip("/")
+        new_path = f"/v1/mcp/{remaining}" if remaining else "/v1/mcp"
 
-        # Inject Authorization header
-        # We do this by modifying the request headers directly
-        # Starlette's Headers class stores headers as a list of "key:value" bytes
+        # Inject Authorization header via ASGI scope (not private Headers internals)
         auth_value = f"Bearer {token}"
-        request.headers.__dict__["_list"].append(f"authorization:{auth_value}".encode())
+        headers = list(request.scope.get("headers") or [])
+        headers.append((b"authorization", auth_value.encode()))
+        request.scope["headers"] = headers
+        request.scope["path"] = new_path
 
         logger.debug(f"URL token middleware injected auth for token: {token[:8]}...")
 
         return await call_next(request)
-
-
-def _rewrite_url(url, new_path: str):
-    """Create a new URL with a different path."""
-    from urllib.parse import urlunsplit
-
-    scheme = url.scheme if hasattr(url, "scheme") else "https"
-    netloc = url.netloc if hasattr(url, "netloc") else ""
-    query = url.query if hasattr(url, "query") else ""
-
-    new_url = urlunsplit((scheme, netloc, new_path, query, ""))
-
-    class RewrittenUrl:
-        def __init__(self, url_str, path):
-            self._url = url_str
-            self._path = path
-
-        @property
-        def path(self):
-            return self._path
-
-        @property
-        def path_params(self):
-            return getattr(url, "path_params", {})
-
-        def __repr__(self):
-            return f"RewrittenUrl(path={self._path})"
-
-    return RewrittenUrl(new_url, new_path)
 
 
 def generate_url_based_config(domain: str, token: str) -> dict:

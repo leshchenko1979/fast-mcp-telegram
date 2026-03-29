@@ -1,4 +1,5 @@
 import contextlib
+import json
 import logging
 import os
 import shutil
@@ -18,6 +19,7 @@ from src.client.connection import _cache_lock, _session_cache, generate_bearer_t
 from src.config.server_config import ServerMode, get_config
 from src.config.settings import API_HASH, API_ID
 from src.server_components.auth import RESERVED_SESSION_NAMES
+from src.server_components.auth_middleware import generate_url_based_config
 from src.utils.mcp_config import generate_mcp_config_json
 
 # Constants
@@ -291,10 +293,6 @@ async def setup_generate(request: Request):
     )
 
     # URL-based (for clients without header support)
-    import json
-
-    from src.server_components.auth_middleware import generate_url_based_config
-
     url_config = generate_url_based_config(domain or "your-server.com", token)
     url_config_json = json.dumps(url_config, indent=2)
 
