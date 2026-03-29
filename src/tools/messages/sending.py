@@ -9,8 +9,8 @@ from src.client.connection import get_connected_client
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
 from src.tools.messages.file_handling import (
     _calculate_file_count,
-    _download_urls_to_bytes,
-    _wrap_bytes_in_file_objects,
+    force_document_for_file_list,
+    prepare_files_for_send,
 )
 from src.tools.messages.security import _validate_file_paths
 from src.utils.discussion import get_post_discussion_info
@@ -38,32 +38,21 @@ async def _send_files_to_entity(
     """
     Send files to an entity, handling both single and multiple files.
 
-    For multiple URLs, downloads them and wraps in BytesIO with .name for proper photo detection.
-    Returns a single message (or first message of album).
+    Http(s) URLs are downloaded first (with .name from the URL) so Telethon does not
+    mis-detect non-images as photos. force_document is set unless all names look like
+    raster images, avoiding MediaInvalidError for HTML/session exports and similar.
     """
-    if len(file_list) > 1 and any(
-        f.startswith(("http://", "https://")) for f in file_list
-    ):
-        logger.debug("Multiple URLs detected, downloading files for album")
-        downloaded_files = await _download_urls_to_bytes(file_list)
-        file_objects = _wrap_bytes_in_file_objects(file_list, downloaded_files)
-
-        result = await client.send_file(
-            entity=entity,
-            file=file_objects,
-            caption=message or None,
-            reply_to=reply_to_msg_id,
-            parse_mode=parse_mode,
-            force_document=False,
-        )
-        return _extract_first_message(result)
+    prepared = await prepare_files_for_send(file_list)
+    force_doc = force_document_for_file_list(file_list)
+    file_arg = prepared[0] if len(prepared) == 1 else prepared
 
     result = await client.send_file(
         entity=entity,
-        file=file_list,
+        file=file_arg,
         caption=message or None,
         reply_to=reply_to_msg_id,
         parse_mode=parse_mode,
+        force_document=force_doc,
     )
     return _extract_first_message(result)
 
