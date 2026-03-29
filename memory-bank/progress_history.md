@@ -2,6 +2,9 @@
 
 ## 2026 Development History
 
+### 2026-03-29
+- Archived older decisions from activeContext.md to progress_history.md for memory bank size compliance (293→65 lines)
+
 ### 2026-03-15
 - Replaced aiohttp with httpx for file downloads in send_message tool (URL-based media attachments)
 - Removed aiohttp dependency to consolidate on httpx (already used by FastMCP)
