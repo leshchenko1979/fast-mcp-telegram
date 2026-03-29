@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from io import BytesIO
 
 import httpx
@@ -20,7 +21,13 @@ _IMAGE_SUFFIXES = frozenset(
 
 
 def _basename_from_url_or_path(url_or_path: str) -> str:
-    return url_or_path.split("/")[-1].split("?")[0]
+    """
+    Basename of a URL or filesystem path, without a query string.
+
+    Uses os.path.basename so POSIX and Windows path separators both work.
+    """
+    path_without_query = url_or_path.split("?", 1)[0]
+    return os.path.basename(path_without_query)
 
 
 def _is_likely_image_filename(url_or_path: str) -> bool:
@@ -44,7 +51,7 @@ def force_document_for_file_list(file_list: list[str]) -> bool:
     return not all(_is_likely_image_filename(f) for f in file_list)
 
 
-async def prepare_files_for_send(file_list: list[str]) -> list:
+async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
     """
     Resolve http(s) URLs to BytesIO with a .name for type detection; keep local paths as-is.
 
@@ -60,7 +67,7 @@ async def prepare_files_for_send(file_list: list[str]) -> list:
     for u, content in zip(url_entries, downloaded, strict=True):
         url_to_content[u] = content
 
-    out: list = []
+    out: list[BytesIO | str] = []
     for f in file_list:
         if not f.startswith(("http://", "https://")):
             out.append(f)
