@@ -29,7 +29,7 @@ class TestMCPConfigGeneration:
         assert "telegram" in config["mcpServers"]
         server_config = config["mcpServers"]["telegram"]
 
-        assert server_config["url"] == "https://example.com/mcp"
+        assert server_config["url"] == "https://example.com/v1/mcp"
         assert "headers" in server_config
         assert server_config["headers"]["Authorization"] == "Bearer test-token-123"
 
@@ -42,7 +42,7 @@ class TestMCPConfigGeneration:
         )
 
         server_config = config["mcpServers"]["telegram"]
-        assert server_config["url"] == "https://your-server.com/mcp"
+        assert server_config["url"] == "https://your-server.com/v1/mcp"
         assert server_config["headers"]["Authorization"] == "Bearer test-token-456"
 
     def test_http_no_auth_config(self):
@@ -57,7 +57,7 @@ class TestMCPConfigGeneration:
         assert "telegram" in config["mcpServers"]
         server_config = config["mcpServers"]["telegram"]
 
-        assert server_config["url"] == "http://localhost:8000/mcp"
+        assert server_config["url"] == "http://localhost:8000/v1/mcp"
         assert "headers" not in server_config
 
     def test_stdio_config_default_session(self):
@@ -185,7 +185,7 @@ class TestSharedUtilityUsage:
 
         # Verify basic structure
         assert "mcpServers" in config
-        assert config["mcpServers"]["telegram"]["url"] == "https://test.com/mcp"
+        assert config["mcpServers"]["telegram"]["url"] == "https://test.com/v1/mcp"
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ def generate_mcp_config(
         return {
             "mcpServers": {
                 "telegram": {
-                    "url": f"https://{domain_url}/mcp",
+                    "url": f"https://{domain_url}/v1/mcp",
                     "headers": {"Authorization": f"Bearer {bearer_token}"},
                 }
             }
@@ -49,7 +49,7 @@ def generate_mcp_config(
         return {
             "mcpServers": {
                 "telegram": {
-                    "url": "http://localhost:8000/mcp",
+                    "url": "http://localhost:8000/v1/mcp",
                 }
             }
         }
