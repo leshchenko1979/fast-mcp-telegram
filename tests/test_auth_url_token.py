@@ -304,14 +304,6 @@ class TestUrlTokenMiddlewareIntegration:
     @pytest.mark.asyncio
     async def test_full_flow_with_valid_token(self, mock_app, mock_config):
         """Test full flow from request to response with valid token."""
-        from starlette.applications import Starlette
-
-        app = Starlette()
-        middleware = UrlTokenMiddleware(mock_app, mock_config)
-        app.add_middleware(lambda x: middleware)
-        app.route("/v1/url_auth/{token}/mcp/tools/call")(mock_app)
-        app.route("/health")(mock_app)
-
         # Would need TestClient - skip actual integration test for now
         # This is more of a placeholder for real integration tests
         pytest.skip("Integration test requires TestClient with proper ASGI setup")
