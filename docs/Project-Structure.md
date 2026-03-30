@@ -78,7 +78,7 @@ fast-mcp-telegram/
 │   ├── techContext.md            # Technologies, setup, and technical constraints
 │   └── progress.md               # What's working and what needs to be built
 ├── scripts/                      # Deployment and utility scripts
-│   ├── sync-vds-service.sh       # VDS service synchronization script
+│   ├── sync-remote-config.sh     # Remote config synchronization script
 │   └── check-status.sh           # Health status check script
 ├── .env.example                  # Environment template
 ├── docker-compose.yml            # Docker configuration
@@ -262,7 +262,7 @@ fast-mcp-telegram/
   - Environment configuration
 
 ### Deployment Scripts
-- **`scripts/sync-vds-service.sh`**: VDS service synchronization
+- **`scripts/sync-remote-config.sh`**: Remote config synchronization
   - Session backup and restore
   - Docker image pulling
   - Service restart

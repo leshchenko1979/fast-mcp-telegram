@@ -63,7 +63,7 @@ export SSH_HOST=your.server.com
 export SSH_USER=root
 
 # Sync compose file and run deployment
-./scripts/sync-vds-service.sh
+./scripts/sync-remote-config.sh
 ```
 
 ## Local Docker Deployment

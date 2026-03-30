@@ -100,7 +100,7 @@ This project uses **GitHub Actions** for automatic builds and deployments.
 3. Edit `.env` in your fork
 4. Push to `main` — deployment happens automatically
 
-**Manual deployment:** Use `scripts/sync-vds-service.sh`
+**Manual deployment:** Use `scripts/sync-remote-config.sh`
 
 See [Deployment Guide](docs/Deployment.md) for details.
 

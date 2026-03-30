@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "bash",
             "args": [
-                "${workspaceFolder}/scripts/sync-vds-service.sh"
+                "${workspaceFolder}/scripts/sync-remote-config.sh"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -46,11 +46,11 @@
             "problemMatcher": []
         },
         {
-            "label": "Manual deploy (sync-vds-service.sh)",
+            "label": "Manual deploy (sync-remote-config.sh)",
             "type": "shell",
             "command": "bash",
             "args": [
-                "${workspaceFolder}/scripts/sync-vds-service.sh"
+                "${workspaceFolder}/scripts/sync-remote-config.sh"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

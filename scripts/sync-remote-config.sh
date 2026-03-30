@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Push docker-compose.yml and runtime .env to the VDS, then docker compose pull && up -d.
+# Sync docker-compose.yml and runtime .env to remote server, then docker compose pull && up -d.
 # Optional GHCR_PULL_* in local .env for private registry login on the server.
 # Primary deploy path is GitHub Actions; use this to bootstrap or refresh the server directory.
 set -euo pipefail

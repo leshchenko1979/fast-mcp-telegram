@@ -49,7 +49,8 @@ tg_mcp/
 │   ├── config/           # Configuration and logging
 │   └── utils/            # Utility functions
 ├── scripts/               # Deployment and utility scripts
-│   └── deploy-mcp.sh     # Enhanced deployment script
+│   ├── sync-remote-config.sh  # Remote config synchronization script
+│   └── check-status.sh    # Health status check script
 ```
 
 ### Testing Infrastructure

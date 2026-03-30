@@ -5,7 +5,7 @@
 - Migrated from manual `deploy-mcp.sh` to GitHub Actions workflow matching pdf-extract pattern
 - Created `.github/workflows/deploy.yml` with build-push and deploy jobs
 - Updated `docker-compose.yml` to use GHCR image + named volume for sessions
-- Created `scripts/sync-vds-service.sh` for manual sync
+- Created `scripts/sync-remote-config.sh` for manual sync
 - Updated `.vscode/tasks.json` with new tasks
 - Updated README.md, docs/Deployment.md, docs/Installation.md
 - Marked `scripts/deploy-mcp.sh` as legacy
@@ -70,7 +70,7 @@ SessionConfig with session_name/session_path. HTTP_AUTH uses random tokens, STDI
 
 ### VDS Testing and Diagnosis Methodology
 1. **Environment Access**: SSH with credentials from `.env` file (`SSH_USER`, `SSH_HOST`)
-2. **Deployment Process**: GitHub Actions auto-deploys on push to main. Manual sync via `./scripts/sync-vds-service.sh`
+2. **Deployment Process**: GitHub Actions auto-deploys on push to main. Manual sync via `./scripts/sync-remote-config.sh`
 3. **Container Management**: Use `docker compose` commands for container status, logs, and health checks
 4. **Authentication Testing**: Use `curl` with proper MCP protocol headers and bearer tokens
 5. **Log Analysis**: Monitor server logs for authentication flow and error patterns
