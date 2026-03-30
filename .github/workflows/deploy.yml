@@ -27,14 +27,24 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        run: pip install --no-cache-dir uv
+
+      - name: Cache uv packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-asyncio pytest-cov pytest-xdist pytest-html
+        run: uv sync --frozen --all-extras --dev
 
       - name: Run tests
-        run: pytest -v --tb=short -x
+        run: uv run pytest -v --tb=short -x
 
       - id: img
         run: |
