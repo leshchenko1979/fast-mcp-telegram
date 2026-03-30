@@ -54,7 +54,7 @@ cd "${REMOTE_DOCKER_DIR}"
 if [[ -n "${GHCR_PULL_TOKEN:-}" ]] && [[ -n "${GHCR_PULL_USER:-}" ]]; then
   echo "${GHCR_PULL_TOKEN:-}" | docker login ghcr.io -u "${GHCR_PULL_USER:-}" --password-stdin
 fi
-docker compose pull && docker compose up -d
+docker compose pull && docker compose up -d --wait
 REMOTE
 
 echo "[sync] done."
