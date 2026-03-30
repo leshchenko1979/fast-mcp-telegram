@@ -1,7 +1,7 @@
 services:
   fast-mcp-telegram:
+    image: ${GHCR_IMAGE:-ghcr.io/leshchenko1979/fast-mcp-telegram}:${IMAGE_TAG:-main}
     container_name: fast-mcp-telegram
-    build: .
     env_file:
       - ./.env
     environment:
@@ -10,29 +10,37 @@ services:
       - PORT=8000
       - DOMAIN=${DOMAIN:-your-domain.com}
     volumes:
-      - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
+      - telegram-sessions:/home/appuser/.config/fast-mcp-telegram
     networks:
       - traefik-public
-    labels:
-      - "traefik.enable=true"
-
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.5
     mem_reservation: 64m
     command: python -m src.server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health >/dev/null 2>&1 || exit 1"]
+      start_period: 20s
+      start_interval: 1s
+      interval: 30s
+      timeout: 5s
+      retries: 2
 
   setup:
     profiles:
       - setup
-    build: .
+    image: ${GHCR_IMAGE:-ghcr.io/leshchenko1979/fast-mcp-telegram}:${IMAGE_TAG:-main}
     env_file:
       - ./.env
     volumes:
-      - ~/.config/fast-mcp-telegram:/home/appuser/.config/fast-mcp-telegram
+      - telegram-sessions:/home/appuser/.config/fast-mcp-telegram
     stdin_open: true
     tty: true
     command: python -m src.cli_setup --overwrite
+
+volumes:
+  telegram-sessions:
+    driver: local
 
 networks:
   traefik-public:

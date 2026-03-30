@@ -124,10 +124,11 @@
 ### Deployment & Integration ✅
 - **HTTP Transport**: FastMCP over HTTP with CORS support
 - **Cursor Integration**: Verified working with Cursor IDE
-- **Production Deployment**: VDS deployment with Traefik and TLS
+- **GitHub Actions CI/CD**: Automatic build and deploy to VDS on push to main
+- **GHCR Integration**: Docker images hosted on GitHub Container Registry
 - **Environment Management**: Proper credential handling and session management
 - **Dependency Management**: setuptools with pyproject.toml for package management
-- **Session Persistence**: Zero-downtime deployments with automatic session backup/restore
+- **Session Persistence**: Docker named volume for sessions (telegram-sessions)
 
 ## What's Left to Build (Remaining Work)
 

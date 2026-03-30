@@ -49,7 +49,14 @@ Add to your `mcp.json`:
 
 ### 🌐 For Remote Servers (Production)
 
-**3-minute setup:**
+**Option 1: Docker (Recommended)**
+
+1. Fork this repository
+2. Configure GitHub secrets (see [Deployment Guide](Deployment.md))
+3. Edit `.env` with your API credentials
+4. Push to `main` — deployment happens automatically
+
+**Option 2: Manual**
 
 ```bash
 # 1. Install
@@ -66,6 +73,8 @@ SERVER_MODE=http-auth fast-mcp-telegram
 
 # ✅ Done! Use the downloaded mcp.json in your MCP client
 ```
+
+See [Deployment Guide](Deployment.md) for full deployment documentation.
 
 ## 🌐 Web Setup Interface
 
@@ -213,46 +222,6 @@ SESSION_NAME=telegram          # Session identifier
 ```
 
 ⚠️ **Security Warning:** Only use this mode in trusted local environments.
-</details>
-
-<details>
-<summary><b>Production HTTP (With Auth)</b> - Click to expand</summary>
-
-The server supports two authentication methods:
-
-**Header-Based Auth (Recommended):**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "url": "https://your-server.com/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer your_token_from_setup"
-      }
-    }
-  }
-}
-```
-
-**URL-Based Auth (For Limited Clients):**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "url": "https://your-server.com/v1/url_auth/your_token_from_setup/mcp"
-    }
-  }
-}
-```
-
-| Method | Security | Use When |
-|--------|----------|----------|
-| Header-based | Higher (token not in logs) | Standard MCP clients (Cursor, Claude Code) |
-| URL-based | Lower (token in logs) | Clients that cannot set custom headers |
-
-**Getting the token:**
-- **Web Setup:** Automatically included in downloaded `mcp.json` (both options provided)
-- **CLI Setup:** Displayed in terminal output after authentication
 </details>
 
 ---

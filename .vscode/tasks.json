@@ -1,57 +1,109 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Login to VDS",
-      "type": "shell",
-      "command": "bash",
-      "args": [
-        "-c",
-        "source .env && ssh ${VDS_USER}@${VDS_HOST}"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "new"
-      },
-      "group": "build"
-    },
-    {
-      "label": "Deploy to VDS",
-      "type": "shell",
-      "command": "bash scripts/deploy-mcp.sh",
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "isBackground": false,
-      "problemMatcher": [],
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "focus": true,
-        "panel": "dedicated"
-      },
-      "group": "build"
-    },
-    {
-      "label": "Check VDS Status",
-      "type": "shell",
-      "command": "bash",
-      "args": [
-        "scripts/check-status.sh"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "group": "build"
-    }
-  ]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Sync compose and env to VDS",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/scripts/sync-vds-service.sh"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run pytest",
+            "type": "shell",
+            "command": "pytest",
+            "args": [
+                "-v",
+                "--tb=short",
+                "-x"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Manual deploy (sync-vds-service.sh)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/scripts/sync-vds-service.sh"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "SSH to remote",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "set -a && source .env && set +a && ssh \"$SSH_USER@$SSH_HOST\""
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "showReuseMessage": false
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Check VDS Status",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "scripts/check-status.sh"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "group": "build"
+        }
+    ]
 }

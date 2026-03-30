@@ -1,4 +1,19 @@
 ## Current Work Focus
+**Completed**: CI/CD pipeline migration to GitHub Actions + GHCR (2026-03-30)
+
+**Implementation**:
+- Migrated from manual `deploy-mcp.sh` to GitHub Actions workflow matching pdf-extract pattern
+- Created `.github/workflows/deploy.yml` with build-push and deploy jobs
+- Updated `docker-compose.yml` to use GHCR image + named volume for sessions
+- Created `scripts/sync-vds-service.sh` for manual sync
+- Updated `.vscode/tasks.json` with new tasks
+- Updated README.md, docs/Deployment.md, docs/Installation.md
+- Marked `scripts/deploy-mcp.sh` as legacy
+
+**Operational notes**: Deployment is automatic on push to main. Sessions persist in Docker named volume.
+
+---
+
 **Completed**: Web setup UX, consistency, and same-step errors (2026-03-27)
 
 **Implementation**:
@@ -54,12 +69,11 @@ SessionConfig with session_name/session_path. HTTP_AUTH uses random tokens, STDI
 4. **Automatic Cleanup**: TTL-based session cleanup prevents resource leaks
 
 ### VDS Testing and Diagnosis Methodology
-1. **Environment Access**: SSH with credentials from `.env` file (`VDS_USER`, `VDS_HOST`, `VDS_PROJECT_PATH`)
-2. **Deployment Process**: Use `./scripts/deploy-mcp.sh` for automated deployment with session management
+1. **Environment Access**: SSH with credentials from `.env` file (`SSH_USER`, `SSH_HOST`)
+2. **Deployment Process**: GitHub Actions auto-deploys on push to main. Manual sync via `./scripts/sync-vds-service.sh`
 3. **Container Management**: Use `docker compose` commands for container status, logs, and health checks
 4. **Authentication Testing**: Use `curl` with proper MCP protocol headers and bearer tokens
 5. **Log Analysis**: Monitor server logs for authentication flow and error patterns
-6. **Session File Management**: Check `~/.config/fast-mcp-telegram/` for token-specific session files
-7. **Traefik Integration**: Domain routing, SSL certificate management
-8. **Health Monitoring**: Container health checks and endpoint monitoring
-9. **Debugging Approach**: Systematic issue elimination through targeted testing
+6. **Session Management**: Sessions stored in Docker named volume `telegram-sessions`
+7. **Health Monitoring**: Container health checks and endpoint monitoring
+8. **Debugging Approach**: Systematic issue elimination through targeted testing
