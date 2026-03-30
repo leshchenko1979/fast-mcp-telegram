@@ -12,33 +12,49 @@ fast-mcp-telegram/
 │   ├── client/                   # Telegram client management
 │   │   └── connection.py         # Token management, LRU cache, session isolation
 │   ├── config/                   # Configuration and logging
-│   │   ├── logging.py           # Logging configuration and diagnostic formatting
-│   │   └── settings.py          # Configuration management with dynamic version reading
+│   │   ├── logging.py            # Logging configuration and diagnostic formatting
+│   │   ├── server_config.py      # Server configuration with pydantic
+│   │   └── settings.py           # Configuration management with dynamic version reading
 │   ├── server_components/        # Server modules (auth, health, tools, web setup)
-│   │   ├── auth.py              # Authentication middleware and Bearer token extraction
-│   │   ├── health.py            # Health endpoint registrar
-│   │   ├── mtproto_api.py       # MTProto API endpoint implementation
-│   │   ├── tools_register.py    # Tool registrar
-│   │   └── web_setup.py         # Web setup routes registrar
+│   │   ├── auth.py               # Authentication middleware and Bearer token extraction
+│   │   ├── auth_middleware.py    # Authentication context decorator
+│   │   ├── attachment_routes.py  # File attachment download endpoints
+│   │   ├── attachment_tickets.py # Secure attachment ticket management
+│   │   ├── bot_restrictions.py   # Bot session restrictions
+│   │   ├── errors.py             # Error handling decorators
+│   │   ├── health.py             # Health endpoint registrar
+│   │   ├── mtproto_api.py        # MTProto API endpoint implementation
+│   │   ├── session_token_verifier.py  # Session token verification
+│   │   ├── tools_register.py     # Tool registrar
+│   │   └── web_setup.py          # Web setup routes registrar
 │   ├── templates/                # Web setup interface templates
-│   │   ├── base.html            # Base template
-│   │   ├── setup.html           # Main setup page
-│   │   └── fragments/           # HTMX form fragments
-│   │       ├── 2fa_form.html    # 2FA authentication form
-│   │       ├── code_form.html   # Verification code form
-│   │       └── config.html      # Configuration generation
+│   │   ├── base.html             # Base template
+│   │   ├── setup.html            # Main setup page
+│   │   └── fragments/            # HTMX form fragments
+│   │       ├── 2fa_form.html     # 2FA authentication form
+│   │       ├── code_form.html    # Verification code form
+│   │       └── config.html       # Configuration generation
 │   ├── tools/                    # MCP tool implementations
-│   │   ├── contacts.py          # Contact search and management
-│   │   ├── links.py             # Telegram link generation
-│   │   ├── messages.py          # Message operations (send, edit, read)
-│   │   ├── mtproto.py           # Direct MTProto API access
-│   │   └── search.py            # Message search functionality
+│   │   ├── contacts.py           # Contact search and management
+│   │   ├── links.py              # Telegram link generation
+│   │   ├── messages/             # Message operations module
+│   │   │   ├── __init__.py
+│   │   │   ├── core.py
+│   │   │   ├── editing.py
+│   │   │   ├── file_handling.py
+│   │   │   ├── phone.py
+│   │   │   ├── reading.py
+│   │   │   └── sending.py
+│   │   ├── mtproto.py            # Direct MTProto API access
+│   │   └── search.py             # Message search functionality
 │   ├── utils/                    # Utility functions
-│   │   ├── entity.py            # Entity resolution and formatting
-│   │   ├── error_handling.py    # Error management and structured responses
-│   │   ├── helpers.py           # General utility functions
-│   │   ├── logging_utils.py     # Consolidated logging utilities
-│   │   └── message_format.py    # Message formatting and media parsing utilities
+│   │   ├── discussion.py         # Discussion group utilities
+│   │   ├── entity.py             # Entity resolution and formatting
+│   │   ├── error_handling.py     # Error management and structured responses
+│   │   ├── helpers.py            # General utility functions
+│   │   ├── logging_utils.py      # Consolidated logging utilities
+│   │   ├── mcp_config.py         # MCP configuration utilities
+│   │   └── message_format.py     # Message formatting and media parsing
 │   ├── cli_setup.py              # CLI setup with pydantic-settings
 │   └── server.py                 # Main server entry point
 ├── tests/                        # Test suite
@@ -62,7 +78,8 @@ fast-mcp-telegram/
 │   ├── techContext.md            # Technologies, setup, and technical constraints
 │   └── progress.md               # What's working and what needs to be built
 ├── scripts/                      # Deployment and utility scripts
-│   └── deploy-mcp.sh            # Enhanced deployment script
+│   ├── sync-vds-service.sh       # VDS service synchronization script
+│   └── check-status.sh           # Health status check script
 ├── .env.example                  # Environment template
 ├── docker-compose.yml            # Docker configuration
 ├── Dockerfile                    # Container build
@@ -102,6 +119,8 @@ fast-mcp-telegram/
   - Bearer token extraction and validation
   - Request-scoped authentication context
   - Session isolation and management
+- **`src/server_components/auth_middleware.py`**: Authentication context decorator
+  - Auth context management for tool execution
 - **`src/server_components/health.py`**: Health monitoring
   - Health endpoint registration
   - Session statistics and monitoring
@@ -120,16 +139,29 @@ fast-mcp-telegram/
   - Session management and cleanup
   - Configuration generation and download
   - Phone verification for reauthorization
+- **`src/server_components/attachment_routes.py`**: File attachment endpoints
+  - Secure file attachment download routes
+- **`src/server_components/attachment_tickets.py`**: Attachment ticket management
+  - Secure ticket generation and validation for attachments
+- **`src/server_components/bot_restrictions.py`**: Bot session restrictions
+  - Limitations for bot-operated sessions
+- **`src/server_components/errors.py`**: Error handling decorators
+  - Standardized error handling for tools
+- **`src/server_components/session_token_verifier.py`**: Session token verification
+  - Token validation utilities
 
 ### Tool Implementations
 - **`src/tools/search.py`**: Message search functionality
   - Global and per-chat search
   - Multi-query support with parallel execution
   - Result deduplication and formatting
-- **`src/tools/messages.py`**: Message operations
-  - Send, edit, read messages, and voice transcription
-  - File sending with URL and local path support
-  - Message formatting and reply support
+- **`src/tools/messages/`**: Message operations module
+  - `core.py`: Core message functionality
+  - `sending.py`: Send messages with files and formatting
+  - `editing.py`: Edit existing messages
+  - `reading.py`: Read and retrieve messages
+  - `file_handling.py`: File upload and attachment handling
+  - `phone.py`: Send messages to phone numbers
 - **`src/tools/contacts.py`**: Contact management
   - Contact search and resolution
   - User profile information
@@ -166,6 +198,10 @@ fast-mcp-telegram/
   - Message content formatting
   - Media placeholder generation
   - Link generation and formatting
+- **`src/utils/discussion.py`**: Discussion group utilities
+  - Discussion group detection and handling
+- **`src/utils/mcp_config.py`**: MCP configuration utilities
+  - MCP server configuration helpers
 
 ## Web Interface
 
@@ -226,11 +262,12 @@ fast-mcp-telegram/
   - Environment configuration
 
 ### Deployment Scripts
-- **`scripts/deploy-mcp.sh`**: Automated deployment
+- **`scripts/sync-vds-service.sh`**: VDS service synchronization
   - Session backup and restore
-  - Permission management
-  - Cross-platform compatibility
+  - Docker image pulling
+  - Service restart
   - Error handling and logging
+- **`scripts/check-status.sh`**: Health status check script
 
 ## Configuration Management
 

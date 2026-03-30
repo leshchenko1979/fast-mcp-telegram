@@ -53,9 +53,9 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 
 ### Parameters
 
-- **`params`**: Object with method parameters (preferred)
+- **`params`**: Object with method parameters (preferred, converted to JSON internally)
 - **`params_json`**: JSON string with method parameters (alternative)
-- **`resolve`**: Boolean to enable automatic entity resolution (default: false)
+- **`resolve`**: Boolean to enable automatic entity resolution (default: true)
 - **`allow_dangerous`**: Boolean to allow dangerous methods (default: false)
 
 ## Server Mode Behavior
@@ -242,8 +242,11 @@ Certain methods are blocked by default for safety:
 
 - `account.DeleteAccount`
 - `messages.DeleteHistory`
-- `channels.DeleteChannel`
-- `contacts.DeleteContacts`
+- `messages.DeleteUserHistory`
+- `messages.DeleteChatUser`
+- `messages.DeleteMessages`
+- `channels.DeleteHistory`
+- `channels.DeleteMessages`
 
 To use dangerous methods, explicitly set `allow_dangerous: true`:
 
