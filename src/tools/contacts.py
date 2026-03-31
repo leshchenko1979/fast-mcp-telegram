@@ -330,10 +330,7 @@ async def search_dialogs_impl(
                 if query_lower not in searchable:
                     continue
 
-            # Apply date filters (most important for optimization)
-            # Dialogs are sorted by recency, so we can break early for max_date
-            dialog_date = getattr(dialog, "date", None)
-            if dialog_date:
+            if dialog_date := getattr(dialog, "date", None):
                 # max_date early termination: dialogs are sorted newest-first
                 # Once dialog.date < max_date, all subsequent dialogs will be older
                 if max_date_dt and dialog_date < max_date_dt:
@@ -341,18 +338,16 @@ async def search_dialogs_impl(
                 # min_date check
                 if min_date_dt and dialog_date < min_date_dt:
                     continue
-            else:
-                # Fallback: only check after basic filters pass
-                if fallback_date := await _get_last_message_date(entity):
-                    with suppress(ValueError):
-                        fallback_dt = datetime.fromisoformat(
-                            fallback_date.replace("Z", "+00:00")
-                        )
-                        # For fallback, we can't break early (not sorted)
-                        if min_date_dt and fallback_dt < min_date_dt:
-                            continue
-                        if max_date_dt and fallback_dt > max_date_dt:
-                            continue
+            elif fallback_date := await _get_last_message_date(entity):
+                with suppress(ValueError):
+                    fallback_dt = datetime.fromisoformat(
+                        fallback_date.replace("Z", "+00:00")
+                    )
+                    # For fallback, we can't break early (not sorted)
+                    if min_date_dt and fallback_dt < min_date_dt:
+                        continue
+                    if max_date_dt and fallback_dt > max_date_dt:
+                        continue
 
             # Apply chat_type and public filters last (after date check)
             if chat_type and get_normalized_chat_type(entity) != chat_type:
