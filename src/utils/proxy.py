@@ -24,11 +24,14 @@ class MTProtoProxy(NamedTuple):
 
 # TelethonFakeTLS import - single source of truth
 try:
-    from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+    from TelethonFakeTLS.Connection import (
+        ConnectionTcpMTProxyFakeTLS as _ConnectionTcpMTProxyFakeTLS,
+    )
 
+    ConnectionTcpMTProxyFakeTLS: type = _ConnectionTcpMTProxyFakeTLS
     TELETHONFAKETLS_AVAILABLE = True
 except ImportError:
-    ConnectionTcpMTProxyFakeTLS = None
+    ConnectionTcpMTProxyFakeTLS: type | None = None
     TELETHONFAKETLS_AVAILABLE = False
 
 
@@ -227,7 +230,7 @@ def build_mtproto_client_args(
         return {}
 
     client_kwargs: dict[str, Any] = {}
-    log = log_func if log_func else logger.info
+    log = log_func or logger.info
 
     if proxy.use_fake_tls:
         if TELETHONFAKETLS_AVAILABLE:
