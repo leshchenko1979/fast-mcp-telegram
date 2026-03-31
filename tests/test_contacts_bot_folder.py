@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.tools.contacts import (
+    _normalize_folder_name,
     _resolve_folder_id,
     find_chats_impl,
     search_dialogs_impl,
@@ -93,7 +94,9 @@ class TestGetNormalizedChatType:
 
     def test_channel_returns_channel(self):
         """Channel (not megagroup) should return 'channel'."""
-        channel = make_channel(100, title="Test Channel", username="testchannel", megagroup=False)
+        channel = make_channel(
+            100, title="Test Channel", username="testchannel", megagroup=False
+        )
         assert get_normalized_chat_type(channel) == "channel"
 
     def test_megagroup_returns_group(self):
@@ -106,7 +109,7 @@ class TestGetNormalizedChatType:
         attrs = {"id": 1, "first_name": "Test"}
         user = type("User", (), attrs)()
         # When bot attribute doesn't exist, getattr returns False
-        assert getattr(user, 'bot', False) is False
+        assert getattr(user, "bot", False) is False
         assert get_normalized_chat_type(user) == "private"
 
 
@@ -208,6 +211,7 @@ class TestGetAvailableFolders:
 
     def test_extracts_title_text_from_text_with_entities_object(self):
         """Verify title.text extraction from TextWithEntities works correctly."""
+
         # Simulate the extraction logic
         class MockTextWithEntities:
             def __init__(self, text):
@@ -215,13 +219,13 @@ class TestGetAvailableFolders:
 
         # Test extraction pattern used in get_available_folders
         title_obj = MockTextWithEntities("Work")
-        title_text = getattr(title_obj, 'text', None)
+        title_text = getattr(title_obj, "text", None)
         assert title_text == "Work"
 
     def test_handles_missing_title_gracefully(self):
         """Verify that missing title is handled correctly."""
         title_obj = None
-        title_text = getattr(title_obj, 'text', None) if title_obj else None
+        title_text = getattr(title_obj, "text", None) if title_obj else None
         assert title_text is None
 
     def test_folder_dict_structure(self):
@@ -234,44 +238,92 @@ class TestGetAvailableFolders:
         assert folder_dict["id"] == 1
         assert folder_dict["title"] == "Work"
 
-    def test_cache_key_uses_session_id(self):
-        """Verify cache key is based on session_id."""
+    @pytest.mark.asyncio
+    async def test_caches_results_on_first_call(self):
+        """Verify get_available_folders caches results after first API call."""
+        _FOLDER_LIST_CACHE.clear()
+
+        # Create mock with session_id that will be used as cache key
         class MockSession:
-            session_id = "test_session_123"
+            session_id = "cache_test_session"
 
         mock_client = MagicMock()
         mock_client.session = MockSession()
 
-        cache_key = mock_client.session.session_id if hasattr(mock_client, 'session') else "default"
-        assert cache_key == "test_session_123"
+        # Create mock folder objects with TextWithEntities-like structure
+        class MockFolder:
+            def __init__(self, id, title_text):
+                self.id = id
+                self.title = type("obj", (object,), {"text": title_text})()
 
-    def test_cache_key_fallback(self):
-        """Verify cache key fallback when session doesn't have session_id."""
-        mock_client = MagicMock(spec=[])  # No session attribute
+        mock_result = MagicMock()
+        mock_result.dialog_filters = [
+            MockFolder(1, "Work"),
+            MockFolder(2, "Personal"),
+        ]
 
-        cache_key = mock_client.session.session_id if hasattr(mock_client, 'session') else "default"
-        assert cache_key == "default"
+        # Make client return a coroutine that resolves to mock_result
+        async def mock_call(*args, **kwargs):
+            return mock_result
+
+        mock_client.side_effect = mock_call
+
+        # First call - should hit API and cache results
+        folders = await get_available_folders(mock_client)
+
+        # Verify cache was populated
+        assert "cache_test_session" in _FOLDER_LIST_CACHE
+        cached_folders, _ = _FOLDER_LIST_CACHE["cache_test_session"]
+        assert len(cached_folders) == 2
+        assert cached_folders[0]["title"] == "Work"
+
+        _FOLDER_LIST_CACHE.clear()
 
     @pytest.mark.asyncio
-    async def test_caches_results_in_memory(self):
-        """Verify results are cached in _FOLDER_LIST_CACHE."""
+    async def test_does_not_cache_on_failure(self):
+        """Verify empty result is NOT cached when API call fails."""
         _FOLDER_LIST_CACHE.clear()
+
+        class MockSession:
+            session_id = "fail_test_session"
 
         mock_client = MagicMock()
-        mock_client.session.session_id = "cache_test_session"
+        mock_client.session = MockSession()
 
-        # Directly test the cache behavior
-        test_folders = [{"id": 1, "title": "CachedFolder"}]
-        _FOLDER_LIST_CACHE["cache_test_session"] = (test_folders, 1000.0)
+        mock_client.side_effect = Exception("API Error")
 
-        # Now call get_available_folders - should return cached
-        # Note: This test is simplified because mocking the async context manager is complex
-        cache_key = "cache_test_session"
-        if cache_key in _FOLDER_LIST_CACHE:
-            folders, timestamp = _FOLDER_LIST_CACHE[cache_key]
-            assert folders == test_folders
+        folders = await get_available_folders(mock_client)
+
+        # Should return empty list on failure
+        assert folders == []
+        # Should NOT cache the empty result
+        assert "fail_test_session" not in _FOLDER_LIST_CACHE
 
         _FOLDER_LIST_CACHE.clear()
+
+
+class TestNormalizeFolderName:
+    """Tests for _normalize_folder_name helper."""
+
+    def test_trims_whitespace(self):
+        """Should trim leading/trailing whitespace."""
+        assert _normalize_folder_name("  Work  ") == "work"
+        assert _normalize_folder_name("\tPersonal\t") == "personal"
+
+    def test_collapse_internal_whitespace(self):
+        """Should collapse internal whitespace to single spaces."""
+        assert _normalize_folder_name("Work  Chat") == "work chat"
+        assert _normalize_folder_name("Personal\tGroup") == "personal group"
+
+    def test_lowercase_conversion(self):
+        """Should convert to lowercase."""
+        assert _normalize_folder_name("WORK") == "work"
+        assert _normalize_folder_name("Personal") == "personal"
+
+    def test_combined_normalization(self):
+        """Should combine all normalizations."""
+        assert _normalize_folder_name("  Work  Chat  ") == "work chat"
+        assert _normalize_folder_name("  PERSONAL ") == "personal"
 
 
 class TestResolveFolderId:
@@ -319,6 +371,26 @@ class TestResolveFolderId:
 
             result = await _resolve_folder_id(mock_client, "WORK")
             assert result == 1
+
+    @pytest.mark.asyncio
+    async def test_folder_name_with_whitespace_matches(self):
+        """Folder names with extra whitespace should still match."""
+        mock_client = MagicMock()
+
+        with patch(
+            "src.tools.contacts.get_available_folders", new_callable=AsyncMock
+        ) as mock_folders:
+            mock_folders.return_value = [
+                {"id": 1, "title": "Work"},
+            ]
+
+            # Extra whitespace should still match
+            result = await _resolve_folder_id(mock_client, "  Work  ")
+            assert result == 1
+
+            # Multiple spaces inside should also match
+            result = await _resolve_folder_id(mock_client, "Work  Chat")
+            assert result is None  # No folder with that exact normalized name
 
     @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self):
@@ -375,7 +447,8 @@ class TestFindChatsImplFolder:
     async def test_folder_param_uses_dialog_search(self):
         """When folder is provided, should use dialog-based search."""
         dialog = MockDialog(
-            make_user(1, first_name="TestBot", bot=True), date=datetime(2024, 6, 15, tzinfo=UTC)
+            make_user(1, first_name="TestBot", bot=True),
+            date=datetime(2024, 6, 15, tzinfo=UTC),
         )
 
         async def mock_iter_dialogs(limit=None, folder=None):
@@ -416,7 +489,8 @@ class TestFindChatsImplFolder:
     async def test_resolves_folder_name_to_id(self):
         """Should resolve folder name to folder ID."""
         dialog = MockDialog(
-            make_user(1, first_name="TestBot", bot=True), date=datetime(2024, 6, 15, tzinfo=UTC)
+            make_user(1, first_name="TestBot", bot=True),
+            date=datetime(2024, 6, 15, tzinfo=UTC),
         )
 
         async def mock_iter_dialogs(limit=None, folder=None):

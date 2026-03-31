@@ -26,6 +26,11 @@ from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 logger = logging.getLogger(__name__)
 
 
+def _normalize_folder_name(name: str) -> str:
+    """Normalize folder names for comparison: trim and collapse whitespace, lowercase."""
+    return " ".join(name.split()).lower()
+
+
 async def _resolve_folder_id(client, folder: int | str) -> int | None:
     """Resolve folder parameter to folder ID.
 
@@ -43,10 +48,10 @@ async def _resolve_folder_id(client, folder: int | str) -> int | None:
 
     # String name - load folders and match by title
     folders = await get_available_folders(client)
-    folder_lower = folder.lower()
+    normalized_folder = _normalize_folder_name(folder)
     for f in folders:
         title = f.get("title", "")
-        if title and title.lower() == folder_lower:
+        if title and _normalize_folder_name(title) == normalized_folder:
             return f.get("id")
     return None
 
@@ -305,9 +310,12 @@ async def _find_chats_by_dialogs(
             exception=ValueError(f"Invalid max_date format: '{max_date}'"),
         )
 
-    # Resolve folder name to ID if needed
-    client = await get_connected_client()
-    folder_id = await _resolve_folder_id(client, folder) if folder else None
+    # Resolve folder name to ID if needed (only when a folder filter is provided)
+    if folder:
+        client = await get_connected_client()
+        folder_id = await _resolve_folder_id(client, folder)
+    else:
+        folder_id = None
 
     results = []
     async for item in search_dialogs_impl(

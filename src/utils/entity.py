@@ -42,11 +42,11 @@ async def get_available_folders(client) -> list[dict]:
     """
     global _FOLDER_LIST_CACHE
 
-    # Use object id for cache key - works with any session type (SQLiteSession, etc.)
+    # Prefer stable session_id, fall back to object id for cache key
     try:
+        cache_key = client.session.session_id
+    except AttributeError:
         cache_key = str(id(client.session))
-    except Exception:
-        cache_key = "default"
 
     # Check cache
     if cache_key in _FOLDER_LIST_CACHE:
@@ -72,8 +72,10 @@ async def get_available_folders(client) -> list[dict]:
             )
     except Exception as e:
         logger.debug(f"GetDialogFiltersRequest failed: {e}")
+        # Don't cache empty result on failure - allows retry instead of long-lived empty cache
+        return folders
 
-    # Update cache
+    # Update cache only on success
     _FOLDER_LIST_CACHE[cache_key] = (folders, time.time())
     return folders
 
