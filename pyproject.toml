@@ -103,6 +103,7 @@ dev = [
     "pytest-cov",
     "pytest-xdist",
     "pytest-html",
+    "watchdog",  # For watchmedo auto-restart in mcp.json
 ]
 
 [tool.pytest.ini_options]

@@ -11,4 +11,9 @@ All comments, docstrings, and documentation must be in English only. Do not use 
 
 Always use the DRY principle.
 
-Always check today's date with shell command `date` when inserting current date. 
+Always check today's date with shell command `date` when inserting current date.
+
+## Testing with telegram-dev MCP
+
+This project has a hot-reloading `telegram-dev` MCP server configured in `.cursor/mcp.json`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions.

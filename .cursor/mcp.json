@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "telegram-dev": {
+            "command": "watchmedo",
+            "args": [
+                "auto-restart",
+                "--",
+                "python3",
+                "-m",
+                "src.server"
+            ]
+        }
+    }
+}

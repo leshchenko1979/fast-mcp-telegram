@@ -56,7 +56,6 @@ coverage.xml
 .env
 
 # MCP specific
-.cursor/mcp.json
 .cursorrules
 
 # OS specific
