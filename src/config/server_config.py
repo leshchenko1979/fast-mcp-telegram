@@ -145,6 +145,15 @@ class ServerConfig(BaseSettings):
         description="Maximum number of entities to cache per Telegram client",
     )
 
+    # MTProto proxy configuration
+    mtproto_proxy: str | None = Field(
+        default=None,
+        description=(
+            "MTProto proxy URL in format: tg://proxy?server=host&port=443&secret=xxx "
+            "or just: host:port:secret"
+        ),
+    )
+
     # File download security
     allow_http_urls: bool = Field(
         default=False, description="Allow HTTP URLs (insecure, only for development)"
@@ -264,6 +273,9 @@ class ServerConfig(BaseSettings):
             logger.info("🔐 Authentication REQUIRED - Bearer token mandatory")
 
         logger.info(f"📁 Session directory: {self.session_directory}")
+
+        if self.mtproto_proxy:
+            logger.info("🔌 MTProto proxy: enabled")
 
         # Mark as logged to prevent repeated messages
         self._config_logged = True

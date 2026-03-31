@@ -15,6 +15,7 @@ from telethon.errors import SessionPasswordNeededError
 
 from .config.server_config import ServerConfig, ServerMode
 from .utils.mcp_config import generate_mcp_config_json
+from .utils.proxy import build_mtproto_client_args
 
 
 class SetupConfig(ServerConfig):
@@ -154,13 +155,15 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
     print(f"\n🔐 Authenticating with session: {setup_config.session_name}")
 
     # Create the client and connect
-    api_id_int = int(setup_config.api_id)
-    client = TelegramClient(
-        session_path,
-        api_id_int,
-        setup_config.api_hash,
-        entity_cache_limit=setup_config.entity_cache_limit,
-    )
+    client_kwargs = {
+        "session": session_path,
+        "api_id": int(setup_config.api_id),
+        "api_hash": setup_config.api_hash,
+        "entity_cache_limit": setup_config.entity_cache_limit,
+    }
+    client_kwargs |= build_mtproto_client_args(setup_config.mtproto_proxy, print)
+
+    client = TelegramClient(**client_kwargs)
 
     try:
         await client.connect()

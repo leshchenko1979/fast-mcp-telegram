@@ -184,6 +184,13 @@ SERVER_MODE=stdio              # Local mode (default)
 PORT=8000                      # Server port
 LOG_LEVEL=INFO                 # Logging verbosity
 SESSION_NAME=telegram          # Session identifier
+
+# MTProto Proxy (for connections behind firewall)
+# Supported formats:
+#   tg://proxy?server=host&port=443&secret=xxx
+#   host:port:secret
+# Fake TLS proxies (ee/7 prefix) are auto-detected
+MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
 ```
 
 **💡 Tip:** The CLI setup automatically loads `.env` files from your current directory.
@@ -295,11 +302,19 @@ chmod 755 ~/.config/fast-mcp-telegram
 </details>
 
 <details>
-<summary><b>Connection issues</b></summary>
+<summary><b>Connection issues / MTProto Proxy</b></summary>
 
-- Check your internet connection
-- Verify firewall settings
-- For servers, ensure the port is open
+If you're behind a firewall or need to connect via proxy, configure `MTPROTO_PROXY`:
+```bash
+# Add to .env
+MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
+```
+
+Supported formats:
+- `tg://proxy?server=host&port=443&secret=xxx` (URL format)
+- `host:port:secret` (simple format)
+
+The server automatically detects Fake TLS proxies (with `ee` or `7` prefix) and handles secret processing.
 </details>
 
 ### 📖 More Resources

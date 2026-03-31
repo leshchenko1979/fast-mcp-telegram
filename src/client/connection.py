@@ -11,6 +11,7 @@ from telethon import TelegramClient
 from ..config.logging import format_diagnostic_info
 from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR
+from ..utils.proxy import build_mtproto_client_args
 
 logger = logging.getLogger(__name__)
 
@@ -104,12 +105,19 @@ async def _get_client_by_token(token: str) -> TelegramClient:
 
         try:
             api_id_int = int(API_ID)
-            client = TelegramClient(
-                session_path,
-                api_id_int,
-                API_HASH,
-                entity_cache_limit=get_config().entity_cache_limit,
+
+            # Build client kwargs with MTProto proxy support
+            client_kwargs = {
+                "session": session_path,
+                "api_id": api_id_int,
+                "api_hash": API_HASH,
+                "entity_cache_limit": get_config().entity_cache_limit,
+            }
+            client_kwargs |= build_mtproto_client_args(
+                get_config().mtproto_proxy, logger.info
             )
+
+            client = TelegramClient(**client_kwargs)
             await client.connect()
 
             if not await client.is_user_authorized():
