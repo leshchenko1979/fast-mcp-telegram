@@ -33,7 +33,7 @@ When creating release notes, follow this systematic approach:
   ```bash
   git log --oneline --all --graph --decorate | head -40
   ```
-- **CRITICAL - Verify on master**: Memory bank may contain entries from other branches (e.g., `chats-by-date`). Only include changes that are actually merged to `master`. Use the git graph to confirm.
+- **CRITICAL - Verify on master**: Memory bank may contain entries from other branches. Only include changes that are actually merged to `master`. Use the git graph to confirm.
 - **Include all changes**: Analyze both local commits and any remote changes since the last major version
 - **Note**: Typically you'll be preparing release notes before creating the new tag
 - **Merge sources**: Combine memory bank insights with git analysis for complete picture
