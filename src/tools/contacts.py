@@ -311,7 +311,8 @@ async def _find_chats_by_dialogs(
         )
 
     # Resolve folder name to ID if needed (only when a folder filter is provided)
-    if folder:
+    # Use `is not None` to handle folder=0 correctly (falsy check would skip folder 0)
+    if folder is not None:
         client = await get_connected_client()
         folder_id = await _resolve_folder_id(client, folder)
     else:

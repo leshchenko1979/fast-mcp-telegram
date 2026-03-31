@@ -1,6 +1,6 @@
 ### 2026-04-01
 - **Bot Chat Type Split**: Added "bot" as separate chat type from "private". Bots detected via `getattr(entity, 'bot', False)`. Bots not filtered by public parameter and get bio enrichment same as private users.
-- **Folder Filtering**: Added `folder` parameter to `find_chats` tool supporting int ID or str name. Folder list fetched via `GetDialogFiltersRequest` with 5-minute caching. Folder 0 (default) shows as `folder_id: null` on Dialog objects. Title is `TextWithEntities` object - extract via `folder.title.text`.
+- **Folder Filtering**: Added `folder` parameter to `find_chats` tool supporting int ID or str name. Folder list fetched via `GetDialogFiltersRequest` with 5-minute caching. Folder 0 (default) shows as `folder_id: null` on Dialog objects. Title is a `TextWithEntities` object - extract via `folder.title.text`.
 - **New Tests**: Added 31 tests in `tests/test_contacts_bot_folder.py` covering bot detection, folder resolution, caching, and integration. Updated 4 existing tests in `test_contacts_date_filtering.py` for folder parameter.
 
 ### 2026-03-31

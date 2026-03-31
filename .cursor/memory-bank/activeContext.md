@@ -7,7 +7,7 @@
 - Updated `_matches_public_filter()` to handle "bot" type (never filtered)
 - Updated `_fetch_enrichment_fields()` to get bio for bots (same as private)
 - Added `get_available_folders()` with 5-minute caching via `GetDialogFiltersRequest`
-- Folder title is `TextWithEntities` object - extract via `folder.title.text`
+- Folder title is a `TextWithEntities` object - extract via `folder.title.text`
 - Added `folder` parameter to `find_chats` tool (int ID or str name)
 - Folder 0 (default) shows as `folder_id: null` on Dialog objects
 - Updated tool registration with `folder` parameter schema

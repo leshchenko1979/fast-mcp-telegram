@@ -325,3 +325,87 @@ def create_auth_server(name: str = "Auth Test Server"):
         required_scopes=["read"],
     )
     return FastMCP(name, auth=verifier)
+
+
+# ============== Shared Mock Entity Classes ==============
+# Used across contacts tests for mocking Telegram entities (User, Chat, Channel, Dialog)
+
+
+def make_user(id, first_name="", last_name="", username="", phone="", bot=False):
+    """Create a mock entity that reports as class 'User'."""
+    attrs = {
+        "id": id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "username": username,
+        "phone": phone,
+        "bot": bot,
+        "title": None,
+    }
+    return type("User", (), attrs)()
+
+
+def make_chat(id, title="", username=""):
+    """Create a mock entity that reports as class 'Chat'."""
+    attrs = {
+        "id": id,
+        "title": title,
+        "first_name": None,
+        "last_name": None,
+        "username": username,
+        "phone": None,
+    }
+    return type("Chat", (), attrs)()
+
+
+def make_channel(id, title="", username="", megagroup=False):
+    """Create a mock entity that reports as class 'Channel'."""
+    attrs = {
+        "id": id,
+        "title": title,
+        "username": username,
+        "megagroup": megagroup,
+        "first_name": None,
+        "last_name": None,
+        "phone": None,
+    }
+    return type("Channel", (), attrs)()
+
+
+class MockDialog:
+    """Mock Dialog object for testing."""
+
+    def __init__(self, entity, date=None, folder_id=None):
+        self.entity = entity
+        self.date = date
+        self.folder_id = folder_id
+
+
+# Aliases for backwards compatibility
+MockUser = make_user
+MockChat = make_chat
+MockChannel = make_channel
+
+
+# ============== Cache Management Fixtures ==============
+
+
+@pytest.fixture(autouse=True)
+def clear_entity_cache():
+    """Clear entity type and folder caches before each test to avoid cache pollution.
+
+    This fixture runs automatically for every test via autouse=True.
+    """
+    from src.utils.entity import (
+        _ENTITY_DICT_CACHE,
+        _ENTITY_TYPE_CACHE,
+        _FOLDER_LIST_CACHE,
+    )
+
+    _ENTITY_TYPE_CACHE.clear()
+    _ENTITY_DICT_CACHE.clear()
+    _FOLDER_LIST_CACHE.clear()
+    yield
+    _ENTITY_TYPE_CACHE.clear()
+    _ENTITY_DICT_CACHE.clear()
+    _FOLDER_LIST_CACHE.clear()

@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import logging
 import time
@@ -70,6 +71,9 @@ async def get_available_folders(client) -> list[dict]:
                     "title": title_text,
                 }
             )
+    except asyncio.CancelledError:
+        # Let cancellation propagate so shutdown/timeout behavior works correctly
+        raise
     except Exception as e:
         logger.debug(f"GetDialogFiltersRequest failed: {e}")
         # Don't cache empty result on failure - allows retry instead of long-lived empty cache
@@ -162,7 +166,7 @@ def get_normalized_chat_type(entity) -> str | None:
 
     if entity_class == "User":
         # Check if this user is a bot (bot field is boolean true/false)
-        with contextlib.suppress(Exception):
+        with contextlib.suppress(AttributeError):
             if getattr(entity, "bot", False):
                 _ENTITY_TYPE_CACHE[key] = "bot"
                 return _ENTITY_TYPE_CACHE[key]
