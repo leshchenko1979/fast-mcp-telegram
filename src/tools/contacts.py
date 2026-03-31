@@ -145,7 +145,7 @@ async def find_chats_impl(
         public: Optional filter for public discoverability
         min_date: Minimum last activity date filter (ISO format "2024-01-01")
         max_date: Maximum last activity date filter (ISO format "2024-12-31")
-        muted: Optional filter for muted chats (requires date filters, dialog-based only)
+        muted: Optional filter for muted chats (dialog-based only; silently ignored in global search)
 
     Returns:
         Dict with "chats" key containing list of matches, or error dict
@@ -159,22 +159,6 @@ async def find_chats_impl(
             min_date=min_date,
             max_date=max_date,
             muted=muted,
-        )
-
-    if muted is not None:
-        return log_and_build_error(
-            operation="find_chats",
-            error_message="The 'muted' parameter requires date filters (min_date or max_date) to activate dialog-based search.",
-            params={
-                "query": query,
-                "limit": limit,
-                "chat_type": chat_type,
-                "public": public,
-                "min_date": min_date,
-                "max_date": max_date,
-                "muted": muted,
-            },
-            exception=ValueError("muted requires date filters"),
         )
 
     return await _find_chats_global(

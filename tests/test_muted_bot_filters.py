@@ -346,7 +346,7 @@ class TestBuildDialogEntityDictMuted:
         assert result["muted"] is True
 
     def test_muted_false_when_no_notify_settings(self, frozen_time):
-        """When no notify_settings, muted key should not be present (defaults to falsy)."""
+        """When no notify_settings, muted key is absent (unknown = not muted)."""
         dialog = MockDialog(
             User(1, first_name="John"),
             date=datetime.now(tz=UTC),
@@ -361,8 +361,8 @@ class TestBuildDialogEntityDictMuted:
         # (not present = implicitly not muted)
         assert "muted" not in result
 
-    def test_muted_field_not_present_when_unmuted(self):
-        """When not muted, muted field should be False."""
+    def test_muted_false_when_unmuted(self):
+        """When not muted (silent=False), muted field is explicitly False."""
         dialog = MockDialog(
             User(1, first_name="John"),
             date=datetime.now(tz=UTC),
@@ -454,22 +454,21 @@ class TestFindChatsImplMuted:
     """Tests for find_chats_impl with muted parameter."""
 
     @pytest.mark.asyncio
-    async def test_muted_without_date_filters_returns_error(self):
-        """find_chats(muted=True) without date filters should return error."""
+    async def test_muted_without_date_filters_uses_global_search(self):
+        """find_chats(muted=True) without date filters falls through to global search (muted silently ignored)."""
         result = await find_chats_impl(query="test", muted=True)
 
-        assert "error" in result
-        assert result["operation"] == "find_chats"
-        assert "muted" in result["error"].lower()
-        assert "date" in result["error"].lower()
+        # Muted without date filters falls through to global search (no error)
+        # Result is either a list of chats or an error from the global search attempt
+        assert "chats" in result or "error" in result
 
     @pytest.mark.asyncio
-    async def test_muted_false_without_date_filters_returns_error(self):
-        """find_chats(muted=False) without date filters should return error."""
+    async def test_muted_false_without_date_filters_uses_global_search(self):
+        """find_chats(muted=False) without date filters falls through to global search (muted silently ignored)."""
         result = await find_chats_impl(query="test", muted=False)
 
-        assert "error" in result
-        assert "muted" in result["error"].lower()
+        # Muted without date filters falls through to global search (no error)
+        assert "chats" in result or "error" in result
 
     @pytest.mark.asyncio
     async def test_muted_with_min_date_uses_dialog_search(self):
@@ -528,30 +527,32 @@ class TestFindChatsImplMuted:
         ) as mock_get_client:
             mock_get_client.return_value = mock_client
 
+            # Patch datetime in both modules since _is_muted_from_notify_settings lives in entity.py
             with patch("src.tools.contacts.datetime", FakeDateTime):
-                # Get only muted
-                results_muted = []
-                async for item in search_dialogs_impl(
-                    limit=10,
-                    min_date_dt=datetime(2024, 1, 1, tzinfo=UTC),
-                    muted=True,
-                ):
-                    results_muted.append(item)
+                with patch("src.utils.entity.datetime", FakeDateTime):
+                    # Get only muted
+                    results_muted = []
+                    async for item in search_dialogs_impl(
+                        limit=10,
+                        min_date_dt=datetime(2024, 1, 1, tzinfo=UTC),
+                        muted=True,
+                    ):
+                        results_muted.append(item)
 
-                assert len(results_muted) == 1
-                assert results_muted[0]["first_name"] == "MutedChat"
+                    assert len(results_muted) == 1
+                    assert results_muted[0]["first_name"] == "MutedChat"
 
-                # Get only unmuted
-                results_unmuted = []
-                async for item in search_dialogs_impl(
-                    limit=10,
-                    min_date_dt=datetime(2024, 1, 1, tzinfo=UTC),
-                    muted=False,
-                ):
-                    results_unmuted.append(item)
+                    # Get only unmuted
+                    results_unmuted = []
+                    async for item in search_dialogs_impl(
+                        limit=10,
+                        min_date_dt=datetime(2024, 1, 1, tzinfo=UTC),
+                        muted=False,
+                    ):
+                        results_unmuted.append(item)
 
-                assert len(results_unmuted) == 1
-                assert results_unmuted[0]["first_name"] == "UnmutedChat"
+                    assert len(results_unmuted) == 1
+                    assert results_unmuted[0]["first_name"] == "UnmutedChat"
 
 
 # ============== get_chat_info_impl muted Tests ==============

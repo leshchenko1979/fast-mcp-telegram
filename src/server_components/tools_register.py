@@ -329,7 +329,7 @@ def register_tools(mcp: FastMCP) -> None:
         # Dialog search (with date filtering) - searches YOUR sidebar chats only
         find_chats(min_date="2024-01-01")  # Your chats active since 2024
         find_chats("project", min_date="2024-01-01", max_date="2024-12-31")  # Your chats active in 2024
-        find_chats(muted=True, min_date="2024-01-01")     # Muted chats (requires date filter)
+        find_chats(muted=True, min_date="2024-01-01")     # Muted chats (with date filter)
         find_chats("alert", muted=False)                   # Unmuted chats matching "alert"
 
         TYPE FIELD IN RESULTS:
@@ -345,7 +345,7 @@ def register_tools(mcp: FastMCP) -> None:
             public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats and bots.
             min_date: Minimum last activity date (ISO 8601 format, e.g. "2024-01-01" or "2024-01-01T14:30:00"). Uses dialog search (your sidebar chats only).
             max_date: Maximum last activity date (ISO 8601 format, e.g. "2024-12-31" or "2024-12-31T23:59:59"). Uses dialog search (your sidebar chats only).
-            muted: Optional filter for muted chats. Requires date filters (min_date or max_date). True=muted, False=unmuted.
+            muted: Optional filter for muted chats (dialog-based; silently ignored in global search). True=muted, False=unmuted.
         """
         return await find_chats_impl(
             query, limit, chat_type, public, min_date, max_date, muted

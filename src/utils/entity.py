@@ -540,11 +540,35 @@ def _is_muted_from_notify_settings(notify_settings) -> bool:
 
     Muted = mute_until is set and in the future, OR silent notifications are enabled.
     Returns False when notify_settings is None.
+
+    mute_until can be:
+    - A timezone-aware datetime (compared directly)
+    - A Unix timestamp int/float (compared against current Unix time)
+    - None or another type (treated as not muted, silent still applies)
     """
     if not notify_settings:
         return False
     mute_until = getattr(notify_settings, "mute_until", None)
     silent = getattr(notify_settings, "silent", False)
-    return (mute_until is not None and mute_until > datetime.now(tz=UTC)) or bool(
-        silent
-    )
+
+    if mute_until is None:
+        return bool(silent)
+
+    # Normalize mute_until to a timezone-aware UTC datetime for comparison
+    now = datetime.now(tz=UTC)
+    if isinstance(mute_until, (int, float)):
+        # Unix timestamp - compare against current Unix time
+        try:
+            mute_until_dt = datetime.fromtimestamp(mute_until, tz=UTC)
+            return mute_until_dt > now or bool(silent)
+        except (OSError, OverflowError, ValueError):
+            return False
+    elif hasattr(mute_until, "tzinfo") and mute_until.tzinfo is not None:
+        # Timezone-aware datetime - compare directly
+        return mute_until > now or bool(silent)
+    elif hasattr(mute_until, "tzinfo"):
+        # Naive datetime - assume UTC
+        return mute_until.replace(tzinfo=UTC) > now or bool(silent)
+    else:
+        # Unsupported type - treat as not muted
+        return False or bool(silent)
