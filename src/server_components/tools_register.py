@@ -307,6 +307,8 @@ def register_tools(mcp: FastMCP) -> None:
         - Query matching in dialog search is case-insensitive substring match against title/username/name
         - Without date filters, uses global Telegram search (can find any chat by name/username/phone)
         - Date filtering is done client-side (Telegram API ignores offset_date parameter)
+        - Supports full ISO 8601 datetime: "2024-01-01", "2024-01-01T14:30:00", "2024-01-01T14:30:00+00:00"
+        - Timezone-naive values are assumed UTC
 
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
@@ -331,8 +333,8 @@ def register_tools(mcp: FastMCP) -> None:
             limit: Max results (default: 20, recommended: ≤50)
             chat_type: Optional filter ("private"|"group"|"channel", comma-separated for multiple)
             public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats.
-            min_date: Minimum last activity date (ISO format "2024-01-01"). Uses dialog search (your sidebar chats only).
-            max_date: Maximum last activity date (ISO format "2024-12-31"). Uses dialog search (your sidebar chats only).
+            min_date: Minimum last activity date (ISO 8601 format, e.g. "2024-01-01" or "2024-01-01T14:30:00"). Uses dialog search (your sidebar chats only).
+            max_date: Maximum last activity date (ISO 8601 format, e.g. "2024-12-31" or "2024-12-31T23:59:59"). Uses dialog search (your sidebar chats only).
         """
         return await find_chats_impl(
             query, limit, chat_type, public, min_date, max_date

@@ -13,12 +13,12 @@ from telethon.tl.functions.messages import GetForumTopicsRequest
 
 from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.utils.entity import (
+    _matches_chat_type,
     _matches_public_filter,
     build_dialog_entity_dict,
     build_entity_dict,
     build_entity_dict_enriched,
     get_entity_by_id,
-    get_normalized_chat_type,
 )
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 
@@ -56,7 +56,7 @@ async def search_contacts_native(
             for user in result.users:
                 if count >= limit:
                     break
-                if chat_type and get_normalized_chat_type(user) != chat_type:
+                if chat_type and not _matches_chat_type(user, chat_type):
                     continue
                 if not _matches_public_filter(user, public):
                     continue
@@ -69,7 +69,7 @@ async def search_contacts_native(
             for chat in result.chats:
                 if count >= limit:
                     break
-                if chat_type and get_normalized_chat_type(chat) != chat_type:
+                if chat_type and not _matches_chat_type(chat, chat_type):
                     continue
                 if not _matches_public_filter(chat, public):
                     continue
@@ -364,7 +364,7 @@ async def _dialog_in_date_range(
         if max_date_dt and dialog_date > max_date_dt:
             return False
         # Too old (below min_date lower bound) - exclude
-        return not (min_date_dt and dialog_date < min_date_dt)
+        return not min_date_dt or dialog_date >= min_date_dt
 
     # Fallback: check message history
     # Skip fallback when no date filtering is active to avoid unnecessary API calls
@@ -375,12 +375,12 @@ async def _dialog_in_date_range(
     if not fallback_date:
         return True
 
-    if fallback_dt := _parse_iso_date(fallback_date):
-        return not (
-            (min_date_dt and fallback_dt < min_date_dt)
-            or (max_date_dt and fallback_dt > max_date_dt)
-        )
-    return True
+    return (
+        (not min_date_dt or fallback_dt >= min_date_dt)
+        and (not max_date_dt or fallback_dt <= max_date_dt)
+        if (fallback_dt := _parse_iso_date(fallback_date))
+        else True
+    )
 
 
 async def _get_last_message_date(entity, client) -> str | None:
@@ -450,7 +450,7 @@ async def search_dialogs_impl(
                 continue
 
             # Chat type and public filters
-            if chat_type and get_normalized_chat_type(entity) != chat_type:
+            if chat_type and not _matches_chat_type(entity, chat_type):
                 continue
             if not _matches_public_filter(entity, public):
                 continue
