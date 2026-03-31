@@ -1,4 +1,25 @@
 ## Current Work Focus
+**Completed**: Bot Chat Type Split and Folder Filtering (2026-04-01)
+
+**Implementation**:
+- Split "private" chat type into "private" and "bot" in `get_normalized_chat_type()`
+- Bots detected via `getattr(entity, 'bot', False)`
+- Updated `_matches_public_filter()` to handle "bot" type (never filtered)
+- Updated `_fetch_enrichment_fields()` to get bio for bots (same as private)
+- Added `get_available_folders()` with 5-minute caching via `GetDialogFiltersRequest`
+- Folder title is a `TextWithEntities` object - extract via `folder.title.text`
+- Added `folder` parameter to `find_chats` tool (int ID or str name)
+- Folder 0 (default) shows as `folder_id: null` on Dialog objects
+- Updated tool registration with `folder` parameter schema
+- 31 new tests added in `tests/test_contacts_bot_folder.py`
+
+**Files Modified**:
+- `src/utils/entity.py` - bot detection, folder caching
+- `src/tools/contacts.py` - folder resolution, dialog search with folder
+- `src/server_components/tools_register.py` - tool definition
+
+---
+
 **Completed**: MTProto Fake TLS Integration (2026-03-31)
 
 **Implementation**:

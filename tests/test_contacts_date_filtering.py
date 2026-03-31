@@ -13,34 +13,7 @@ from src.tools.contacts import (
     build_dialog_entity_dict,
     find_chats_impl,
 )
-
-
-# Fixtures for entity types
-class MockUser:
-    def __init__(self, id, first_name="", last_name="", username="", phone=""):
-        self.id = id
-        self.first_name = first_name
-        self.last_name = last_name
-        self.username = username
-        self.phone = phone
-        self.title = None
-
-
-class MockChat:
-    def __init__(self, id, title="", username=""):
-        self.id = id
-        self.title = title
-        self.first_name = None
-        self.last_name = None
-        self.username = username
-        self.phone = None
-
-
-class MockDialog:
-    def __init__(self, entity, date=None):
-        self.entity = entity
-        self.date = date
-
+from tests.conftest import MockChat, MockDialog, MockUser
 
 # ============== Helper Function Tests ==============
 
@@ -108,7 +81,6 @@ class TestMatchesDialogQuery:
 
     def test_query_case_insensitive(self):
         chat = MockChat(1, title="Project Alpha")
-        # query is already lowercased by caller
         assert _matches_dialog_query(chat, "project") is True
         assert _matches_dialog_query(chat, "alpha") is True
 
@@ -292,16 +264,12 @@ class TestDialogInDateRange:
         returns timezone-naive datetimes, but _parse_iso_date() returns timezone-aware
         datetimes. Comparing them raised TypeError.
         """
-        # Naive datetime (like Telethon returns from dialog.date)
-        naive_dialog_date = datetime(2024, 6, 15, 10, 30, 0)  # no tzinfo
+        naive_dialog_date = datetime(2024, 6, 15, 10, 30, 0)
         dialog = MockDialog(MockUser(1), date=naive_dialog_date)
 
-        # Aware datetimes (like _parse_iso_date returns)
         min_date_dt = datetime(2024, 1, 1, tzinfo=UTC)
         max_date_dt = datetime(2024, 12, 31, tzinfo=UTC)
 
-        # Before fix: this would raise TypeError: can't compare offset-naive and offset-aware datetimes
-        # After fix: should work correctly
         result = await _dialog_in_date_range(
             dialog.entity,
             None,
@@ -403,12 +371,11 @@ async def test_find_chats_global_single_term_passes_through():
 @pytest.mark.asyncio
 async def test_search_dialogs_impl_respects_max_date():
     """Dialogs newer than max_date should be skipped."""
-    # Dialog from 2025 (newer than max_date 2024)
     dialog = MockDialog(
         MockUser(1, first_name="Future"), date=datetime(2025, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -428,7 +395,6 @@ async def test_search_dialogs_impl_respects_max_date():
         ):
             results.append(item)
 
-        # Should be skipped because 2025 > 2024
         assert not results
 
 
@@ -439,7 +405,6 @@ async def test_search_dialogs_impl_respects_min_date():
     Note: The early break optimization was removed because pinned chats
     can break chronological ordering.
     """
-    # Dialogs from newest to oldest (iter_dialogs returns newest first)
     dialogs = [
         MockDialog(
             MockUser(3, first_name="Recent"), date=datetime(2024, 6, 15, tzinfo=UTC)
@@ -452,7 +417,7 @@ async def test_search_dialogs_impl_respects_min_date():
         ),
     ]
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         for d in dialogs:
             yield d
 
@@ -473,7 +438,6 @@ async def test_search_dialogs_impl_respects_min_date():
         ):
             results.append(item)
 
-        # Should only get "Recent" (2024), the old dialogs are filtered out
         assert len(results) == 1
         assert results[0]["first_name"] == "Recent"
 
@@ -500,7 +464,7 @@ async def test_find_chats_impl_with_date_filters_uses_dialog_search():
         MockUser(1, first_name="John"), date=datetime(2024, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -521,8 +485,7 @@ async def test_find_chats_impl_with_date_filters_uses_dialog_search():
 async def test_find_chats_impl_date_filter_no_results_returns_error():
     """When date filters find nothing, should return structured error."""
 
-    # Empty async generator - yields nothing
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         if False:
             yield
 
@@ -574,7 +537,7 @@ async def test_find_chats_global_multi_term_merges_results():
         yield {"id": 2, "title": "Chat Beta"}
 
     async def mock_gen_2():
-        yield {"id": 2, "title": "Chat Beta"}  # duplicate
+        yield {"id": 2, "title": "Chat Beta"}
         yield {"id": 3, "title": "Chat Gamma"}
 
     with patch(
@@ -584,7 +547,6 @@ async def test_find_chats_global_multi_term_merges_results():
         result = await _find_chats_global("alpha,beta", 10, None, None)
 
         assert "chats" in result
-        # Should be deduplicated (id=2 appears once)
         assert len(result["chats"]) == 3
         ids = {chat["id"] for chat in result["chats"]}
         assert ids == {1, 2, 3}
@@ -595,7 +557,7 @@ async def test_find_chats_global_multi_term_no_results_returns_error():
     """Multi-term global search with no results should return structured error."""
 
     async def mock_gen_empty():
-        return  # empty generator - just return without yielding
+        return
 
     with patch(
         "src.tools.contacts.search_contacts_native",

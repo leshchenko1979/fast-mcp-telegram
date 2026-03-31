@@ -18,11 +18,42 @@ from src.utils.entity import (
     build_dialog_entity_dict,
     build_entity_dict,
     build_entity_dict_enriched,
+    get_available_folders,
     get_entity_by_id,
 )
 from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_folder_name(name: str) -> str:
+    """Normalize folder names for comparison: trim and collapse whitespace, lowercase."""
+    return " ".join(name.split()).lower()
+
+
+async def _resolve_folder_id(client, folder: int | str) -> int | None:
+    """Resolve folder parameter to folder ID.
+
+    Args:
+        folder: Folder ID (int) or folder name (str, case-insensitive exact match)
+
+    Returns:
+        Folder ID (int) or None if not found
+
+    Note: Folder 0 (default) shows as folder_id=null on Dialog objects,
+          so iter_dialogs(folder=0) returns dialogs with folder_id=null
+    """
+    if isinstance(folder, int):
+        return folder
+
+    # String name - load folders and match by title
+    folders = await get_available_folders(client)
+    normalized_folder = _normalize_folder_name(folder)
+    for f in folders:
+        title = f.get("title", "")
+        if title and _normalize_folder_name(title) == normalized_folder:
+            return f.get("id")
+    return None
 
 
 async def search_contacts_native(
@@ -126,6 +157,7 @@ async def find_chats_impl(
     public: bool | None = None,
     min_date: str | None = None,
     max_date: str | None = None,
+    folder: int | str | None = None,  # NEW
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -140,11 +172,12 @@ async def find_chats_impl(
         public: Optional filter for public discoverability
         min_date: Minimum last activity date filter (ISO format "2024-01-01")
         max_date: Maximum last activity date filter (ISO format "2024-12-31")
+        folder: Filter by folder (int ID or str name)
 
     Returns:
         Dict with "chats" key containing list of matches, or error dict
     """
-    if min_date is not None or max_date is not None:
+    if min_date is not None or max_date is not None or folder is not None:
         return await _find_chats_by_dialogs(
             query=query,
             limit=limit,
@@ -152,6 +185,7 @@ async def find_chats_impl(
             public=public,
             min_date=min_date,
             max_date=max_date,
+            folder=folder,  # NEW
         )
 
     return await _find_chats_global(
@@ -238,6 +272,7 @@ async def _find_chats_by_dialogs(
     public: bool | None,
     min_date: str | None,
     max_date: str | None,
+    folder: int | str | None = None,  # NEW
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
     # Validate and parse date parameters once to avoid redundant parsing
@@ -253,6 +288,7 @@ async def _find_chats_by_dialogs(
                 "public": public,
                 "min_date": min_date,
                 "max_date": max_date,
+                "folder": folder,
             },
             exception=ValueError(f"Invalid min_date format: '{min_date}'"),
         )
@@ -269,13 +305,22 @@ async def _find_chats_by_dialogs(
                 "public": public,
                 "min_date": min_date,
                 "max_date": max_date,
+                "folder": folder,
             },
             exception=ValueError(f"Invalid max_date format: '{max_date}'"),
         )
 
+    # Resolve folder name to ID if needed (only when a folder filter is provided)
+    # Use `is not None` to handle folder=0 correctly (falsy check would skip folder 0)
+    if folder is not None:
+        client = await get_connected_client()
+        folder_id = await _resolve_folder_id(client, folder)
+    else:
+        folder_id = None
+
     results = []
     async for item in search_dialogs_impl(
-        query, limit, chat_type, public, min_date_dt, max_date_dt
+        query, limit, chat_type, public, min_date_dt, max_date_dt, folder_id
     ):
         results.append(item)
 
@@ -399,6 +444,7 @@ async def search_dialogs_impl(
     public: bool | None = None,
     min_date_dt: datetime | None = None,
     max_date_dt: datetime | None = None,
+    folder_id: int | None = None,  # NEW
 ):
     """
     Search dialogs using client.iter_dialogs() with optional date filtering.
@@ -418,6 +464,7 @@ async def search_dialogs_impl(
         public: Optional filter for public discoverability
         min_date_dt: Minimum last activity date as parsed datetime (UTC)
         max_date_dt: Maximum last activity date as parsed datetime (UTC)
+        folder_id: Filter by folder ID (int). Note: folder 0 (default) shows as null on Dialog objects.
 
     Yields:
         Contact dictionaries one by one with last_activity_date field
@@ -430,7 +477,7 @@ async def search_dialogs_impl(
         # Fetch more than limit server-side to account for filtering
         # Since we apply multiple filters (query, chat_type, public, date),
         # we need more dialogs than the requested limit
-        async for dialog in client.iter_dialogs(limit=limit * 10):
+        async for dialog in client.iter_dialogs(limit=limit * 10, folder=folder_id):  # type: ignore[arg-type]
             if count >= limit:
                 break
 

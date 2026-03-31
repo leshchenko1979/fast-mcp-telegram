@@ -270,18 +270,19 @@ def register_tools(mcp: FastMCP) -> None:
         public: bool | None = None,
         min_date: str | None = None,
         max_date: str | None = None,
+        folder: int | str | None = None,
     ) -> list[dict] | dict:
         """
         Find Telegram chats (users, groups, channels) by name, username, or phone number.
 
         TWO SEARCH MODES:
 
-        1. GLOBAL SEARCH (default, no date filtering):
+        1. GLOBAL SEARCH (default, no date filtering, no folder):
         - Searches all of Telegram by name/username/phone
         - Can find any user, group, or channel
         - Does NOT return last_activity_date
 
-        2. DIALOG SEARCH (when date filtering is used):
+        2. DIALOG SEARCH (when date filtering OR folder is used):
         - Searches only your sidebar/dialog list
         - Cannot find chats you're not already connected to
         - Returns last_activity_date for each chat
@@ -297,7 +298,7 @@ def register_tools(mcp: FastMCP) -> None:
         - The final list is truncated to the requested limit
 
         PUBLIC FILTER:
-        - Public filter never applies to private chats (direct messages with users)
+        - Public filter never applies to private chats or bots (direct messages with users)
         - Only affects groups and channels
 
         DATE FILTERING:
@@ -309,6 +310,18 @@ def register_tools(mcp: FastMCP) -> None:
         - Date filtering is done client-side (Telegram API ignores offset_date parameter)
         - Supports full ISO 8601 datetime: "2024-01-01", "2024-01-01T14:30:00", "2024-01-01T14:30:00+00:00"
         - Timezone-naive values are assumed UTC
+
+        FOLDER FILTERING:
+        - Filter by folder using folder ID (integer) or folder name (string)
+        - Folder 0 (default) shows as null on dialog objects
+        - Use get_available_folders() to list available folders
+        - Folder name matching is case-insensitive exact match
+
+        CHAT TYPES:
+        - "private": Direct messages with regular users
+        - "bot": Bots (separate from private)
+        - "group": Groups and supergroups
+        - "channel": Channels
 
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
@@ -328,16 +341,21 @@ def register_tools(mcp: FastMCP) -> None:
         find_chats(min_date="2024-01-01")  # Your chats active since 2024
         find_chats("project", min_date="2024-01-01", max_date="2024-12-31")  # Your chats active in 2024
 
+        # Folder filtering
+        find_chats(folder=1)                     # By folder ID
+        find_chats(folder="Work")               # By folder name (case-insensitive)
+
         Args:
             query: Search term(s). Supports comma-separated multi-queries. When date filtering is used, searches your sidebar chats only.
             limit: Max results (default: 20, recommended: ≤50)
-            chat_type: Optional filter ("private"|"group"|"channel", comma-separated for multiple)
-            public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats.
+            chat_type: Optional filter ("private"|"bot"|"group"|"channel", comma-separated for multiple)
+            public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats and bots.
             min_date: Minimum last activity date (ISO 8601 format, e.g. "2024-01-01" or "2024-01-01T14:30:00"). Uses dialog search (your sidebar chats only).
             max_date: Maximum last activity date (ISO 8601 format, e.g. "2024-12-31" or "2024-12-31T23:59:59"). Uses dialog search (your sidebar chats only).
+            folder: Filter by folder. Pass folder ID (integer) or folder name (string, case-insensitive exact match). Note: folder 0 (default) shows as null on dialog objects.
         """
         return await find_chats_impl(
-            query, limit, chat_type, public, min_date, max_date
+            query, limit, chat_type, public, min_date, max_date, folder
         )
 
     @mcp.tool(

@@ -34,6 +34,8 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :microphone: **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling |
 | :card_file_box: **Unified Session Management** | Single configuration system for setup and server, with multi-account support |
 | :busts_in_silhouette: **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment |
+| :file_folder: **Folder Filtering** | Filter chats by dialog folder (archived, custom folders) with integer ID or name matching |
+| :robot: **Bot Chat Detection** | Bots identified with `type: "bot"` and filterable via `chat_type="bot"` |
 | :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
 | :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages |
 | :dart: **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
@@ -113,7 +115,7 @@ See [Deployment Guide](docs/Deployment.md) for details.
 | `get_messages` | Unified message retrieval | Search/browse, read by IDs, get replies (posts/topics/messages), 5 modes |
 | `send_message` | Send new message | File attachments (URLs/local), formatting (markdown/html), reply to forum topics |
 | `edit_message` | Edit existing message | Text formatting, preserves message structure |
-| `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, username/phone lookup |
+| `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, folder filtering, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support |
 | `invoke_mtproto` | Direct Telegram API access | Raw MTProto methods, entity resolution, safety guardrails |
