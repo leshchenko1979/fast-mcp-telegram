@@ -123,30 +123,31 @@ python src/setup_telegram.py
 
 ### Development with telegram-dev MCP (Cursor IDE)
 
-This project includes a hot-reloading `telegram-dev` MCP server for development:
+This project uses a `telegram-dev` MCP server for development:
 
 ```json
 {
   "mcpServers": {
     "telegram-dev": {
-      "command": "watchmedo",
-      "args": ["auto-restart", "--", "python3", "-m", "src.server"]
+      "command": "python3",
+      "args": ["-m", "src.server"],
+      "cwd": "/path/to/fast-mcp-telegram"
     }
   }
 }
 ```
 
-**Features:**
+**Usage:**
 
-- Auto-reloads when source code changes (no manual restart)
+- Start the server and make code changes
+- When you want to test changes, restart the `telegram-dev` MCP server in Cursor's MCP panel
 - Uses credentials from `.env` file
-- Available as `telegram-dev` MCP server
 
 **Setup:**
 
 1. Copy `.env.example` to `.env` and fill in your credentials
 2. The MCP server automatically loads credentials from `.env`
-3. If the server doesn't start, add `"cwd": "/path/to/fast-mcp-telegram"` to `mcp.json`
+3. Ensure `cwd` points to the project root
 
 **Testing Tools:**
 The MCP server exposes Telegram tools (find_chats, get_messages, send_message, etc.) directly to the AI agent - use them in conversation to test functionality.
