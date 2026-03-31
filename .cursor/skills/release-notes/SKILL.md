@@ -29,6 +29,11 @@ When creating release notes, follow this systematic approach:
   ```bash
   git log --oneline <last-major-tag>..HEAD
   ```
+- **Check branch context**: Verify which branch commits are on using:
+  ```bash
+  git log --oneline --all --graph --decorate | head -40
+  ```
+- **CRITICAL - Verify on master**: Memory bank may contain entries from other branches (e.g., `chats-by-date`). Only include changes that are actually merged to `master`. Use the git graph to confirm.
 - **Include all changes**: Analyze both local commits and any remote changes since the last major version
 - **Note**: Typically you'll be preparing release notes before creating the new tag
 - **Merge sources**: Combine memory bank insights with git analysis for complete picture
@@ -116,6 +121,7 @@ This release <briefly describe the primary user-facing value proposition>.
   git push origin <branch> && git push origin <version>
   ```
 - **Then**: Create GitHub release with generated notes
+- **Title format**: Use a short descriptive title WITHOUT the version number (e.g., "MTProto Proxy Support with Fake TLS" not "0.15.0 - MTProto Proxy Support")
 - **Prefilled release URL** (optional): GitHub accepts query params on the new-release form (`tag`, `target`, `title`, `body`). Build the query with `urllib.parse.urlencode`, then open `https://github.com/leshchenko1979/fast-mcp-telegram/releases/new?` + that string. Push the tag first so the form can resolve it.
 - **Wait for confirmation**: Do not proceed until user confirms GitHub release is published
 - **Finally**: Send community announcement to Telegram (only after user confirmation)
@@ -140,4 +146,7 @@ This release <briefly describe the primary user-facing value proposition>.
   - Feature highlights (e.g. lines starting with ✅)
   - GitHub release link via `<a href="https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/0.x.y">…</a>`
 - **Timing**: Send only after user confirms GitHub release is published
-- **Private English group**: If the invite-only group is not discoverable via `find_chats`, give the user the HTML message to paste manually
+- **Using MCP for sending**:
+  - Try `find_chats` to discover chat IDs first, then `send_message` with `parse_mode="html"`
+  - **Private English group**: If not discoverable via `find_chats`, give the user the HTML message to paste manually
+  - **Group posting**: Bot must be an admin/member of the group to post; if `ChatWriteForbiddenError`, give user message to paste manually
