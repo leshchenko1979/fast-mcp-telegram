@@ -112,23 +112,22 @@ async def _get_client_by_token(token: str) -> TelegramClient:
             if _mtproto_proxy is None:
                 _mtproto_proxy = parse_mtproto_proxy(get_config().mtproto_proxy)
 
-            # Determine connection class and proxy
-            connection_class = ConnectionTcpMTProxyRandomizedIntermediate if _mtproto_proxy else None
-            proxy_tuple = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret) if _mtproto_proxy else None
-
             api_id_int = int(API_ID)
-            client = TelegramClient(
-                session_path,
-                api_id_int,
-                API_HASH,
-                entity_cache_limit=get_config().entity_cache_limit,
-                connection=connection_class,
-                proxy=proxy_tuple,
-            )
-            await client.connect()
 
+            # Build client kwargs - only add proxy params if configured
+            client_kwargs = {
+                "session": session_path,
+                "api_id": api_id_int,
+                "api_hash": API_HASH,
+                "entity_cache_limit": get_config().entity_cache_limit,
+            }
             if _mtproto_proxy:
+                client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+                client_kwargs["proxy"] = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret)
                 logger.info(f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
+
+            client = TelegramClient(**client_kwargs)
+            await client.connect()
 
             if not await client.is_user_authorized():
                 logger.error(

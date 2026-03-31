@@ -163,18 +163,17 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
     if _mtproto_proxy is None:
         _mtproto_proxy = parse_mtproto_proxy(setup_config.mtproto_proxy)
 
-    connection_class = ConnectionTcpMTProxyRandomizedIntermediate if _mtproto_proxy else None
-    proxy_tuple = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret) if _mtproto_proxy else None
+    client_kwargs = {
+        "session": session_path,
+        "api_id": int(setup_config.api_id),
+        "api_hash": setup_config.api_hash,
+        "entity_cache_limit": setup_config.entity_cache_limit,
+    }
+    if _mtproto_proxy:
+        client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+        client_kwargs["proxy"] = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret)
 
-    api_id_int = int(setup_config.api_id)
-    client = TelegramClient(
-        session_path,
-        api_id_int,
-        setup_config.api_hash,
-        entity_cache_limit=setup_config.entity_cache_limit,
-        connection=connection_class,
-        proxy=proxy_tuple,
-    )
+    client = TelegramClient(**client_kwargs)
 
     try:
         await client.connect()

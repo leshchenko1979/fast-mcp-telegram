@@ -152,17 +152,17 @@ def create_session_client(session_path: Path) -> TelegramClient:
     if _mtproto_proxy is None:
         _mtproto_proxy = parse_mtproto_proxy(MTPROTO_PROXY)
 
-    connection_class = ConnectionTcpMTProxyRandomizedIntermediate if _mtproto_proxy else None
-    proxy_tuple = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret) if _mtproto_proxy else None
+    client_kwargs = {
+        "session": session_path,
+        "api_id": int(API_ID),
+        "api_hash": API_HASH,
+        "entity_cache_limit": get_config().entity_cache_limit,
+    }
+    if _mtproto_proxy:
+        client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+        client_kwargs["proxy"] = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret)
 
-    return TelegramClient(
-        session_path,
-        int(API_ID),
-        API_HASH,
-        entity_cache_limit=get_config().entity_cache_limit,
-        connection=connection_class,
-        proxy=proxy_tuple,
-    )
+    return TelegramClient(**client_kwargs)
 
 
 async def cleanup_stale_setup_sessions():
