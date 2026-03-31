@@ -10,6 +10,7 @@ from src.tools.contacts import (
     _matches_dialog_query,
     _parse_iso_date,
     build_dialog_entity_dict,
+    find_chats_impl,
 )
 
 
@@ -257,6 +258,41 @@ class TestDialogInDateRange:
             assert in_range is False
             assert can_break is False  # Never break on fallback
 
+    @pytest.mark.asyncio
+    async def test_dialog_date_only_no_bounds(self):
+        """dialog_date is set but both bounds are None -> dialog-only search, no date filtering."""
+        dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
+        dialog = MockDialog(MockUser(1), date=dialog_date)
+
+        in_range, can_break = await _dialog_in_date_range(
+            dialog.entity,
+            None,
+            dialog_date,
+            min_date_dt=None,
+            max_date_dt=None,
+        )
+
+        assert in_range is True
+        assert can_break is False
+
+    @pytest.mark.asyncio
+    async def test_dialog_date_on_max_boundary_inclusive(self):
+        """dialog_date exactly on max boundary should be included (inclusive)."""
+        max_date_dt = datetime(2024, 6, 15, tzinfo=UTC)
+        dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
+        dialog = MockDialog(MockUser(1), date=dialog_date)
+
+        in_range, can_break = await _dialog_in_date_range(
+            dialog.entity,
+            None,
+            dialog_date,
+            min_date_dt=None,
+            max_date_dt=max_date_dt,
+        )
+
+        assert in_range is True
+        assert can_break is False
+
 
 # ============== build_dialog_entity_dict Tests ==============
 
@@ -302,6 +338,27 @@ class TestBuildDialogEntityDict:
 
         assert result is not None
         assert result["username"] == "johndoe"
+
+    def test_base_entity_returns_none(self):
+        """When build_entity_dict returns None, build_dialog_entity_dict returns None."""
+        dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
+        dialog = MockDialog(MockUser(1), date=dialog_date)
+
+        with patch("src.utils.entity.build_entity_dict", return_value=None):
+            result = build_dialog_entity_dict(dialog, dialog.entity)
+            assert result is None
+
+    def test_isoformat_exception_handled(self):
+        """When dialog.date.isoformat() raises, last_activity_date should be None."""
+
+        class BadDate:
+            def isoformat(self):
+                raise ValueError("bad date")
+
+        dialog = MockDialog(MockUser(1), date=BadDate())
+        result = build_dialog_entity_dict(dialog, dialog.entity)
+        assert result is not None
+        assert result["last_activity_date"] is None
 
 
 # ============== Integration Tests (simpler mocks) ==============
@@ -395,3 +452,68 @@ async def test_search_dialogs_impl_respects_min_date_early_break():
         # and break (since all subsequent are older)
         assert len(results) == 1
         assert results[0]["first_name"] == "Recent"
+
+
+@pytest.mark.asyncio
+async def test_find_chats_impl_without_date_filters_uses_global():
+    """When no date filters are provided, find_chats_impl should use _find_chats_global."""
+    with patch(
+        "src.tools.contacts._search_contacts_as_list", new_callable=AsyncMock
+    ) as mock_search:
+        mock_search.return_value = [{"id": 1, "title": "Test"}]
+
+        result = await find_chats_impl(query="test", limit=10)
+
+        mock_search.assert_called_once()
+        assert "chats" in result
+        assert len(result["chats"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_find_chats_impl_with_date_filters_uses_dialog_search():
+    """When any date filter is provided, find_chats_impl should use _find_chats_by_dialogs."""
+    dialog = MockDialog(
+        MockUser(1, first_name="John"), date=datetime(2024, 6, 15, tzinfo=UTC)
+    )
+
+    async def mock_iter_dialogs():
+        yield dialog
+
+    mock_client = MagicMock()
+    mock_client.iter_dialogs = mock_iter_dialogs
+
+    with patch(
+        "src.tools.contacts.get_connected_client", new_callable=AsyncMock
+    ) as mock_get_client:
+        mock_get_client.return_value = mock_client
+
+        result = await find_chats_impl(query="John", limit=10, min_date="2024-01-01")
+
+        assert "chats" in result
+        assert len(result["chats"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_find_chats_impl_date_filter_no_results_returns_error():
+    """When date filters find nothing, should return structured error."""
+
+    # Empty async generator - yields nothing
+    async def mock_iter_dialogs():
+        if False:
+            yield
+
+    mock_client = MagicMock()
+    mock_client.iter_dialogs = mock_iter_dialogs
+
+    with patch(
+        "src.tools.contacts.get_connected_client", new_callable=AsyncMock
+    ) as mock_get_client:
+        mock_get_client.return_value = mock_client
+
+        result = await find_chats_impl(
+            query="NoMatch", limit=10, min_date="2099-01-01", max_date="2099-12-31"
+        )
+
+        assert "error" in result
+        assert result["operation"] == "find_chats"
+        assert "No chats found" in result["error"]

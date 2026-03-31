@@ -288,8 +288,9 @@ def _matches_dialog_query(entity, query_lower: str) -> bool:
     last_name = getattr(entity, "last_name", "") or ""
     phone = getattr(entity, "phone", "") or ""
 
-    full_name = f"{first_name} {last_name}".strip().lower()
-    searchable = f"{title} {username} {first_name} {full_name} {phone}".lower()
+    searchable = " ".join(
+        part for part in (title, username, first_name, last_name, phone) if part
+    ).lower()
     return query_lower in searchable
 
 
@@ -326,12 +327,17 @@ async def _dialog_in_date_range(
     if min_date_dt is None and max_date_dt is None:
         return True, False
 
-    if fallback_date := await _get_last_message_date(entity, client):
-        if fallback_dt := _parse_iso_date(fallback_date):
-            if (min_date_dt and fallback_dt < min_date_dt) or (
-                max_date_dt and fallback_dt > max_date_dt
-            ):
-                return False, False
+    fallback_date = await _get_last_message_date(entity, client)
+    if not fallback_date:
+        return True, False
+
+    if fallback_dt := _parse_iso_date(fallback_date):
+        return (
+            (False, False)
+            if (min_date_dt and fallback_dt < min_date_dt)
+            or (max_date_dt and fallback_dt > max_date_dt)
+            else (True, False)
+        )
     return True, False
 
 
