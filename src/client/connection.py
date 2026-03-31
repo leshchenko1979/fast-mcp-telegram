@@ -7,12 +7,16 @@ import traceback
 from contextvars import ContextVar
 
 from telethon import TelegramClient
+from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
 
 from ..config.logging import format_diagnostic_info
+from ..utils.proxy import MTProtoProxy, parse_mtproto_proxy
 from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR
 
 logger = logging.getLogger(__name__)
+
+_mtproto_proxy: MTProtoProxy | None = None
 
 
 class SessionNotAuthorizedError(Exception):
@@ -103,14 +107,28 @@ async def _get_client_by_token(token: str) -> TelegramClient:
         session_path = SESSION_DIR / f"{token}.session"
 
         try:
+            # Get or create MTProto proxy config
+            global _mtproto_proxy
+            if _mtproto_proxy is None:
+                _mtproto_proxy = parse_mtproto_proxy(get_config().mtproto_proxy)
+
+            # Determine connection class and proxy
+            connection_class = ConnectionTcpMTProxyRandomizedIntermediate if _mtproto_proxy else None
+            proxy_tuple = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret) if _mtproto_proxy else None
+
             api_id_int = int(API_ID)
             client = TelegramClient(
                 session_path,
                 api_id_int,
                 API_HASH,
                 entity_cache_limit=get_config().entity_cache_limit,
+                connection=connection_class,
+                proxy=proxy_tuple,
             )
             await client.connect()
+
+            if _mtproto_proxy:
+                logger.info(f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
 
             if not await client.is_user_authorized():
                 logger.error(

@@ -1,4 +1,18 @@
 ## Current Work Focus
+**Completed**: MTProto Proxy Support (2026-03-31)
+
+**Implementation**:
+- Added `mtproto_proxy` config field to `ServerConfig` via `MTPROTO_PROXY` env var
+- Created `src/utils/proxy.py` with `MTProtoProxy` NamedTuple and URL parsing
+- Supports `tg://proxy?server=...&port=...&secret=...` and `host:port:secret` formats
+- Integrated `ConnectionTcpMTProxyRandomizedIntermediate` into:
+  - `src/client/connection.py` (main client)
+  - `src/server_components/web_setup.py` (setup flow)
+  - `src/cli_setup.py` (CLI setup)
+
+
+---
+
 **Completed**: Chat last_activity_date feature (2026-03-31)
 
 **Implementation**:

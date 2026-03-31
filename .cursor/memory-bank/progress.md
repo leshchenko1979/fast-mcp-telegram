@@ -1,4 +1,8 @@
 ### 2026-03-31
+- **MTProto Proxy Support**: Added `MTPROTO_PROXY` environment variable for Telegram connection via MTProto proxy
+- **New File**: `src/utils/proxy.py` with `MTProtoProxy` NamedTuple and URL parsing (supports `tg://proxy?...` and `host:port:secret` formats)
+- **Proxy Integration**: Uses `ConnectionTcpMTProxyRandomizedIntermediate` for obfuscated MTProto connection
+- **Files Modified**: `src/config/server_config.py`, `src/config/settings.py`, `src/client/connection.py`, `src/server_components/web_setup.py`, `src/cli_setup.py`
 - **Chat Last Activity Date Feature**: Added `last_activity_date` field to chat search results
 - **New Parameters**: `min_date` and `max_date` (ISO format) for filtering chats by last activity
 - **New Implementation**: `build_dialog_entity_dict()` extracts date from Dialog object
