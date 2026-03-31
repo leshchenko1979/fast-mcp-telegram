@@ -4,6 +4,8 @@ Provides tools to help language models find chat IDs for specific contacts.
 """
 
 import logging
+from contextlib import suppress
+from datetime import UTC, datetime
 from typing import Any
 
 from telethon.tl.functions.contacts import SearchRequest
@@ -12,6 +14,7 @@ from telethon.tl.functions.messages import GetForumTopicsRequest
 from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.utils.entity import (
     _matches_public_filter,
+    build_dialog_entity_dict,
     build_entity_dict,
     build_entity_dict_enriched,
     get_entity_by_id,
@@ -96,7 +99,7 @@ async def _search_contacts_as_list(
     params = {
         "query": query,
         "limit": limit,
-        "query_length": len(query),
+        "query_length": len(query) if query else 0,
         "chat_type": chat_type,
         "public": public,
     }
@@ -117,45 +120,71 @@ async def _search_contacts_as_list(
 
 
 async def find_chats_impl(
-    query: str,
+    query: str | None = None,
     limit: int = 20,
     chat_type: str | None = None,
     public: bool | None = None,
+    min_date: str | None = None,
+    max_date: str | None = None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
 
-    - Splits the input by commas
-    - Runs per-term searches concurrently via search_contacts_telegram
-    - Merges and deduplicates results by chat_id
-    - Truncates to the requested limit
+    When min_date or max_date is provided, uses dialog-based search with last_activity_date.
+    Otherwise, uses global Telegram search (no last_activity_date).
 
     Args:
-        query: Single term or comma-separated terms
+        query: Single term or comma-separated terms (optional for date-based searches)
         limit: Maximum number of results to return
         chat_type: Optional filter ("private"|"group"|"channel")
-        public: Optional filter for public discoverability (True=with username, False=without username, None=no filter). Never applies to private chats.
+        public: Optional filter for public discoverability
+        min_date: Minimum last activity date filter (ISO format "2024-01-01")
+        max_date: Maximum last activity date filter (ISO format "2024-12-31")
 
     Returns:
-        List of matching contacts or error dict
+        Dict with "chats" key containing list of matches, or error dict
     """
+    if min_date is not None or max_date is not None:
+        return await _find_chats_by_dialogs(
+            query=query,
+            limit=limit,
+            chat_type=chat_type,
+            public=public,
+            min_date=min_date,
+            max_date=max_date,
+        )
 
-    terms = [t.strip() for t in (query or "").split(",") if t.strip()]
+    return await _find_chats_global(
+        query=query,
+        limit=limit,
+        chat_type=chat_type,
+        public=public,
+    )
 
-    # Single term: use backward-compatible wrapper
+
+async def _find_chats_global(
+    query: str | None,
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Global Telegram search without date filtering."""
+    normalized_query = query or ""
+    terms = [t.strip() for t in normalized_query.split(",") if t.strip()]
+
     if len(terms) <= 1:
-        result = await _search_contacts_as_list(query, limit, chat_type, public)
+        result = await _search_contacts_as_list(
+            normalized_query, limit, chat_type, public
+        )
         return {"chats": result} if isinstance(result, list) else result
+
     try:
-        # Start all generators
         generators = [
             search_contacts_native(term, limit, chat_type, public) for term in terms
         ]
 
         merged: list[dict[str, Any]] = []
         seen_ids: set[Any] = set()
-
-        # Round-robin through generators to balance results
         active_gens = list(enumerate(generators))
 
         while active_gens and len(merged) < limit:
@@ -164,20 +193,29 @@ async def find_chats_impl(
             for i, gen in active_gens:
                 try:
                     item = await gen.__anext__()
-
                     entity_id = item.get("id") if isinstance(item, dict) else None
                     if entity_id and entity_id not in seen_ids:
                         seen_ids.add(entity_id)
                         merged.append(item)
                         if len(merged) >= limit:
                             break
-
-                    next_active.append((i, gen))  # Keep generator active
-
+                    next_active.append((i, gen))
                 except Exception:
-                    continue  # Generator exhausted
+                    continue
             active_gens = next_active
 
+        if not merged:
+            return log_and_build_error(
+                operation="search_contacts_multi",
+                error_message=f"No contacts found matching query '{query}'",
+                params={
+                    "query": query,
+                    "limit": limit,
+                    "chat_type": chat_type,
+                    "public": public,
+                },
+                exception=ValueError(f"No contacts found matching query '{query}'"),
+            )
         return {"chats": merged[:limit]}
     except Exception as e:
         return log_and_build_error(
@@ -193,11 +231,238 @@ async def find_chats_impl(
         )
 
 
+async def _find_chats_by_dialogs(
+    query: str | None,
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+    min_date: str | None,
+    max_date: str | None,
+) -> dict[str, Any]:
+    """Dialog-based search with date filtering and last_activity_date."""
+    # Validate and parse date parameters once to avoid redundant parsing
+    min_date_dt = _parse_iso_date(min_date)
+    if min_date is not None and min_date_dt is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid min_date format: '{min_date}'. Use ISO format (e.g., '2024-01-01')",
+            params={
+                "query": query,
+                "limit": limit,
+                "chat_type": chat_type,
+                "public": public,
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+            exception=ValueError(f"Invalid min_date format: '{min_date}'"),
+        )
+
+    max_date_dt = _parse_iso_date(max_date)
+    if max_date is not None and max_date_dt is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid max_date format: '{max_date}'. Use ISO format (e.g., '2024-12-31')",
+            params={
+                "query": query,
+                "limit": limit,
+                "chat_type": chat_type,
+                "public": public,
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+            exception=ValueError(f"Invalid max_date format: '{max_date}'"),
+        )
+
+    results = []
+    async for item in search_dialogs_impl(
+        query, limit, chat_type, public, min_date_dt, max_date_dt
+    ):
+        results.append(item)
+
+    if results:
+        return {"chats": results}
+
+    date_desc = []
+    if min_date:
+        date_desc.append(f"since {min_date}")
+    if max_date:
+        date_desc.append(f"until {max_date}")
+    date_str = " and ".join(date_desc) if date_desc else "with date filter"
+    query_str = f"matching '{query}' " if query else ""
+
+    return log_and_build_error(
+        operation="find_chats",
+        error_message=f"No chats found {query_str}{date_str}",
+        params={
+            "query": query,
+            "limit": limit,
+            "chat_type": chat_type,
+            "public": public,
+            "min_date": min_date,
+            "max_date": max_date,
+        },
+        exception=ValueError(f"No chats found {query_str}{date_str}"),
+    )
+
+
 # Backwards-compatible alias for previous name
 search_contacts = find_chats_impl
 
 # Backwards-compatible alias (do not remove without updating all imports)
 search_contacts_telegram = search_contacts_native
+
+
+def _parse_iso_date(raw: str | None) -> datetime | None:
+    """Parse ISO date string to datetime (UTC if timezone not specified), returning None on failure."""
+    if not raw:
+        return None
+    with suppress(ValueError):
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        # Ensure timezone-aware (assume UTC if naive)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt
+    return None
+
+
+def _matches_dialog_query(entity, query_lower: str) -> bool:
+    """Check if entity matches query (case-insensitive substring match)."""
+    if not query_lower:
+        return True
+
+    title = getattr(entity, "title", "") or ""
+    username = getattr(entity, "username", "") or ""
+    first_name = getattr(entity, "first_name", "") or ""
+    last_name = getattr(entity, "last_name", "") or ""
+    phone = getattr(entity, "phone", "") or ""
+
+    searchable = " ".join(
+        part for part in (title, username, first_name, last_name, phone) if part
+    ).lower()
+    return query_lower in searchable
+
+
+async def _dialog_in_date_range(
+    entity,
+    client,
+    dialog_date,
+    min_date_dt: datetime | None,
+    max_date_dt: datetime | None,
+) -> bool:
+    """
+    Check if dialog is in date range.
+
+    Returns True if dialog should be included, False otherwise.
+    """
+    if dialog_date:
+        # Ensure dialog_date is timezone-aware (assume UTC if naive)
+        # Telethon's iter_dialogs() returns naive datetimes
+        if dialog_date.tzinfo is None:
+            dialog_date = dialog_date.replace(tzinfo=UTC)
+
+        # Too new (above max_date upper bound) - exclude
+        if max_date_dt and dialog_date > max_date_dt:
+            return False
+        # Too old (below min_date lower bound) - exclude
+        return not (min_date_dt and dialog_date < min_date_dt)
+
+    # Fallback: check message history
+    # Skip fallback when no date filtering is active to avoid unnecessary API calls
+    if min_date_dt is None and max_date_dt is None:
+        return True
+
+    fallback_date = await _get_last_message_date(entity, client)
+    if not fallback_date:
+        return True
+
+    if fallback_dt := _parse_iso_date(fallback_date):
+        return not (
+            (min_date_dt and fallback_dt < min_date_dt)
+            or (max_date_dt and fallback_dt > max_date_dt)
+        )
+    return True
+
+
+async def _get_last_message_date(entity, client) -> str | None:
+    """Get last message date from chat history as fallback when dialog.date is unavailable."""
+    with suppress(Exception):
+        async for msg in client.iter_messages(entity, limit=1):
+            if msg and msg.date:
+                return msg.date.isoformat()
+    return None
+
+
+async def search_dialogs_impl(
+    query: str | None = None,
+    limit: int = 20,
+    chat_type: str | None = None,
+    public: bool | None = None,
+    min_date_dt: datetime | None = None,
+    max_date_dt: datetime | None = None,
+):
+    """
+    Search dialogs using client.iter_dialogs() with optional date filtering.
+
+    Unlike search_contacts_native() which uses Telegram's SearchRequest,
+    this function uses iter_dialogs() which provides dialog.date for
+    last activity tracking. However, iter_dialogs() has no query parameter,
+    so query matching is done client-side against entity display names.
+
+    Note: iter_dialogs() may return pinned chats that break chronological ordering,
+    so early break optimization is not safe when date filtering.
+
+    Args:
+        query: Search query (matched against title, username, first_name, phone). Optional.
+        limit: Maximum number of results to return
+        chat_type: Optional filter for chat type ("private"|"group"|"channel")
+        public: Optional filter for public discoverability
+        min_date_dt: Minimum last activity date as parsed datetime (UTC)
+        max_date_dt: Maximum last activity date as parsed datetime (UTC)
+
+    Yields:
+        Contact dictionaries one by one with last_activity_date field
+    """
+    try:
+        client = await get_connected_client()
+        query_lower = query.lower().strip() if query else ""
+
+        count = 0
+        # Fetch more than limit server-side to account for filtering
+        # Since we apply multiple filters (query, chat_type, public, date),
+        # we need more dialogs than the requested limit
+        async for dialog in client.iter_dialogs(limit=limit * 10):
+            if count >= limit:
+                break
+
+            entity = getattr(dialog, "entity", None)
+            if not entity:
+                continue
+
+            # Query filter (cheapest)
+            if query_lower and not _matches_dialog_query(entity, query_lower):
+                continue
+
+            # Date filter
+            dialog_date = getattr(dialog, "date", None)
+            if not await _dialog_in_date_range(
+                entity, client, dialog_date, min_date_dt, max_date_dt
+            ):
+                continue
+
+            # Chat type and public filters
+            if chat_type and get_normalized_chat_type(entity) != chat_type:
+                continue
+            if not _matches_public_filter(entity, public):
+                continue
+
+            if result := build_dialog_entity_dict(dialog, entity):
+                yield result
+                count += 1
+
+    except SessionNotAuthorizedError as e:
+        raise RuntimeError(
+            "Session not authorized. Please authenticate your Telegram session first."
+        ) from e
 
 
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
