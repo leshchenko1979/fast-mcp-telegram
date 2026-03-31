@@ -38,17 +38,16 @@ def _redact_secret(url: str) -> str:
 def _is_fake_tls_secret(secret: str) -> bool:
     """Check if secret appears to be a Fake TLS (base64) secret.
 
-    Fake TLS secrets start with '7' (the padding character in base64).
-    When decoded, they typically contain domain names like 'github.com'.
+    Fake TLS secrets start with '7' (the base64 padding character that Telegram uses
+    as a marker for fake TLS secrets) or 'ee' in hex format.
     """
     if not secret:
         return False
     secret = secret.strip()
-    # Fake TLS secrets are often base64 with '7' prefix (padding indicator)
+    # Fake TLS base64 secrets start with '7' (Telegram's marker)
     if secret.startswith("7"):
         return True
     # Also check if it's a hex secret with 'ee' prefix (Fake TLS marker)
-    # Note: 'dd' prefix is standard MTProto randomized intermediate, NOT fake TLS
     if secret.startswith("ee"):
         return True
     return False
@@ -58,11 +57,12 @@ def _process_fake_tls_secret(secret: str) -> str:
     """Process Fake TLS secret for TelethonFakeTLS.
 
     For base64 secrets starting with '7', remove the leading '7'.
-    For hex secrets starting with 'ee' or 'dd', the proxy.py already handles extraction.
+    The '7' is a marker that Telegram adds to indicate fake TLS, but TelethonFakeTLS
+    expects the raw base64 bytes without it.
     """
     secret = secret.strip()
     if secret.startswith("7"):
-        # Remove leading '7' for TelethonFakeTLS
+        # Remove leading '7' marker for TelethonFakeTLS
         return secret[1:]
     return secret
 
