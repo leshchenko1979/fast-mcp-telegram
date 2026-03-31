@@ -63,10 +63,9 @@ async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
 
     url_entries = [f for f in file_list if f.startswith(("http://", "https://"))]
     downloaded = await _download_urls_to_bytes(url_entries)
-    url_to_content: dict[str, bytes | str] = {}
-    for u, content in zip(url_entries, downloaded, strict=True):
-        url_to_content[u] = content
-
+    url_to_content: dict[str, bytes | str] = dict(
+        zip(url_entries, downloaded, strict=True)
+    )
     out: list[BytesIO | str] = []
     for f in file_list:
         if not f.startswith(("http://", "https://")):

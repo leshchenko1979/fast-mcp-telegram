@@ -18,6 +18,7 @@ from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermedia
 # Try to import TelethonFakeTLS for fake TLS support
 try:
     from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+
     TELETHONFAKETLS_AVAILABLE = True
 except ImportError:
     ConnectionTcpMTProxyFakeTLS = None

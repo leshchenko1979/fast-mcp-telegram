@@ -45,12 +45,7 @@ def _is_fake_tls_secret(secret: str) -> bool:
         return False
     secret = secret.strip()
     # Fake TLS base64 secrets start with '7' (Telegram's marker)
-    if secret.startswith("7"):
-        return True
-    # Also check if it's a hex secret with 'ee' prefix (Fake TLS marker)
-    if secret.startswith("ee"):
-        return True
-    return False
+    return True if secret.startswith("7") else bool(secret.startswith("ee"))
 
 
 def _process_fake_tls_secret(secret: str) -> str:
@@ -65,10 +60,7 @@ def _process_fake_tls_secret(secret: str) -> str:
     if secret.startswith("7"):
         # Remove leading '7' marker for TelethonFakeTLS
         return secret[1:]
-    if secret.startswith("ee"):
-        # Remove 'ee' prefix for TelethonFakeTLS
-        return secret[2:]
-    return secret
+    return secret[2:] if secret.startswith("ee") else secret
 
 
 def parse_mtproto_proxy(url: str | None) -> MTProtoProxy | None:

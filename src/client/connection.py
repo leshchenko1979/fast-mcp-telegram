@@ -10,9 +10,9 @@ from telethon import TelegramClient
 from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
 
 from ..config.logging import format_diagnostic_info
-from ..utils.proxy import MTProtoProxy, parse_mtproto_proxy
 from ..config.server_config import get_config
 from ..config.settings import API_HASH, API_ID, SESSION_DIR
+from ..utils.proxy import MTProtoProxy, parse_mtproto_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 try:
     from TelethonFakeTLS import Connection as FakeTLSConnection
     from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+
     TELTHONFAKETLS_AVAILABLE = True
     logger.debug("TelethonFakeTLS available for fake TLS proxy support")
 except ImportError:
@@ -146,7 +147,9 @@ async def _get_client_by_token(token: str) -> TelegramClient:
                             "Install with: pip install TelethonFakeTLS"
                         )
                 else:
-                    client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+                    client_kwargs["connection"] = (
+                        ConnectionTcpMTProxyRandomizedIntermediate
+                    )
                     logger.info(
                         f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
                     )

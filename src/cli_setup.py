@@ -17,6 +17,7 @@ from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermedia
 # Try to import TelethonFakeTLS for fake TLS support
 try:
     from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+
     TELETHONFAKETLS_AVAILABLE = True
 except ImportError:
     ConnectionTcpMTProxyFakeTLS = None
@@ -181,9 +182,13 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
         if _mtproto_proxy.use_fake_tls:
             if TELETHONFAKETLS_AVAILABLE:
                 client_kwargs["connection"] = ConnectionTcpMTProxyFakeTLS
-                print(f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
+                print(
+                    f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
+                )
             else:
-                print("Warning: Fake TLS proxy configured but TelethonFakeTLS not installed")
+                print(
+                    "Warning: Fake TLS proxy configured but TelethonFakeTLS not installed"
+                )
         else:
             client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
             print(f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
