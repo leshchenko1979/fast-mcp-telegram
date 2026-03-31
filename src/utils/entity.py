@@ -485,3 +485,32 @@ async def build_entity_dict_enriched(entity_or_id) -> dict | None:
             return build_entity_dict(entity)
         except Exception:
             return None
+
+
+def build_dialog_entity_dict(dialog, entity) -> dict | None:
+    """
+    Build an entity dict from a Dialog object, including last_activity_date.
+
+    Dialog objects from iter_dialogs() have a .date attribute representing
+    the last activity date, which is not available on regular entity objects.
+
+    Args:
+        dialog: Telethon Dialog object with .date attribute
+        entity: Telethon entity object (User, Chat, or Channel)
+
+    Returns:
+        Entity dict with last_activity_date field added, or None if entity is None
+    """
+    base = build_entity_dict(entity)
+    if not base:
+        return None
+
+    last_activity_date = None
+    if dialog_date := getattr(dialog, "date", None):
+        try:
+            last_activity_date = dialog_date.isoformat()
+        except Exception:
+            pass
+
+    base["last_activity_date"] = last_activity_date
+    return base

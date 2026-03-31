@@ -264,18 +264,27 @@ def register_tools(mcp: FastMCP) -> None:
     )
     @mcp_tool_with_restrictions("find_chats")
     async def find_chats(
-        query: str,
+        query: str | None = None,
         limit: int = 20,
         chat_type: str | None = None,
         public: bool | None = None,
+        min_date: str | None = None,
+        max_date: str | None = None,
     ) -> list[dict] | dict:
         """
         Find Telegram chats (users, groups, channels) by name, username, or phone number.
 
-        SEARCH SCOPE:
-        - Your saved contacts
-        - Global Telegram users
-        - Public channels and groups
+        TWO SEARCH MODES:
+
+        1. GLOBAL SEARCH (default, no date filtering):
+        - Searches all of Telegram by name/username/phone
+        - Can find any user, group, or channel
+        - Does NOT return last_activity_date
+
+        2. DIALOG SEARCH (when date filtering is used):
+        - Searches only your sidebar/dialog list
+        - Cannot find chats you're not already connected to
+        - Returns last_activity_date for each chat
 
         QUERY TYPES:
         - Name: "John Doe" or "Иванов"
@@ -291,26 +300,43 @@ def register_tools(mcp: FastMCP) -> None:
         - Public filter never applies to private chats (direct messages with users)
         - Only affects groups and channels
 
+        DATE FILTERING:
+        - When min_date or max_date is provided, switches to dialog-based search
+        - **Dialog search only returns chats from your Telegram sidebar** (not global Telegram search)
+        - Dialog search provides last_activity_date for each chat
+        - Query matching in dialog search is case-insensitive substring match against title/username/name
+        - Without date filters, uses global Telegram search (can find any chat by name/username/phone)
+        - Date filtering is done client-side (Telegram API ignores offset_date parameter)
+
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
         3. Search messages: get_messages(chat_id=chat_id, query="topic")
 
         EXAMPLES:
-        find_chats("@telegram")      # Find user by username
-        find_chats("John Smith")     # Find by name
-        find_chats("+1234567890")    # Find by phone
+        # Global search (no date filtering) - can find any chat
+        find_chats("@telegram")      # Find user by username (global search)
+        find_chats("John Smith")     # Find by name (global search)
+        find_chats("+1234567890")    # Find by phone (global search)
         find_chats("news", chat_type="channel,group")    # Find channels and groups
         find_chats("news", public=True)    # Find public groups and channels only
         find_chats("team", chat_type="group", public=False)  # Private groups only
 
+        # Dialog search (with date filtering) - searches YOUR sidebar chats only
+        find_chats(min_date="2024-01-01")  # Your chats active since 2024
+        find_chats("project", min_date="2024-01-01", max_date="2024-12-31")  # Your chats active in 2024
+
         Args:
-            query: Search term(s). Supports comma-separated multi-queries.
+            query: Search term(s). Supports comma-separated multi-queries. When date filtering is used, searches your sidebar chats only.
             limit: Max results (default: 20, recommended: ≤50)
             chat_type: Optional filter ("private"|"group"|"channel", comma-separated for multiple)
             public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats.
+            min_date: Minimum last activity date (ISO format "2024-01-01"). Uses dialog search (your sidebar chats only).
+            max_date: Maximum last activity date (ISO format "2024-12-31"). Uses dialog search (your sidebar chats only).
         """
-        return await find_chats_impl(query, limit, chat_type, public)
+        return await find_chats_impl(
+            query, limit, chat_type, public, min_date, max_date
+        )
 
     @mcp.tool(
         annotations=ToolAnnotations(
