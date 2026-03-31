@@ -7,15 +7,8 @@
 - **MTProto Proxy Support**: Added `MTPROTO_PROXY` environment variable for Telegram connection via standard MTProto proxy
 - **New File**: `src/utils/proxy.py` with `MTProtoProxy` NamedTuple and URL parsing (supports `tg://proxy?...` and `host:port:secret` formats)
 - **Proxy Integration**: Uses `ConnectionTcpMTProxyRandomizedIntermediate` for obfuscated MTProto connection
-- **Files Modified**: `src/config/server_config.py`, `src/config/settings.py`, `src/client/connection.py`, `src/server_components/web_setup.py`, `src/cli_setup.py`, `pyproject.toml`
-- **Chat Last Activity Date Feature**: Added `last_activity_date` field to chat search results
-- **New Parameters**: `min_date` and `max_date` (ISO format) for filtering chats by last activity
-- **New Implementation**: `build_dialog_entity_dict()` extracts date from Dialog object
-- **Dialog-Based Search**: `search_dialogs_impl()` uses `iter_dialogs()` for access to dialog.date
-- **Fallback**: `_get_last_message_date()` fetches from message history when dialog.date unavailable
-- **Important**: Telegram API ignores `offset_date` - date filtering is done client-side after fetching
-- **Query Matching**: Since `iter_dialogs()` has no query param, matching done against entity display name (case-insensitive substring)
-- **Files Modified**: src/utils/entity.py, src/tools/contacts.py, src/server_components/tools_register.py
+- **Refactored Helper**: Added `build_mtproto_client_args()` in proxy.py for centralized proxy kwargs building and stricter fake TLS detection
+- **Files Modified**: `src/config/server_config.py`, `src/config/settings.py`, `src/client/connection.py`, `src/server_components/web_setup.py`, `src/cli_setup.py`, `pyproject.toml`, `src/utils/proxy.py`
 
 ### 2026-03-27
 - **Web setup UX consistency**: Moved setup interactions to a nested HTMX target (`#setup-flow`) so the top-level mode buttons remain visible and users can restart flows predictably.
