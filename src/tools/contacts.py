@@ -240,8 +240,9 @@ async def _find_chats_by_dialogs(
     max_date: str | None,
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
-    # Validate date parameters
-    if min_date is not None and _parse_iso_date(min_date) is None:
+    # Validate and parse date parameters once to avoid redundant parsing
+    min_date_dt = _parse_iso_date(min_date)
+    if min_date is not None and min_date_dt is None:
         return log_and_build_error(
             operation="find_chats",
             error_message=f"Invalid min_date format: '{min_date}'. Use ISO format (e.g., '2024-01-01')",
@@ -256,7 +257,8 @@ async def _find_chats_by_dialogs(
             exception=ValueError(f"Invalid min_date format: '{min_date}'"),
         )
 
-    if max_date is not None and _parse_iso_date(max_date) is None:
+    max_date_dt = _parse_iso_date(max_date)
+    if max_date is not None and max_date_dt is None:
         return log_and_build_error(
             operation="find_chats",
             error_message=f"Invalid max_date format: '{max_date}'. Use ISO format (e.g., '2024-12-31')",
@@ -273,7 +275,7 @@ async def _find_chats_by_dialogs(
 
     results = []
     async for item in search_dialogs_impl(
-        query, limit, chat_type, public, min_date, max_date
+        query, limit, chat_type, public, min_date_dt, max_date_dt
     ):
         results.append(item)
 
@@ -395,8 +397,8 @@ async def search_dialogs_impl(
     limit: int = 20,
     chat_type: str | None = None,
     public: bool | None = None,
-    min_date: str | None = None,
-    max_date: str | None = None,
+    min_date_dt: datetime | None = None,
+    max_date_dt: datetime | None = None,
 ):
     """
     Search dialogs using client.iter_dialogs() with optional date filtering.
@@ -414,16 +416,14 @@ async def search_dialogs_impl(
         limit: Maximum number of results to return
         chat_type: Optional filter for chat type ("private"|"group"|"channel")
         public: Optional filter for public discoverability
-        min_date: Minimum last activity date (ISO format "2024-01-01")
-        max_date: Maximum last activity date (ISO format "2024-12-31")
+        min_date_dt: Minimum last activity date as parsed datetime (UTC)
+        max_date_dt: Maximum last activity date as parsed datetime (UTC)
 
     Yields:
         Contact dictionaries one by one with last_activity_date field
     """
     try:
         client = await get_connected_client()
-        min_date_dt = _parse_iso_date(min_date)
-        max_date_dt = _parse_iso_date(max_date)
         query_lower = query.lower().strip() if query else ""
 
         count = 0

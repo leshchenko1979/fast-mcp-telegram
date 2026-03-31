@@ -138,7 +138,7 @@ class TestDialogInDateRange:
         dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
         dialog = MockDialog(MockUser(1), date=dialog_date)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             dialog_date,
@@ -146,16 +146,15 @@ class TestDialogInDateRange:
             max_date_dt=datetime(2024, 12, 31, tzinfo=UTC),
         )
 
-        assert in_range is True
-        assert can_break is False
+        assert result is True
 
     @pytest.mark.asyncio
-    async def test_dialog_date_below_min_triggers_break(self):
-        """When dialog is older than min_date, we can break early (sorted order)."""
+    async def test_dialog_date_below_min_excluded(self):
+        """When dialog is older than min_date, it should be excluded."""
         dialog_date = datetime(2023, 6, 15, tzinfo=UTC)
         dialog = MockDialog(MockUser(1), date=dialog_date)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             dialog_date,
@@ -163,16 +162,15 @@ class TestDialogInDateRange:
             max_date_dt=None,
         )
 
-        assert in_range is False
-        assert can_break is True  # Can break because dialogs are sorted newest-first
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_dialog_date_above_max_continues(self):
-        """When dialog is newer than max_date, skip but don't break."""
+    async def test_dialog_date_above_max_excluded(self):
+        """When dialog is newer than max_date, it should be excluded."""
         dialog_date = datetime(2025, 6, 15, tzinfo=UTC)
         dialog = MockDialog(MockUser(1), date=dialog_date)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             dialog_date,
@@ -180,33 +178,30 @@ class TestDialogInDateRange:
             max_date_dt=datetime(2024, 12, 31, tzinfo=UTC),
         )
 
-        assert in_range is False
-        assert can_break is False  # Don't break, keep checking other dialogs
+        assert result is False
 
     @pytest.mark.asyncio
-    async def test_no_date_no_break(self):
-        """When dialog has no date, we can't break early."""
+    async def test_no_date_included(self):
+        """When dialog has no date, it should be included (no date filtering applied)."""
         dialog = MockDialog(MockUser(1), date=None)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity, None, None, min_date_dt=None, max_date_dt=None
         )
 
-        assert in_range is True
-        assert can_break is False
+        assert result is True
 
     @pytest.mark.asyncio
-    async def test_no_date_with_fallback_passes(self):
+    async def test_no_date_with_fallback_in_range(self):
         """When dialog has no date but fallback date is in range, include it."""
         dialog = MockDialog(MockUser(1), date=None)
 
         with patch(
             "src.tools.contacts._get_last_message_date", new_callable=AsyncMock
         ) as mock_fallback:
-            # Return timezone-aware ISO string
             mock_fallback.return_value = "2024-06-15T00:00:00+00:00"
 
-            in_range, can_break = await _dialog_in_date_range(
+            result = await _dialog_in_date_range(
                 dialog.entity,
                 None,
                 None,
@@ -214,12 +209,11 @@ class TestDialogInDateRange:
                 max_date_dt=datetime(2024, 12, 31, tzinfo=UTC),
             )
 
-            assert in_range is True
-            assert can_break is False
+            assert result is True
 
     @pytest.mark.asyncio
     async def test_no_date_with_fallback_below_min(self):
-        """When fallback date is below min_date, skip without breaking."""
+        """When fallback date is below min_date, exclude it."""
         dialog = MockDialog(MockUser(1), date=None)
 
         with patch(
@@ -227,7 +221,7 @@ class TestDialogInDateRange:
         ) as mock_fallback:
             mock_fallback.return_value = "2023-06-15T00:00:00+00:00"
 
-            in_range, can_break = await _dialog_in_date_range(
+            result = await _dialog_in_date_range(
                 dialog.entity,
                 None,
                 None,
@@ -235,12 +229,11 @@ class TestDialogInDateRange:
                 max_date_dt=None,
             )
 
-            assert in_range is False
-            assert can_break is False  # Never break on fallback (not sorted)
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_no_date_with_fallback_above_max(self):
-        """When fallback date is above max_date, skip without breaking."""
+        """When fallback date is above max_date, exclude it."""
         dialog = MockDialog(MockUser(1), date=None)
 
         with patch(
@@ -248,7 +241,7 @@ class TestDialogInDateRange:
         ) as mock_fallback:
             mock_fallback.return_value = "2025-06-15T00:00:00+00:00"
 
-            in_range, can_break = await _dialog_in_date_range(
+            result = await _dialog_in_date_range(
                 dialog.entity,
                 None,
                 None,
@@ -256,8 +249,7 @@ class TestDialogInDateRange:
                 max_date_dt=datetime(2024, 12, 31, tzinfo=UTC),
             )
 
-            assert in_range is False
-            assert can_break is False  # Never break on fallback
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_dialog_date_only_no_bounds(self):
@@ -265,7 +257,7 @@ class TestDialogInDateRange:
         dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
         dialog = MockDialog(MockUser(1), date=dialog_date)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             dialog_date,
@@ -273,8 +265,7 @@ class TestDialogInDateRange:
             max_date_dt=None,
         )
 
-        assert in_range is True
-        assert can_break is False
+        assert result is True
 
     @pytest.mark.asyncio
     async def test_dialog_date_on_max_boundary_inclusive(self):
@@ -283,7 +274,7 @@ class TestDialogInDateRange:
         dialog_date = datetime(2024, 6, 15, tzinfo=UTC)
         dialog = MockDialog(MockUser(1), date=dialog_date)
 
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             dialog_date,
@@ -291,8 +282,7 @@ class TestDialogInDateRange:
             max_date_dt=max_date_dt,
         )
 
-        assert in_range is True
-        assert can_break is False
+        assert result is True
 
     @pytest.mark.asyncio
     async def test_naive_dialog_date_against_aware_bounds(self):
@@ -312,7 +302,7 @@ class TestDialogInDateRange:
 
         # Before fix: this would raise TypeError: can't compare offset-naive and offset-aware datetimes
         # After fix: should work correctly
-        in_range, can_break = await _dialog_in_date_range(
+        result = await _dialog_in_date_range(
             dialog.entity,
             None,
             naive_dialog_date,
@@ -320,8 +310,7 @@ class TestDialogInDateRange:
             max_date_dt=max_date_dt,
         )
 
-        assert in_range is True
-        assert can_break is False
+        assert result is True
 
 
 # ============== build_dialog_entity_dict Tests ==============
@@ -433,7 +422,10 @@ async def test_search_dialogs_impl_respects_max_date():
         from src.tools.contacts import search_dialogs_impl
 
         results = []
-        async for item in search_dialogs_impl(limit=10, max_date="2024-12-31"):
+        async for item in search_dialogs_impl(
+            limit=10,
+            max_date_dt=datetime(2024, 12, 31, tzinfo=UTC),
+        ):
             results.append(item)
 
         # Should be skipped because 2025 > 2024
@@ -441,11 +433,11 @@ async def test_search_dialogs_impl_respects_max_date():
 
 
 @pytest.mark.asyncio
-async def test_search_dialogs_impl_respects_min_date_early_break():
-    """Should break when hitting dialogs older than min_date.
+async def test_search_dialogs_impl_respects_min_date():
+    """Should return only dialogs within min_date range.
 
-    Note: iter_dialogs returns newest-first. So when we hit a dialog
-    older than min_date, all subsequent dialogs will also be older.
+    Note: The early break optimization was removed because pinned chats
+    can break chronological ordering.
     """
     # Dialogs from newest to oldest (iter_dialogs returns newest first)
     dialogs = [
@@ -475,11 +467,13 @@ async def test_search_dialogs_impl_respects_min_date_early_break():
         from src.tools.contacts import search_dialogs_impl
 
         results = []
-        async for item in search_dialogs_impl(limit=10, min_date="2024-01-01"):
+        async for item in search_dialogs_impl(
+            limit=10,
+            min_date_dt=datetime(2024, 1, 1, tzinfo=UTC),
+        ):
             results.append(item)
 
-        # Should only get "Recent" (2024), then hit "Old2" which is below min_date
-        # and break (since all subsequent are older)
+        # Should only get "Recent" (2024), the old dialogs are filtered out
         assert len(results) == 1
         assert results[0]["first_name"] == "Recent"
 
