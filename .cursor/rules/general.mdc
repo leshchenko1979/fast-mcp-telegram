@@ -15,5 +15,6 @@ Always check today's date with shell command `date` when inserting current date.
 
 ## Testing with telegram-dev MCP
 
-This project has a hot-reloading `telegram-dev` MCP server configured in `.cursor/mcp.json`.
+This project has a `telegram-dev` MCP server configured in `.cursor/mcp.json`.
+When you modify code, ask the user to restart the server in Cursor's MCP panel.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions.

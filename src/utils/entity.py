@@ -518,9 +518,13 @@ def build_dialog_entity_dict(dialog, entity) -> dict | None:
 
     base["last_activity_date"] = last_activity_date
 
-    # Muted field from notify_settings (only when available)
+    # Muted field - always include for dialog-based results
+    # iter_dialogs() notify_settings is typically None, so we default to False (unmuted)
+    # Use GetNotifySettingsRequest separately if you need actual mute status
     if getattr(dialog, "notify_settings", None) is not None:
         base["muted"] = _is_muted_from_dialog(dialog)
+    else:
+        base["muted"] = False
 
     return base
 

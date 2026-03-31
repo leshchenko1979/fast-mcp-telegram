@@ -321,12 +321,14 @@ def _matches_muted_filter(dialog, muted: bool | None) -> bool:
 
     Muted is determined by notify_settings: either mute_until is in the future,
     or silent notifications are enabled. When notify_settings is unavailable,
-    returns False for both muted=True and muted=False (unknown = exclude).
+    treat the dialog as unmuted (include for muted=False, exclude for muted=True).
     """
     if muted is None:
         return True
-    if getattr(dialog, "notify_settings", None) is None:
-        return False
+    notify_settings = getattr(dialog, "notify_settings", None)
+    if notify_settings is None:
+        # Unknown = treat as unmuted
+        return not muted
     return _is_muted_from_dialog(dialog) == muted
 
 
