@@ -360,6 +360,11 @@ async def _dialog_in_date_range(
     because there may still be dialogs within the valid range.
     """
     if dialog_date:
+        # Ensure dialog_date is timezone-aware (assume UTC if naive)
+        # Telethon's iter_dialogs() returns naive datetimes
+        if dialog_date.tzinfo is None:
+            dialog_date = dialog_date.replace(tzinfo=UTC)
+
         # Too new (above max_date upper bound) - skip but don't break
         if max_date_dt and dialog_date > max_date_dt:
             return False, False
