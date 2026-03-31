@@ -169,10 +169,13 @@ async def _find_chats_global(
     public: bool | None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """Global Telegram search without date filtering."""
-    terms = [t.strip() for t in (query or "").split(",") if t.strip()]
+    normalized_query = query or ""
+    terms = [t.strip() for t in normalized_query.split(",") if t.strip()]
 
     if len(terms) <= 1:
-        result = await _search_contacts_as_list(query, limit, chat_type, public)
+        result = await _search_contacts_as_list(
+            normalized_query, limit, chat_type, public
+        )
         return {"chats": result} if isinstance(result, list) else result
 
     try:
@@ -431,7 +434,10 @@ async def search_dialogs_impl(
         query_lower = query.lower().strip() if query else ""
 
         count = 0
-        async for dialog in client.iter_dialogs():
+        # Fetch more than limit server-side to account for filtering
+        # Since we apply multiple filters (query, chat_type, public, date),
+        # we need more dialogs than the requested limit
+        async for dialog in client.iter_dialogs(limit=limit * 10):
             if count >= limit:
                 break
 

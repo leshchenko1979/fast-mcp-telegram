@@ -7,6 +7,7 @@ import pytest
 
 from src.tools.contacts import (
     _dialog_in_date_range,
+    _find_chats_global,
     _matches_dialog_query,
     _parse_iso_date,
     build_dialog_entity_dict,
@@ -389,7 +390,7 @@ async def test_search_dialogs_impl_respects_max_date():
         MockUser(1, first_name="Future"), date=datetime(2025, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs():
+    async def mock_iter_dialogs(limit=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -430,7 +431,7 @@ async def test_search_dialogs_impl_respects_min_date_early_break():
         ),
     ]
 
-    async def mock_iter_dialogs():
+    async def mock_iter_dialogs(limit=None):
         for d in dialogs:
             yield d
 
@@ -476,7 +477,7 @@ async def test_find_chats_impl_with_date_filters_uses_dialog_search():
         MockUser(1, first_name="John"), date=datetime(2024, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs():
+    async def mock_iter_dialogs(limit=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -498,7 +499,7 @@ async def test_find_chats_impl_date_filter_no_results_returns_error():
     """When date filters find nothing, should return structured error."""
 
     # Empty async generator - yields nothing
-    async def mock_iter_dialogs():
+    async def mock_iter_dialogs(limit=None):
         if False:
             yield
 
@@ -539,3 +540,46 @@ async def test_find_chats_impl_invalid_max_date_returns_error():
     assert result["operation"] == "find_chats"
     assert "Invalid max_date format" in result["error"]
     assert "not-a-date" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_find_chats_global_multi_term_merges_results():
+    """Multi-term global search should merge and deduplicate results round-robin."""
+
+    async def mock_gen_1():
+        yield {"id": 1, "title": "Chat Alpha"}
+        yield {"id": 2, "title": "Chat Beta"}
+
+    async def mock_gen_2():
+        yield {"id": 2, "title": "Chat Beta"}  # duplicate
+        yield {"id": 3, "title": "Chat Gamma"}
+
+    with patch(
+        "src.tools.contacts.search_contacts_native",
+        new=MagicMock(side_effect=[mock_gen_1(), mock_gen_2()]),
+    ):
+        result = await _find_chats_global("alpha,beta", 10, None, None)
+
+        assert "chats" in result
+        # Should be deduplicated (id=2 appears once)
+        assert len(result["chats"]) == 3
+        ids = {chat["id"] for chat in result["chats"]}
+        assert ids == {1, 2, 3}
+
+
+@pytest.mark.asyncio
+async def test_find_chats_global_multi_term_no_results_returns_error():
+    """Multi-term global search with no results should return structured error."""
+
+    async def mock_gen_empty():
+        return  # empty generator - just return without yielding
+
+    with patch(
+        "src.tools.contacts.search_contacts_native",
+        new=MagicMock(side_effect=[mock_gen_empty(), mock_gen_empty()]),
+    ):
+        result = await _find_chats_global("nonexistent1,nonexistent2", 10, None, None)
+
+        assert "error" in result
+        assert result["operation"] == "search_contacts_multi"
+        assert "No contacts found" in result["error"]
