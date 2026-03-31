@@ -1,4 +1,35 @@
 ## Current Work Focus
+**Completed**: MTProto Proxy Support (2026-03-31)
+
+**Implementation**:
+- Added `mtproto_proxy` config field to `ServerConfig` via `MTPROTO_PROXY` env var
+- Created `src/utils/proxy.py` with `MTProtoProxy` NamedTuple and URL parsing
+- Supports `tg://proxy?server=...&port=...&secret=...` and `host:port:secret` formats
+- Integrated `ConnectionTcpMTProxyRandomizedIntermediate` into:
+  - `src/client/connection.py` (main client)
+  - `src/server_components/web_setup.py` (setup flow)
+  - `src/cli_setup.py` (CLI setup)
+
+
+---
+
+**Completed**: Chat last_activity_date feature (2026-03-31)
+
+**Implementation**:
+- Added `build_dialog_entity_dict()` in entity.py for Dialog objects with last_activity_date
+- Created `search_dialogs_impl()` in contacts.py using `iter_dialogs()` for dialog-based search
+- Added `_get_last_message_date()` fallback when dialog.date is unavailable
+- Modified `find_chats_impl()` to accept min_date/max_date parameters
+- Added min_date/max_date parameters to `find_chats` tool in tools_register.py
+
+**Key Technical Notes**:
+- Telethon's Dialog object has `.date` attribute for last activity (verified via Context7 and GitHub #1043)
+- Telegram API ignores `offset_date` parameter - date filtering must be client-side
+- `iter_dialogs()` has no query parameter - query matching done client-side against entity display names
+- When min_date/max_date provided, uses dialog search; otherwise uses original SearchRequest
+
+---
+
 **Completed**: CI/CD pipeline migration to GitHub Actions + GHCR (2026-03-30)
 
 **Implementation**:

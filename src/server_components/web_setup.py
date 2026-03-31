@@ -13,14 +13,16 @@ from starlette.templating import Jinja2Templates
 from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
+from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
 from telethon.tl.functions.account import GetPasswordRequest
 
 from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
 from src.config.server_config import ServerMode, get_config
-from src.config.settings import API_HASH, API_ID
+from src.config.settings import API_HASH, API_ID, MTPROTO_PROXY
 from src.server_components.auth import RESERVED_SESSION_NAMES
 from src.server_components.auth_middleware import generate_url_based_config
 from src.utils.mcp_config import generate_mcp_config_json
+from src.utils.proxy import MTProtoProxy, parse_mtproto_proxy
 
 # Constants
 SETUP_SESSION_PREFIX = "setup-"
@@ -71,6 +73,9 @@ templates = Jinja2Templates(
 _setup_sessions: dict[str, dict] = {}
 # Use unified config for TTL
 SETUP_SESSION_TTL_SECONDS = get_config().setup_session_ttl_seconds
+
+# MTProto proxy configuration
+_mtproto_proxy: MTProtoProxy | None = None
 
 logger = logging.getLogger(__name__)
 
@@ -143,11 +148,20 @@ def _2fa_form_context(
 
 def create_session_client(session_path: Path) -> TelegramClient:
     """Create and return a configured TelegramClient."""
+    global _mtproto_proxy
+    if _mtproto_proxy is None:
+        _mtproto_proxy = parse_mtproto_proxy(MTPROTO_PROXY)
+
+    connection_class = ConnectionTcpMTProxyRandomizedIntermediate if _mtproto_proxy else None
+    proxy_tuple = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret) if _mtproto_proxy else None
+
     return TelegramClient(
         session_path,
         int(API_ID),
         API_HASH,
         entity_cache_limit=get_config().entity_cache_limit,
+        connection=connection_class,
+        proxy=proxy_tuple,
     )
 
 
