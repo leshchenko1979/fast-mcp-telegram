@@ -58,15 +58,18 @@ async def get_available_folders(client) -> list[dict]:
     folders = []
     try:
         from telethon import functions
+
         result = await client(functions.messages.GetDialogFiltersRequest())
         for f in result.dialog_filters:
             # title is TextWithEntities object - extract .text
-            title_obj = getattr(f, 'title', None)
-            title_text = getattr(title_obj, 'text', None) if title_obj else None
-            folders.append({
-                "id": getattr(f, 'id', None),
-                "title": title_text,
-            })
+            title_obj = getattr(f, "title", None)
+            title_text = getattr(title_obj, "text", None) if title_obj else None
+            folders.append(
+                {
+                    "id": getattr(f, "id", None),
+                    "title": title_text,
+                }
+            )
     except Exception as e:
         logger.debug(f"GetDialogFiltersRequest failed: {e}")
 
@@ -157,12 +160,10 @@ def get_normalized_chat_type(entity) -> str | None:
 
     if entity_class == "User":
         # Check if this user is a bot (bot field is boolean true/false)
-        try:
-            if getattr(entity, 'bot', False):
+        with contextlib.suppress(Exception):
+            if getattr(entity, "bot", False):
                 _ENTITY_TYPE_CACHE[key] = "bot"
                 return _ENTITY_TYPE_CACHE[key]
-        except Exception:
-            pass
         _ENTITY_TYPE_CACHE[key] = "private"
         return _ENTITY_TYPE_CACHE[key]
     if entity_class == "Chat":

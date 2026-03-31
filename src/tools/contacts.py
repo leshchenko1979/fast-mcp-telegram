@@ -468,7 +468,7 @@ async def search_dialogs_impl(
         # Fetch more than limit server-side to account for filtering
         # Since we apply multiple filters (query, chat_type, public, date),
         # we need more dialogs than the requested limit
-        async for dialog in client.iter_dialogs(limit=limit * 10, folder=folder_id):
+        async for dialog in client.iter_dialogs(limit=limit * 10, folder=folder_id):  # type: ignore[arg-type]
             if count >= limit:
                 break
 

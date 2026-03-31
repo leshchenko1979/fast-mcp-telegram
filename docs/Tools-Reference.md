@@ -55,7 +55,7 @@ All tools include MCP ToolAnnotations to help AI agents make informed decisions:
 This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
 
 - **`parse_mode`**: Constrained to `"markdown"`, `"html"`, or `"auto"` (default: `"auto"`)
-- **`chat_type`**: Limited to `"private"`, `"group"`, or `"channel"` for search filters
+- **`chat_type`**: Limited to `"private"`, `"group"`, `"channel"`, or `"bot"` for search filters (bots return `type: "bot"` instead of `type: "private"`)
 - **Enhanced Validation**: FastMCP automatically validates these constraints
 - **Better AI Guidance**: AI models see only valid options, reducing errors
 
@@ -75,7 +75,7 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
 {
   "id": 133526395,
   "title": "John Doe",           // falls back to full name or @username
-  "type": "private",            // one of: private | group | channel
+  "type": "private",            // one of: private | group | channel | bot
   "username": "johndoe",        // if available
   "first_name": "John",         // users
   "last_name": "Doe",           // users
@@ -463,7 +463,8 @@ edit_message(
 find_chats(
   query: str,                  // Search term(s); comma-separated for multi-term
   limit?: number = 20,         // Max results to return
-  chat_type?: string, // Optional filter ('private','group','channel', comma-separated for multiple)
+  chat_type?: string, // Optional filter ('private','group','channel','bot', comma-separated for multiple)
+  folder?: number | string,    // Filter by dialog folder (integer ID or string name, case-insensitive exact match)
   public?: boolean             // Optional public filter (true=with username, false=without username). Never applies to private chats.
 ) -> {
   chats: Chat[],               // Array of chat/user entities
@@ -475,11 +476,17 @@ find_chats(
 - **Global users** - Public Telegram users
 - **Channels & groups** - Public channels and groups
 - **Multi-term** - "term1, term2" runs parallel searches and merges/dedupes
+- **Folder filtering** - Filter by dialog folder (archived, custom folders)
 
 **Query formats:**
 - Name: `"John Doe"`
 - Username: `"telegram"` (without @)
 - Phone: `"+1234567890"`
+
+**Folder values:**
+- `0` or `"0"` - Default/main folder
+- `1` or `"1"` - Archived folder
+- Folder name as string - Case-insensitive exact match (e.g., `"Бридж"`, `"Work"`)
 
 **Examples:**
 ```json
@@ -503,6 +510,15 @@ find_chats(
 
 // Find private groups only
 {"tool": "find_chats", "params": {"query": "team", "chat_type": "group", "public": false}}
+
+// Find chats in archived folder (folder ID)
+{"tool": "find_chats", "params": {"query": "project", "folder": 1}}
+
+// Find chats in a specific folder by name
+{"tool": "find_chats", "params": {"query": "work", "folder": "Work"}}
+
+// Find bots
+{"tool": "find_chats", "params": {"query": "assistant", "chat_type": "bot"}}
 ```
 
 ### ℹ️ get_chat_info
