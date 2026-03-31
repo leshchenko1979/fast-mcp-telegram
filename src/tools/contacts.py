@@ -346,18 +346,11 @@ async def _dialog_in_date_range(
     dialog_date,
     min_date_dt: datetime | None,
     max_date_dt: datetime | None,
-) -> tuple[bool, bool]:
+) -> bool:
     """
-    Check if dialog is in date range and whether early break is possible.
+    Check if dialog is in date range.
 
-    Returns (in_range, can_break_early):
-    - in_range: True if dialog should be included
-    - can_break_early: True if we can stop iterating (only when using dialog.date,
-      since dialogs are sorted newest-first)
-
-    Note: Dialogs are sorted newest-first, so we can break when dialog_date < min_date_dt
-    (all subsequent dialogs are older). We must continue (not break) when dialog_date > max_date_dt
-    because there may still be dialogs within the valid range.
+    Returns True if dialog should be included, False otherwise.
     """
     if dialog_date:
         # Ensure dialog_date is timezone-aware (assume UTC if naive)
@@ -365,31 +358,27 @@ async def _dialog_in_date_range(
         if dialog_date.tzinfo is None:
             dialog_date = dialog_date.replace(tzinfo=UTC)
 
-        # Too new (above max_date upper bound) - skip but don't break
+        # Too new (above max_date upper bound) - exclude
         if max_date_dt and dialog_date > max_date_dt:
-            return False, False
-        # Too old (below min_date lower bound) - break (all subsequent are older)
-        if min_date_dt and dialog_date < min_date_dt:
-            return False, True
-        return True, False
+            return False
+        # Too old (below min_date lower bound) - exclude
+        return not (min_date_dt and dialog_date < min_date_dt)
 
-    # Fallback: check message history (not sorted, so no early break possible)
+    # Fallback: check message history
     # Skip fallback when no date filtering is active to avoid unnecessary API calls
     if min_date_dt is None and max_date_dt is None:
-        return True, False
+        return True
 
     fallback_date = await _get_last_message_date(entity, client)
     if not fallback_date:
-        return True, False
+        return True
 
     if fallback_dt := _parse_iso_date(fallback_date):
-        return (
-            (False, False)
-            if (min_date_dt and fallback_dt < min_date_dt)
+        return not (
+            (min_date_dt and fallback_dt < min_date_dt)
             or (max_date_dt and fallback_dt > max_date_dt)
-            else (True, False)
         )
-    return True, False
+    return True
 
 
 async def _get_last_message_date(entity, client) -> str | None:
@@ -417,9 +406,8 @@ async def search_dialogs_impl(
     last activity tracking. However, iter_dialogs() has no query parameter,
     so query matching is done client-side against entity display names.
 
-    Note: iter_dialogs() returns dialogs SORTED by recency (most recent first).
-    This allows early termination when min_date filter is satisfied (once we hit a dialog
-    older than min_date, all subsequent dialogs are also too old).
+    Note: iter_dialogs() may return pinned chats that break chronological ordering,
+    so early break optimization is not safe when date filtering.
 
     Args:
         query: Search query (matched against title, username, first_name, phone). Optional.
@@ -451,17 +439,14 @@ async def search_dialogs_impl(
                 continue
 
             # Query filter (cheapest)
-            if not _matches_dialog_query(entity, query_lower):
+            if query_lower and not _matches_dialog_query(entity, query_lower):
                 continue
 
-            # Date filter with early break support
+            # Date filter
             dialog_date = getattr(dialog, "date", None)
-            in_range, can_break = await _dialog_in_date_range(
+            if not await _dialog_in_date_range(
                 entity, client, dialog_date, min_date_dt, max_date_dt
-            )
-            if can_break:
-                break
-            if not in_range:
+            ):
                 continue
 
             # Chat type and public filters
