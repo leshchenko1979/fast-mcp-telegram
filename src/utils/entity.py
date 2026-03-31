@@ -1,3 +1,4 @@
+import contextlib
 import logging
 
 from telethon.tl.functions.channels import GetFullChannelRequest
@@ -7,7 +8,6 @@ from telethon.tl.tlobject import TLObject
 from telethon.tl.types import InputMessagesFilterEmpty, PeerChannel, PeerChat, PeerUser
 
 from ..client.connection import get_connected_client
-import contextlib
 
 logger = logging.getLogger(__name__)
 

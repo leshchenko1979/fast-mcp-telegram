@@ -18,11 +18,17 @@ def test_force_document_true_for_non_image_suffix() -> None:
 
 def test_force_document_false_only_when_all_image_suffixes() -> None:
     assert force_document_for_file_list(["https://x/a/photo.jpg"]) is False
-    assert force_document_for_file_list(["https://x/a/1.png", "https://y/b/2.webp"]) is False
+    assert (
+        force_document_for_file_list(["https://x/a/1.png", "https://y/b/2.webp"])
+        is False
+    )
 
 
 def test_force_document_mixed_list() -> None:
-    assert force_document_for_file_list(["https://x/a/1.jpg", "https://y/b/doc.pdf"]) is True
+    assert (
+        force_document_for_file_list(["https://x/a/1.jpg", "https://y/b/doc.pdf"])
+        is True
+    )
 
 
 def test_force_document_windows_style_path_with_forward_slashes() -> None:
