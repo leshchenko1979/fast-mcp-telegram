@@ -408,7 +408,7 @@ async def test_search_dialogs_impl_respects_max_date():
         MockUser(1, first_name="Future"), date=datetime(2025, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -452,7 +452,7 @@ async def test_search_dialogs_impl_respects_min_date():
         ),
     ]
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         for d in dialogs:
             yield d
 
@@ -500,7 +500,7 @@ async def test_find_chats_impl_with_date_filters_uses_dialog_search():
         MockUser(1, first_name="John"), date=datetime(2024, 6, 15, tzinfo=UTC)
     )
 
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         yield dialog
 
     mock_client = MagicMock()
@@ -522,7 +522,7 @@ async def test_find_chats_impl_date_filter_no_results_returns_error():
     """When date filters find nothing, should return structured error."""
 
     # Empty async generator - yields nothing
-    async def mock_iter_dialogs(limit=None):
+    async def mock_iter_dialogs(limit=None, folder=None):
         if False:
             yield
 

@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import time
 
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
@@ -20,6 +21,58 @@ _ENTITY_TYPE_CACHE: dict[tuple, str | None] = {}
 
 # Cache built entity dict per entity key
 _ENTITY_DICT_CACHE: dict[tuple, dict | None] = {}
+
+# -------------------------
+# Folder list cache
+# -------------------------
+
+# Cache for folder list: key is session_id, value is (folders_list, timestamp)
+_FOLDER_LIST_CACHE: dict[str, tuple[list[dict], float]] = {}
+_FOLDER_CACHE_TTL_SECONDS = 300  # 5 minutes
+
+
+async def get_available_folders(client) -> list[dict]:
+    """Fetch user's dialog folders from Telegram with 5-minute caching.
+
+    Uses client(functions.messages.GetDialogFiltersRequest()) via Telethon.
+
+    Returns list of dicts with 'id' (int) and 'title' (str) keys.
+
+    IMPORTANT: Folder title is a TextWithEntities object - extract .text
+    """
+    global _FOLDER_LIST_CACHE
+
+    # Use object id for cache key - works with any session type (SQLiteSession, etc.)
+    try:
+        cache_key = str(id(client.session))
+    except Exception:
+        cache_key = "default"
+
+    # Check cache
+    if cache_key in _FOLDER_LIST_CACHE:
+        folders, timestamp = _FOLDER_LIST_CACHE[cache_key]
+        if time.time() - timestamp < _FOLDER_CACHE_TTL_SECONDS:
+            return folders
+
+    # Fetch from Telegram
+    folders = []
+    try:
+        from telethon import functions
+        result = await client(functions.messages.GetDialogFiltersRequest())
+        for f in result.dialog_filters:
+            # title is TextWithEntities object - extract .text
+            title_obj = getattr(f, 'title', None)
+            title_text = getattr(title_obj, 'text', None) if title_obj else None
+            folders.append({
+                "id": getattr(f, 'id', None),
+                "title": title_text,
+            })
+    except Exception as e:
+        logger.debug(f"GetDialogFiltersRequest failed: {e}")
+
+    # Update cache
+    _FOLDER_LIST_CACHE[cache_key] = (folders, time.time())
+    return folders
 
 
 def _entity_cache_key(entity) -> tuple:
@@ -89,7 +142,7 @@ def _cache_channel_normalized_type(entity, cache_key: tuple) -> str:
 
 
 def get_normalized_chat_type(entity) -> str | None:
-    """Return normalized chat type: 'private', 'group', or 'channel'."""
+    """Return normalized chat type: 'private', 'bot', 'group', or 'channel'."""
     if not entity:
         return None
     # Check manual cache first
@@ -103,6 +156,13 @@ def get_normalized_chat_type(entity) -> str | None:
         return _ENTITY_TYPE_CACHE[key]
 
     if entity_class == "User":
+        # Check if this user is a bot (bot field is boolean true/false)
+        try:
+            if getattr(entity, 'bot', False):
+                _ENTITY_TYPE_CACHE[key] = "bot"
+                return _ENTITY_TYPE_CACHE[key]
+        except Exception:
+            pass
         _ENTITY_TYPE_CACHE[key] = "private"
         return _ENTITY_TYPE_CACHE[key]
     if entity_class == "Chat":
@@ -337,7 +397,7 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
     chat_types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
 
     # Validate that all specified types are valid
-    valid_types = {"private", "group", "channel"}
+    valid_types = {"private", "bot", "group", "channel"}
     if any(ct not in valid_types for ct in chat_types):
         return False
 
@@ -359,8 +419,8 @@ def _matches_public_filter(entity, public: bool | None) -> bool:
     Returns:
         True if entity matches public filter, False otherwise
     """
-    # Private chats (User entities) are never filtered by public parameter
-    if get_normalized_chat_type(entity) == "private":
+    # Private chats and bots (User entities) are never filtered by public parameter
+    if get_normalized_chat_type(entity) in ("private", "bot"):
         return True
 
     if public is None:
@@ -418,7 +478,7 @@ async def _fetch_enrichment_fields(
                 f"GetFullChannelRequest (channel) failed for {getattr(entity, 'id', None)}: {e}"
             )
 
-    elif computed_type == "private":
+    elif computed_type in ("private", "bot"):
         try:
             full_user = await client(GetFullUserRequest(id=entity))
             bio_value = getattr(full_user, "about", None)
