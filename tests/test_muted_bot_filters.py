@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.tools.contacts import (
+    _find_chats_global,
     _matches_muted_filter,
     find_chats_impl,
     get_chat_info_impl,
@@ -454,21 +455,33 @@ class TestFindChatsImplMuted:
     """Tests for find_chats_impl with muted parameter."""
 
     @pytest.mark.asyncio
-    async def test_muted_without_date_filters_uses_global_search(self):
-        """find_chats(muted=True) without date filters falls through to global search (muted silently ignored)."""
-        result = await find_chats_impl(query="test", muted=True)
+    async def test_muted_true_without_date_filters_uses_global_search(self):
+        """find_chats(muted=True) without date filters calls global search with muted silently ignored."""
+        stub_result = {"chats": []}
 
-        # Muted without date filters falls through to global search (no error)
-        # Result is either a list of chats or an error from the global search attempt
-        assert "chats" in result or "error" in result
+        with patch(
+            "src.tools.contacts._find_chats_global", return_value=stub_result
+        ) as mock_call:
+            result = await find_chats_impl(query="test", muted=True)
+            assert result == stub_result
+            mock_call.assert_called_once()
+            _, kwargs = mock_call.call_args
+            # muted is not accepted by _find_chats_global, so it should not appear in kwargs
+            assert "muted" not in kwargs
 
     @pytest.mark.asyncio
     async def test_muted_false_without_date_filters_uses_global_search(self):
-        """find_chats(muted=False) without date filters falls through to global search (muted silently ignored)."""
-        result = await find_chats_impl(query="test", muted=False)
+        """find_chats(muted=False) without date filters calls global search with muted silently ignored."""
+        stub_result = {"chats": []}
 
-        # Muted without date filters falls through to global search (no error)
-        assert "chats" in result or "error" in result
+        with patch(
+            "src.tools.contacts._find_chats_global", return_value=stub_result
+        ) as mock_call:
+            result = await find_chats_impl(query="test", muted=False)
+            assert result == stub_result
+            mock_call.assert_called_once()
+            _, kwargs = mock_call.call_args
+            assert "muted" not in kwargs
 
     @pytest.mark.asyncio
     async def test_muted_with_min_date_uses_dialog_search(self):

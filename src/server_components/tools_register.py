@@ -311,6 +311,10 @@ def register_tools(mcp: FastMCP) -> None:
         - Supports full ISO 8601 datetime: "2024-01-01", "2024-01-01T14:30:00", "2024-01-01T14:30:00+00:00"
         - Timezone-naive values are assumed UTC
 
+        MUTED FILTERING:
+        - When date filters are provided, muted filters by notification status
+        - When no date filters (global search), muted is silently ignored — use date filters to enable muted filtering
+
         WORKFLOW:
         1. Find chat: find_chats("John Doe")
         2. Get chat_id from results
