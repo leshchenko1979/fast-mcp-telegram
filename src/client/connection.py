@@ -113,7 +113,9 @@ async def _get_client_by_token(token: str) -> TelegramClient:
                 "api_hash": API_HASH,
                 "entity_cache_limit": get_config().entity_cache_limit,
             }
-            client_kwargs |= build_mtproto_client_args(get_config().mtproto_proxy, logger.info)
+            client_kwargs |= build_mtproto_client_args(
+                get_config().mtproto_proxy, logger.info
+            )
 
             client = TelegramClient(**client_kwargs)
             await client.connect()
