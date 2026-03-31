@@ -99,7 +99,7 @@ async def _search_contacts_as_list(
     params = {
         "query": query,
         "limit": limit,
-        "query_length": len(query),
+        "query_length": len(query) if query else 0,
         "chat_type": chat_type,
         "public": public,
     }
@@ -201,6 +201,18 @@ async def _find_chats_global(
                     continue
             active_gens = next_active
 
+        if not merged:
+            return log_and_build_error(
+                operation="search_contacts_multi",
+                error_message=f"No contacts found matching query '{query}'",
+                params={
+                    "query": query,
+                    "limit": limit,
+                    "chat_type": chat_type,
+                    "public": public,
+                },
+                exception=ValueError(f"No contacts found matching query '{query}'"),
+            )
         return {"chats": merged[:limit]}
     except Exception as e:
         return log_and_build_error(
@@ -225,6 +237,37 @@ async def _find_chats_by_dialogs(
     max_date: str | None,
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
+    # Validate date parameters
+    if min_date is not None and _parse_iso_date(min_date) is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid min_date format: '{min_date}'. Use ISO format (e.g., '2024-01-01')",
+            params={
+                "query": query,
+                "limit": limit,
+                "chat_type": chat_type,
+                "public": public,
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+            exception=ValueError(f"Invalid min_date format: '{min_date}'"),
+        )
+
+    if max_date is not None and _parse_iso_date(max_date) is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid max_date format: '{max_date}'. Use ISO format (e.g., '2024-12-31')",
+            params={
+                "query": query,
+                "limit": limit,
+                "chat_type": chat_type,
+                "public": public,
+                "min_date": min_date,
+                "max_date": max_date,
+            },
+            exception=ValueError(f"Invalid max_date format: '{max_date}'"),
+        )
+
     results = []
     async for item in search_dialogs_impl(
         query, limit, chat_type, public, min_date, max_date

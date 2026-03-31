@@ -517,3 +517,25 @@ async def test_find_chats_impl_date_filter_no_results_returns_error():
         assert "error" in result
         assert result["operation"] == "find_chats"
         assert "No chats found" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_find_chats_impl_invalid_min_date_returns_error():
+    """When min_date is invalid, should return structured error."""
+    result = await find_chats_impl(query="test", limit=10, min_date="invalid-date")
+
+    assert "error" in result
+    assert result["operation"] == "find_chats"
+    assert "Invalid min_date format" in result["error"]
+    assert "invalid-date" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_find_chats_impl_invalid_max_date_returns_error():
+    """When max_date is invalid, should return structured error."""
+    result = await find_chats_impl(query="test", limit=10, max_date="not-a-date")
+
+    assert "error" in result
+    assert result["operation"] == "find_chats"
+    assert "Invalid max_date format" in result["error"]
+    assert "not-a-date" in result["error"]
