@@ -1,4 +1,26 @@
 ## Current Work Focus
+**Completed**: MTProto Fake TLS Support Investigation (2026-03-31)
+
+**Investigation Results**:
+- **Telethon does NOT natively support Fake TLS (EE prefix)** - confirmed via Context7 docs and web search
+- **Solution**: `TelethonFakeTLS` package provides fake TLS support
+- **Installation**: `pip install TelethonFakeTLS`
+- **Secret Format**: Base64 secret, remove "7" from start (e.g., `7i/UefJk...` → `i/UefJk...`)
+- **Connection Class**: `TelethonFakeTLS.Connection.ConnectionTcpMTProxyFakeTLS`
+- **Verified Working**: Connection test successful with MTG proxy `144.31.188.163:443`
+
+**Integration Needed**:
+- Add `TelethonFakeTLS` as optional dependency
+- Detect fake TLS secrets (base64 format starting with `7`)
+- Conditionally use `ConnectionTcpMTProxyFakeTLS` when fake TLS detected
+- Update `src/utils/proxy.py` to handle both hex and base64 secrets
+
+**Your MTG Proxy Secrets**:
+- Original secret: `7i/UefJk/RKF0YDxChUNy6BnaXRodWIuY29t`
+- For TelethonFakeTLS: `i/UefJk/RKF0YDxChUNy6BnaXRodWIuY29t` (remove leading `7`)
+
+---
+
 **Completed**: MTProto Proxy Support (2026-03-31)
 
 **Implementation**:
@@ -9,6 +31,8 @@
   - `src/client/connection.py` (main client)
   - `src/server_components/web_setup.py` (setup flow)
   - `src/cli_setup.py` (CLI setup)
+
+**Note**: Current implementation uses standard MTProto proxy. Fake TLS requires `TelethonFakeTLS` package.
 
 
 ---

@@ -16,6 +16,18 @@ from ..config.settings import API_HASH, API_ID, SESSION_DIR
 
 logger = logging.getLogger(__name__)
 
+# Try to import TelethonFakeTLS for fake TLS support
+try:
+    from TelethonFakeTLS import Connection as FakeTLSConnection
+    from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+    TELTHONFAKETLS_AVAILABLE = True
+    logger.debug("TelethonFakeTLS available for fake TLS proxy support")
+except ImportError:
+    FakeTLSConnection = None
+    ConnectionTcpMTProxyFakeTLS = None
+    TELTHONFAKETLS_AVAILABLE = False
+    logger.debug("TelethonFakeTLS not available, fake TLS proxy not supported")
+
 _mtproto_proxy: MTProtoProxy | None = None
 
 
@@ -122,9 +134,27 @@ async def _get_client_by_token(token: str) -> TelegramClient:
                 "entity_cache_limit": get_config().entity_cache_limit,
             }
             if _mtproto_proxy:
-                client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
-                client_kwargs["proxy"] = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret)
-                logger.info(f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
+                if _mtproto_proxy.use_fake_tls:
+                    if TELTHONFAKETLS_AVAILABLE:
+                        client_kwargs["connection"] = ConnectionTcpMTProxyFakeTLS
+                        logger.info(
+                            f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
+                        )
+                    else:
+                        logger.warning(
+                            "Fake TLS proxy configured but TelethonFakeTLS not installed. "
+                            "Install with: pip install TelethonFakeTLS"
+                        )
+                else:
+                    client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+                    logger.info(
+                        f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
+                    )
+                client_kwargs["proxy"] = (
+                    _mtproto_proxy.server,
+                    _mtproto_proxy.port,
+                    _mtproto_proxy.secret,
+                )
 
             client = TelegramClient(**client_kwargs)
             await client.connect()

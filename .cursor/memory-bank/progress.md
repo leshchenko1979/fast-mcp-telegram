@@ -1,5 +1,10 @@
 ### 2026-03-31
-- **MTProto Proxy Support**: Added `MTPROTO_PROXY` environment variable for Telegram connection via MTProto proxy
+- **MTProto Fake TLS Investigation**: Discovered Telethon does NOT natively support Fake TLS (EE prefix) proxies. Verified via Context7 docs and web search.
+- **Solution Found**: `TelethonFakeTLS` package provides fake TLS support - available on PyPI
+- **Secret Format Discovery**: MTG fake TLS secrets are base64 encoded, must remove leading "7" for TelethonFakeTLS (e.g., `7i/UefJk...` → `i/UefJk...`)
+- **Connection Verified**: Successfully connected to MTG proxy `144.31.188.163:443` using `TelethonFakeTLS.ConnectionTcpMTProxyFakeTLS`
+- **Integration Required**: Add `TelethonFakeTLS` as optional dependency, detect secret type, conditionally use appropriate connection class
+- **MTProto Proxy Support**: Added `MTPROTO_PROXY` environment variable for Telegram connection via standard MTProto proxy
 - **New File**: `src/utils/proxy.py` with `MTProtoProxy` NamedTuple and URL parsing (supports `tg://proxy?...` and `host:port:secret` formats)
 - **Proxy Integration**: Uses `ConnectionTcpMTProxyRandomizedIntermediate` for obfuscated MTProto connection
 - **Files Modified**: `src/config/server_config.py`, `src/config/settings.py`, `src/client/connection.py`, `src/server_components/web_setup.py`, `src/cli_setup.py`

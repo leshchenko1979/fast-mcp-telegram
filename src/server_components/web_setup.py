@@ -14,6 +14,14 @@ from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
 from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
+
+# Try to import TelethonFakeTLS for fake TLS support
+try:
+    from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
+    TELETHONFAKETLS_AVAILABLE = True
+except ImportError:
+    ConnectionTcpMTProxyFakeTLS = None
+    TELETHONFAKETLS_AVAILABLE = False
 from telethon.tl.functions.account import GetPasswordRequest
 
 from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
@@ -159,8 +167,27 @@ def create_session_client(session_path: Path) -> TelegramClient:
         "entity_cache_limit": get_config().entity_cache_limit,
     }
     if _mtproto_proxy:
-        client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
-        client_kwargs["proxy"] = (_mtproto_proxy.server, _mtproto_proxy.port, _mtproto_proxy.secret)
+        if _mtproto_proxy.use_fake_tls:
+            if TELETHONFAKETLS_AVAILABLE:
+                client_kwargs["connection"] = ConnectionTcpMTProxyFakeTLS
+                logger.info(
+                    f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
+                )
+            else:
+                logger.warning(
+                    "Fake TLS proxy configured but TelethonFakeTLS not installed. "
+                    "Install with: pip install TelethonFakeTLS"
+                )
+        else:
+            client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
+            logger.info(
+                f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
+            )
+        client_kwargs["proxy"] = (
+            _mtproto_proxy.server,
+            _mtproto_proxy.port,
+            _mtproto_proxy.secret,
+        )
 
     return TelegramClient(**client_kwargs)
 

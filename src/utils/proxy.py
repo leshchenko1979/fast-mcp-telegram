@@ -1,6 +1,10 @@
 """
 MTProto proxy URL parsing utilities.
+
+Supports both standard MTProto proxies and Fake TLS (EE prefix) proxies.
+Fake TLS secrets are converted for use with TelethonFakeTLS package.
 """
+
 import logging
 import urllib.parse
 from typing import NamedTuple
@@ -14,6 +18,7 @@ class MTProtoProxy(NamedTuple):
     server: str
     port: int
     secret: str
+    use_fake_tls: bool = False
 
 
 def _redact_secret(url: str) -> str:
@@ -30,13 +35,46 @@ def _redact_secret(url: str) -> str:
     return "host:port:***"
 
 
+def _is_fake_tls_secret(secret: str) -> bool:
+    """Check if secret appears to be a Fake TLS (base64) secret.
+
+    Fake TLS secrets start with '7' (the padding character in base64).
+    When decoded, they typically contain domain names like 'github.com'.
+    """
+    if not secret:
+        return False
+    secret = secret.strip()
+    # Fake TLS secrets are often base64 with '7' prefix (padding indicator)
+    if secret.startswith("7"):
+        return True
+    # Also check if it's a hex secret with 'ee' prefix (Fake TLS marker)
+    # Note: 'dd' prefix is standard MTProto randomized intermediate, NOT fake TLS
+    if secret.startswith("ee"):
+        return True
+    return False
+
+
+def _process_fake_tls_secret(secret: str) -> str:
+    """Process Fake TLS secret for TelethonFakeTLS.
+
+    For base64 secrets starting with '7', remove the leading '7'.
+    For hex secrets starting with 'ee' or 'dd', the proxy.py already handles extraction.
+    """
+    secret = secret.strip()
+    if secret.startswith("7"):
+        # Remove leading '7' for TelethonFakeTLS
+        return secret[1:]
+    return secret
+
+
 def parse_mtproto_proxy(url: str | None) -> MTProtoProxy | None:
     """
     Parse MTProto proxy URL into components.
 
     Supports formats:
-    - tg://proxy?server=host&port=443&secret=xxx
-    - host:port:secret
+    - tg://proxy?server=host&port=443&secret=xxx (standard or fake TLS)
+    - host:port:secret (standard)
+    - host:port:ee... (fake TLS with ee prefix)
 
     Args:
         url: MTProto proxy URL or None
@@ -82,7 +120,12 @@ def _parse_tg_proxy_format(url: str) -> MTProtoProxy | None:
         except ValueError:
             port = 443
 
-        return MTProtoProxy(server=server, port=port, secret=secret)
+        # Detect fake TLS
+        use_fake_tls = _is_fake_tls_secret(secret)
+        if use_fake_tls:
+            secret = _process_fake_tls_secret(secret)
+
+        return MTProtoProxy(server=server, port=port, secret=secret, use_fake_tls=use_fake_tls)
     except Exception:
         logger.warning("Failed to parse MTProto proxy URL")
         return None
@@ -98,10 +141,18 @@ def _parse_simple_format(url: str) -> MTProtoProxy | None:
     """Parse simple host:port:secret format."""
     try:
         server, port_str, secret = url.split(":")
+        secret = secret.strip()
+
+        # Detect fake TLS by hex prefix
+        use_fake_tls = _is_fake_tls_secret(secret)
+        if use_fake_tls:
+            secret = _process_fake_tls_secret(secret)
+
         return MTProtoProxy(
             server=server.strip(),
             port=int(port_str.strip()),
-            secret=secret.strip(),
+            secret=secret,
+            use_fake_tls=use_fake_tls,
         )
     except Exception:
         logger.warning("Failed to parse simple proxy format")
