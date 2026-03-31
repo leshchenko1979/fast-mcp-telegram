@@ -294,6 +294,35 @@ class TestDialogInDateRange:
         assert in_range is True
         assert can_break is False
 
+    @pytest.mark.asyncio
+    async def test_naive_dialog_date_against_aware_bounds(self):
+        """Test that naive dialog_date (like Telethon returns) works against aware bounds.
+
+        This is a regression test for the bug where Telethon's iter_dialogs()
+        returns timezone-naive datetimes, but _parse_iso_date() returns timezone-aware
+        datetimes. Comparing them raised TypeError.
+        """
+        # Naive datetime (like Telethon returns from dialog.date)
+        naive_dialog_date = datetime(2024, 6, 15, 10, 30, 0)  # no tzinfo
+        dialog = MockDialog(MockUser(1), date=naive_dialog_date)
+
+        # Aware datetimes (like _parse_iso_date returns)
+        min_date_dt = datetime(2024, 1, 1, tzinfo=UTC)
+        max_date_dt = datetime(2024, 12, 31, tzinfo=UTC)
+
+        # Before fix: this would raise TypeError: can't compare offset-naive and offset-aware datetimes
+        # After fix: should work correctly
+        in_range, can_break = await _dialog_in_date_range(
+            dialog.entity,
+            None,
+            naive_dialog_date,
+            min_date_dt=min_date_dt,
+            max_date_dt=max_date_dt,
+        )
+
+        assert in_range is True
+        assert can_break is False
+
 
 # ============== build_dialog_entity_dict Tests ==============
 
