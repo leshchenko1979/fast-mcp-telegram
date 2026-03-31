@@ -305,10 +305,12 @@ async def _dialog_in_date_range(
 
     Returns (in_range, can_break_early):
     - in_range: True if dialog should be included
-    - can_break_early: True if we can stop iterating (only when using dialog.date)
+    - can_break_early: True if we can stop iterating (only when using dialog.date,
+      since dialogs are sorted newest-first)
 
     Note: Dialogs are sorted newest-first, so we can break when dialog_date < min_date_dt
-    but must continue (not break) when dialog_date > max_date_dt.
+    (all subsequent dialogs are older). We must continue (not break) when dialog_date > max_date_dt
+    because there may still be dialogs within the valid range.
     """
     if dialog_date:
         # Too new (above max_date upper bound) - skip but don't break
@@ -320,12 +322,15 @@ async def _dialog_in_date_range(
         return True, False
 
     # Fallback: check message history (not sorted, so no early break possible)
+    # Skip fallback when no date filtering is active to avoid unnecessary API calls
+    if min_date_dt is None and max_date_dt is None:
+        return True, False
+
     if fallback_date := await _get_last_message_date(entity, client):
-        with suppress(ValueError):
-            fallback_dt = datetime.fromisoformat(fallback_date.replace("Z", "+00:00"))
-            if min_date_dt and fallback_dt < min_date_dt:
-                return False, False
-            if max_date_dt and fallback_dt > max_date_dt:
+        if fallback_dt := _parse_iso_date(fallback_date):
+            if (min_date_dt and fallback_dt < min_date_dt) or (
+                max_date_dt and fallback_dt > max_date_dt
+            ):
                 return False, False
     return True, False
 
@@ -356,7 +361,8 @@ async def search_dialogs_impl(
     so query matching is done client-side against entity display names.
 
     Note: iter_dialogs() returns dialogs SORTED by recency (most recent first).
-    This allows early termination when max_date filter is satisfied.
+    This allows early termination when min_date filter is satisfied (once we hit a dialog
+    older than min_date, all subsequent dialogs are also too old).
 
     Args:
         query: Search query (matched against title, username, first_name, phone). Optional.
