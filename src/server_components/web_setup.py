@@ -13,25 +13,15 @@ from starlette.templating import Jinja2Templates
 from telethon import TelegramClient
 from telethon.errors import PasswordHashInvalidError, SessionPasswordNeededError
 from telethon.errors.rpcerrorlist import PhoneNumberFloodError
-from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
-
-# Try to import TelethonFakeTLS for fake TLS support
-try:
-    from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
-
-    TELETHONFAKETLS_AVAILABLE = True
-except ImportError:
-    ConnectionTcpMTProxyFakeTLS = None
-    TELETHONFAKETLS_AVAILABLE = False
 from telethon.tl.functions.account import GetPasswordRequest
 
 from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
 from src.config.server_config import ServerMode, get_config
-from src.config.settings import API_HASH, API_ID, MTPROTO_PROXY
+from src.config.settings import API_HASH, API_ID
 from src.server_components.auth import RESERVED_SESSION_NAMES
 from src.server_components.auth_middleware import generate_url_based_config
 from src.utils.mcp_config import generate_mcp_config_json
-from src.utils.proxy import MTProtoProxy, parse_mtproto_proxy
+from src.utils.proxy import build_mtproto_client_args
 
 # Constants
 SETUP_SESSION_PREFIX = "setup-"
@@ -82,9 +72,6 @@ templates = Jinja2Templates(
 _setup_sessions: dict[str, dict] = {}
 # Use unified config for TTL
 SETUP_SESSION_TTL_SECONDS = get_config().setup_session_ttl_seconds
-
-# MTProto proxy configuration
-_mtproto_proxy: MTProtoProxy | None = None
 
 logger = logging.getLogger(__name__)
 
@@ -157,39 +144,13 @@ def _2fa_form_context(
 
 def create_session_client(session_path: Path) -> TelegramClient:
     """Create and return a configured TelegramClient."""
-    global _mtproto_proxy
-    if _mtproto_proxy is None:
-        _mtproto_proxy = parse_mtproto_proxy(MTPROTO_PROXY)
-
     client_kwargs = {
         "session": session_path,
         "api_id": int(API_ID),
         "api_hash": API_HASH,
         "entity_cache_limit": get_config().entity_cache_limit,
     }
-    if _mtproto_proxy:
-        if _mtproto_proxy.use_fake_tls:
-            if TELETHONFAKETLS_AVAILABLE:
-                client_kwargs["connection"] = ConnectionTcpMTProxyFakeTLS
-                logger.info(
-                    f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
-                )
-            else:
-                logger.warning(
-                    "Fake TLS proxy configured but TelethonFakeTLS not installed. "
-                    "Install with: pip install TelethonFakeTLS"
-                )
-        else:
-            client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
-            logger.info(
-                f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
-            )
-        client_kwargs["proxy"] = (
-            _mtproto_proxy.server,
-            _mtproto_proxy.port,
-            _mtproto_proxy.secret,
-        )
-
+    client_kwargs |= build_mtproto_client_args(get_config().mtproto_proxy, logger.info)
     return TelegramClient(**client_kwargs)
 
 

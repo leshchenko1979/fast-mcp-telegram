@@ -12,23 +12,10 @@ from pydantic import Field
 from pydantic_settings import CliImplicitFlag, SettingsConfigDict
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
-from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
-
-# Try to import TelethonFakeTLS for fake TLS support
-try:
-    from TelethonFakeTLS.Connection import ConnectionTcpMTProxyFakeTLS
-
-    TELETHONFAKETLS_AVAILABLE = True
-except ImportError:
-    ConnectionTcpMTProxyFakeTLS = None
-    TELETHONFAKETLS_AVAILABLE = False
 
 from .config.server_config import ServerConfig, ServerMode
 from .utils.mcp_config import generate_mcp_config_json
-from .utils.proxy import MTProtoProxy, parse_mtproto_proxy
-
-# MTProto proxy configuration
-_mtproto_proxy: MTProtoProxy | None = None
+from .utils.proxy import build_mtproto_client_args
 
 
 class SetupConfig(ServerConfig):
@@ -168,35 +155,13 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
     print(f"\n🔐 Authenticating with session: {setup_config.session_name}")
 
     # Create the client and connect
-    global _mtproto_proxy
-    if _mtproto_proxy is None:
-        _mtproto_proxy = parse_mtproto_proxy(setup_config.mtproto_proxy)
-
     client_kwargs = {
         "session": session_path,
         "api_id": int(setup_config.api_id),
         "api_hash": setup_config.api_hash,
         "entity_cache_limit": setup_config.entity_cache_limit,
     }
-    if _mtproto_proxy:
-        if _mtproto_proxy.use_fake_tls:
-            if TELETHONFAKETLS_AVAILABLE:
-                client_kwargs["connection"] = ConnectionTcpMTProxyFakeTLS
-                print(
-                    f"Using MTProto Fake TLS proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}"
-                )
-            else:
-                print(
-                    "Warning: Fake TLS proxy configured but TelethonFakeTLS not installed"
-                )
-        else:
-            client_kwargs["connection"] = ConnectionTcpMTProxyRandomizedIntermediate
-            print(f"Using MTProto proxy: {_mtproto_proxy.server}:{_mtproto_proxy.port}")
-        client_kwargs["proxy"] = (
-            _mtproto_proxy.server,
-            _mtproto_proxy.port,
-            _mtproto_proxy.secret,
-        )
+    client_kwargs |= build_mtproto_client_args(setup_config.mtproto_proxy, print)
 
     client = TelegramClient(**client_kwargs)
 
