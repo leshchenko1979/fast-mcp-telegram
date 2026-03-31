@@ -57,13 +57,17 @@ def _process_fake_tls_secret(secret: str) -> str:
     """Process Fake TLS secret for TelethonFakeTLS.
 
     For base64 secrets starting with '7', remove the leading '7'.
-    The '7' is a marker that Telegram adds to indicate fake TLS, but TelethonFakeTLS
-    expects the raw base64 bytes without it.
+    For hex secrets starting with 'ee', remove the 'ee' prefix.
+    The '7' and 'ee' are markers that Telegram adds to indicate fake TLS,
+    but TelethonFakeTLS expects the raw secret bytes without them.
     """
     secret = secret.strip()
     if secret.startswith("7"):
         # Remove leading '7' marker for TelethonFakeTLS
         return secret[1:]
+    if secret.startswith("ee"):
+        # Remove 'ee' prefix for TelethonFakeTLS
+        return secret[2:]
     return secret
 
 
@@ -125,7 +129,9 @@ def _parse_tg_proxy_format(url: str) -> MTProtoProxy | None:
         if use_fake_tls:
             secret = _process_fake_tls_secret(secret)
 
-        return MTProtoProxy(server=server, port=port, secret=secret, use_fake_tls=use_fake_tls)
+        return MTProtoProxy(
+            server=server, port=port, secret=secret, use_fake_tls=use_fake_tls
+        )
     except Exception:
         logger.warning("Failed to parse MTProto proxy URL")
         return None
