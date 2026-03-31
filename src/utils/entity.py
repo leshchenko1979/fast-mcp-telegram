@@ -7,6 +7,7 @@ from telethon.tl.tlobject import TLObject
 from telethon.tl.types import InputMessagesFilterEmpty, PeerChannel, PeerChat, PeerUser
 
 from ..client.connection import get_connected_client
+import contextlib
 
 logger = logging.getLogger(__name__)
 
@@ -507,10 +508,8 @@ def build_dialog_entity_dict(dialog, entity) -> dict | None:
 
     last_activity_date = None
     if dialog_date := getattr(dialog, "date", None):
-        try:
+        with contextlib.suppress(Exception):
             last_activity_date = dialog_date.isoformat()
-        except Exception:
-            pass
 
     base["last_activity_date"] = last_activity_date
     return base
