@@ -529,6 +529,15 @@ async def search_messages_impl(
             exception=e,
         )
 
+    # Guard: chat_type filter is not meaningful when chat_id is fixed
+    if chat_id is not None and chat_type is not None:
+        return log_and_build_error(
+            operation="search_messages",
+            error_message="chat_type filter cannot be used when chat_id is specified. chat_type filters the target chat, but the chat is already fixed by chat_id.",
+            params=params,
+            exception=ValueError("chat_type not applicable in per-chat search"),
+        )
+
     if mode is MessageRetrievalMode.MESSAGE_IDS:
         if chat_id is None or message_ids is None:
             return log_and_build_error(

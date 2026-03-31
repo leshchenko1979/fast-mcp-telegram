@@ -1,4 +1,23 @@
 ## Current Work Focus
+**Completed**: find_chats muted filter + bot chat_type + get_chat_info muted (2026-03-31)
+
+**Implementation**:
+- `get_normalized_chat_type`: bots now return `"bot"` instead of `"private"` (type divergence accepted)
+- `chat_type="bot"` filter added; `"bot"` added to `_matches_chat_type` valid_types
+- `muted` field added to `build_dialog_entity_dict` from `dialog.notify_settings` (`mute_until > now OR silent == True`)
+- `get_chat_info` now returns `muted` via `GetNotifySettingsRequest` (extra API call per chat)
+- `_matches_public_filter` exempts both `"private"` and `"bot"` from public filtering
+- `_matches_muted_filter` helper added; `muted` requires date filters (dialog-based) — error if used without
+- `search_messages` guard added: error when `chat_type` + `chat_id` both provided (prevents silent zero-results)
+- `build_entity_dict_enriched`: bot users get bio enrichment (same branch as `"private"`)
+
+**API changes**:
+- `find_chats`: new `muted` param; `chat_type` accepts `"bot"`
+- `get_chat_info`: returns `muted` field
+- Entity dicts: `type: "bot"` for bot users, `muted: true/false` in dialog-based results
+
+---
+
 **Completed**: MTProto Fake TLS Integration (2026-03-31)
 
 **Implementation**:
@@ -68,8 +87,8 @@ SessionFileTokenVerifier validates tokens via session file existence. `with_auth
 ### Web Setup Interface Enhancement (2025-11-18)
 Session management via `/setup` endpoint with Create, Reauthorize, Delete options. Token-based security with phone verification for reauth.
 
-### Public Visibility Filtering (2025-11-19)
-`public` parameter excludes private chats (DMs) from visibility filtering - they always appear. Groups/channels filtered normally.
+### Public Visibility Filtering (2025-11-19, updated 2026-03-31)
+`public` parameter excludes private chats (DMs) and bot users from visibility filtering - they always appear. Groups/channels filtered normally.
 
 ### invoke_mtproto TL Construction (2025-11-25)
 Automatic TL object construction from JSON dictionaries with `"_"` key. Recursive nested support for complex types.

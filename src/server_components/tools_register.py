@@ -270,21 +270,22 @@ def register_tools(mcp: FastMCP) -> None:
         public: bool | None = None,
         min_date: str | None = None,
         max_date: str | None = None,
+        muted: bool | None = None,
     ) -> list[dict] | dict:
         """
-        Find Telegram chats (users, groups, channels) by name, username, or phone number.
+        Find Telegram chats (users, groups, channels, bots) by name, username, or phone number.
 
         TWO SEARCH MODES:
 
         1. GLOBAL SEARCH (default, no date filtering):
         - Searches all of Telegram by name/username/phone
         - Can find any user, group, or channel
-        - Does NOT return last_activity_date
+        - Does NOT return last_activity_date or muted
 
         2. DIALOG SEARCH (when date filtering is used):
         - Searches only your sidebar/dialog list
         - Cannot find chats you're not already connected to
-        - Returns last_activity_date for each chat
+        - Returns last_activity_date and muted for each chat
 
         QUERY TYPES:
         - Name: "John Doe" or "Иванов"
@@ -297,13 +298,13 @@ def register_tools(mcp: FastMCP) -> None:
         - The final list is truncated to the requested limit
 
         PUBLIC FILTER:
-        - Public filter never applies to private chats (direct messages with users)
+        - Public filter never applies to private chats or bot users
         - Only affects groups and channels
 
         DATE FILTERING:
         - When min_date or max_date is provided, switches to dialog-based search
         - **Dialog search only returns chats from your Telegram sidebar** (not global Telegram search)
-        - Dialog search provides last_activity_date for each chat
+        - Dialog search provides last_activity_date and muted for each chat
         - Query matching in dialog search is case-insensitive substring match against title/username/name
         - Without date filters, uses global Telegram search (can find any chat by name/username/phone)
         - Date filtering is done client-side (Telegram API ignores offset_date parameter)
@@ -323,21 +324,31 @@ def register_tools(mcp: FastMCP) -> None:
         find_chats("news", chat_type="channel,group")    # Find channels and groups
         find_chats("news", public=True)    # Find public groups and channels only
         find_chats("team", chat_type="group", public=False)  # Private groups only
+        find_chats("assistant", chat_type="bot")              # Find bot accounts
 
         # Dialog search (with date filtering) - searches YOUR sidebar chats only
         find_chats(min_date="2024-01-01")  # Your chats active since 2024
         find_chats("project", min_date="2024-01-01", max_date="2024-12-31")  # Your chats active in 2024
+        find_chats(muted=True, min_date="2024-01-01")     # Muted chats (requires date filter)
+        find_chats("alert", muted=False)                   # Unmuted chats matching "alert"
+
+        TYPE FIELD IN RESULTS:
+        - "private" = human user
+        - "bot"    = bot user (also exempt from public filter)
+        - "group"  = group/supergroup
+        - "channel" = channel
 
         Args:
             query: Search term(s). Supports comma-separated multi-queries. When date filtering is used, searches your sidebar chats only.
             limit: Max results (default: 20, recommended: ≤50)
-            chat_type: Optional filter ("private"|"group"|"channel", comma-separated for multiple)
-            public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats.
+            chat_type: Optional filter ("private"|"group"|"channel"|"bot", comma-separated for multiple)
+            public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats and bots.
             min_date: Minimum last activity date (ISO 8601 format, e.g. "2024-01-01" or "2024-01-01T14:30:00"). Uses dialog search (your sidebar chats only).
             max_date: Maximum last activity date (ISO 8601 format, e.g. "2024-12-31" or "2024-12-31T23:59:59"). Uses dialog search (your sidebar chats only).
+            muted: Optional filter for muted chats. Requires date filters (min_date or max_date). True=muted, False=unmuted.
         """
         return await find_chats_impl(
-            query, limit, chat_type, public, min_date, max_date
+            query, limit, chat_type, public, min_date, max_date, muted
         )
 
     @mcp.tool(
@@ -352,7 +363,7 @@ def register_tools(mcp: FastMCP) -> None:
 
         USE CASES:
         - Get full user profile after finding chat_id
-        - Retrieve contact details, bio, status and subscribers count
+        - Retrieve contact details, bio, status, subscribers count, and muted status
         - Check if user is online/bot/channel
 
         SUPPORTED FORMATS:
@@ -368,6 +379,10 @@ def register_tools(mcp: FastMCP) -> None:
         Args:
             chat_id: Target chat/user identifier (numeric ID, username, or channel ID)
             topics_limit: Max forum topics to include when chat is forum-enabled
+
+        Returns:
+            Chat info including muted status. Also includes last_activity_date and
+            topics (for forums) when available.
         """
         return await get_chat_info_impl(chat_id, topics_limit=topics_limit)
 

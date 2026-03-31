@@ -91,6 +91,30 @@ Telegram search has specific limitations that AI models should understand to pro
   "min_date": "2024-01-01",
   "limit": 15
 }}
+
+// ✅ Good: Chat type filter (private, group, channel, bot)
+// Note: chat_type="bot" searches messages from bot users; bot and private chats
+// are exempt from the public filter in find_chats
+{"tool": "search_messages_globally", "params": {
+  "query": "alert",
+  "chat_type": "bot",
+  "limit": 20
+}}
+```
+
+**Finding bots and muted chats:**
+
+Use `find_chats` to discover bots and muted chats:
+
+```json
+// Find bot accounts
+{"tool": "find_chats", "params": {"query": "assistant", "chat_type": "bot"}}
+
+// Find muted chats (requires date filter for dialog-based search)
+{"tool": "find_chats", "params": {"muted": true, "min_date": "2024-01-01"}}
+
+// Find unmuted chats only
+{"tool": "find_chats", "params": {"query": "alert", "muted": false, "min_date": "2024-01-01"}}
 ```
 
 ## Search Strategy for AI Models

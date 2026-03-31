@@ -1,5 +1,6 @@
 import contextlib
 import logging
+from datetime import UTC, datetime
 
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
@@ -103,8 +104,11 @@ def get_normalized_chat_type(entity) -> str | None:
         return _ENTITY_TYPE_CACHE[key]
 
     if entity_class == "User":
+        if bool(getattr(entity, "bot", False)):
+            _ENTITY_TYPE_CACHE[key] = "bot"
+            return "bot"
         _ENTITY_TYPE_CACHE[key] = "private"
-        return _ENTITY_TYPE_CACHE[key]
+        return "private"
     if entity_class == "Chat":
         _ENTITY_TYPE_CACHE[key] = "group"
         return _ENTITY_TYPE_CACHE[key]
@@ -121,7 +125,7 @@ def build_entity_dict(entity) -> dict | None:
     Fields:
     - id: numeric or string identifier
     - title: preferred display label; falls back to full name or @username
-    - type: one of "private", "group", "channel" (when determinable)
+    - type: one of "private", "bot", "group", "channel" (when determinable)
     - username: public username if available
     - first_name, last_name: present for users when available
     """
@@ -337,7 +341,7 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
     chat_types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
 
     # Validate that all specified types are valid
-    valid_types = {"private", "group", "channel"}
+    valid_types = {"private", "group", "channel", "bot"}
     if any(ct not in valid_types for ct in chat_types):
         return False
 
@@ -348,7 +352,7 @@ def _matches_chat_type(entity, chat_type: str) -> bool:
 def _matches_public_filter(entity, public: bool | None) -> bool:
     """Check if entity matches the specified public filter.
 
-    Private chats (User entities) are never filtered by the public parameter.
+    Private chats and bot users are never filtered by the public parameter.
 
     Args:
         entity: Telegram entity (User, Chat, Channel)
@@ -359,8 +363,9 @@ def _matches_public_filter(entity, public: bool | None) -> bool:
     Returns:
         True if entity matches public filter, False otherwise
     """
-    # Private chats (User entities) are never filtered by public parameter
-    if get_normalized_chat_type(entity) == "private":
+    # Private chats and bots (User entities) are never filtered by public parameter
+    normalized_type = get_normalized_chat_type(entity)
+    if normalized_type in ("private", "bot"):
         return True
 
     if public is None:
@@ -418,7 +423,7 @@ async def _fetch_enrichment_fields(
                 f"GetFullChannelRequest (channel) failed for {getattr(entity, 'id', None)}: {e}"
             )
 
-    elif computed_type == "private":
+    elif computed_type in ("private", "bot"):
         try:
             full_user = await client(GetFullUserRequest(id=entity))
             bio_value = getattr(full_user, "about", None)
@@ -512,4 +517,34 @@ def build_dialog_entity_dict(dialog, entity) -> dict | None:
             last_activity_date = dialog_date.isoformat()
 
     base["last_activity_date"] = last_activity_date
+
+    # Muted field from notify_settings (only when available)
+    if getattr(dialog, "notify_settings", None) is not None:
+        base["muted"] = _is_muted_from_dialog(dialog)
+
     return base
+
+
+def _is_muted_from_dialog(dialog) -> bool:
+    """Check if a dialog is muted based on its notify_settings.
+
+    Muted = mute_until is set and in the future, OR silent notifications are enabled.
+    Returns False when notify_settings is not available.
+    """
+    notify_settings = getattr(dialog, "notify_settings", None)
+    return _is_muted_from_notify_settings(notify_settings)
+
+
+def _is_muted_from_notify_settings(notify_settings) -> bool:
+    """Check if notify settings indicate the chat is muted.
+
+    Muted = mute_until is set and in the future, OR silent notifications are enabled.
+    Returns False when notify_settings is None.
+    """
+    if not notify_settings:
+        return False
+    mute_until = getattr(notify_settings, "mute_until", None)
+    silent = getattr(notify_settings, "silent", False)
+    return (mute_until is not None and mute_until > datetime.now(tz=UTC)) or bool(
+        silent
+    )

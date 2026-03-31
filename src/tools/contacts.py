@@ -8,11 +8,15 @@ from contextlib import suppress
 from datetime import UTC, datetime
 from typing import Any
 
+from telethon.tl.functions.account import GetNotifySettingsRequest
 from telethon.tl.functions.contacts import SearchRequest
 from telethon.tl.functions.messages import GetForumTopicsRequest
+from telethon.tl.types import InputNotifyPeer
 
 from src.client.connection import SessionNotAuthorizedError, get_connected_client
 from src.utils.entity import (
+    _is_muted_from_dialog,
+    _is_muted_from_notify_settings,
     _matches_chat_type,
     _matches_public_filter,
     build_dialog_entity_dict,
@@ -126,6 +130,7 @@ async def find_chats_impl(
     public: bool | None = None,
     min_date: str | None = None,
     max_date: str | None = None,
+    muted: bool | None = None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -136,10 +141,11 @@ async def find_chats_impl(
     Args:
         query: Single term or comma-separated terms (optional for date-based searches)
         limit: Maximum number of results to return
-        chat_type: Optional filter ("private"|"group"|"channel")
+        chat_type: Optional filter ("private"|"group"|"channel"|"bot")
         public: Optional filter for public discoverability
         min_date: Minimum last activity date filter (ISO format "2024-01-01")
         max_date: Maximum last activity date filter (ISO format "2024-12-31")
+        muted: Optional filter for muted chats (requires date filters, dialog-based only)
 
     Returns:
         Dict with "chats" key containing list of matches, or error dict
@@ -152,6 +158,23 @@ async def find_chats_impl(
             public=public,
             min_date=min_date,
             max_date=max_date,
+            muted=muted,
+        )
+
+    if muted is not None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message="The 'muted' parameter requires date filters (min_date or max_date) to activate dialog-based search.",
+            params={
+                "query": query,
+                "limit": limit,
+                "chat_type": chat_type,
+                "public": public,
+                "min_date": min_date,
+                "max_date": max_date,
+                "muted": muted,
+            },
+            exception=ValueError("muted requires date filters"),
         )
 
     return await _find_chats_global(
@@ -238,6 +261,7 @@ async def _find_chats_by_dialogs(
     public: bool | None,
     min_date: str | None,
     max_date: str | None,
+    muted: bool | None = None,
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
     # Validate and parse date parameters once to avoid redundant parsing
@@ -253,6 +277,7 @@ async def _find_chats_by_dialogs(
                 "public": public,
                 "min_date": min_date,
                 "max_date": max_date,
+                "muted": muted,
             },
             exception=ValueError(f"Invalid min_date format: '{min_date}'"),
         )
@@ -269,13 +294,14 @@ async def _find_chats_by_dialogs(
                 "public": public,
                 "min_date": min_date,
                 "max_date": max_date,
+                "muted": muted,
             },
             exception=ValueError(f"Invalid max_date format: '{max_date}'"),
         )
 
     results = []
     async for item in search_dialogs_impl(
-        query, limit, chat_type, public, min_date_dt, max_date_dt
+        query, limit, chat_type, public, min_date_dt, max_date_dt, muted
     ):
         results.append(item)
 
@@ -300,9 +326,24 @@ async def _find_chats_by_dialogs(
             "public": public,
             "min_date": min_date,
             "max_date": max_date,
+            "muted": muted,
         },
         exception=ValueError(f"No chats found {query_str}{date_str}"),
     )
+
+
+def _matches_muted_filter(dialog, muted: bool | None) -> bool:
+    """Check if dialog matches the muted filter.
+
+    Muted is determined by notify_settings: either mute_until is in the future,
+    or silent notifications are enabled. When notify_settings is unavailable,
+    returns False for both muted=True and muted=False (unknown = exclude).
+    """
+    if muted is None:
+        return True
+    if getattr(dialog, "notify_settings", None) is None:
+        return False
+    return _is_muted_from_dialog(dialog) == muted
 
 
 # Backwards-compatible alias for previous name
@@ -399,6 +440,7 @@ async def search_dialogs_impl(
     public: bool | None = None,
     min_date_dt: datetime | None = None,
     max_date_dt: datetime | None = None,
+    muted: bool | None = None,
 ):
     """
     Search dialogs using client.iter_dialogs() with optional date filtering.
@@ -447,6 +489,10 @@ async def search_dialogs_impl(
             if not await _dialog_in_date_range(
                 entity, client, dialog_date, min_date_dt, max_date_dt
             ):
+                continue
+
+            # Muted filter
+            if not _matches_muted_filter(dialog, muted):
                 continue
 
             # Chat type and public filters
@@ -556,6 +602,16 @@ async def get_chat_info_impl(chat_id: str, topics_limit: int = 20) -> dict[str, 
             params=params,
             exception=ValueError("build_entity_dict_enriched returned None"),
         )
+
+    # Fetch notify settings for muted field
+    try:
+        client = await get_connected_client()
+        notify_settings = await client(
+            GetNotifySettingsRequest(peer=InputNotifyPeer(entity))
+        )
+        info["muted"] = _is_muted_from_notify_settings(notify_settings)
+    except Exception as e:
+        logger.debug(f"Failed to fetch notify settings for {chat_id}: {e}")
 
     # Add topics list only for forum-enabled chats.
     if info.get("is_forum"):

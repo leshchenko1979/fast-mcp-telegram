@@ -55,7 +55,7 @@ All tools include MCP ToolAnnotations to help AI agents make informed decisions:
 This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
 
 - **`parse_mode`**: Constrained to `"markdown"`, `"html"`, or `"auto"` (default: `"auto"`)
-- **`chat_type`**: Limited to `"private"`, `"group"`, or `"channel"` for search filters
+- **`chat_type`**: Limited to `"private"`, `"group"`, `"channel"`, or `"bot"` for search filters
 - **Enhanced Validation**: FastMCP automatically validates these constraints
 - **Better AI Guidance**: AI models see only valid options, reducing errors
 
@@ -75,17 +75,25 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
 {
   "id": 133526395,
   "title": "John Doe",           // falls back to full name or @username
-  "type": "private",            // one of: private | group | channel
+  "type": "private",            // one of: private | bot | group | channel
   "username": "johndoe",        // if available
   "first_name": "John",         // users
   "last_name": "Doe",           // users
   "members_count": 1234,          // groups (when available)
   "subscribers_count": 56789,     // channels (when available)
-  "is_forum": true               // present and true for forum-enabled supergroups only
+  "is_forum": true,              // present and true for forum-enabled supergroups only
+  "muted": true,                // present only in dialog-based results (find_chats with date filters)
+  "last_activity_date": "2024-01-15T10:30:00+00:00"  // dialog-based results only
 }
 ```
 
-`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format.
+**Type field values:**
+- `"private"` — human user
+- `"bot"` — bot user (also exempt from public filter)
+- `"group"` — group or supergroup
+- `"channel"` — channel
+
+`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format. The `muted` and `last_activity_date` fields are only present in dialog-based results (when using `min_date` or `max_date` filters).
 
 ## Uniform Message Schema
 
@@ -457,24 +465,27 @@ edit_message(
 ```
 
 ### 👥 find_chats
-**Find users, groups, and channels (uniform entity schema)**
+**Find users, bots, groups, and channels (uniform entity schema)**
 
 ```typescript
 find_chats(
-  query: str,                  // Search term(s); comma-separated for multi-term
+  query?: str,                 // Search term(s); comma-separated for multi-term (optional for dialog search)
   limit?: number = 20,         // Max results to return
-  chat_type?: string, // Optional filter ('private','group','channel', comma-separated for multiple)
-  public?: boolean             // Optional public filter (true=with username, false=without username). Never applies to private chats.
+  chat_type?: string,          // Optional filter ('private','group','channel','bot', comma-separated)
+  public?: boolean,            // Optional public filter (true=with username, false=without). Never applies to private chats or bots.
+  min_date?: string,           // Minimum last activity date (ISO format). Activates dialog-based search.
+  max_date?: string,          // Maximum last activity date (ISO format). Activates dialog-based search.
+  muted?: boolean              // Filter muted chats (true=muted, false=unmuted). Requires date filters.
 ) -> {
-  chats: Chat[],               // Array of chat/user entities
+  chats: Chat[],              // Array of chat/user entities
 }
 ```
 
-**Search capabilities:**
-- **Saved contacts** - Your Telegram contacts
-- **Global users** - Public Telegram users
-- **Channels & groups** - Public channels and groups
-- **Multi-term** - "term1, term2" runs parallel searches and merges/dedupes
+**Two search modes:**
+
+1. **Global search** (default, no date filters): Searches all of Telegram by name/username/phone. Does NOT return `last_activity_date` or `muted`.
+
+2. **Dialog search** (when `min_date` or `max_date` provided): Searches your sidebar/dialog list. Returns `last_activity_date` and `muted` for each chat.
 
 **Query formats:**
 - Name: `"John Doe"`
@@ -503,10 +514,22 @@ find_chats(
 
 // Find private groups only
 {"tool": "find_chats", "params": {"query": "team", "chat_type": "group", "public": false}}
+
+// Find bot accounts
+{"tool": "find_chats", "params": {"query": "assistant", "chat_type": "bot"}}
+
+// Dialog search: muted chats (requires date filter)
+{"tool": "find_chats", "params": {"muted": true, "min_date": "2024-01-01"}}
+
+// Dialog search: unmuted chats matching a term
+{"tool": "find_chats", "params": {"query": "alert", "muted": false, "min_date": "2024-01-01"}}
+
+// Dialog search: active chats in date range
+{"tool": "find_chats", "params": {"query": "project", "min_date": "2024-01-01", "max_date": "2024-12-31"}}
 ```
 
 ### ℹ️ get_chat_info
-**Get user/chat profile information (enriched with member/subscriber counts)**
+**Get user/chat profile information (enriched with member/subscriber counts and muted status)**
 
 ```typescript
 get_chat_info(
@@ -515,16 +538,17 @@ get_chat_info(
 )
 ```
 
-**Returns:** Bio, status, online state, profile photos, and more.
+**Returns:** Bio, status, online state, profile photos, muted status, and more.
 
 Also includes, when applicable:
 - `members_count` for groups (regular groups and megagroups)
 - `subscribers_count` for channels (broadcast)
 - `is_forum: true` for forum-enabled supergroups
+- `muted: true|false` — whether notifications are disabled for this chat
 - `topics`: list of `{"topic_id": number, "title": string}` entries (forum chats only)
 - `topics_has_more: true` when there are more topics than `topics_limit`
 
-Counts are fetched via Telethon full-info requests and reflect current values.
+Counts and muted status are fetched via Telethon full-info requests.
 
 **Examples:**
 ```json
