@@ -21,6 +21,7 @@ from src.config.settings import API_HASH, API_ID
 from src.server_components.auth import RESERVED_SESSION_NAMES
 from src.server_components.auth_middleware import generate_url_based_config
 from src.utils.mcp_config import generate_mcp_config_json
+from src.utils.proxy import build_mtproto_client_args
 
 # Constants
 SETUP_SESSION_PREFIX = "setup-"
@@ -143,12 +144,14 @@ def _2fa_form_context(
 
 def create_session_client(session_path: Path) -> TelegramClient:
     """Create and return a configured TelegramClient."""
-    return TelegramClient(
-        session_path,
-        int(API_ID),
-        API_HASH,
-        entity_cache_limit=get_config().entity_cache_limit,
-    )
+    client_kwargs = {
+        "session": session_path,
+        "api_id": int(API_ID),
+        "api_hash": API_HASH,
+        "entity_cache_limit": get_config().entity_cache_limit,
+    }
+    client_kwargs |= build_mtproto_client_args(get_config().mtproto_proxy, logger.info)
+    return TelegramClient(**client_kwargs)
 
 
 async def cleanup_stale_setup_sessions():

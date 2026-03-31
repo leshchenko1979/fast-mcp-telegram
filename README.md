@@ -38,6 +38,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages |
 | :dart: **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
 | :globe_with_meridians: **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
+| :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection |
 
 ## Quick Start
 

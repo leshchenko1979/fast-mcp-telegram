@@ -29,3 +29,6 @@ SERVER_VERSION = __version__
 
 # Authentication configuration (deprecated - use config.disable_auth)
 DISABLE_AUTH = config.disable_auth
+
+# MTProto proxy configuration
+MTPROTO_PROXY = config.mtproto_proxy
