@@ -10,7 +10,17 @@ disable-model-invocation: true
 
 When creating release notes, follow this systematic approach:
 
-### 1. Identify Changes
+### 1. Collect Context from Memory Bank
+- **Read memory bank files** to identify completed work since last release:
+  ```bash
+  cat .cursor/memory-bank/progress.md
+  cat .cursor/memory-bank/activeContext.md
+  ```
+- **Focus on entries with dates** - these represent completed features, fixes, and improvements
+- **Cross-reference with git** - verify memory bank entries match actual code changes
+- Memory bank typically contains structured summaries of user-facing changes organized by date
+
+### 2. Identify Changes
 - Find the latest major version tag (`X.Y.0` format):
   ```bash
   git tag --sort=-version:refname | grep -E '^[0-9]+\.[0-9]+\.0$' | head -1
@@ -21,8 +31,9 @@ When creating release notes, follow this systematic approach:
   ```
 - **Include all changes**: Analyze both local commits and any remote changes since the last major version
 - **Note**: Typically you'll be preparing release notes before creating the new tag
+- **Merge sources**: Combine memory bank insights with git analysis for complete picture
 
-### 2. Analyze Code Changes
+### 3. Analyze Code Changes
 - **Primary focus** - examine user-facing code changes only:
   ```bash
   git diff <previous-major-tag>..HEAD
@@ -40,7 +51,7 @@ When creating release notes, follow this systematic approach:
 - **Cross-validate**: Treat commit messages as hints, but validate against actual user-visible functionality
 - **Describe user value**: Focus on what users can now do, not implementation details
 
-### 3. Categorize Changes
+### 4. Categorize Changes
 - **AI-driven categorization**: Let the AI analyze code changes and determine appropriate categories
 - **Focus on impact**: Group changes by their functional impact
 
@@ -52,7 +63,7 @@ When creating release notes, follow this systematic approach:
 - **Fixes vs new work**: Do not list under **Fixes** items that only polish or correct behavior of features introduced in the same release; describe those features once under **New Features**. Reserve **Fixes** for regressions or bugs unrelated to that release's new capabilities.
 - **Major dependency milestones**: When the stack changes in a user-visible way (e.g. FastMCP 3.x), call it out under **New Features**, not only in prose.
 
-### 4. Format Release Notes
+### 5. Format Release Notes
 
 Use this markdown template (paste as a markdown code block in chat):
 
@@ -73,13 +84,13 @@ This release <briefly describe the primary user-facing value proposition>.
 ```
 **Note**: Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`). Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the opening line. Omit the **Fixes** section entirely if everything user-facing is already covered under **New Features** (see prioritization above).
 
-### 5. Quality Checks
+### 6. Quality Checks
 - Verify all significant changes are mentioned
 - Ensure categories accurately reflect the nature of changes made
 - **Validate against code**: Ensure release note descriptions accurately reflect the actual code changes
 - **Final state verification**: Confirm descriptions match the final state, not intermediate commits
 
-### 6. Best Practices
+### 7. Best Practices
 - **No emojis** in release notes
 - **User-facing focus**: Prioritize what users can now do or what problems are now solved
 - **Omit internal changes**: Don't mention refactoring, code cleanup, or internal improvements unless they're the only changes
@@ -96,7 +107,7 @@ This release <briefly describe the primary user-facing value proposition>.
   **Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
   ```
 
-### 7. Version Bump Process
+### 8. Version Bump Process
 - **First**: Update version in `src/_version.py` (single source of truth)
 - **Then**: Commit, create tag, and push (no `v` prefix on tags):
   ```bash
@@ -117,7 +128,7 @@ This release <briefly describe the primary user-facing value proposition>.
 
 **Typical workflow**: Identify last major version → Analyze all changes since → Focus on user-facing features → Prepare release notes → Quality checks → Update version → Create tag → Push → Create GitHub release → **Wait for user confirmation** → Send community message
 
-### 8. Community Announcement Process
+### 9. Community Announcement Process
 - **Prerequisite**: Only proceed after user confirms GitHub release is published
 - **Targets**: English group [invite link](https://t.me/+U_3CpNWhXa9jZDcy); Russian `@mcp_telegram` ([t.me/mcp_telegram](https://t.me/mcp_telegram))
 - **Language**: English for the English group; Russian for the Russian group

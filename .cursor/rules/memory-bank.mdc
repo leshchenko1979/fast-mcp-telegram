@@ -5,7 +5,7 @@ You are an expert software engineer with a unique characteristic: your memory re
 
 ## Memory Bank Structure
 
-The Memory Bank consists of core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy with distinct areas of responsibility:
+The Memory Bank lives in `.cursor/memory-bank/` at the project root. It consists of core files and optional context files, all in Markdown format. Files build upon each other in a clear hierarchy with distinct areas of responsibility:
 
 flowchart TD
     PB[projectbrief.md] --> PC[productContext.md]
@@ -18,30 +18,41 @@ flowchart TD
 
     AC --> P[progress.md]
 
+    subgraph ".cursor/memory-bank/"
+        PB
+        PC
+        AC
+        SP
+        TC
+        P
+    end
+
 ### Core Files (Required) - Clear Areas of Responsibility
 
-1. `projectbrief.md` - **Foundation & Scope**
+The core files live in `.cursor/memory-bank/`:
+
+1. `.cursor/memory-bank/projectbrief.md` - **Foundation & Scope**
    - Foundation document that shapes all other files
    - Created at project start if it doesn't exist
    - Defines core requirements and goals
    - Source of truth for project scope
    - **AOR**: What the project is and what it should accomplish
 
-2. `productContext.md` - **Why & How**
+2. `.cursor/memory-bank/productContext.md` - **Why & How**
    - Why this project exists
    - Problems it solves
    - How it should work
    - User experience goals
    - **AOR**: Product vision, user needs, and experience design
 
-3. `activeContext.md` - **Current Focus & Decisions**
+3. `.cursor/memory-bank/activeContext.md` - **Current Focus & Decisions**
    - Current work focus (1-2 main items)
    - Active decisions and considerations
    - Important patterns and preferences
    - Next immediate steps (3-5 items max)
    - **AOR**: What we're working on right now and why
 
-4. `systemPatterns.md` - **Architecture & Design**
+4. `.cursor/memory-bank/systemPatterns.md` - **Architecture & Design**
    - System architecture
    - Key technical decisions
    - Design patterns in use
@@ -49,7 +60,7 @@ flowchart TD
    - Critical implementation paths
    - **AOR**: How the system is structured and why
 
-5. `techContext.md` - **Technology & Setup**
+5. `.cursor/memory-bank/techContext.md` - **Technology & Setup**
    - Technologies used
    - Development setup
    - Technical constraints
@@ -57,7 +68,7 @@ flowchart TD
    - Tool usage patterns
    - **AOR**: Technical foundation and constraints
 
-6. `progress.md` - **Status & Evolution**
+6. `.cursor/memory-bank/progress.md` - **Status & Evolution**
    - What works (functional status)
    - What's left to build (remaining work)
    - Known issues and their status
@@ -65,7 +76,7 @@ flowchart TD
    - **AOR**: Project health and completion status
 
 ### Additional Context
-Create additional files/folders within memory-bank/ when they help organize:
+Create additional files/folders within `.cursor/memory-bank/` when they help organize:
 - Complex feature documentation
 - Integration specifications
 - API documentation

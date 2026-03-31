@@ -1,3 +1,13 @@
+### 2026-03-31
+- **Chat Last Activity Date Feature**: Added `last_activity_date` field to chat search results
+- **New Parameters**: `min_date` and `max_date` (ISO format) for filtering chats by last activity
+- **New Implementation**: `build_dialog_entity_dict()` extracts date from Dialog object
+- **Dialog-Based Search**: `search_dialogs_impl()` uses `iter_dialogs()` for access to dialog.date
+- **Fallback**: `_get_last_message_date()` fetches from message history when dialog.date unavailable
+- **Important**: Telegram API ignores `offset_date` - date filtering is done client-side after fetching
+- **Query Matching**: Since `iter_dialogs()` has no query param, matching done against entity display name (case-insensitive substring)
+- **Files Modified**: src/utils/entity.py, src/tools/contacts.py, src/server_components/tools_register.py
+
 ### 2026-03-27
 - **Web setup UX consistency**: Moved setup interactions to a nested HTMX target (`#setup-flow`) so the top-level mode buttons remain visible and users can restart flows predictably.
 - **Flood-error path fix**: `PhoneNumberFloodError` on `/setup/phone` now returns the phone-entry fragment with an error message and cleans temporary session artifacts instead of showing a broken code-entry step.
@@ -94,7 +104,7 @@
 - **Message Search**: `search_messages_globally` for global search, `get_messages` for per-chat operations
 - **Message Operations**: Split into `send_message` and `edit_message` for clear intent separation
 - **File Sending**: Send single or multiple files via URLs (all modes) or local paths (stdio mode only)
-- **Contact Management**: Search and get contact details
+- **Contact Management**: Search and get contact details with last_activity_date filtering
 - **Phone Messaging**: Send messages to phone numbers not in contacts (with file support)
 - **MTProto Access**: Raw method invocation capability
 - **Connection Management**: Automatic reconnection and error handling
