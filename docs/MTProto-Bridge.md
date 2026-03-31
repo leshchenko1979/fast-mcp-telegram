@@ -11,6 +11,7 @@
 - **🔧 Case Insensitive**: Accepts `messages.getHistory`, `messages.GetHistory`, or `messages.GetHistoryRequest`
 - **🔐 Multi-Mode Support**: Works in all server modes with appropriate authentication
 - **⚡ Unified Implementation**: Same core logic as MCP tool with HTTP-specific defaults
+- **🚀 MTProto Proxy Support**: Works seamlessly through MTProto proxies with Fake TLS (EE prefix) support
 
 ## Quick Start
 
