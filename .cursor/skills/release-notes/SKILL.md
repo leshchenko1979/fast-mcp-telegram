@@ -87,7 +87,11 @@ This release <briefly describe the primary user-facing value proposition>.
 
 **Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
 ```
-**Note**: Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`). Only include internal improvements if there are no user-facing features to highlight. DO NOT include version numbers in the opening line. Omit the **Fixes** section entirely if everything user-facing is already covered under **New Features** (see prioritization above).
+**Note**:
+- Replace `<current-tag>` and `<previous-major-tag>` with actual tags (e.g. `0.12.0`, `0.11.0`)
+- DO NOT repeat the title as the first line of the body — the title is already displayed separately by GitHub
+- Only include internal improvements if there are no user-facing features to highlight
+- Omit the **Fixes** section entirely if everything user-facing is already covered under **New Features** (see prioritization above)
 
 ### 6. Quality Checks
 - Verify all significant changes are mentioned
