@@ -72,6 +72,9 @@ def create_logging_config(log_level: str) -> dict[str, Any]:
             # Application code at DEBUG level (catch-all for src.* hierarchy)
             # NOTE: Explicit opt-in for verbosity - secure by default, explicit for clarity
             "src": {"level": "DEBUG"},
+            # Proxy debugging - useful for MTProto/FakeTLS connection issues
+            "utils.proxy": {"level": "DEBUG"},
+            "src.utils.proxy": {"level": "DEBUG"},
         },
         "root": {"level": "WARNING", "handlers": ["console"]},
     }
