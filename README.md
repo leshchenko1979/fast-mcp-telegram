@@ -43,7 +43,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :globe_with_meridians: **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
 | :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection |
 
-## Quick Start
+## Quick Start (pip)
 
 ### 1. Install
 ```bash
@@ -57,14 +57,24 @@ fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phon
 
 Or use the web interface: run `fast-mcp-telegram` and open `/setup`
 
-### 3. Configure MCP Client
+## Quick Start (uvx)
+
+### 1. First-time setup
+```bash
+uvx --from fast-mcp-telegram fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
+```
+
+Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx invocations.
+
+### 2. Configure MCP Client
 
 **STDIO:**
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "command": "fast-mcp-telegram",
+      "command": "uvx",
+      "args": ["fast-mcp-telegram"],
       "env": {
         "API_ID": "your_api_id",
         "API_HASH": "your_api_hash"
