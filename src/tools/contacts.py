@@ -130,7 +130,6 @@ async def _search_contacts_as_list(
     params = {
         "query": query,
         "limit": limit,
-        "query_length": len(query) if query else 0,
         "chat_type": chat_type,
         "public": public,
     }
@@ -157,7 +156,7 @@ async def find_chats_impl(
     public: bool | None = None,
     min_date: str | None = None,
     max_date: str | None = None,
-    folder: int | str | None = None,  # NEW
+    folder: int | str | None = None,
 ) -> list[dict[str, Any]] | dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -170,14 +169,53 @@ async def find_chats_impl(
         limit: Maximum number of results to return
         chat_type: Optional filter ("private"|"group"|"channel")
         public: Optional filter for public discoverability
-        min_date: Minimum last activity date filter (ISO format "2024-01-01")
-        max_date: Maximum last activity date filter (ISO format "2024-12-31")
+        min_date: Minimum last activity date filter (ISO format, e.g. "2024-01-01" or "2024-01-01T14:30:00")
+        max_date: Maximum last activity date filter (ISO format, e.g. "2024-12-31" or "2024-12-31T23:59:59")
         folder: Filter by folder (int ID or str name)
 
     Returns:
         Dict with "chats" key containing list of matches, or error dict
+
+    Raises:
+        ValueError: For invalid parameter combinations (e.g., empty query without date/folder filters)
     """
-    if min_date is not None or max_date is not None or folder is not None:
+    has_date_or_folder_filter = min_date is not None or max_date is not None or folder is not None
+
+    params = {
+        "query": query,
+        "limit": limit,
+        "chat_type": chat_type,
+        "public": public,
+        "min_date": min_date,
+        "max_date": max_date,
+        "folder": folder,
+    }
+
+    # Validate: global search requires non-empty query
+    if not has_date_or_folder_filter and (not query or (isinstance(query, str) and not query.strip())):
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=(
+                "query parameter is required for global Telegram search. "
+                "Telegram's global search requires a non-empty search term (name, username, or phone). "
+                "To browse chats in a specific folder, use folder parameter. "
+                "To find chats active in a date range, use min_date/max_date filters. "
+                f"Received: query={query!r} with no date/folder filters."
+            ),
+            params=params,
+            exception=ValueError("Empty query not allowed without date/folder filters"),
+        )
+
+    # Validate limit
+    if limit <= 0:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"limit must be positive, got {limit}",
+            params=params,
+            exception=ValueError(f"Invalid limit: {limit}"),
+        )
+
+    if has_date_or_folder_filter:
         return await _find_chats_by_dialogs(
             query=query,
             limit=limit,
@@ -185,7 +223,7 @@ async def find_chats_impl(
             public=public,
             min_date=min_date,
             max_date=max_date,
-            folder=folder,  # NEW
+            folder=folder,
         )
 
     return await _find_chats_global(
@@ -272,24 +310,25 @@ async def _find_chats_by_dialogs(
     public: bool | None,
     min_date: str | None,
     max_date: str | None,
-    folder: int | str | None = None,  # NEW
+    folder: int | str | None = None,
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
-    # Validate and parse date parameters once to avoid redundant parsing
+    params = {
+        "query": query,
+        "limit": limit,
+        "chat_type": chat_type,
+        "public": public,
+        "min_date": min_date,
+        "max_date": max_date,
+        "folder": folder,
+    }
+
     min_date_dt = _parse_iso_date(min_date)
     if min_date is not None and min_date_dt is None:
         return log_and_build_error(
             operation="find_chats",
             error_message=f"Invalid min_date format: '{min_date}'. Use ISO format (e.g., '2024-01-01')",
-            params={
-                "query": query,
-                "limit": limit,
-                "chat_type": chat_type,
-                "public": public,
-                "min_date": min_date,
-                "max_date": max_date,
-                "folder": folder,
-            },
+            params=params,
             exception=ValueError(f"Invalid min_date format: '{min_date}'"),
         )
 
@@ -298,15 +337,7 @@ async def _find_chats_by_dialogs(
         return log_and_build_error(
             operation="find_chats",
             error_message=f"Invalid max_date format: '{max_date}'. Use ISO format (e.g., '2024-12-31')",
-            params={
-                "query": query,
-                "limit": limit,
-                "chat_type": chat_type,
-                "public": public,
-                "min_date": min_date,
-                "max_date": max_date,
-                "folder": folder,
-            },
+            params=params,
             exception=ValueError(f"Invalid max_date format: '{max_date}'"),
         )
 
@@ -338,14 +369,7 @@ async def _find_chats_by_dialogs(
     return log_and_build_error(
         operation="find_chats",
         error_message=f"No chats found {query_str}{date_str}",
-        params={
-            "query": query,
-            "limit": limit,
-            "chat_type": chat_type,
-            "public": public,
-            "min_date": min_date,
-            "max_date": max_date,
-        },
+        params=params,
         exception=ValueError(f"No chats found {query_str}{date_str}"),
     )
 
@@ -444,7 +468,7 @@ async def search_dialogs_impl(
     public: bool | None = None,
     min_date_dt: datetime | None = None,
     max_date_dt: datetime | None = None,
-    folder_id: int | None = None,  # NEW
+    folder_id: int | None = None,
 ):
     """
     Search dialogs using client.iter_dialogs() with optional date filtering.
@@ -514,14 +538,9 @@ async def search_dialogs_impl(
 
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     """Return compact forum topics list for forum-enabled chats."""
-    try:
-        requested_limit = limit if limit is not None else 20
-        requested_limit = max(1, min(requested_limit, 100))
-    except (TypeError, ValueError):
-        requested_limit = 20
-
-    # Overfetch by one where possible. At API cap (100) we use a follow-up probe.
-    fetch_limit = min(requested_limit + 1, 100)
+    # Clamp to [1, 100]; overfetch by one when not at cap.
+    requested_limit = max(1, min(limit or 20, 100))
+    fetch_limit = requested_limit + 1 if requested_limit < 100 else 100
 
     client = await get_connected_client()
 
@@ -539,11 +558,11 @@ async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     raw_topics = getattr(result, "topics", []) or []
     has_more = False
 
-    # Normal case: overfetch worked (requested_limit < 100).
-    if fetch_limit > requested_limit:
+    if requested_limit < 100:
+        # Overfetch worked — detect overflow by result count.
         has_more = len(raw_topics) > requested_limit
-    # Cap case: requested_limit == 100, cannot overfetch, do probe for next page.
     elif len(raw_topics) >= requested_limit:
+        # At API cap (100) — probe for next page.
         last_topic_id = getattr(raw_topics[-1], "id", None) if raw_topics else None
         if last_topic_id is not None:
             probe = await client(
