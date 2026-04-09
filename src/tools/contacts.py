@@ -539,7 +539,10 @@ async def search_dialogs_impl(
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     """Return compact forum topics list for forum-enabled chats."""
     # Clamp to [1, 100]; overfetch by one when not at cap.
-    requested_limit = max(1, min(limit or 20, 100))
+    try:
+        requested_limit = max(1, min(limit, 100))
+    except TypeError:
+        requested_limit = 20
     fetch_limit = requested_limit + 1 if requested_limit < 100 else 100
 
     client = await get_connected_client()
