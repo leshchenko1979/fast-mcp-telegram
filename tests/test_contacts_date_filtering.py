@@ -558,6 +558,7 @@ async def test_find_chats_global_multi_term_no_results_returns_error():
 
     async def mock_gen_empty():
         return
+        yield  # makes it an async generator (return exits immediately)
 
     with patch(
         "src.tools.contacts.search_contacts_native",
