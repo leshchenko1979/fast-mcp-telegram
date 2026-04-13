@@ -9,7 +9,7 @@ This MCP server provides comprehensive Telegram integration tools optimized for 
 This MCP server implements comprehensive error handling with clear, actionable error messages:
 
 ### Session Authentication Errors
-When a Telegram session is not authorized (e.g., session file missing or expired), all tools return:
+When a Telegram session is not authorized (e.g., session file missing or expired), tools return:
 ```json
 {
   "ok": false,
@@ -19,9 +19,22 @@ When a Telegram session is not authorized (e.g., session file missing or expired
 }
 ```
 
+### Telegram Transport Errors
+When the session file has credentials but Telegram cannot be reached (network, firewall, or **MTPROTO_PROXY** misconfigured or down), tools return a **TelegramTransportError**-derived message and `action: "retry"`:
+```json
+{
+  "ok": false,
+  "error": "Cannot reach Telegram; check network connectivity and MTProto proxy if MTPROTO_PROXY is set.",
+  "action": "retry",
+  "operation": "tool_name"
+}
+```
+The exact `error` text may include RPC class names or proxy diagnostics from the server.
+
 ### Common Error Types
-- **Authentication Issues**: Clear guidance to authenticate sessions
-- **Network/Connection Problems**: Troubleshooting suggestions for connectivity issues
+- **Authentication Issues**: Clear guidance to authenticate sessions (`authenticate_session`)
+- **Transport / proxy**: Retry after fixing network or `MTPROTO_PROXY` (`retry`)
+- **Network/Connection Problems**: Other connectivity patterns may still map to generic connection messages
 - **Database Errors**: Retry guidance for temporary server issues
 - **Invalid Chat IDs**: Clear validation messages for incorrect identifiers
 

@@ -5,14 +5,34 @@ This module provides standardized error handling patterns to eliminate code dupl
 across all tools and server components.
 """
 
+from __future__ import annotations
+
 import logging
 import traceback
 from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
-from typing import Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
+
+if TYPE_CHECKING:
+    from src.client.connection import SessionNotAuthorizedError, TelegramTransportError
 
 logger = logging.getLogger(__name__)
+
+_connection_error_types: tuple[type, type] | None = None
+
+
+def _get_connection_error_types() -> tuple[type, type]:
+    """Lazy-load session/transport types to avoid import cycles with connection."""
+    global _connection_error_types
+    if _connection_error_types is None:
+        from src.client.connection import (
+            SessionNotAuthorizedError,
+            TelegramTransportError,
+        )
+
+        _connection_error_types = (SessionNotAuthorizedError, TelegramTransportError)
+    return _connection_error_types
 
 
 class _ConnectionErrorConfig(TypedDict, total=False):
@@ -262,6 +282,55 @@ def log_and_build_error(
     )
 
 
+def find_connection_exception(
+    exc: BaseException,
+) -> SessionNotAuthorizedError | TelegramTransportError | None:
+    """Return session or transport error from exc or its __cause__ chain."""
+    session_cls, transport_cls = _get_connection_error_types()
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if isinstance(cur, session_cls):
+            return cast("SessionNotAuthorizedError", cur)
+        if isinstance(cur, transport_cls):
+            return cast("TelegramTransportError", cur)
+        cur = cur.__cause__
+    return None
+
+
+def log_connection_error_response(
+    operation: str,
+    params: dict[str, Any] | None,
+    exc: BaseException,
+) -> dict[str, Any] | None:
+    """
+    If exc (or its __cause__ chain) is a session/transport error, log and return a tool error dict.
+
+    Returns:
+        Error response dict, or None if exc is not one of those connection errors.
+    """
+    session_cls, _ = _get_connection_error_types()
+    resolved = find_connection_exception(exc)
+    if resolved is None:
+        return None
+    if isinstance(resolved, session_cls):
+        return log_and_build_error(
+            operation=operation,
+            error_message="Session not authorized. Please authenticate your Telegram session first.",
+            params=params,
+            exception=resolved,
+            action="authenticate_session",
+        )
+    return log_and_build_error(
+        operation=operation,
+        error_message=str(resolved),
+        params=params,
+        exception=resolved,
+        action="retry",
+    )
+
+
 def handle_tool_error(
     result: Any,
     operation: str,
@@ -394,14 +463,10 @@ def handle_telegram_errors(
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
-                if "SessionNotAuthorizedError" in str(type(e)):
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Session not authorized. Please authenticate your Telegram session first.",
-                        params=params,
-                        exception=e,
-                        action="authenticate_session",
-                    )
+                if (
+                    conn := log_connection_error_response(operation, params, e)
+                ) is not None:
+                    return conn
 
                 # Handle other common Telegram errors with better messages
                 error_msg = str(e).lower()

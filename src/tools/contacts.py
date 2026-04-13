@@ -11,7 +11,11 @@ from typing import Any
 from telethon.tl.functions.contacts import SearchRequest
 from telethon.tl.functions.messages import GetForumTopicsRequest
 
-from src.client.connection import SessionNotAuthorizedError, get_connected_client
+from src.client.connection import (
+    SessionNotAuthorizedError,
+    TelegramTransportError,
+    get_connected_client,
+)
 from src.utils.entity import (
     _matches_chat_type,
     _matches_public_filter,
@@ -108,11 +112,10 @@ async def search_contacts_native(
                     yield info
                     count += 1
 
-    except SessionNotAuthorizedError as e:
-        # For async generators, we raise instead of yielding error dict
-        raise RuntimeError(
-            "Session not authorized. Please authenticate your Telegram session first."
-        ) from e
+    except SessionNotAuthorizedError:
+        raise
+    except TelegramTransportError:
+        raise
     except Exception as e:
         # For async generators, we raise instead of yielding error dict
         raise RuntimeError(f"Failed to search contacts: {e!s}") from e
@@ -179,7 +182,9 @@ async def find_chats_impl(
     Raises:
         ValueError: For invalid parameter combinations (e.g., empty query without date/folder filters)
     """
-    has_date_or_folder_filter = min_date is not None or max_date is not None or folder is not None
+    has_date_or_folder_filter = (
+        min_date is not None or max_date is not None or folder is not None
+    )
 
     params = {
         "query": query,
@@ -192,7 +197,9 @@ async def find_chats_impl(
     }
 
     # Validate: global search requires non-empty query
-    if not has_date_or_folder_filter and (not query or (isinstance(query, str) and not query.strip())):
+    if not has_date_or_folder_filter and (
+        not query or (isinstance(query, str) and not query.strip())
+    ):
         return log_and_build_error(
             operation="find_chats",
             error_message=(
@@ -530,10 +537,10 @@ async def search_dialogs_impl(
                 yield result
                 count += 1
 
-    except SessionNotAuthorizedError as e:
-        raise RuntimeError(
-            "Session not authorized. Please authenticate your Telegram session first."
-        ) from e
+    except SessionNotAuthorizedError:
+        raise
+    except TelegramTransportError:
+        raise
 
 
 async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:

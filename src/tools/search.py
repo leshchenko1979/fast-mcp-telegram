@@ -6,7 +6,7 @@ from typing import Any
 from telethon.tl.functions.messages import SearchGlobalRequest
 from telethon.tl.types import InputMessagesFilterEmpty, InputPeerEmpty
 
-from src.client.connection import SessionNotAuthorizedError, get_connected_client
+from src.client.connection import get_connected_client
 from src.tools.links import generate_telegram_links
 from src.tools.messages import read_messages_by_ids
 from src.utils.discussion import get_post_discussion_info
@@ -17,9 +17,7 @@ from src.utils.entity import (
     compute_entity_identifier,
     get_entity_by_id,
 )
-from src.utils.error_handling import (
-    log_and_build_error,
-)
+from src.utils.error_handling import log_and_build_error, log_connection_error_response
 from src.utils.helpers import _append_dedup_until_limit
 from src.utils.message_format import (
     _has_any_media,
@@ -360,8 +358,22 @@ async def _handle_search_mode(
     min_datetime = datetime.fromisoformat(min_date) if min_date else None
     max_datetime = datetime.fromisoformat(max_date) if max_date else None
 
-    client = await get_connected_client()
+    def _connection_error_or_build(
+        exc: Exception, fallback_message: str
+    ) -> dict[str, Any]:
+        if (
+            r := log_connection_error_response("get_messages", params, exc)
+        ) is not None:
+            return r
+        return log_and_build_error(
+            operation="get_messages",
+            error_message=fallback_message,
+            params=params,
+            exception=exc,
+        )
+
     try:
+        client = await get_connected_client()
         total_count = None
         collected: list[dict[str, Any]] = []
         seen_keys: set[Any] = set()
@@ -381,11 +393,8 @@ async def _handle_search_mode(
                     seen_keys,
                 )
             except Exception as e:
-                return log_and_build_error(
-                    operation="get_messages",
-                    error_message=f"Failed to search in chat '{chat_id}': {e!s}",
-                    params=params,
-                    exception=e,
+                return _connection_error_or_build(
+                    e, f"Failed to search in chat '{chat_id}': {e!s}"
                 )
         else:
             try:
@@ -402,11 +411,8 @@ async def _handle_search_mode(
                     seen_keys,
                 )
             except Exception as e:
-                return log_and_build_error(
-                    operation="get_messages",
-                    error_message=f"Failed to perform global search: {e!s}",
-                    params=params,
-                    exception=e,
+                return _connection_error_or_build(
+                    e, f"Failed to perform global search: {e!s}"
                 )
 
         window = collected[:limit] if limit is not None else collected
@@ -430,21 +436,8 @@ async def _handle_search_mode(
             response["total_count"] = total_count
         return response
 
-    except SessionNotAuthorizedError as e:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message="Session not authorized. Please authenticate your Telegram session first.",
-            params=params,
-            exception=e,
-            action="authenticate_session",
-        )
     except Exception as e:
-        return log_and_build_error(
-            operation="get_messages",
-            error_message=f"Message retrieval failed: {e!s}",
-            params=params,
-            exception=e,
-        )
+        return _connection_error_or_build(e, f"Message retrieval failed: {e!s}")
 
 
 async def search_messages_impl(

@@ -8,8 +8,12 @@ Tests error handling decorators, parameter introspection, and error response for
 import pytest
 from fastmcp import Client, FastMCP
 
+from src.client.connection import (
+    SessionNotAuthorizedError,
+    TelegramTransportError,
+)
 from src.server_components.errors import with_error_handling
-from src.utils.error_handling import log_and_build_error
+from src.utils.error_handling import handle_telegram_errors, log_and_build_error
 
 
 @pytest.fixture
@@ -139,3 +143,67 @@ async def test_introspection_with_complex_params():
     assert result["message_ids"] == [1, 2, 3]
     assert result["options"] == {"key": "value"}
     assert result["flag"] is False
+
+
+@pytest.mark.asyncio
+async def test_with_error_handling_unwraps_session_error_from_runtime_error():
+    """Async generators may wrap SessionNotAuthorizedError in RuntimeError; normalize response."""
+
+    @with_error_handling("unwrap_auth")
+    async def failing_tool():
+        try:
+            raise SessionNotAuthorizedError("test")
+        except SessionNotAuthorizedError as e:
+            raise RuntimeError("wrapper") from e
+
+    result = await failing_tool()
+    assert result["ok"] is False
+    assert "Session not authorized" in result["error"]
+    assert result["action"] == "authenticate_session"
+
+
+@pytest.mark.asyncio
+async def test_with_error_handling_unwraps_transport_error_from_runtime_error():
+    @with_error_handling("unwrap_transport")
+    async def failing_tool():
+        try:
+            raise TelegramTransportError("proxy down")
+        except TelegramTransportError as e:
+            raise RuntimeError("wrapper") from e
+
+    result = await failing_tool()
+    assert result["ok"] is False
+    assert result["error"] == "proxy down"
+    assert result["action"] == "retry"
+
+
+@pytest.mark.asyncio
+async def test_handle_telegram_errors_unwraps_session_from_runtime_error():
+    @handle_telegram_errors(operation="ht_unwrap_auth")
+    async def failing_impl():
+        try:
+            raise SessionNotAuthorizedError("inner")
+        except SessionNotAuthorizedError as e:
+            raise RuntimeError("wrapper") from e
+
+    result = await failing_impl()
+    assert result["ok"] is False
+    assert "Session not authorized" in result["error"]
+    assert result["action"] == "authenticate_session"
+
+
+@pytest.mark.asyncio
+async def test_handle_telegram_errors_unwraps_transport_from_runtime_error():
+    """Same __cause__ unwrap as with_error_handling, for @handle_telegram_errors."""
+
+    @handle_telegram_errors(operation="ht_unwrap_transport")
+    async def failing_impl():
+        try:
+            raise TelegramTransportError("mtproto blocked")
+        except TelegramTransportError as e:
+            raise RuntimeError("wrapper") from e
+
+    result = await failing_impl()
+    assert result["ok"] is False
+    assert result["error"] == "mtproto blocked"
+    assert result["action"] == "retry"

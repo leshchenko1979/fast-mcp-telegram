@@ -12,6 +12,7 @@ from pydantic import Field
 from pydantic_settings import CliImplicitFlag, SettingsConfigDict
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
+from telethon.tl.functions.account import GetPasswordRequest
 
 from .config.server_config import ServerConfig, ServerMode
 from .utils.mcp_config import generate_mcp_config_json
@@ -27,7 +28,7 @@ class SetupConfig(ServerConfig):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", ".env.local"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -94,8 +95,20 @@ def mask_phone_number(phone: str) -> str:
     return "*" * (len(phone) - 4) + phone[-4:]
 
 
-async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str | None]:
-    """Set up Telegram session and return session path and bearer token (None for STDIO/HTTP_NO_AUTH)."""
+async def _print_2fa_password_hint(client: TelegramClient) -> None:
+    """Print Telegram's optional 2FA password hint before prompting for password."""
+    pwd = await client(GetPasswordRequest())
+    hint = getattr(pwd, "hint", None)
+    if hint:
+        print(f"2FA password hint: {hint}")
+    else:
+        print("2FA password hint: (not set in Telegram)")
+
+
+async def setup_telegram_session(
+    setup_config: SetupConfig,
+) -> tuple[Path, str | None] | None:
+    """Set up Telegram session; return path and bearer token, or None if setup was cancelled."""
 
     session_dir = setup_config.session_directory
 
@@ -150,7 +163,7 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
                 actual_session_file.unlink(missing_ok=True)
             else:
                 print("❌ Setup cancelled")
-                return session_path, bearer_token
+                return None
 
     print(f"\n🔐 Authenticating with session: {setup_config.session_name}")
 
@@ -197,7 +210,8 @@ async def setup_telegram_session(setup_config: SetupConfig) -> tuple[Path, str |
                 try:
                     await client.sign_in(setup_config.phone_number, code)
                 except SessionPasswordNeededError:
-                    # In case you have two-step verification enabled
+                    print("\nTwo-step verification is enabled for this account.")
+                    await _print_2fa_password_hint(client)
                     password = getpass.getpass("Please enter your 2FA password: ")
                     await client.sign_in(password=password)
 
@@ -279,7 +293,10 @@ async def main():
         setup_config.validate_required_fields()
 
         # Set up Telegram session
-        session_path, bearer_token = await setup_telegram_session(setup_config)
+        session_result = await setup_telegram_session(setup_config)
+        if session_result is None:
+            return
+        session_path, bearer_token = session_result
 
         # Display results
         print("\n✅ Setup complete!")

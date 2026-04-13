@@ -208,6 +208,18 @@ class TestSessionConfigIntegration:
             assert hasattr(config, "session_name")
             assert hasattr(config, "session_dir")
 
+    def test_env_local_overrides_env(self, tmp_path, monkeypatch):
+        """`.env.local` is loaded after `.env` and wins for the same variable."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".env").write_text("SESSION_NAME=from_base\n")
+        (tmp_path / ".env.local").write_text("SESSION_NAME=from_local\n")
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("SESSION_NAME", None)
+            os.environ.pop("SESSION_DIR", None)
+            config = ServerConfig(_cli_parse_args=[])
+            assert config.session_name == "from_local"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

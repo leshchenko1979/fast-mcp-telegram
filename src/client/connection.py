@@ -7,6 +7,8 @@ import traceback
 from contextvars import ContextVar
 
 from telethon import TelegramClient
+from telethon import errors as tg_errors
+from telethon.tl import functions
 
 from ..config.logging import format_diagnostic_info
 from ..config.server_config import get_config
@@ -18,6 +20,58 @@ logger = logging.getLogger(__name__)
 
 class SessionNotAuthorizedError(Exception):
     """Exception raised when a Telegram session is not authorized."""
+
+
+class TelegramTransportError(ConnectionError):
+    """Session has credentials but Telegram (or MTProto proxy) cannot be reached."""
+
+
+async def verify_authorized_connection(client: TelegramClient) -> None:
+    """
+    Confirm the session has an auth key and Telegram accepts it.
+
+    Telethon's ``is_user_authorized()`` treats any RPC error as logged out, so
+    network or proxy failures are misreported as unauthorized. This helper
+    only raises SessionNotAuthorizedError for real auth failures.
+    """
+    auth_key = getattr(client.session, "auth_key", None)
+    if not auth_key:
+        client._authorized = False  # type: ignore[attr-defined]
+        raise SessionNotAuthorizedError(
+            "No credentials in session; authenticate first."
+        )
+
+    try:
+        await client(functions.updates.GetStateRequest())
+    except (tg_errors.UnauthorizedError, tg_errors.AuthKeyError) as e:
+        client._authorized = False  # type: ignore[attr-defined]
+        raise SessionNotAuthorizedError(
+            f"Telegram rejected the session ({type(e).__name__})."
+        ) from e
+    except tg_errors.FloodError as e:
+        client._authorized = None  # type: ignore[attr-defined]
+        raise TelegramTransportError(
+            "Telegram rate-limited the connection; wait and retry."
+        ) from e
+    except tg_errors.RPCError as e:
+        client._authorized = None  # type: ignore[attr-defined]
+        raise TelegramTransportError(
+            "Cannot reach Telegram or the MTProto proxy is misconfigured or down "
+            f"({type(e).__name__}: {e}). Check network and MTPROTO_PROXY."
+        ) from e
+    except (
+        OSError,
+        TimeoutError,
+        ConnectionAbortedError,
+        ConnectionResetError,
+    ) as e:
+        client._authorized = None  # type: ignore[attr-defined]
+        raise TelegramTransportError(
+            "Cannot reach Telegram; check network connectivity and MTProto proxy "
+            "if MTPROTO_PROXY is set."
+        ) from e
+    else:
+        client._authorized = True  # type: ignore[attr-defined]
 
 
 # Token-based session management (use unified server config)
@@ -118,15 +172,33 @@ async def _get_client_by_token(token: str) -> TelegramClient:
             )
 
             client = TelegramClient(**client_kwargs)
-            await client.connect()
-
-            if not await client.is_user_authorized():
+            try:
+                await client.connect()
+                await verify_authorized_connection(client)
+            except SessionNotAuthorizedError as e:
+                try:
+                    if client.is_connected():
+                        await client.disconnect()
+                except Exception as disc_e:
+                    logger.debug(
+                        "Disconnect after failed session verification: %s", disc_e
+                    )
                 logger.error(
-                    f"Session not authorized for token {token[:8]}... Please authenticate first"
+                    f"Session not authorized for token {token[:8]}... "
+                    "Please authenticate first"
                 )
                 raise SessionNotAuthorizedError(
                     f"Session not authorized for token {token[:8]}..."
-                )
+                ) from e
+            except Exception:
+                try:
+                    if client.is_connected():
+                        await client.disconnect()
+                except Exception as disc_e:
+                    logger.debug(
+                        "Disconnect after failed session verification: %s", disc_e
+                    )
+                raise
 
             # Implement LRU eviction if cache is full
             if len(_session_cache) >= MAX_ACTIVE_SESSIONS:
@@ -269,12 +341,7 @@ async def ensure_connection(client: TelegramClient, token: str) -> bool:
                 f"Client disconnected for token {token[:8]}..., attempting to reconnect..."
             )
             await client.connect()
-            if not await client.is_user_authorized():
-                logger.error(
-                    f"Client reconnected but not authorized for token {token[:8]}..."
-                )
-                await _record_connection_failure(token)
-                return False
+            await verify_authorized_connection(client)
             logger.info(f"Successfully reconnected client for token {token[:8]}...")
 
             # Reset failure count on successful connection
@@ -282,6 +349,13 @@ async def ensure_connection(client: TelegramClient, token: str) -> bool:
                 _connection_failures.pop(token, None)
 
         return client.is_connected()
+    except SessionNotAuthorizedError:
+        logger.error(f"Client reconnected but not authorized for token {token[:8]}...")
+        await _record_connection_failure(token)
+        raise
+    except TelegramTransportError:
+        await _record_connection_failure(token)
+        raise
     except Exception as e:
         # Check for fatal session errors that shouldn't be retried
         error_msg = str(e).lower()

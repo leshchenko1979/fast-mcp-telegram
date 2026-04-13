@@ -2,7 +2,11 @@ import inspect
 from collections.abc import Callable
 from functools import wraps
 
-from src.utils.error_handling import handle_tool_error, log_and_build_error
+from src.utils.error_handling import (
+    handle_tool_error,
+    log_and_build_error,
+    log_connection_error_response,
+)
 
 
 def with_error_handling(operation_name: str):
@@ -52,6 +56,10 @@ def with_error_handling(operation_name: str):
                 error_response = handle_tool_error(result, operation_name, params)
                 return error_response or result
             except Exception as e:
+                if (
+                    conn := log_connection_error_response(operation_name, params, e)
+                ) is not None:
+                    return conn
                 return log_and_build_error(
                     operation=operation_name,
                     error_message=f"Unexpected error: {e}",

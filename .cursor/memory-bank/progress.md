@@ -1,3 +1,6 @@
+### 2026-04-13
+- **Connection error handling DRY**: `find_connection_exception` and `log_connection_error_response` in `error_handling.py`; `with_error_handling` and `handle_telegram_errors` delegate to the helper (including `__cause__` unwrap). `search.py` `_handle_search_mode` and `invoke_mtproto` use the helper for `SessionNotAuthorizedError` and `TelegramTransportError`; `get_connected_client` runs inside the same `try`. `docs/Tools-Reference.md` documents transport errors and `action: retry`.
+
 ### 2026-04-01
 - **Bot Chat Type Split**: Added "bot" as separate chat type from "private". Bots detected via `getattr(entity, 'bot', False)`. Bots not filtered by public parameter and get bio enrichment same as private users.
 - **Folder Filtering**: Added `folder` parameter to `find_chats` tool supporting int ID or str name. Folder list fetched via `GetDialogFiltersRequest` with 5-minute caching. Folder 0 (default) shows as `folder_id: null` on Dialog objects. Title is a `TextWithEntities` object - extract via `folder.title.text`.

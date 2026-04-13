@@ -10,8 +10,8 @@ from typing import Any
 from telethon.errors import RPCError
 from telethon.errors.rpcerrorlist import rpc_errors_dict, rpc_errors_re
 
-from src.client.connection import SessionNotAuthorizedError, get_connected_client
-from src.utils.error_handling import log_and_build_error
+from src.client.connection import get_connected_client
+from src.utils.error_handling import log_and_build_error, log_connection_error_response
 from src.utils.helpers import normalize_method_name
 
 logger = logging.getLogger(__name__)
@@ -442,18 +442,6 @@ async def invoke_mtproto_impl(
             logger.info(f"MTProto method {normalized_method} invoked successfully")
             return safe_result
 
-        except SessionNotAuthorizedError as e:
-            return log_and_build_error(
-                operation="invoke_mtproto",
-                error_message="Session not authorized. Please authenticate your Telegram session first.",
-                params={
-                    "method_full_name": method_full_name,
-                    "normalized_method": normalized_method,
-                    "params": _json_safe(final_params),
-                },
-                exception=e,
-                action="authenticate_session",
-            )
         except RPCError as e:
             return log_and_build_error(
                 operation="invoke_mtproto",
@@ -467,24 +455,36 @@ async def invoke_mtproto_impl(
                 error_code=_normalize_rpc_error_code(e),
             )
         except Exception as e:
+            invoke_err_params = {
+                "method_full_name": method_full_name,
+                "normalized_method": normalized_method,
+                "params": _json_safe(final_params),
+            }
+            if (
+                r := log_connection_error_response(
+                    "invoke_mtproto", invoke_err_params, e
+                )
+            ) is not None:
+                return r
             return log_and_build_error(
                 operation="invoke_mtproto",
                 error_message=f"Failed to invoke MTProto method '{normalized_method}': {e!s}",
-                params={
-                    "method_full_name": method_full_name,
-                    "normalized_method": normalized_method,
-                    "params": _json_safe(final_params),
-                },
+                params=invoke_err_params,
                 exception=e,
             )
 
     except Exception as e:
+        outer_params = {
+            "method_full_name": method_full_name,
+            "params_json": params_json,
+        }
+        if (
+            r := log_connection_error_response("invoke_mtproto", outer_params, e)
+        ) is not None:
+            return r
         return log_and_build_error(
             operation="invoke_mtproto",
             error_message=f"Error in invoke_mtproto: {e!s}",
-            params={
-                "method_full_name": method_full_name,
-                "params_json": params_json,
-            },
+            params=outer_params,
             exception=e,
         )
