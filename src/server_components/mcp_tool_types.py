@@ -3,6 +3,10 @@ Reusable Annotated parameter types for MCP tool JSON schemas.
 
 Field descriptions are surfaced to MCP clients for LLM tool selection and argument filling.
 Narrative tool documentation: https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md
+
+Optional parameters: use a plain type (e.g. ``str``, ``int``) with ``= None`` at the tool
+signature — do not annotate ``T | None`` so MCP clients get simpler JSON Schema without
+``anyOf`` null branches.
 """
 
 from typing import Annotated, Literal
@@ -21,7 +25,7 @@ ChatId = Annotated[
 ]
 
 MinDate = Annotated[
-    str | None,
+    str,
     Field(
         description=(
             "Inclusive minimum date filter (ISO 8601 date or datetime). "
@@ -31,7 +35,7 @@ MinDate = Annotated[
 ]
 
 MaxDate = Annotated[
-    str | None,
+    str,
     Field(
         description=(
             "Inclusive maximum date filter (ISO 8601 date or datetime). "
@@ -41,7 +45,7 @@ MaxDate = Annotated[
 ]
 
 ChatTypeComma = Annotated[
-    str | None,
+    str,
     Field(
         description=(
             "Comma-separated chat kinds: private, bot, group, channel. "
@@ -51,7 +55,7 @@ ChatTypeComma = Annotated[
 ]
 
 PublicFilter = Annotated[
-    bool | None,
+    bool,
     Field(
         description=(
             "If true, prefer chats with a public username; if false, without. "
@@ -99,17 +103,16 @@ MessageBody = Annotated[
 ]
 
 ParseMode = Annotated[
-    Literal["markdown", "html", "auto"] | None,
+    Literal["markdown", "html", "auto"],
     Field(
         description=(
-            "'markdown', 'html', 'auto' (detect from content), or null for plain text. "
-            "Default is 'auto'."
+            "'markdown', 'html', or 'auto' (detect from content). Default is 'auto'."
         )
     ),
 ]
 
 FilesParam = Annotated[
-    str | list[str] | None,
+    str | list[str],
     Field(
         description=(
             "Attachment(s): HTTPS URL string, local path string, or list of those. "
@@ -119,7 +122,7 @@ FilesParam = Annotated[
 ]
 
 ReplyToId = Annotated[
-    int | None,
+    int,
     Field(
         description=(
             "Telegram message id to reply to. For forums, topic root id; "
@@ -136,7 +139,7 @@ MessageIdInChat = Annotated[
 ]
 
 MessageIds = Annotated[
-    list[int] | None,
+    list[int],
     Field(
         description=(
             "Exact message ids to fetch. Mutually exclusive with query and reply_to_id."
@@ -156,7 +159,7 @@ QueryGlobal = Annotated[
 ]
 
 QueryInChat = Annotated[
-    str | None,
+    str,
     Field(
         description=(
             "Search within this chat only; comma-separated terms. "
@@ -166,7 +169,7 @@ QueryInChat = Annotated[
 ]
 
 ReplyToForThread = Annotated[
-    int | None,
+    int,
     Field(
         description=(
             "Get replies in the thread for this message id (comments, forum topic, or replies). "
@@ -176,7 +179,7 @@ ReplyToForThread = Annotated[
 ]
 
 QueryFindChats = Annotated[
-    str | None,
+    str,
     Field(
         description=(
             "Name, username (no @), phone (+country…), or comma-separated multi-queries. "
@@ -186,7 +189,7 @@ QueryFindChats = Annotated[
 ]
 
 FolderFilter = Annotated[
-    int | str | None,
+    int | str,
     Field(
         description=(
             "Dialog folder: integer id or exact folder name (case-insensitive). "
@@ -229,7 +232,7 @@ RemoveIfNew = Annotated[
 ]
 
 ReplyToMsgId = Annotated[
-    int | None,
+    int,
     Field(description="Reply to this message id in the target chat after resolve."),
 ]
 
