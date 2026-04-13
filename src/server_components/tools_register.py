@@ -47,28 +47,21 @@ from src.tools.messages import (
 from src.tools.mtproto import invoke_mtproto_impl
 from src.tools.search import search_messages_impl
 
-# Canonical absolute URL for Tools-Reference (also embedded verbatim in each tool docstring below).
+# Canonical absolute URL for Tools-Reference (appended to each MCP tool description).
 TOOLS_REFERENCE_DOC_URL = "https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
 
 # MCP-visible tool descriptions (short; full examples at TOOLS_REFERENCE_DOC_URL).
-# Error shape: ok=false, error, operation; optional action, params, exception, error_code.
-_ERR_HINT = "On failure returns a dict with ok=false, error, and operation (and optional action/params). "
 
 
-def _tool_description(body: str, *, after_error_hint: str = "") -> str:
-    return (
-        body
-        + _ERR_HINT
-        + after_error_hint
-        + f" Full documentation: {TOOLS_REFERENCE_DOC_URL}"
-    )
+def _tool_description(body: str, *, extra: str = "") -> str:
+    return body + extra + f" Full documentation: {TOOLS_REFERENCE_DOC_URL}"
 
 
 _DESC_SEARCH_GLOBAL = _tool_description(
     "Search all Telegram chats at once (not scoped to one chat). "
     "Comma-separated query terms; optional filters by date, chat kind, and public username. "
     "Success: message list and metadata dict. ",
-    after_error_hint="Global search ignores include_total_count.",
+    extra="Global search ignores include_total_count.",
 )
 
 _DESC_GET_MESSAGES = _tool_description(
