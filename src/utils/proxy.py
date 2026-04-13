@@ -58,15 +58,17 @@ def _is_fake_tls_secret(secret: str) -> bool:
       * hex starting with 'ee' all hex: old mtg format (ee + 32_hex, no domain)
     """
     if not secret:
-        logger.debug(f"_is_fake_tls_secret: empty secret, returning False")
+        logger.debug("_is_fake_tls_secret: empty secret, returning False")
         return False
 
     secret = secret.strip()
-    logger.debug(f"_is_fake_tls_secret: checking secret length={len(secret)}, starts with '{secret[:2] if len(secret) >= 2 else secret}'")
+    logger.debug(
+        f"_is_fake_tls_secret: checking secret length={len(secret)}, starts with '{secret[:2] if len(secret) >= 2 else secret}'"
+    )
 
     # Reject composite values like "host:port:secret"
     if ":" in secret:
-        logger.debug(f"_is_fake_tls_secret: contains ':', returning False")
+        logger.debug("_is_fake_tls_secret: contains ':', returning False")
         return False
 
     lower = secret.lower()
@@ -76,7 +78,9 @@ def _is_fake_tls_secret(secret: str) -> bool:
     if lower.startswith("ee") and len(lower) >= 34:
         hex_part = lower[2:34]
         if all(c in "0123456789abcdef" for c in hex_part):
-            logger.debug(f"_is_fake_tls_secret: telemt format (ee + 32 hex + domain), returning True")
+            logger.debug(
+                "_is_fake_tls_secret: telemt format (ee + 32 hex + domain), returning True"
+            )
             return True
 
     # Old mtg hex format: ee + all hex (even length, all valid hex)
@@ -87,24 +91,30 @@ def _is_fake_tls_secret(secret: str) -> bool:
         and all(c in "0123456789abcdef" for c in lower)
     )
     if is_hex_candidate:
-        logger.debug(f"_is_fake_tls_secret: hex candidate, returning True")
+        logger.debug("_is_fake_tls_secret: hex candidate, returning True")
         return True
 
     # Base64-encoded Fake TLS secret: Telegram uses a leading '7' marker.
     if not secret.startswith("7"):
-        logger.debug(f"_is_fake_tls_secret: doesn't start with '7', returning False")
+        logger.debug("_is_fake_tls_secret: doesn't start with '7', returning False")
         return False
 
     # Basic base64 shape checks to avoid obviously invalid strings.
     if len(secret) < 8 or len(secret) > 128:
-        logger.debug(f"_is_fake_tls_secret: length {len(secret)} out of range [8,128], returning False")
+        logger.debug(
+            f"_is_fake_tls_secret: length {len(secret)} out of range [8,128], returning False"
+        )
         return False
 
     try:
         # Add padding if needed - base64 secrets from mtg may not be padded
         padded = secret + "=" * (-len(secret) % 4)
         decoded = base64.b64decode(padded, validate=True)
-        logger.debug(f"_is_fake_tls_secret: base64 decoded, first byte=0x{decoded[0]:02x}" if decoded else "_is_fake_tls_secret: decoded empty")
+        logger.debug(
+            f"_is_fake_tls_secret: base64 decoded, first byte=0x{decoded[0]:02x}"
+            if decoded
+            else "_is_fake_tls_secret: decoded empty"
+        )
     except Exception as e:
         logger.debug(f"_is_fake_tls_secret: base64 decode failed: {e}, returning False")
         return False
@@ -129,12 +139,7 @@ def _process_fake_tls_secret(secret: str) -> str:
         # Remove leading '7' marker for TelethonFakeTLS
         return secret[1:]
 
-    if secret.lower().startswith("ee"):
-        # Strip 'ee' prefix - for telemt format (ee + 32_hex + hex(domain)),
-        # keep everything after 'ee' (TelethonFakeTLS expects the full payload)
-        return secret[2:]
-
-    return secret
+    return secret[2:] if secret.lower().startswith("ee") else secret
 
 
 def parse_mtproto_proxy(url: str | None) -> MTProtoProxy | None:
@@ -257,7 +262,9 @@ def build_mtproto_client_args(
     from telethon.network.connection import ConnectionTcpMTProxyRandomizedIntermediate
 
     log = log_func or logger.info
-    logger.debug(f"build_mtproto_client_args: proxy_str={_redact_secret(proxy_str) if proxy_str else None}")
+    logger.debug(
+        f"build_mtproto_client_args: proxy_str={_redact_secret(proxy_str) if proxy_str else None}"
+    )
 
     proxy = parse_mtproto_proxy(proxy_str)
     if not proxy:
@@ -282,5 +289,7 @@ def build_mtproto_client_args(
         log(f"Using MTProto proxy: {proxy.server}:{proxy.port}")
 
     client_kwargs["proxy"] = (proxy.server, proxy.port, proxy.secret)
-    logger.debug(f"build_mtproto_client_args: returning client_kwargs with connection={client_kwargs.get('connection').__name__ if client_kwargs.get('connection') else None}")
+    logger.debug(
+        f"build_mtproto_client_args: returning client_kwargs with connection={client_kwargs.get('connection').__name__ if client_kwargs.get('connection') else None}"
+    )
     return client_kwargs

@@ -27,8 +27,8 @@ _ENTITY_DICT_CACHE: dict[tuple, dict | None] = {}
 # Folder list cache
 # -------------------------
 
-# Cache for folder list: key is session_id, value is (folders_list, timestamp)
-_FOLDER_LIST_CACHE: dict[str, tuple[list[dict], float]] = {}
+# Cache for folder list: key is session_id or id(session), value is (folders_list, timestamp)
+_FOLDER_LIST_CACHE: dict[str | int, tuple[list[dict], float]] = {}
 _FOLDER_CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
@@ -47,7 +47,7 @@ async def get_available_folders(client) -> list[dict]:
     try:
         cache_key = client.session.session_id
     except AttributeError:
-        cache_key = str(id(client.session))
+        cache_key = id(client.session)
 
     # Check cache
     if cache_key in _FOLDER_LIST_CACHE:

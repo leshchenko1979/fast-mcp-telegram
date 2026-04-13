@@ -98,8 +98,7 @@ def mask_phone_number(phone: str) -> str:
 async def _print_2fa_password_hint(client: TelegramClient) -> None:
     """Print Telegram's optional 2FA password hint before prompting for password."""
     pwd = await client(GetPasswordRequest())
-    hint = getattr(pwd, "hint", None)
-    if hint:
+    if hint := getattr(pwd, "hint", None):
         print(f"2FA password hint: {hint}")
     else:
         print("2FA password hint: (not set in Telegram)")

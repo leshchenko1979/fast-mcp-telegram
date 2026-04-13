@@ -5,6 +5,7 @@ import secrets
 import time
 import traceback
 from contextvars import ContextVar
+from pathlib import Path
 
 from telethon import TelegramClient
 from telethon import errors as tg_errors
@@ -59,12 +60,7 @@ async def verify_authorized_connection(client: TelegramClient) -> None:
             "Cannot reach Telegram or the MTProto proxy is misconfigured or down "
             f"({type(e).__name__}: {e}). Check network and MTPROTO_PROXY."
         ) from e
-    except (
-        OSError,
-        TimeoutError,
-        ConnectionAbortedError,
-        ConnectionResetError,
-    ) as e:
+    except (OSError, TimeoutError) as e:
         client._authorized = None  # type: ignore[attr-defined]
         raise TelegramTransportError(
             "Cannot reach Telegram; check network connectivity and MTProto proxy "
@@ -142,144 +138,147 @@ def get_request_token() -> str | None:
     return _current_token.get(None)
 
 
+_AUTH_ERROR_SUBSTRINGS = frozenset(
+    (
+        "auth",
+        "session",
+        "unauthorized",
+        "authorization",
+        "password",
+        "2fa",
+        "code",
+        "invalid",
+    )
+)
+
+
+def _error_message_suggests_auth_issue(exc: BaseException) -> bool:
+    lowered = str(exc).lower()
+    return any(s in lowered for s in _AUTH_ERROR_SUBSTRINGS)
+
+
+async def _safe_disconnect_after_verify_failure(client: TelegramClient) -> None:
+    try:
+        if client.is_connected():
+            await client.disconnect()
+    except Exception as disc_e:
+        logger.debug("Disconnect after failed session verification: %s", disc_e)
+
+
+async def _connect_client_and_verify_or_cleanup(
+    client: TelegramClient, token: str
+) -> None:
+    try:
+        await client.connect()
+        await verify_authorized_connection(client)
+    except SessionNotAuthorizedError as e:
+        await _safe_disconnect_after_verify_failure(client)
+        logger.error(
+            f"Session not authorized for token {token[:8]}... Please authenticate first"
+        )
+        raise SessionNotAuthorizedError(
+            f"Session not authorized for token {token[:8]}..."
+        ) from e
+    except Exception:
+        await _safe_disconnect_after_verify_failure(client)
+        raise
+
+
+async def _evict_lru_if_session_cache_full() -> None:
+    """Evict least-recently-used session if cache is at capacity. Caller must hold _cache_lock."""
+    if len(_session_cache) < MAX_ACTIVE_SESSIONS:
+        return
+    logger.warning(
+        f"Session cache full ({len(_session_cache)}/{MAX_ACTIVE_SESSIONS}), performing LRU eviction"
+    )
+    oldest_token = min(_session_cache.keys(), key=lambda k: _session_cache[k][1])
+    oldest_client, last_access = _session_cache[oldest_token]
+    try:
+        await oldest_client.disconnect()
+        logger.info(
+            f"Disconnected LRU client for token {oldest_token[:8]}... (last accessed {time.ctime(last_access)})"
+        )
+    except Exception as e:
+        logger.warning(
+            f"Error disconnecting LRU client for token {oldest_token[:8]}...: {e}"
+        )
+    del _session_cache[oldest_token]
+    logger.info(
+        f"Evicted LRU session for token {oldest_token[:8]}... Cache now has {len(_session_cache)} sessions"
+    )
+
+
+async def _build_telegram_client_for_token(
+    session_path: Path, token: str
+) -> TelegramClient:
+    api_id_int = int(API_ID)
+    client_kwargs = {
+        "session": session_path,
+        "api_id": api_id_int,
+        "api_hash": API_HASH,
+        "entity_cache_limit": get_config().entity_cache_limit,
+    }
+    client_kwargs |= build_mtproto_client_args(get_config().mtproto_proxy, logger.info)
+    client = TelegramClient(**client_kwargs)
+    await _connect_client_and_verify_or_cleanup(client, token)
+    return client
+
+
+def _try_unlink_session_on_auth_error(session_path: Path, token: str) -> None:
+    if not session_path.exists():
+        return
+    try:
+        session_path.unlink()
+        logger.warning(
+            f"Auto-deleted invalid session file for token {token[:8]}... due to auth error"
+        )
+    except Exception as delete_error:
+        logger.warning(f"Failed to delete invalid session file: {delete_error}")
+
+
+def _log_client_creation_failed(
+    session_path: Path, token: str, exc: BaseException
+) -> None:
+    is_auth_error = _error_message_suggests_auth_issue(exc)
+    logger.error(
+        f"Failed to create client for token {token[:8]}...",
+        extra={
+            "diagnostic_info": format_diagnostic_info(
+                {
+                    "error": {
+                        "type": type(exc).__name__,
+                        "message": str(exc),
+                        "traceback": traceback.format_exc(),
+                    },
+                    "token": f"{token[:8]}...",
+                    "session_path": str(session_path),
+                    "auto_deleted": is_auth_error and session_path.exists(),
+                }
+            )
+        },
+    )
+
+
 async def _get_client_by_token(token: str) -> TelegramClient:
     """Get or create a TelegramClient instance for the given token."""
     async with _cache_lock:
         current_time = time.time()
-
-        # Check if client is already cached
         if token in _session_cache:
             client, _ = _session_cache[token]
-            # Update access time
             _session_cache[token] = (client, current_time)
             return client
 
-        # Create new client for token
         session_path = SESSION_DIR / f"{token}.session"
-
         try:
-            api_id_int = int(API_ID)
-
-            # Build client kwargs with MTProto proxy support
-            client_kwargs = {
-                "session": session_path,
-                "api_id": api_id_int,
-                "api_hash": API_HASH,
-                "entity_cache_limit": get_config().entity_cache_limit,
-            }
-            client_kwargs |= build_mtproto_client_args(
-                get_config().mtproto_proxy, logger.info
-            )
-
-            client = TelegramClient(**client_kwargs)
-            try:
-                await client.connect()
-                await verify_authorized_connection(client)
-            except SessionNotAuthorizedError as e:
-                try:
-                    if client.is_connected():
-                        await client.disconnect()
-                except Exception as disc_e:
-                    logger.debug(
-                        "Disconnect after failed session verification: %s", disc_e
-                    )
-                logger.error(
-                    f"Session not authorized for token {token[:8]}... "
-                    "Please authenticate first"
-                )
-                raise SessionNotAuthorizedError(
-                    f"Session not authorized for token {token[:8]}..."
-                ) from e
-            except Exception:
-                try:
-                    if client.is_connected():
-                        await client.disconnect()
-                except Exception as disc_e:
-                    logger.debug(
-                        "Disconnect after failed session verification: %s", disc_e
-                    )
-                raise
-
-            # Implement LRU eviction if cache is full
-            if len(_session_cache) >= MAX_ACTIVE_SESSIONS:
-                logger.warning(
-                    f"Session cache full ({len(_session_cache)}/{MAX_ACTIVE_SESSIONS}), performing LRU eviction"
-                )
-
-                # Find oldest entry (LRU)
-                oldest_token = min(
-                    _session_cache.keys(), key=lambda k: _session_cache[k][1]
-                )
-
-                # Disconnect oldest client
-                oldest_client, last_access = _session_cache[oldest_token]
-                try:
-                    await oldest_client.disconnect()
-                    logger.info(
-                        f"Disconnected LRU client for token {oldest_token[:8]}... (last accessed {time.ctime(last_access)})"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Error disconnecting LRU client for token {oldest_token[:8]}...: {e}"
-                    )
-
-                # Remove from cache
-                del _session_cache[oldest_token]
-                logger.info(
-                    f"Evicted LRU session for token {oldest_token[:8]}... Cache now has {len(_session_cache)} sessions"
-                )
-
-            # Store new client in cache
+            client = await _build_telegram_client_for_token(session_path, token)
+            await _evict_lru_if_session_cache_full()
             _session_cache[token] = (client, current_time)
             logger.info(f"Created new session for token {token[:8]}...")
-
             return client
-
         except Exception as e:
-            # Auto-delete invalid session files on auth errors
-            error_message = str(e).lower()
-            is_auth_error = any(
-                keyword in error_message
-                for keyword in [
-                    "auth",
-                    "session",
-                    "unauthorized",
-                    "authorization",
-                    "password",
-                    "2fa",
-                    "code",
-                    "invalid",
-                ]
-            )
-
-            if is_auth_error and session_path.exists():
-                try:
-                    session_path.unlink()
-                    logger.warning(
-                        f"Auto-deleted invalid session file for token {token[:8]}... due to auth error"
-                    )
-                except Exception as delete_error:
-                    logger.warning(
-                        f"Failed to delete invalid session file: {delete_error}"
-                    )
-
-            logger.error(
-                f"Failed to create client for token {token[:8]}...",
-                extra={
-                    "diagnostic_info": format_diagnostic_info(
-                        {
-                            "error": {
-                                "type": type(e).__name__,
-                                "message": str(e),
-                                "traceback": traceback.format_exc(),
-                            },
-                            "token": f"{token[:8]}...",
-                            "session_path": str(session_path),
-                            "auto_deleted": is_auth_error and session_path.exists(),
-                        }
-                    )
-                },
-            )
+            if _error_message_suggests_auth_issue(e):
+                _try_unlink_session_on_auth_error(session_path, token)
+            _log_client_creation_failed(session_path, token, e)
             raise
 
 
