@@ -361,7 +361,7 @@ send_message(
   message: str,                  // Message content (becomes caption when files sent)
   reply_to_id?: number,          // Reply target (message ID, forum topic root, or channel post for comments)
   parse_mode?: 'markdown'|'html'|'auto' = 'auto', // Text formatting (auto-detect by default)
-  files?: string | string[]      // File URL(s) or local path(s)
+  files?: string[]               // One or more file URLs or local paths (use a one-element array for a single file)
 )
 ```
 
@@ -371,7 +371,7 @@ send_message(
 - 💬 **Message replies** - Replies to any message
 
 **File Sending:**
-- `files`: Single file or array of files (URLs or local paths)
+- `files`: Array of one or more files (URLs or local paths); for a single attachment use a one-element array
 - **URLs**: Public HTTP/HTTPS URLs are supported. SSRF protections block localhost, private IP ranges, and cloud metadata endpoints by default.
 - **Local paths**: Only in stdio mode (blocked in HTTP modes)
 - **Size limits**: Download size capped (configurable)
@@ -391,7 +391,7 @@ send_message(
 {"tool": "send_message", "params": {
   "chat_id": "me",
   "message": "Check this document",
-  "files": "https://example.com/document.pdf"
+  "files": ["https://example.com/document.pdf"]
 }}
 
 // Send multiple images as album
@@ -405,7 +405,7 @@ send_message(
 {"tool": "send_message", "params": {
   "chat_id": "me",
   "message": "Report attached",
-  "files": "/path/to/report.pdf"
+  "files": ["/path/to/report.pdf"]
 }}
 
 // Reply with formatting

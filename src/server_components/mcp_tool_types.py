@@ -111,11 +111,12 @@ ParseMode = Annotated[
     ),
 ]
 
-FilesParam = Annotated[
-    str | list[str],
+
+FilesListParam = Annotated[
+    list[str],
     Field(
         description=(
-            "Attachment(s): HTTPS URL string, local path string, or list of those. "
+            "List of attachment URLs or local paths (one or more strings). "
             "Local paths work in stdio mode only."
         )
     ),

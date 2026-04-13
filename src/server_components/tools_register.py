@@ -13,7 +13,7 @@ from src.server_components.mcp_tool_types import (
     ChatTypeComma,
     ContactFirstName,
     ContactLastName,
-    FilesParam,
+    FilesListParam,
     FolderFilter,
     IncludeTotalCount,
     LimitChats,
@@ -204,7 +204,7 @@ def register_tools(mcp: FastMCP) -> None:
         message: MessageBody,
         reply_to_id: ReplyToId = None,
         parse_mode: ParseMode = "auto",
-        files: FilesParam = None,
+        files: FilesListParam = None,
     ) -> dict[str, Any]:
         """Send text or media to a chat (full doc URL in tool description)."""
         return await send_message_impl(chat_id, message, reply_to_id, parse_mode, files)
@@ -290,7 +290,7 @@ def register_tools(mcp: FastMCP) -> None:
         remove_if_new: RemoveIfNew = False,
         reply_to_msg_id: ReplyToMsgId = None,
         parse_mode: ParseMode = "auto",
-        files: FilesParam = None,
+        files: FilesListParam = None,
     ) -> dict[str, Any]:
         """Send to a phone number with optional contact auto-create (full doc URL in tool description)."""
         return await send_message_to_phone_impl(
