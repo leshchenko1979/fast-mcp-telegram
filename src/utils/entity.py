@@ -2,7 +2,9 @@ import asyncio
 import contextlib
 import logging
 import time
+from typing import Any
 
+from telethon import TelegramClient
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, GetSearchCountersRequest
 from telethon.tl.functions.users import GetFullUserRequest
@@ -100,13 +102,35 @@ def _entity_cache_key(entity) -> tuple:
         return ("object", id(entity))
 
 
-async def get_entity_by_id(entity_id):
+def is_ambiguous_peer_scalar(value: Any) -> bool:
+    """True if `value` is a bare numeric id where get_input_entity may pick the wrong peer type.
+
+    Excludes bool (subclasses int). Usernames and non-numeric strings are not ambiguous.
+    """
+    if type(value) is int:
+        return True
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if s in ("me", "self"):
+        return False
+    if s.isdigit():
+        return True
+    return bool(s.startswith("-") and len(s) > 1 and s[1:].isdigit())
+
+
+async def get_entity_by_id(entity_id, *, client: TelegramClient | None = None):
     """
     A wrapper around client.get_entity to handle numeric strings and log errors.
     Special handling for 'me' identifier for Saved Messages.
     Tries multiple peer types (raw ID, PeerChannel, PeerUser, PeerChat) for better resolution.
+
+    Args:
+        entity_id: Username, ``me``, numeric id, or numeric string.
+        client: Optional Telethon client; if omitted, ``get_connected_client()`` is used.
     """
-    client = await get_connected_client()
+    if client is None:
+        client = await get_connected_client()
     peer = None
     try:
         # Special handling for 'me' identifier (Saved Messages)

@@ -11,6 +11,7 @@ from telethon.errors import RPCError
 from telethon.errors.rpcerrorlist import rpc_errors_dict, rpc_errors_re
 
 from src.client.connection import get_connected_client
+from src.utils.entity import get_entity_by_id, is_ambiguous_peer_scalar
 from src.utils.error_handling import log_and_build_error, log_connection_error_response
 from src.utils.helpers import normalize_method_name
 
@@ -193,7 +194,10 @@ async def _resolve_params(params: dict[str, Any]) -> dict[str, Any]:
             # Telethon TL objects usually have to_dict
             if hasattr(value, "to_dict") or getattr(value, "_", None):
                 return value
-        # Resolve using input entity for strings/ints
+        if is_ambiguous_peer_scalar(value):
+            entity = await get_entity_by_id(value, client=client)
+            if entity is not None:
+                return await client.get_input_entity(entity)
         return await client.get_input_entity(value)
 
     def _process_value(value: Any) -> Any:

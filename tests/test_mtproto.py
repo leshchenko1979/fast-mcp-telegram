@@ -10,9 +10,11 @@ from telethon.errors import InviteHashExpiredError, UserAlreadyParticipantError
 
 from src.tools.mtproto import (
     _normalize_rpc_error_code,
+    _resolve_params,
     _sanitize_mtproto_params,
     invoke_mtproto_impl,
 )
+from src.utils.entity import is_ambiguous_peer_scalar
 
 
 class TestSanitizeHash:
@@ -115,3 +117,74 @@ async def test_invoke_mtproto_rpc_error_returns_error_code():
     assert result.get("ok") is False
     assert "error" in result
     assert result.get("error_code") == "USER_ALREADY_PARTICIPANT"
+
+
+class TestAmbiguousPeerScalar:
+    """Bare int / numeric string detection for MTProto param resolution."""
+
+    def test_int_is_ambiguous(self):
+        assert is_ambiguous_peer_scalar(1660382870) is True
+
+    def test_bool_is_not_ambiguous(self):
+        assert is_ambiguous_peer_scalar(True) is False
+        assert is_ambiguous_peer_scalar(False) is False
+
+    def test_username_string_not_ambiguous(self):
+        assert is_ambiguous_peer_scalar("telegram") is False
+        assert is_ambiguous_peer_scalar("@channel") is False
+
+    def test_numeric_strings_ambiguous(self):
+        assert is_ambiguous_peer_scalar("1660382870") is True
+        assert is_ambiguous_peer_scalar("-1001660382870") is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_params_uses_get_entity_by_id_for_numeric_peer():
+    """Numeric peer should resolve via get_entity_by_id then get_input_entity(entity)."""
+    mock_entity = object()
+    mock_input = object()
+
+    mock_client = AsyncMock()
+    mock_client.get_input_entity = AsyncMock(return_value=mock_input)
+    mock_get_entity = AsyncMock(return_value=mock_entity)
+
+    with (
+        patch(
+            "src.tools.mtproto.get_connected_client",
+            new_callable=AsyncMock,
+            return_value=mock_client,
+        ),
+        patch(
+            "src.tools.mtproto.get_entity_by_id",
+            new=mock_get_entity,
+        ),
+    ):
+        out = await _resolve_params({"peer": 1660382870})
+
+    assert out["peer"] is mock_input
+    mock_get_entity.assert_awaited_once_with(1660382870, client=mock_client)
+    mock_client.get_input_entity.assert_awaited_once_with(mock_entity)
+
+
+@pytest.mark.asyncio
+async def test_resolve_params_falls_back_when_get_entity_by_id_returns_none():
+    mock_input = object()
+    mock_client = AsyncMock()
+    mock_client.get_input_entity = AsyncMock(return_value=mock_input)
+
+    with (
+        patch(
+            "src.tools.mtproto.get_connected_client",
+            new_callable=AsyncMock,
+            return_value=mock_client,
+        ),
+        patch(
+            "src.tools.mtproto.get_entity_by_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        out = await _resolve_params({"peer": 999})
+
+    assert out["peer"] is mock_input
+    mock_client.get_input_entity.assert_awaited_once_with(999)
