@@ -461,15 +461,23 @@ edit_message(
 
 ```typescript
 find_chats(
-  query: str,                  // Search term(s); comma-separated for multi-term
+  query?: str,                  // Search term(s); required for global search (comma-separated for multi-term)
   limit?: number = 20,         // Max results to return
   chat_type?: string, // Optional filter ('private','group','channel','bot', comma-separated for multiple)
   folder?: number | string,    // Filter by dialog folder (integer ID or string name, case-insensitive exact match)
-  public?: boolean             // Optional public filter (true=with username, false=without username). Never applies to private chats.
+  public?: boolean,            // Optional public filter (true=with username, false=without username). Never applies to private chats.
+  min_date?: string,           // ISO date filter: only chats active since this date (last_activity_date)
+  max_date?: string            // ISO date filter: only chats active until this date (last_activity_date)
 ) -> {
   chats: Chat[],               // Array of chat/user entities
 }
 ```
+
+**Two search modes:**
+
+1. **GLOBAL SEARCH** (query provided, no date/folder filters) — searches all of Telegram by name/username/phone. Can find any user/group/channel.
+
+2. **DIALOG SEARCH** (min_date/max_date or folder used) — searches your sidebar/dialog list only. Returns chats matching query AND active within the date range. Each result includes `last_activity_date`.
 
 **Search capabilities:**
 - **Saved contacts** - Your Telegram contacts
@@ -490,7 +498,7 @@ find_chats(
 
 **Examples:**
 ```json
-// Find by username
+// Find by username (global search)
 {"tool": "find_chats", "params": {"query": "telegram"}}
 
 // Find by name
@@ -519,6 +527,18 @@ find_chats(
 
 // Find bots
 {"tool": "find_chats", "params": {"query": "assistant", "chat_type": "bot"}}
+
+// Dialog search: your chats active since 2026-01-01
+{"tool": "find_chats", "params": {"min_date": "2026-01-01"}}
+
+// Dialog search: your chats active in date range
+{"tool": "find_chats", "params": {"min_date": "2026-01-01", "max_date": "2026-06-30"}}
+
+// Dialog search: with query, in folder
+{"tool": "find_chats", "params": {"query": "project", "folder": "Work"}}
+
+// Dialog search: by last activity date in a specific folder
+{"tool": "find_chats", "params": {"min_date": "2026-04-01", "folder": "Бридж"}}
 ```
 
 ### ℹ️ get_chat_info

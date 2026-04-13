@@ -277,12 +277,12 @@ def register_tools(mcp: FastMCP) -> None:
 
         TWO SEARCH MODES:
 
-        1. GLOBAL SEARCH (default, no date filtering, no folder):
+        1. GLOBAL SEARCH (requires query, no date/folder):
         - Searches all of Telegram by name/username/phone
         - Can find any user, group, or channel
         - Does NOT return last_activity_date
 
-        2. DIALOG SEARCH (when date filtering OR folder is used):
+        2. DIALOG SEARCH (when min_date/max_date or folder is used):
         - Searches only your sidebar/dialog list
         - Cannot find chats you're not already connected to
         - Returns last_activity_date for each chat
@@ -302,14 +302,10 @@ def register_tools(mcp: FastMCP) -> None:
         - Only affects groups and channels
 
         DATE FILTERING:
-        - When min_date or max_date is provided, switches to dialog-based search
-        - **Dialog search only returns chats from your Telegram sidebar** (not global Telegram search)
-        - Dialog search provides last_activity_date for each chat
-        - Query matching in dialog search is case-insensitive substring match against title/username/name
-        - Without date filters, uses global Telegram search (can find any chat by name/username/phone)
-        - Date filtering is done client-side (Telegram API ignores offset_date parameter)
-        - Supports full ISO 8601 datetime: "2024-01-01", "2024-01-01T14:30:00", "2024-01-01T14:30:00+00:00"
-        - Timezone-naive values are assumed UTC
+        - Filters by chat's last activity date (last message sent/received in the dialog)
+        - Only returns chats from your sidebar active within the date range
+        - Requires min_date and/or max_date to activate dialog search
+        - ISO 8601 format: "2024-01-01" or "2024-01-01T14:30:00+00:00" (UTC if no timezone)
 
         FOLDER FILTERING:
         - Filter by folder using folder ID (integer) or folder name (string)
