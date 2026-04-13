@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any
 
 from fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -6,6 +6,38 @@ from mcp.types import ToolAnnotations
 from src.server_components import auth as server_auth
 from src.server_components import bot_restrictions
 from src.server_components import errors as server_errors
+from src.server_components.mcp_tool_types import (
+    AllowDangerous,
+    AutoExpandBatches,
+    ChatId,
+    ChatTypeComma,
+    ContactFirstName,
+    ContactLastName,
+    FilesParam,
+    FolderFilter,
+    IncludeTotalCount,
+    LimitChats,
+    LimitMessages,
+    MaxDate,
+    MessageBody,
+    MessageIdInChat,
+    MessageIds,
+    MethodFullName,
+    MinDate,
+    ParamsJson,
+    ParseMode,
+    PhoneE164,
+    PublicFilter,
+    QueryFindChats,
+    QueryGlobal,
+    QueryInChat,
+    RemoveIfNew,
+    ReplyToForThread,
+    ReplyToId,
+    ReplyToMsgId,
+    ResolveEntities,
+    TopicsLimit,
+)
 from src.tools.contacts import find_chats_impl, get_chat_info_impl
 from src.tools.messages import (
     edit_message_impl,
@@ -15,22 +47,78 @@ from src.tools.messages import (
 from src.tools.mtproto import invoke_mtproto_impl
 from src.tools.search import search_messages_impl
 
+# Canonical absolute URL for Tools-Reference (also embedded verbatim in each tool docstring below).
+TOOLS_REFERENCE_DOC_URL = "https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
+
+# MCP-visible tool descriptions (short; full examples at TOOLS_REFERENCE_DOC_URL).
+# Error shape: ok=false, error, operation; optional action, params, exception, error_code.
+_ERR_HINT = "On failure returns a dict with ok=false, error, and operation (and optional action/params). "
+
+
+def _tool_description(body: str, *, after_error_hint: str = "") -> str:
+    return (
+        body
+        + _ERR_HINT
+        + after_error_hint
+        + f" Full documentation: {TOOLS_REFERENCE_DOC_URL}"
+    )
+
+
+_DESC_SEARCH_GLOBAL = _tool_description(
+    "Search all Telegram chats at once (not scoped to one chat). "
+    "Comma-separated query terms; optional filters by date, chat kind, and public username. "
+    "Success: message list and metadata dict. ",
+    after_error_hint="Global search ignores include_total_count.",
+)
+
+_DESC_GET_MESSAGES = _tool_description(
+    "Read or search messages in one chat: browse latest, search text, fetch by ids, "
+    "or load replies to a message (comments, forum topics, threads). "
+    "Do not combine message_ids with query or reply_to_id. "
+    "Success: messages, has_more, optional total_count and discussion fields. "
+)
+
+_DESC_SEND_MESSAGE = _tool_description(
+    "Send text and optional attachments to a chat. Success: send result dict. "
+)
+
+_DESC_EDIT_MESSAGE = _tool_description(
+    "Replace text of an existing message you can edit in this chat. Success: edit result dict. "
+)
+
+_DESC_FIND_CHATS = _tool_description(
+    "Find users/groups/channels by name, username, or phone. "
+    "Global search (query required) searches all Telegram; "
+    "with min_date, max_date, or folder, search is limited to your sidebar dialogs. "
+    "Success: dict with key chats (list of chat objects). "
+)
+
+_DESC_GET_CHAT_INFO = _tool_description(
+    "Load profile and metadata for one user, bot, group, or channel. "
+    "Success: info dict; forum chats may include topics up to topics_limit. "
+)
+
+_DESC_SEND_PHONE = _tool_description(
+    "Send to a phone number: may create a temporary contact, then send text or files. "
+    "Success: send result plus contact_was_new / contact_removed when applicable. "
+)
+
+_DESC_INVOKE_MTPROTO = _tool_description(
+    "Low-level Telegram API (MTProto) invoke for methods not wrapped by other tools. "
+    "Dangerous methods require allow_dangerous=true. "
+    "Success: API result dict or normalized error. "
+)
+
 
 def mcp_tool_with_restrictions(operation_name: str):
     """
-    Combined decorator for MCP tools that applies error handling, auth context, and bot restrictions.
-
-    This reduces repetition of the three common decorators:
-    - @server_errors.with_error_handling
-    - @server_auth.with_auth_context
-    - @bot_restrictions.restrict_non_bridge_for_bot_sessions
+    Combined decorator for MCP tools: error handling, auth context, bot restrictions.
 
     Args:
         operation_name: Name of the operation for error reporting and bot restrictions
     """
 
     def decorator(func):
-        # Apply the three decorators in the correct order
         decorated_func = server_errors.with_error_handling(operation_name)(func)
         decorated_func = server_auth.with_auth_context(decorated_func)
         return bot_restrictions.restrict_non_bridge_for_bot_sessions(operation_name)(
@@ -42,48 +130,26 @@ def mcp_tool_with_restrictions(operation_name: str):
 
 def register_tools(mcp: FastMCP) -> None:
     @mcp.tool(
+        description=_DESC_SEARCH_GLOBAL,
         annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
+            title="Search messages globally",
+            readOnlyHint=True,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     @mcp_tool_with_restrictions("search_messages_globally")
     async def search_messages_globally(
-        query: str,
-        limit: int = 50,
-        min_date: str | None = None,
-        max_date: str | None = None,
-        chat_type: str | None = None,
-        public: bool | None = None,
-        auto_expand_batches: int = 2,
-        include_total_count: bool = False,
-    ) -> dict:
-        """
-        Search messages across all Telegram chats (global search).
-
-        FEATURES:
-        - Multiple queries: "term1, term2, term3"
-        - Date filtering: ISO format (min_date="2024-01-01")
-        - Chat type filter: "private", "group", "channel" (comma-separated for multiple)
-        - Public filter: True=with username, False=without username (never applies to private chats)
-
-        EXAMPLES:
-        search_messages_globally(query="deadline", limit=20)  # Global search
-        search_messages_globally(query="project, launch", limit=30)  # Multi-term search
-        search_messages_globally(query="urgent", chat_type="private")  # Private chats only
-        search_messages_globally(query="news", chat_type="channel,group")  # Channels and groups
-        search_messages_globally(query="team", chat_type="group", public=False)  # Private groups
-        search_messages_globally(query="urgent", chat_type="private, group")  # Private chats and groups
-
-        Args:
-            query: Search terms (comma-separated). Required for global search.
-            limit: Max results (recommended: ≤50)
-            chat_type: Filter by chat type ("private"/"group"/"channel", comma-separated for multiple)
-            public: Filter by public discoverability (True=with username, False=without username)
-            min_date: Min date filter (ISO format: "2024-01-01")
-            max_date: Max date filter (ISO format: "2024-12-31")
-            auto_expand_batches: Extra result batches for filtered searches
-            include_total_count: Include total matching messages count (ignored in global mode)
-        """
+        query: QueryGlobal,
+        limit: LimitMessages = 50,
+        min_date: MinDate = None,
+        max_date: MaxDate = None,
+        chat_type: ChatTypeComma = None,
+        public: PublicFilter = None,
+        auto_expand_batches: AutoExpandBatches = 2,
+        include_total_count: IncludeTotalCount = False,
+    ) -> dict[str, Any]:
+        """Global Telegram message search (full doc URL is in the MCP tool description)."""
         return await search_messages_impl(
             query=query,
             chat_id=None,
@@ -97,74 +163,27 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool(
+        description=_DESC_GET_MESSAGES,
         annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
+            title="Get messages in chat",
+            readOnlyHint=True,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     @mcp_tool_with_restrictions("get_messages")
     async def get_messages(
-        chat_id: str,
-        query: str | None = None,
-        message_ids: list[int] | None = None,
-        reply_to_id: int | None = None,
-        limit: int = 50,
-        min_date: str | None = None,
-        max_date: str | None = None,
-        auto_expand_batches: int = 2,
-        include_total_count: bool = False,
-    ) -> dict:
-        """
-        Get messages from a Telegram chat - supports search, specific IDs, and replies.
-
-        MODES (mutually exclusive):
-        1. SEARCH: chat_id + query - Search messages in chat
-        2. BROWSE: chat_id only - Get latest messages
-        3. READ BY IDs: chat_id + message_ids - Get specific messages
-        4. GET REPLIES: chat_id + reply_to_id - Get replies to a message
-        5. SEARCH REPLIES: chat_id + reply_to_id + query - Search within replies
-
-        REPLIES MODE AUTOMATICALLY HANDLES:
-        - Channel post comments (via discussion group)
-        - Forum topic messages (topic_id = root message)
-        - Regular message replies
-
-        CONFLICTS (will error):
-        - message_ids + reply_to_id: Cannot combine
-        - message_ids + query: Cannot combine
-
-        FEATURES:
-        - Multiple search queries: "term1, term2, term3"
-        - Date filtering: ISO format (min_date="2024-01-01")
-        - Total count support for chat searches
-        - Automatic discussion group detection for channel posts
-
-        EXAMPLES:
-        get_messages(chat_id="me", limit=10)  # Latest messages
-        get_messages(chat_id="-1001234567890", query="launch")  # Search
-        get_messages(chat_id="me", message_ids=[680204, 680205])  # Specific messages
-        get_messages(chat_id="-1001234567890", reply_to_id=123)  # Post comments OR topic messages
-        get_messages(chat_id="-1001234567890", reply_to_id=52)  # Forum topic messages
-        get_messages(chat_id="me", reply_to_id=100, query="bug")  # Search in replies
-
-        Args:
-            chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
-            query: Search terms (comma-separated). Optional unless global search.
-            message_ids: List of specific message IDs to retrieve. Conflicts with query/reply_to_id.
-            reply_to_id: Message ID to get replies from (post comments, forum topics, or regular replies)
-            limit: Max results (recommended: ≤50)
-            min_date: Min date filter (ISO format: "2024-01-01")
-            max_date: Max date filter (ISO format: "2024-12-31")
-            auto_expand_batches: Extra batches for filtered searches
-            include_total_count: Include total message count (per-chat only)
-
-        Returns:
-            Dictionary with:
-            - messages: List of message dicts
-            - has_more: Boolean (always False for message_ids mode)
-            - total_count: Total messages (if include_total_count=True)
-            - reply_to_id: Original message ID (if reply_to_id used)
-            - discussion_chat_id/discussion_total_count: (if channel post with discussion)
-        """
+        chat_id: ChatId,
+        query: QueryInChat = None,
+        message_ids: MessageIds = None,
+        reply_to_id: ReplyToForThread = None,
+        limit: LimitMessages = 50,
+        min_date: MinDate = None,
+        max_date: MaxDate = None,
+        auto_expand_batches: AutoExpandBatches = 2,
+        include_total_count: IncludeTotalCount = False,
+    ) -> dict[str, Any]:
+        """Browse, search, fetch by ids, or load replies in one chat (full doc URL in tool description)."""
         return await search_messages_impl(
             query=query,
             chat_id=chat_id,
@@ -178,78 +197,42 @@ def register_tools(mcp: FastMCP) -> None:
             include_total_count=include_total_count,
         )
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @mcp.tool(
+        description=_DESC_SEND_MESSAGE,
+        annotations=ToolAnnotations(
+            title="Send message",
+            destructiveHint=True,
+            openWorldHint=True,
+        ),
+    )
     @mcp_tool_with_restrictions("send_message")
     async def send_message(
-        chat_id: str,
-        message: str,
-        reply_to_id: int | None = None,
-        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
-        files: str | list[str] | None = None,
-    ) -> dict:
-        """
-        Send new message in Telegram chat, optionally with files.
-
-        FORMATTING:
-        - parse_mode="auto" (default): Automatically detects Markdown or HTML based on content
-        - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
-        - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
-
-        FILE SENDING:
-        - files: Single file or list of files (URLs or local paths)
-        - URLs work in all modes (http:// or https://)
-        - Local file paths only work in stdio mode
-        - Supports images, videos, documents, audio, and other file types
-        - When files are provided, message becomes the caption
-
-        EXAMPLES:
-        send_message(chat_id="me", message="Hello!")  # Send text to Saved Messages
-        send_message(chat_id="-1001234567890", message="New message", reply_to_id=12345)  # Reply
-        send_message(chat_id="-1001234567890", message="Topic message", reply_to_id=52)  # Post into forum topic
-        send_message(chat_id="-1001234567890", message="My comment", reply_to_id=42)  # Channel post comment
-        send_message(chat_id="me", message="Check this", files="https://example.com/doc.pdf")  # Send file from URL
-        send_message(chat_id="me", message="Photos", files=["https://ex.com/1.jpg", "https://ex.com/2.jpg"])  # Multiple files
-        send_message(chat_id="me", message="Report", files="/path/to/file.pdf")  # Local file (stdio mode only)
-
-        Args:
-            chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
-            message: Message text to send (becomes caption when files are provided)
-            reply_to_id: Message ID to reply to. For forum chats, topic root ID. For channel posts, post ID (auto-posts comment).
-            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
-            files: Single file or list of files to send (URLs or local paths, optional)
-        """
+        chat_id: ChatId,
+        message: MessageBody,
+        reply_to_id: ReplyToId = None,
+        parse_mode: ParseMode = "auto",
+        files: FilesParam = None,
+    ) -> dict[str, Any]:
+        """Send text or media to a chat (full doc URL in tool description)."""
         return await send_message_impl(chat_id, message, reply_to_id, parse_mode, files)
 
     @mcp.tool(
+        description=_DESC_EDIT_MESSAGE,
         annotations=ToolAnnotations(
-            destructiveHint=True, idempotentHint=True, openWorldHint=True
-        )
+            title="Edit message",
+            destructiveHint=True,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     @mcp_tool_with_restrictions("edit_message")
     async def edit_message(
-        chat_id: str,
-        message_id: int,
-        message: str,
-        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
-    ) -> dict:
-        """
-        Edit existing message in Telegram chat.
-
-        FORMATTING:
-        - parse_mode="auto" (default): Automatically detects Markdown or HTML based on content
-        - parse_mode="markdown": *bold*, _italic_, [link](url), `code`
-        - parse_mode="html": <b>bold</b>, <i>italic</i>, <a href="url">link</a>, <code>code</code>
-
-        EXAMPLES:
-        edit_message(chat_id="me", message_id=12345, message="Updated text")  # Edit Saved Messages
-        edit_message(chat_id="-1001234567890", message_id=67890, message="*Updated* message")  # Edit with formatting
-
-        Args:
-            chat_id: Target chat ID ('me' for Saved Messages, numeric ID, or username)
-            message_id: Message ID to edit (required)
-            message: New message text
-            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
-        """
+        chat_id: ChatId,
+        message_id: MessageIdInChat,
+        message: MessageBody,
+        parse_mode: ParseMode = "auto",
+    ) -> dict[str, Any]:
+        """Edit an existing message (full doc URL in tool description)."""
         return await edit_message_impl(
             chat_id,
             message_id,
@@ -258,189 +241,65 @@ def register_tools(mcp: FastMCP) -> None:
         )
 
     @mcp.tool(
+        description=_DESC_FIND_CHATS,
         annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
+            title="Find chats",
+            readOnlyHint=True,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     @mcp_tool_with_restrictions("find_chats")
     async def find_chats(
-        query: str | None = None,
-        limit: int = 20,
-        chat_type: str | None = None,
-        public: bool | None = None,
-        min_date: str | None = None,
-        max_date: str | None = None,
-        folder: int | str | None = None,
-    ) -> list[dict] | dict:
-        """
-        Find Telegram chats (users, groups, channels) by name, username, or phone number.
-
-        TWO SEARCH MODES:
-
-        1. GLOBAL SEARCH (requires query, no date/folder):
-        - Searches all of Telegram by name/username/phone
-        - Can find any user, group, or channel
-        - Does NOT return last_activity_date
-
-        2. DIALOG SEARCH (when min_date/max_date or folder is used):
-        - Searches only your sidebar/dialog list
-        - Cannot find chats you're not already connected to
-        - Returns last_activity_date for each chat
-
-        QUERY TYPES:
-        - Name: "John Doe" or "Иванов"
-        - Username: "@username" (without @)
-        - Phone: "+1234567890"
-
-        MULTI-TERM QUERIES:
-        - Comma-separated terms are supported: "john, @telegram, +123"
-        - Each term is searched independently, then results are merged and deduplicated by chat_id
-        - The final list is truncated to the requested limit
-
-        PUBLIC FILTER:
-        - Public filter never applies to private chats or bots (direct messages with users)
-        - Only affects groups and channels
-
-        DATE FILTERING:
-        - Filters by chat's last activity date (last message sent/received in the dialog)
-        - Only returns chats from your sidebar active within the date range
-        - Requires min_date and/or max_date to activate dialog search
-        - ISO 8601 format: "2024-01-01" or "2024-01-01T14:30:00+00:00" (UTC if no timezone)
-
-        FOLDER FILTERING:
-        - Filter by folder using folder ID (integer) or folder name (string)
-        - Folder 0 (default) shows as null on dialog objects
-        - Use get_available_folders() to list available folders
-        - Folder name matching is case-insensitive exact match
-
-        CHAT TYPES:
-        - "private": Direct messages with regular users
-        - "bot": Bots (separate from private)
-        - "group": Groups and supergroups
-        - "channel": Channels
-
-        WORKFLOW:
-        1. Find chat: find_chats("John Doe")
-        2. Get chat_id from results
-        3. Search messages: get_messages(chat_id=chat_id, query="topic")
-
-        EXAMPLES:
-        # Global search (no date filtering) - can find any chat
-        find_chats("@telegram")      # Find user by username (global search)
-        find_chats("John Smith")     # Find by name (global search)
-        find_chats("+1234567890")    # Find by phone (global search)
-        find_chats("news", chat_type="channel,group")    # Find channels and groups
-        find_chats("news", public=True)    # Find public groups and channels only
-        find_chats("team", chat_type="group", public=False)  # Private groups only
-
-        # Dialog search (with date filtering) - searches YOUR sidebar chats only
-        find_chats(min_date="2024-01-01")  # Your chats active since 2024
-        find_chats("project", min_date="2024-01-01", max_date="2024-12-31")  # Your chats active in 2024
-
-        # Folder filtering
-        find_chats(folder=1)                     # By folder ID
-        find_chats(folder="Work")               # By folder name (case-insensitive)
-
-        Args:
-            query: Search term(s). Supports comma-separated multi-queries. When date filtering is used, searches your sidebar chats only.
-            limit: Max results (default: 20, recommended: ≤50)
-            chat_type: Optional filter ("private"|"bot"|"group"|"channel", comma-separated for multiple)
-            public: Optional filter for public discoverability (True=with username, False=without username). Ignored for private chats and bots.
-            min_date: Minimum last activity date (ISO 8601 format, e.g. "2024-01-01" or "2024-01-01T14:30:00"). Uses dialog search (your sidebar chats only).
-            max_date: Maximum last activity date (ISO 8601 format, e.g. "2024-12-31" or "2024-12-31T23:59:59"). Uses dialog search (your sidebar chats only).
-            folder: Filter by folder. Pass folder ID (integer) or folder name (string, case-insensitive exact match). Note: folder 0 (default) shows as null on dialog objects.
-        """
+        query: QueryFindChats = None,
+        limit: LimitChats = 20,
+        chat_type: ChatTypeComma = None,
+        public: PublicFilter = None,
+        min_date: MinDate = None,
+        max_date: MaxDate = None,
+        folder: FolderFilter = None,
+    ) -> dict[str, Any]:
+        """Find chats by query, folder, or activity dates (full doc URL in tool description)."""
         return await find_chats_impl(
             query, limit, chat_type, public, min_date, max_date, folder
         )
 
     @mcp.tool(
+        description=_DESC_GET_CHAT_INFO,
         annotations=ToolAnnotations(
-            readOnlyHint=True, idempotentHint=True, openWorldHint=True
-        )
+            title="Get chat info",
+            readOnlyHint=True,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     @mcp_tool_with_restrictions("get_chat_info")
-    async def get_chat_info(chat_id: str, topics_limit: int = 20) -> dict:
-        """
-        Get detailed profile information for a specific Telegram user or chat.
-
-        USE CASES:
-        - Get full user profile after finding chat_id
-        - Retrieve contact details, bio, status and subscribers count
-        - Check if user is online/bot/channel
-
-        SUPPORTED FORMATS:
-        - Numeric user ID: 133526395
-        - Username: "telegram" (without @)
-        - Channel ID: -100xxxxxxxxx
-
-        EXAMPLES:
-        get_chat_info("133526395")      # User by ID
-        get_chat_info("telegram")       # User by username
-        get_chat_info("-1001234567890") # Channel by ID
-
-        Args:
-            chat_id: Target chat/user identifier (numeric ID, username, or channel ID)
-            topics_limit: Max forum topics to include when chat is forum-enabled
-        """
+    async def get_chat_info(
+        chat_id: ChatId, topics_limit: TopicsLimit = 20
+    ) -> dict[str, Any]:
+        """Profile and metadata for one chat or user (full doc URL in tool description)."""
         return await get_chat_info_impl(chat_id, topics_limit=topics_limit)
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @mcp.tool(
+        description=_DESC_SEND_PHONE,
+        annotations=ToolAnnotations(
+            title="Send message to phone",
+            destructiveHint=True,
+            openWorldHint=True,
+        ),
+    )
     @mcp_tool_with_restrictions("send_message_to_phone")
     async def send_message_to_phone(
-        phone_number: str,
-        message: str,
-        first_name: str = "Contact",
-        last_name: str = "Name",
-        remove_if_new: bool = False,
-        reply_to_msg_id: int | None = None,
-        parse_mode: Literal["markdown", "html", "auto"] | None = "auto",
-        files: str | list[str] | None = None,
-    ) -> dict:
-        """
-        Send message to phone number, auto-managing Telegram contacts, optionally with files.
-
-        FEATURES:
-        - Auto-creates contact if phone not in contacts
-        - Sends message immediately after contact creation
-        - Optional contact cleanup after sending
-        - Full message formatting support
-        - File sending support (URLs or local paths)
-
-        CONTACT MANAGEMENT:
-        - Checks existing contacts first
-        - Creates temporary contact only if needed
-        - Removes temporary contact if remove_if_new=True
-
-        FILE SENDING:
-        - files: Single file or list of files (URLs or local paths)
-        - URLs work in all modes (http:// or https://)
-        - Local file paths only work in stdio mode
-        - Supports images, videos, documents, audio, and other file types
-        - When files are provided, message becomes the caption
-
-        REQUIREMENTS:
-        - Phone number must be registered on Telegram
-        - Include country code: "+1234567890"
-
-        EXAMPLES:
-        send_message_to_phone("+1234567890", "Hello from Telegram!")  # Basic send
-        send_message_to_phone("+1234567890", "*Important*", remove_if_new=True)  # Auto cleanup
-        send_message_to_phone("+1234567890", "Check this", files="https://example.com/doc.pdf")  # Send with file
-
-        Args:
-            phone_number: Target phone number with country code (e.g., "+1234567890")
-            message: Message text to send (becomes caption when files are provided)
-            first_name: Contact first name (for new contacts only)
-            last_name: Contact last name (for new contacts only)
-            remove_if_new: Remove contact after sending if newly created
-            reply_to_msg_id: Reply to specific message ID
-            parse_mode: Text formatting ("markdown", "html", "auto", or None). Default: "auto"
-            files: Single file or list of files to send (URLs or local paths, optional)
-
-        Returns:
-            Message send result + contact management info (contact_was_new, contact_removed)
-        """
+        phone_number: PhoneE164,
+        message: MessageBody,
+        first_name: ContactFirstName = "Contact",
+        last_name: ContactLastName = "Name",
+        remove_if_new: RemoveIfNew = False,
+        reply_to_msg_id: ReplyToMsgId = None,
+        parse_mode: ParseMode = "auto",
+        files: FilesParam = None,
+    ) -> dict[str, Any]:
+        """Send to a phone number with optional contact auto-create (full doc URL in tool description)."""
         return await send_message_to_phone_impl(
             phone_number=phone_number,
             message=message,
@@ -452,56 +311,23 @@ def register_tools(mcp: FastMCP) -> None:
             files=files,
         )
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @mcp.tool(
+        description=_DESC_INVOKE_MTPROTO,
+        annotations=ToolAnnotations(
+            title="Invoke MTProto",
+            destructiveHint=True,
+            openWorldHint=True,
+        ),
+    )
     @server_errors.with_error_handling("invoke_mtproto")
     @server_auth.with_auth_context
     async def invoke_mtproto(
-        method_full_name: str,
-        params_json: str,
-        allow_dangerous: bool = False,
-        resolve: bool = True,
-    ) -> dict:
-        """
-        Execute low-level Telegram MTProto API methods directly.
-
-        USE CASES:
-        - Access advanced Telegram API features
-        - Custom queries not covered by standard tools
-        - Administrative operations
-
-        METHOD FORMAT:
-        - Full class name: "messages.GetHistory", "users.GetFullUser"
-        - Telegram API method names with proper casing (case-insensitive)
-        - Methods are automatically normalized to correct format
-
-        PARAMETERS:
-        - JSON string with method parameters
-        - Parameter names match Telegram API documentation
-        - Supports complex nested objects
-
-        ENTITY RESOLUTION:
-        - Set resolve=true to automatically resolve entity-like parameters
-        - Handles: peer, user, chat, channel, etc. (strings/ints → TL objects)
-        - Useful for simplifying parameter preparation
-
-        SECURITY:
-        - Dangerous methods (delete operations) blocked by default
-        - Pass allow_dangerous=true to override for destructive operations
-
-        EXAMPLES:
-        invoke_mtproto("users.GetFullUser", '{"id": {"_": "inputUserSelf"}}')  # Get self info
-        invoke_mtproto("messages.GetHistory", '{"peer": "username", "limit": 10}')  # Auto-resolve peer (default)
-        invoke_mtproto("messages.DeleteMessages", '{"id": [123]}', allow_dangerous=True)  # Dangerous operation
-
-        Args:
-            method_full_name: Telegram API method name (e.g., "messages.GetHistory")
-            params_json: Method parameters as JSON string
-            allow_dangerous: Allow dangerous methods like delete operations (default: False)
-            resolve: Automatically resolve entity-like parameters (default: True)
-
-        Returns:
-            API response as dict, or error details if failed
-        """
+        method_full_name: MethodFullName,
+        params_json: ParamsJson,
+        allow_dangerous: AllowDangerous = False,
+        resolve: ResolveEntities = True,
+    ) -> dict[str, Any]:
+        """Raw Telegram API invoke, advanced (full doc URL in tool description)."""
         return await invoke_mtproto_impl(
             method_full_name=method_full_name,
             params_json=params_json,

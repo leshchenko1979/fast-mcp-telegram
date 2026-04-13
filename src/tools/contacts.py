@@ -160,7 +160,7 @@ async def find_chats_impl(
     min_date: str | None = None,
     max_date: str | None = None,
     folder: int | str | None = None,
-) -> list[dict[str, Any]] | dict[str, Any]:
+) -> dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
 
@@ -177,7 +177,7 @@ async def find_chats_impl(
         folder: Filter by folder (int ID or str name)
 
     Returns:
-        Dict with "chats" key containing list of matches, or error dict
+        Dict with "chats" key containing list of matches, or standardized error dict
 
     Raises:
         ValueError: For invalid parameter combinations (e.g., empty query without date/folder filters)

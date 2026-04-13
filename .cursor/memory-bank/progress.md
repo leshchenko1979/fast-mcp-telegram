@@ -1,4 +1,5 @@
 ### 2026-04-13
+- **Agent-friendly MCP tools**: `tools_register.py` — `description=` and `ToolAnnotations(title=...)` on all eight tools; concise docstrings; `mcp_tool_types.py` with `Annotated` + Pydantic `Field` for parameter-level schema text; `find_chats` / `find_chats_impl` return type `dict[str, Any]`. Full examples remain in `docs/Tools-Reference.md`. All 409 tests pass.
 - **Connection error handling DRY**: `find_connection_exception` and `log_connection_error_response` in `error_handling.py`; `with_error_handling` and `handle_telegram_errors` delegate to the helper (including `__cause__` unwrap). `search.py` `_handle_search_mode` and `invoke_mtproto` use the helper for `SessionNotAuthorizedError` and `TelegramTransportError`; `get_connected_client` runs inside the same `try`. `docs/Tools-Reference.md` documents transport errors and `action: retry`.
 
 ### 2026-04-01

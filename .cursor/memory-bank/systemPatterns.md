@@ -38,7 +38,7 @@ The project follows a modular architecture with clear separation of concerns:
 ### FastMCP Integration
 - **Stateless HTTP**: Uses `stateless_http=True` for proper auth context handling
 - **Decorator Pattern**: `@with_auth_context` ensures bearer token extraction and validation
-- **Tool Registration**: Tools are registered dynamically from `src/tools/` modules
+- **Tool Registration**: Tools are registered in `tools_register.py` with explicit `description=`, `ToolAnnotations(title=...)`, and shared `mcp_tool_types.py` (`Annotated` + Pydantic `Field` for parameter help in the MCP input schema); implementations live under `src/tools/`
 - **Custom HTTP routes**: `/health`, `/setup/*`, `/mtproto-api/*`, **`/v1/attachments/{uuid}`** — attachment downloads are **intentionally unauthenticated** (UUID is the capability); minting happens inside authenticated tool flows and stores `session_token` on the ticket for Telethon access
 
 ### Configuration System
