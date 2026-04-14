@@ -1,4 +1,12 @@
 ## Current Work Focus
+**Completed**: Todo list `completed_by` JSON safety (2026-04-14)
+
+- `MessageMediaToDo` stored raw Telethon `Peer` in `media.items[].completed_by`, breaking `pydantic_core.to_jsonable_python` and MCP `structuredContent` when `outputSchema` is set.
+- Fix: [`_todo_completed_by_to_int`](src/utils/message_format.py) via [`_forward_peer_id_and_type_label`](src/utils/entity.py); only sets `completed_by` when resolvable to `int`.
+- Tests: [`tests/test_todo_media_placeholder.py`](tests/test_todo_media_placeholder.py).
+
+---
+
 **Completed**: Agent-friendly MCP tool metadata (2026-04-13)
 
 - All eight tools use explicit `description=`, `ToolAnnotations(title=...)`, and short docstrings pointing to the Tools Reference (`TOOLS_REFERENCE_DOC_URL` in `tools_register.py`, GitHub `main` blob URL).

@@ -11,7 +11,12 @@ from telethon.tl.functions.messages import TranscribeAudioRequest
 from src.client.connection import get_connected_client, get_request_token
 from src.config.server_config import get_config
 from src.server_components.attachment_tickets import mint_attachment_ticket
-from src.utils.entity import _extract_forward_info, build_entity_dict, get_entity_by_id
+from src.utils.entity import (
+    _extract_forward_info,
+    _forward_peer_id_and_type_label,
+    build_entity_dict,
+    get_entity_by_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -304,6 +309,16 @@ def _fill_document_media_placeholder(placeholder: dict[str, Any], document) -> N
     _apply_document_mime_and_size(placeholder, document)
 
 
+def _todo_completed_by_to_int(completed_by) -> int | None:
+    """Convert TL completed_by (int or Peer) to a plain Telegram id for JSON tool output."""
+    if completed_by is None:
+        return None
+    if isinstance(completed_by, int):
+        return completed_by
+    peer_id, _label = _forward_peer_id_and_type_label(completed_by)
+    return peer_id if isinstance(peer_id, int) else None
+
+
 def _fill_todo_media_placeholder(placeholder: dict[str, Any], media, todo_list) -> None:
     """Populate placeholder fields for MessageMediaToDo."""
     placeholder["type"] = "todo"
@@ -335,7 +350,9 @@ def _fill_todo_media_placeholder(placeholder: dict[str, Any], media, todo_list) 
             if pl_item["id"] == item_id:
                 pl_item["completed"] = True
                 if completed_by is not None:
-                    pl_item["completed_by"] = completed_by
+                    cid = _todo_completed_by_to_int(completed_by)
+                    if cid is not None:
+                        pl_item["completed_by"] = cid
                 if completed_at is not None:
                     pl_item["completed_at"] = completed_at.isoformat()
                 break
