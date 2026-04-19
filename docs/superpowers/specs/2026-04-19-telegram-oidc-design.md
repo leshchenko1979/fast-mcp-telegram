@@ -50,8 +50,8 @@ Server validates id_token using Telegram JWKS (https://oauth.telegram.org/.well-
   - Extract: sub (tg_user_id), phone_number, name, picture, preferred_username
 
 Phone lookup:
-  phone_hash = sha256(phone_number)
-  Look up token by phone_hash (phone → token index):
+  phone_e164 = normalize(phone_number)
+  Look up token by phone_e164 (phone → token index):
     → Found: existing token → check if {token}.session is valid
     → Not found: generate new random bearer token
 
@@ -70,29 +70,47 @@ Phone lookup:
               Server: client.sign_in(password=password)
          → On success:
               Save session as {random_token}.session
-              Index phone_hash → token (so same phone finds this session next time)
+              Index phone_e164 → token (so same phone finds this session next time)
 ```
 
 ---
 
-## Session Key: Phone Number (Hashed) — Index Only
+## Session Key: Phone Number — Index Only
 
 - **Session file name**: `{random_bearer_token}.session` (unchanged from today)
-- **phone_hash** is an **index key**, not a filename — maps phone → bearer token
+- **Phone** is the **index key** (not hashed) — maps normalized phone → bearer token
 - Same phone number from different MCP clients → same token → same `.session` file
-- `tg_user_id` stored in session metadata for logging/debugging
+- `tg_user_id` stored in the index for logging/debugging
 
-**Phone → Token index:**
-```
-sha256("+1234567890")  →  "abc123...xyz"  →  session file: abc123...xyz.session
+**Phone normalization** (consistent with existing `_normalize_phone_number`):
+- Strip spaces, dashes, parentheses
+- Ensure leading `+`
+- Digits only after `+`
+- Validate 7-15 digits
+
+**Phone → Token index (SQLite `phone_index.sqlite`):**
+```sql
+CREATE TABLE phone_to_token (
+  phone_e164 TEXT PRIMARY KEY,       -- normalized phone, e.g. "+1234567890"
+  token TEXT UNIQUE NOT NULL,        -- bearer token → .session filename
+  tg_user_id INTEGER,
+  auth_method TEXT NOT NULL DEFAULT 'oidc',
+  created_at INTEGER NOT NULL,
+  last_auth_at INTEGER NOT NULL,
+  last_oidc_iat INTEGER
+);
+CREATE INDEX idx_token ON phone_to_token(token);
 ```
 
-The index is stored in session metadata (Telethon session extension or sidecar file).
-On first OIDC login, the server creates the index entry and subsequent logins find it.
+```
+phone_e164: "+1234567890"  →  token: "abc123...xyz"  →  session file: abc123...xyz.session
+```
+
+On first OIDC login, the server inserts the index entry. Subsequent logins find it.
 
 **Migration path for existing sessions:**
 - Existing sessions are named `{bearer_token}.session`
-- On first OIDC login, server indexes `phone_hash → token` in session metadata
+- On first OIDC login, server inserts `phone_e164 → token` entry
 - No forced migration; legacy tokens continue working
 
 ---
@@ -148,18 +166,27 @@ On failure: return error via MCP error response, client retries elicitation.
 ### New config fields (ServerConfig)
 
 ```python
-BOT_ID: str          # Telegram Bot ID (numeric string, e.g. "123456789")
-BOT_CLIENT_SECRET: str  # From BotFather → Bot Settings → Web Login
+# Telegram OIDC credentials (from BotFather → Bot Settings → Web Login)
+# These are used ONLY for the OIDC authentication flow.
+# They are NOT used for Telegram Bot API calls (which use BOT_TOKEN env var).
+BOT_ID: str              # Telegram Bot ID (numeric string, e.g. "123456789")
+BOT_CLIENT_SECRET: str    # OIDC client secret (from BotFather web login settings)
+```
+
+**Existing Telegram API credentials remain unchanged:**
+```python
+API_ID: int     # From my.telegram.org — for MTProto user sessions
+API_HASH: str   # From my.telegram.org — for MTProto user sessions
 ```
 
 ### Session metadata fields
 
 ```python
-# In session .session file (via Telethon session extension)
-phone_hash: str          # sha256 of phone number (index key, NOT filename)
-tg_user_id: int          # From OIDC id_token sub claim
+# In phone_index.sqlite (the index DB)
+phone_e164: str            # normalized phone number (index key)
+tg_user_id: int            # From OIDC id_token sub claim
 auth_method: Literal["oidc", "phone"]  # How they authenticated
-last_oauth_iat: int      # When they last re-authed via OIDC
+last_oidc_iat: int         # When they last re-authed via OIDC
 ```
 
 ### In-memory state (OIDC flow)
@@ -258,9 +285,10 @@ httpx
 | File | Changes |
 |------|---------|
 | `src/config/server_config.py` | Add `BOT_ID`, `BOT_CLIENT_SECRET` fields |
+| `src/server_components/phone_index.py` | New: `phone_index.sqlite` CRUD, phone normalization |
 | `src/server_components/web_setup.py` | Add OIDC routes (`/oauth/*`, `/.well-known/*`) |
-| `src/server_components/auth.py` | Add `validate_telegram_id_token()`, phone-hash session lookup |
-| `src/client/connection.py` | Support phone-hash keyed sessions in session cache |
+| `src/server_components/auth.py` | Add `validate_telegram_id_token()`, phone-to-token lookup |
+| `src/client/connection.py` | Support phone-indexed sessions in session cache |
 | `src/server_components/mcp_elicitation.py` | New: phone code + 2FA password elicitation handlers |
 | `src/templates/setup.html` | Add "Login with Telegram" button (OAuth path) |
 | `src/templates/fragments/oauth_button.html` | New: OIDC login button fragment |
@@ -271,9 +299,9 @@ httpx
 
 1. **OIDC proxy endpoints**: `/.well-known/openid-configuration`, `/.well-known/jwks.json`
 2. **OAuth callback handler**: `/oauth/callback` — validates Telegram JWT, extracts phone
-3. **Phone-hash session lookup**: Look up token by `sha256(phone)` index before creating new
+3. **Phone-indexed session lookup**: Look up token by `phone_e164` index before creating new
 4. **MCP elicitation for phone code**: Replace web form with MCP prompt
 5. **2FA password elicitation**: With hint from `GetPasswordRequest()`
 6. **Update `/setup` page**: Add OIDC login button as primary option
 7. **OAuth-capable client detection**: Detect OAuth support from MCP client hello
-8. **Bearer token migration**: Index existing `{token}.session` with `phone_hash → token` on first OIDC login
+8. **Bearer token migration**: Index existing `{token}.session` with `phone_e164 → token` on first OIDC login
