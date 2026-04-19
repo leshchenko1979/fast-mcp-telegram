@@ -51,10 +51,12 @@ Server validates id_token using Telegram JWKS (https://oauth.telegram.org/.well-
 
 Phone lookup:
   phone_hash = sha256(phone_number)
-  session_path = session_dir / f"{phone_hash}.session"
+  Look up token by phone_hash (phone → token index):
+    → Found: existing token → check if {token}.session is valid
+    → Not found: generate new random bearer token
 
   → If valid session exists:
-       Issue access token (Telegram JWT or server-issued JWT)
+       Issue access token
        Return to MCP client
 
   → If session expired or missing:
@@ -66,20 +68,31 @@ Phone lookup:
               MCP Elicitation: "Enter your 2FA password (hint: {hint})"
               User enters password
               Server: client.sign_in(password=password)
-         → On success: save/update session as {phone_hash}.session
+         → On success:
+              Save session as {random_token}.session
+              Index phone_hash → token (so same phone finds this session next time)
 ```
 
 ---
 
-## Session Key: Phone Number (Hashed)
+## Session Key: Phone Number (Hashed) — Index Only
 
-- **Session file name**: `sha256(phone_number).session` (consistent across devices)
-- Users with the same phone number from different MCP clients share the session
+- **Session file name**: `{random_bearer_token}.session` (unchanged from today)
+- **phone_hash** is an **index key**, not a filename — maps phone → bearer token
+- Same phone number from different MCP clients → same token → same `.session` file
 - `tg_user_id` stored in session metadata for logging/debugging
+
+**Phone → Token index:**
+```
+sha256("+1234567890")  →  "abc123...xyz"  →  session file: abc123...xyz.session
+```
+
+The index is stored in session metadata (Telethon session extension or sidecar file).
+On first OIDC login, the server creates the index entry and subsequent logins find it.
 
 **Migration path for existing sessions:**
 - Existing sessions are named `{bearer_token}.session`
-- On first OIDC login, server reads the session and updates metadata with `tg_user_id` and `phone_hash`
+- On first OIDC login, server indexes `phone_hash → token` in session metadata
 - No forced migration; legacy tokens continue working
 
 ---
@@ -143,7 +156,7 @@ BOT_CLIENT_SECRET: str  # From BotFather → Bot Settings → Web Login
 
 ```python
 # In session .session file (via Telethon session extension)
-phone_hash: str          # sha256 of phone number (session filename)
+phone_hash: str          # sha256 of phone number (index key, NOT filename)
 tg_user_id: int          # From OIDC id_token sub claim
 auth_method: Literal["oidc", "phone"]  # How they authenticated
 last_oauth_iat: int      # When they last re-authed via OIDC
@@ -258,9 +271,9 @@ httpx
 
 1. **OIDC proxy endpoints**: `/.well-known/openid-configuration`, `/.well-known/jwks.json`
 2. **OAuth callback handler**: `/oauth/callback` — validates Telegram JWT, extracts phone
-3. **Phone-hash session lookup**: Check `sha256(phone).session` before creating new
+3. **Phone-hash session lookup**: Look up token by `sha256(phone)` index before creating new
 4. **MCP elicitation for phone code**: Replace web form with MCP prompt
 5. **2FA password elicitation**: With hint from `GetPasswordRequest()`
 6. **Update `/setup` page**: Add OIDC login button as primary option
 7. **OAuth-capable client detection**: Detect OAuth support from MCP client hello
-8. **Bearer token migration**: Map existing `{token}.session` → `{phone_hash}.session` on first OIDC login
+8. **Bearer token migration**: Index existing `{token}.session` with `phone_hash → token` on first OIDC login
