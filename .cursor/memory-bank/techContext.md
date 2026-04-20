@@ -65,8 +65,8 @@ tg_mcp/
 ### Authentication Pattern
 ```python
 # All tools use this exact pattern for consistency
-@handle_telegram_errors(operation="tool_name", params_func=extract_params)
-@with_auth_context  # Must be innermost decorator
+@mcp_tool_with_restrictions("tool_name")  # outermost: restriction + auth context
+@with_error_handling("tool_name")  # raises ToolError for proper isError=True
 async def tool_function(token: str, ...) -> dict:
     # Function body
 ```
@@ -74,11 +74,14 @@ async def tool_function(token: str, ...) -> dict:
 ### Error Handling Pattern
 ```python
 # Consistent error response format across all tools
+# Error dicts are caught by @with_error_handling and re-raised as ToolError
 return log_and_build_error(
     operation="tool_name",
     error_message="Human readable message",
     params=params,
     exception=original_exception,
+    action=ErrorAction.RETRY,  # typed enum, serialized as string
+    code=MCPErrorCode.CONNECTION_ERROR,  # typed enum
 )
 ```
 

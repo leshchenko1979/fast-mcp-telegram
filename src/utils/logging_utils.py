@@ -8,13 +8,8 @@ parameter sanitization, and metadata addition for all logging operations.
 
 import logging
 import traceback
+from datetime import datetime
 from typing import Any
-
-from src.utils.error_handling import (
-    _log_at_level,
-    add_logging_metadata,
-    sanitize_params_for_logging,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +25,53 @@ def mask_phone_number_for_log(phone: str) -> str:
     return "***" if len(phone) <= 5 else f"{phone[:3]}***{phone[-2:]}"
 
 
+def _add_logging_metadata(params: dict[str, Any]) -> dict[str, Any]:
+    """Add consistent metadata to parameter dictionaries for logging."""
+    return params | {
+        "timestamp": datetime.now().isoformat(),
+        "param_count": len(params),
+    }
+
+
+def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]:
+    """
+    Sanitize and truncate parameters for safe logging.
+    """
+    if not params:
+        return {}
+
+    phone_keys = {"phone", "phone_number", "mobile"}
+    message_keys = {"message", "new_text", "text"}
+
+    sanitized = {}
+
+    for key, value in params.items():
+        key_lower = key.lower()
+
+        if any(phone_key in key_lower for phone_key in phone_keys) and isinstance(
+            value, str
+        ):
+            sanitized[key] = mask_phone_number_for_log(value)
+        elif key in message_keys and isinstance(value, str) and len(value) > 100:
+            sanitized[key] = f"{value[:100]}... (truncated)"
+        elif isinstance(value, str) and len(value) > 200:
+            sanitized[key] = f"{value[:200]}... (truncated)"
+        else:
+            try:
+                if isinstance(value, int | float | bool | type(None)):
+                    sanitized[key] = value
+                else:
+                    str_value = str(value)
+                    if len(str_value) > 500:
+                        sanitized[key] = f"{str_value[:500]}... (truncated)"
+                    else:
+                        sanitized[key] = value
+            except Exception:
+                sanitized[key] = f"<{type(value).__name__}>"
+
+    return sanitized
+
+
 def log_operation_start(operation: str, params: dict[str, Any] | None = None) -> None:
     """
     Log the start of an operation with consistent format.
@@ -38,13 +80,12 @@ def log_operation_start(operation: str, params: dict[str, Any] | None = None) ->
         operation: Name of the operation being started
         params: Dictionary of parameters for the operation
     """
-    # Fast path for empty params
     if not params:
         logger.debug(operation)
         return
 
     safe_params = sanitize_params_for_logging(params)
-    enhanced_params = add_logging_metadata(safe_params)
+    enhanced_params = _add_logging_metadata(safe_params)
     logger.debug(operation, extra={"params": enhanced_params})
 
 
@@ -80,7 +121,6 @@ def log_operation_error(
     if params is None:
         params = {}
 
-    # Flattened error structure for easier querying
     safe_params = sanitize_params_for_logging(params)
     log_extra = {
         "operation": operation,
@@ -91,4 +131,10 @@ def log_operation_error(
     }
 
     log_message = f"Error in {operation}"
-    _log_at_level(log_level, log_message, extra=log_extra)
+    numeric_level = {
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+    }.get(log_level.upper(), logging.DEBUG)
+    logger.log(numeric_level, log_message, extra=log_extra)

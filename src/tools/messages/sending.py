@@ -15,7 +15,7 @@ from src.tools.messages.file_handling import (
 from src.tools.messages.security import _validate_file_paths
 from src.utils.discussion import get_post_discussion_info
 from src.utils.entity import get_entity_by_id
-from src.utils.error_handling import handle_telegram_errors, log_and_build_error
+from src.utils.error_handling import log_and_build_error
 from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_send_edit_result
 
@@ -113,9 +113,6 @@ def _extract_send_message_params(
     }
 
 
-@handle_telegram_errors(
-    operation="send_message", params_func=_extract_send_message_params
-)
 async def send_message_impl(
     chat_id: str,
     message: str,

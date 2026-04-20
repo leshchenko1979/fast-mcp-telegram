@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import logging
 import traceback
-from collections.abc import Callable
-from datetime import datetime
-from functools import wraps
-from typing import TYPE_CHECKING, Any, TypedDict, cast
+from enum import IntEnum
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from src.client.connection import SessionNotAuthorizedError, TelegramTransportError
@@ -35,115 +33,33 @@ def _get_connection_error_types() -> tuple[type, type]:
     return _connection_error_types
 
 
-class _ConnectionErrorConfig(TypedDict, total=False):
-    """Structure for connection error pattern config."""
+class MCPErrorCode(IntEnum):
+    """Error codes in -32000 to -32099 per MCP spec."""
 
-    patterns: list[bool]
-    message: str
-    action: str | None
-
-
-# Lazy import to avoid circular dependency
-_current_token = None
-
-
-def _get_current_token() -> str | None:
-    """Safely get current token from connection module."""
-    global _current_token
-    if _current_token is None:
-        try:
-            from src.client.connection import _current_token as token_var
-
-            _current_token = token_var
-        except ImportError:
-            return None
-    return _current_token.get(None) if _current_token else None
+    INTERNAL_ERROR = -32000
+    CONNECTION_ERROR = -32001
+    SESSION_NOT_AUTHORIZED = -32002
+    VALIDATION_ERROR = -32003
+    AUTHORIZATION_ERROR = -32004
+    NOT_FOUND_ERROR = -32005
+    RATE_LIMIT_ERROR = -32006
+    FORBIDDEN_ERROR = -32007
+    TELEGRAM_RPC_ERROR = -32008
+    INVALID_PARAMS_ERROR = -32009
 
 
-def _log_at_level(log_level: str, message: str, extra: dict | None = None) -> None:
-    """
-    Log a message at the specified level using stdlib logging.
+class ErrorAction(IntEnum):
+    """Human-readable remediation hints for the LLM."""
 
-    Args:
-        log_level: The log level ('error', 'warning', 'info', 'debug')
-        message: The message to log
-        extra: Extra data to include in the log record
-    """
-    level_map = {
-        "ERROR": logging.ERROR,
-        "WARNING": logging.WARNING,
-        "INFO": logging.INFO,
-        "DEBUG": logging.DEBUG,
-    }
-    numeric_level = level_map.get(log_level.upper(), logging.DEBUG)
-    logger.log(numeric_level, message, extra=extra)
+    RETRY = 1
+    AUTHENTICATE_SESSION = 2
+    RUN_SETUP = 3
 
 
 def sanitize_params_for_logging(params: dict[str, Any] | None) -> dict[str, Any]:
-    """
-    Sanitize and truncate parameters for safe logging.
-
-    Args:
-        params: Dictionary of parameters to sanitize
-
-    Returns:
-        Sanitized parameters safe for logging
-    """
-    if not params:
-        return {}
-
-    # Lazy import avoids circular dependency with logging_utils.mask_phone_number_for_log
-    from src.utils.logging_utils import mask_phone_number_for_log
-
-    # Pre-compile common patterns for performance
-    phone_keys = {"phone", "phone_number", "mobile"}
-    message_keys = {"message", "new_text", "text"}
-
-    sanitized = {}
-
-    for key, value in params.items():
-        key_lower = key.lower()
-
-        # Optimized phone number masking
-        if any(phone_key in key_lower for phone_key in phone_keys) and isinstance(
-            value, str
-        ):
-            sanitized[key] = mask_phone_number_for_log(value)
-        elif key in message_keys and isinstance(value, str) and len(value) > 100:
-            sanitized[key] = f"{value[:100]}... (truncated)"
-        elif isinstance(value, str) and len(value) > 200:
-            sanitized[key] = f"{value[:200]}... (truncated)"
-        else:
-            try:
-                # Fast path for simple types
-                if isinstance(value, int | float | bool | type(None)):
-                    sanitized[key] = value
-                else:
-                    str_value = str(value)
-                    if len(str_value) > 500:
-                        sanitized[key] = f"{str_value[:500]}... (truncated)"
-                    else:
-                        sanitized[key] = value
-            except Exception:
-                sanitized[key] = f"<{type(value).__name__}>"
-
-    return sanitized
-
-
-def add_logging_metadata(params: dict[str, Any]) -> dict[str, Any]:
-    """
-    Add consistent metadata to parameter dictionaries for logging.
-
-    Args:
-        params: Original parameters
-
-    Returns:
-        Parameters with added metadata
-    """
-    return params | {
-        "timestamp": datetime.now().isoformat(),
-        "param_count": len(params),
-    }
+    """Proxy to logging_utils to avoid circular imports."""
+    from src.utils.logging_utils import sanitize_params_for_logging as _impl
+    return _impl(params)
 
 
 def is_error_response(result: Any) -> bool:
@@ -156,7 +72,7 @@ def is_error_response(result: Any) -> bool:
     Returns:
         True if result is a structured error response, False otherwise
     """
-    return isinstance(result, dict) and "ok" in result and not result["ok"]
+    return isinstance(result, dict) and result.get("ok") is False
 
 
 def is_list_error_response(result: Any) -> tuple[bool, dict[str, Any] | None]:
@@ -173,8 +89,7 @@ def is_list_error_response(result: Any) -> tuple[bool, dict[str, Any] | None]:
         isinstance(result, list)
         and len(result) == 1
         and isinstance(result[0], dict)
-        and "ok" in result[0]
-        and not result[0]["ok"]
+        and result[0].get("ok") is False
     ):
         return True, result[0]
     return False, None
@@ -185,8 +100,9 @@ def build_error_response(
     operation: str,
     params: dict[str, Any] | None = None,
     exception: Exception | None = None,
-    action: str | None = None,
+    action: ErrorAction | None = None,
     error_code: str | None = None,
+    code: MCPErrorCode | None = None,
 ) -> dict[str, Any]:
     """
     Build a standardized error response dictionary.
@@ -196,8 +112,9 @@ def build_error_response(
         operation: Name of the operation that failed
         params: Original parameters for context
         exception: Exception that caused the error (for logging)
-        action: Optional action to suggest to the user (e.g., "run_setup")
+        action: Optional action hint for the LLM (ErrorAction enum)
         error_code: Optional machine-readable Telegram RPC error code (e.g., "INVITE_HASH_EXPIRED")
+        code: Optional numeric MCP error code
 
     Returns:
         Standardized error response dictionary
@@ -207,6 +124,11 @@ def build_error_response(
         "error": error_message,
         "operation": operation,
     }
+
+    if code is not None:
+        error_response["code"] = code.value
+    elif error_code:
+        error_response["code"] = MCPErrorCode.TELEGRAM_RPC_ERROR.value
 
     if params:
         error_response["params"] = params
@@ -218,7 +140,7 @@ def build_error_response(
         }
 
     if action:
-        error_response["action"] = action
+        error_response["action"] = action.name
 
     if error_code:
         error_response["error_code"] = error_code
@@ -232,8 +154,9 @@ def log_and_build_error(
     params: dict[str, Any] | None = None,
     exception: Exception | None = None,
     log_level: str = "error",
-    action: str | None = None,
+    action: ErrorAction | None = None,
     error_code: str | None = None,
+    code: MCPErrorCode | None = None,
 ) -> dict[str, Any]:
     """
     Log an error and build a standardized error response.
@@ -244,8 +167,9 @@ def log_and_build_error(
         params: Original parameters for context
         exception: Exception that caused the error
         log_level: Logging level ('error', 'warning', 'info', etc.)
-        action: Optional action to suggest to the user (e.g., "run_setup")
+        action: Optional action hint (ErrorAction enum)
         error_code: Optional machine-readable Telegram RPC error code
+        code: Optional numeric MCP error code
 
     Returns:
         Standardized error response dictionary
@@ -255,9 +179,6 @@ def log_and_build_error(
         "operation": operation,
         "error_message": error_message,
     }
-
-    if token := _get_current_token():
-        log_extra["token_prefix"] = f"{token[:8]}..."
 
     if params:
         log_extra["params"] = sanitize_params_for_logging(params)
@@ -269,7 +190,13 @@ def log_and_build_error(
 
     # Log the error
     log_message = f"{operation} failed: {error_message}"
-    _log_at_level(log_level, log_message, extra=log_extra)
+    numeric_level = {
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+    }.get(log_level.upper(), logging.DEBUG)
+    logger.log(numeric_level, log_message, extra=log_extra)
 
     # Return standardized error response
     return build_error_response(
@@ -279,6 +206,7 @@ def log_and_build_error(
         exception=exception,
         action=action,
         error_code=error_code,
+        code=code,
     )
 
 
@@ -292,9 +220,9 @@ def find_connection_exception(
     while cur is not None and id(cur) not in seen:
         seen.add(id(cur))
         if isinstance(cur, session_cls):
-            return cast("SessionNotAuthorizedError", cur)
+            return cur
         if isinstance(cur, transport_cls):
-            return cast("TelegramTransportError", cur)
+            return cur
         cur = cur.__cause__
     return None
 
@@ -320,14 +248,16 @@ def log_connection_error_response(
             error_message="Session not authorized. Please authenticate your Telegram session first.",
             params=params,
             exception=resolved,
-            action="authenticate_session",
+            action=ErrorAction.AUTHENTICATE_SESSION,
+            code=MCPErrorCode.SESSION_NOT_AUTHORIZED,
         )
     return log_and_build_error(
         operation=operation,
         error_message=str(resolved),
         params=params,
         exception=resolved,
-        action="retry",
+        action=ErrorAction.RETRY,
+        code=MCPErrorCode.CONNECTION_ERROR,
     )
 
 
@@ -335,185 +265,22 @@ def handle_tool_error(
     result: Any,
     operation: str,
     params: dict[str, Any] | None = None,
-    log_level: str = "error",
 ) -> dict[str, Any] | None:
     """
-    Handle error responses from tools with consistent logging and response processing.
+    Check if a tool result is an error dict. Does NOT log — logging happens upstream in with_error_handling.
 
     Args:
         result: Result from tool function
-        operation: Name of the operation
-        params: Original parameters for context
-        log_level: Logging level for error messages
+        operation: Name of the operation (unused, for API compat)
+        params: Original parameters for context (unused, for API compat)
 
     Returns:
-        Processed error response if result is an error, None otherwise
+        Error dict if result is an error, None otherwise
     """
-
-    def _log_and_return_error(error_dict: dict[str, Any]) -> dict[str, Any]:
-        """Helper function to log an error and return the error dict."""
-        log_message = (
-            f"{operation} returned error: {error_dict.get('error', 'Unknown error')}"
-        )
-        _log_at_level(log_level, log_message)
-        return error_dict
-
     # Check for dict error response
     if is_error_response(result):
-        return _log_and_return_error(result)
+        return result
 
     # Check for list error response (e.g., search_contacts)
     is_list_error, error_dict = is_list_error_response(result)
-    if is_list_error and error_dict is not None:
-        return _log_and_return_error(error_dict)
-
-    return None
-
-
-def check_connection_error(error_text: str) -> dict[str, Any] | None:
-    """
-    Check for specific connection/session errors and return appropriate response.
-
-    Args:
-        error_text: Error message text to check
-
-    Returns:
-        Error response dict if connection error detected, None otherwise
-    """
-    lowered = error_text.lower()
-
-    # Define connection error patterns and their corresponding responses
-    error_patterns = [
-        {
-            "patterns": [
-                ("authorization key" in lowered and "two different ip" in lowered),
-                ("session file" in lowered and "two different ip" in lowered),
-                ("auth key" in lowered and "duplicated" in lowered),
-            ],
-            "message": "Your Telegram session was invalidated due to concurrent use from different IPs. Please run setup to re-authenticate: python3 setup_telegram.py",
-            "action": "run_setup",
-        },
-        {
-            "patterns": [
-                ("wrong session id" in lowered),
-                ("server replied with a wrong session id" in lowered),
-                ("security error" in lowered and "session id" in lowered),
-            ],
-            "message": "Session ID mismatch detected. Your session may be corrupted or used from multiple locations. Please re-authenticate to get a fresh session.",
-            "action": "reauthenticate",
-        },
-        {
-            "patterns": [
-                ("connection" in lowered and "failed" in lowered),
-                ("network" in lowered and "timeout" in lowered),
-            ],
-            "message": "Connection error occurred. Please check your internet connection and try again.",
-            "action": None,
-        },
-    ]
-
-    # Check each error pattern (list of dicts, typed for clarity)
-    for error_config in error_patterns:
-        config = cast(_ConnectionErrorConfig, error_config)
-        if any(config["patterns"]):
-            return build_error_response(
-                error_message=config["message"],
-                operation="connection_check",
-                action=config.get("action"),
-            )
-
-    return None
-
-
-def handle_telegram_errors(
-    operation: str, params_key: str = "params", params_func=None
-):
-    """
-    Decorator to handle common Telegram-related exceptions and return standardized error responses.
-
-    This decorator catches common exceptions that can occur during Telegram operations and
-    converts them to user-friendly error messages with appropriate actions.
-
-    Args:
-        operation: The operation name for error reporting
-        params_key: The parameter name in the function that contains the params dict (default: "params")
-
-    Returns:
-        Decorated function that handles common Telegram exceptions
-
-    Example:
-        @handle_telegram_errors(operation="send_message")
-        async def send_message_impl(chat_id: str, message: str, ...):
-            # function body - exceptions will be caught and handled
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract params from function arguments or use custom function
-            params = None
-            if params_func:
-                params = params_func(*args, **kwargs)
-            elif params_key in kwargs:
-                params = kwargs[params_key]
-            elif len(args) > 0 and hasattr(args[0], params_key):
-                # Check if first arg is self and has params attribute
-                params = getattr(args[0], params_key, None)
-
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                if (
-                    conn := log_connection_error_response(operation, params, e)
-                ) is not None:
-                    return conn
-
-                # Handle other common Telegram errors with better messages
-                error_msg = str(e).lower()
-
-                # Database/connection errors
-                if (
-                    "readonly database" in error_msg
-                    or "database is locked" in error_msg
-                ):
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Database error occurred. This may be a temporary server issue. Please try again later.",
-                        params=params,
-                        exception=e,
-                        action="retry",
-                    )
-
-                # Network/connection errors
-                if any(
-                    pattern in error_msg
-                    for pattern in ["connection", "network", "timeout", "unreachable"]
-                ):
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Connection error occurred. Please check your internet connection and try again.",
-                        params=params,
-                        exception=e,
-                        action="retry",
-                    )
-
-                # Peer resolution errors
-                if "cannot cast" in error_msg or "peer" in error_msg:
-                    return log_and_build_error(
-                        operation=operation,
-                        error_message="Unable to resolve or access the specified chat/user. Please verify the ID is correct and accessible.",
-                        params=params,
-                        exception=e,
-                    )
-
-                # Generic fallback
-                return log_and_build_error(
-                    operation=operation,
-                    error_message=f"Operation failed: {e!s}",
-                    params=params,
-                    exception=e,
-                )
-
-        return wrapper
-
-    return decorator
+    return error_dict if is_list_error and error_dict is not None else None

@@ -1,6 +1,9 @@
 """Regression: MessageMediaToDo completions must not embed Telethon Peer objects."""
 
-from datetime import datetime, timezone
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import ClassVar
 
 from pydantic_core import to_jsonable_python
 from telethon.tl.types import PeerUser
@@ -30,15 +33,15 @@ def test_fill_todo_media_placeholder_serializes_for_mcp():
 
     class TodoList:
         title = ListTitle()
-        list = [TodoItem()]
+        list: ClassVar = [TodoItem()]
 
     class Completion:
         id = 1
         completed_by = PeerUser(user_id=12345)
-        date = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        date = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
 
     class Media:
-        completions = [Completion()]
+        completions: ClassVar = [Completion()]
 
     placeholder: dict = {}
     _fill_todo_media_placeholder(placeholder, Media(), TodoList())
