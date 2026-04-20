@@ -175,9 +175,12 @@ def log_and_build_error(
         Standardized error response dictionary
     """
     # Build flattened error info for logging
+    safe_error_message_for_log = sanitize_params_for_logging({"message": error_message}).get(
+        "message", "error"
+    )
     log_extra: dict[str, Any] = {
         "operation": operation,
-        "error_message": error_message,
+        "error_message": safe_error_message_for_log,
     }
 
     if params:
@@ -185,11 +188,14 @@ def log_and_build_error(
 
     if exception:
         log_extra["error_type"] = type(exception).__name__
-        log_extra["exception_message"] = str(exception)
+        safe_exception_message_for_log = sanitize_params_for_logging(
+            {"message": str(exception)}
+        ).get("message", "exception")
+        log_extra["exception_message"] = safe_exception_message_for_log
         log_extra["traceback"] = traceback.format_exc()
 
     # Log the error
-    log_message = f"{operation} failed: {error_message}"
+    log_message = f"{operation} failed: {safe_error_message_for_log}"
     numeric_level = {
         "ERROR": logging.ERROR,
         "WARNING": logging.WARNING,
