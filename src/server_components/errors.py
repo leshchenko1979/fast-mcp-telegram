@@ -1,12 +1,18 @@
 import inspect
+import json
+import logging
 from collections.abc import Callable
 from functools import wraps
+
+from fastmcp.exceptions import ToolError
 
 from src.utils.error_handling import (
     handle_tool_error,
     log_and_build_error,
     log_connection_error_response,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def with_error_handling(operation_name: str):
@@ -28,7 +34,10 @@ def with_error_handling(operation_name: str):
                 original_sig = inspect.signature(original_func)
             else:
                 original_sig = None
-        except Exception:  # pragma: no cover - defensive
+        except Exception:
+            logger.warning(
+                f"Failed to introspect signature for {func.__name__}, params will be incomplete"
+            )
             original_sig = None
 
         @wraps(func)
@@ -54,18 +63,27 @@ def with_error_handling(operation_name: str):
             try:
                 result = await func(*args, **kwargs)
                 error_response = handle_tool_error(result, operation_name, params)
-                return error_response or result
+                if error_response is not None:
+                    raise ToolError(json.dumps(error_response, separators=(",", ":")))
+                return result
+            except ToolError:
+                raise
             except Exception as e:
                 if (
                     conn := log_connection_error_response(operation_name, params, e)
                 ) is not None:
-                    return conn
-                return log_and_build_error(
-                    operation=operation_name,
-                    error_message=f"Unexpected error: {e}",
-                    params=params,
-                    exception=e,
-                )
+                    raise ToolError(json.dumps(conn, separators=(",", ":"))) from e
+                raise ToolError(
+                    json.dumps(
+                        log_and_build_error(
+                            operation=operation_name,
+                            error_message=f"Unexpected error: {e}",
+                            params=params,
+                            exception=e,
+                        ),
+                        separators=(",", ":"),
+                    )
+                ) from e
 
         return wrapper
 

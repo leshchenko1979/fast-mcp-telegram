@@ -25,7 +25,7 @@ from src.utils.entity import (
     get_available_folders,
     get_entity_by_id,
 )
-from src.utils.error_handling import handle_telegram_errors, log_and_build_error
+from src.utils.error_handling import log_and_build_error
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,6 @@ async def search_contacts_native(
         raise RuntimeError(f"Failed to search contacts: {e!s}") from e
 
 
-@handle_telegram_errors(operation="search_contacts")
 async def _search_contacts_as_list(
     query: str,
     limit: int = 20,
@@ -599,7 +598,6 @@ async def _list_forum_topics(entity, limit: int = 20) -> dict[str, Any]:
     return {"topics": topics, "has_more": has_more}
 
 
-@handle_telegram_errors(operation="get_chat_info")
 async def get_chat_info_impl(chat_id: str, topics_limit: int = 20) -> dict[str, Any]:
     """
     Get detailed information about a specific chat (user, group, or channel).

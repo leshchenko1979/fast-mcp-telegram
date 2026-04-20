@@ -3,7 +3,7 @@
 
 ### 2026-04-13
 - **Agent-friendly MCP tools**: `tools_register.py` — `description=` and `ToolAnnotations(title=...)` on all eight tools; concise docstrings; `mcp_tool_types.py` with `Annotated` + Pydantic `Field` for parameter-level schema text; `find_chats` / `find_chats_impl` return type `dict[str, Any]`. Full examples remain in `docs/Tools-Reference.md`. All 409 tests pass.
-- **Connection error handling DRY**: `find_connection_exception` and `log_connection_error_response` in `error_handling.py`; `with_error_handling` and `handle_telegram_errors` delegate to the helper (including `__cause__` unwrap). `search.py` `_handle_search_mode` and `invoke_mtproto` use the helper for `SessionNotAuthorizedError` and `TelegramTransportError`; `get_connected_client` runs inside the same `try`. `docs/Tools-Reference.md` documents transport errors and `action: retry`.
+- **Connection error handling DRY**: `find_connection_exception` and `log_connection_error_response` in `error_handling.py`; `with_error_handling` handles `SessionNotAuthorizedError` and `TelegramTransportError` (including `__cause__` unwrap); tools return error dicts caught and re-raised as `ToolError` for proper `isError=True`. `search.py` `_handle_search_mode` and `invoke_mtproto` use the helper directly.
 
 ### 2026-04-01
 - **Bot Chat Type Split**: Added "bot" as separate chat type from "private". Bots detected via `getattr(entity, 'bot', False)`. Bots not filtered by public parameter and get bio enrichment same as private users.
@@ -132,7 +132,7 @@
 - **Poll Support**: Comprehensive parsing of Telegram polls with vote counts and metadata
 - **Structured Logging**: Stdlib logging migration - removed complex Loguru bridge
 - **Logging Spam Reduction**: Module-level filtering reduces Telethon noise by 99%
-- **Consistent Error Handling**: All tools return structured error responses instead of raising exceptions
+- **Consistent Error Handling**: All tools return structured error responses; `@with_error_handling` raises `ToolError` for proper MCP `isError=True` signaling
 - **Token-Based Authentication**: Bearer token system with session isolation and LRU cache management
 - **Multi-User Support**: HTTP transport with per-user session files and authentication
 - **Session Management**: Token-specific sessions with automatic invalid session cleanup

@@ -51,9 +51,9 @@ The project follows a modular architecture with clear separation of concerns:
 ### Error Handling
 - **Structured Errors**: Unified error response format across all tools
 - **RPC Error Codes**: invoke_mtproto maps Telegram RPC errors to machine-readable codes via Telethon rpc_errors_dict/rpc_errors_re (no custom mapping)
-- **Decorator-Based**: `@handle_telegram_errors` provides consistent exception handling
-- **Actionable Messages**: Errors include `action` field suggesting user steps (e.g., "authenticate_session")
-- **DRY Principle**: Centralized error logic reduces code duplication
+- **Exception Propagation**: `@with_error_handling` raises `ToolError` with JSON-encoded error dict for proper `isError=True` signaling via FastMCP
+- **Connection Errors**: `log_connection_error_response` handles `SessionNotAuthorizedError` and `TelegramTransportError` with typed `MCPErrorCode` and `ErrorAction` enums
+- **DRY Principle**: Centralized error logic via `log_and_build_error` reduces code duplication
 
 ## Component Relationships
 
@@ -90,7 +90,7 @@ graph TD
 ### Tool Execution Flow
 1. MCP tool request received
 2. Parameters validated against type hints
-3. `@handle_telegram_errors` wraps execution
+3. `@mcp_tool_with_restrictions` (containing `@with_error_handling`) wraps execution
 4. Tool implementation calls Telegram API
 5. Result formatted (JSON-friendly) and returned
 
