@@ -166,8 +166,109 @@ class TestSendMessageFileIdPassthrough:
                 mint.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_multiple_own_urls_sends_all_media_as_list(
+        self, http_no_auth_config, mock_client
+    ):
+        """Multiple own attachment URLs are collected and sent as a list to send_file."""
+        http_no_auth_config.domain = "files.example.test"
+        set_config(http_no_auth_config)
+
+        from src.tools.messages.sending import _send_message_or_files
+
+        mock_msg1 = MagicMock()
+        mock_msg1.id = 111
+        mock_msg1.media = MagicMock()
+        mock_msg1.media._name = "media1"
+
+        mock_msg2 = MagicMock()
+        mock_msg2.id = 222
+        mock_msg2.media = MagicMock()
+        mock_msg2.media._name = "media2"
+
+        mock_msg3 = MagicMock()
+        mock_msg3.id = 333
+        mock_msg3.media = MagicMock()
+        mock_msg3.media._name = "media3"
+
+        async def get_messages_side_effect(chat_id, ids):
+            if ids == 111:
+                return mock_msg1
+            if ids == 222:
+                return mock_msg2
+            if ids == 333:
+                return mock_msg3
+            return MagicMock()
+
+        mock_client.get_messages = AsyncMock(side_effect=get_messages_side_effect)
+
+        with patch("src.tools.messages.sending.get_attachment_ticket") as mint:
+            mint.side_effect = lambda tid: MagicMock(
+                session_token="tok", chat_id=-100, message_id=int(tid.split("-")[1])
+            )
+            result_error, result_msg = await _send_message_or_files(
+                client=mock_client,
+                entity="me",
+                message="caption for album",
+                files=[
+                    "https://files.example.test/v1/attachments/ticket-111/photo_111.jpg",
+                    "https://files.example.test/v1/attachments/ticket-222/photo_222.jpg",
+                    "https://files.example.test/v1/attachments/ticket-333/photo_333.jpg",
+                ],
+                reply_to_msg_id=None,
+                parse_mode=None,
+                operation="send_message",
+                params={},
+            )
+
+        mock_client.send_file.assert_called_once()
+        call_kwargs = mock_client.send_file.call_args.kwargs
+        # Should be a list of 3 media objects, not just the first one
+        file_arg = call_kwargs["file"]
+        assert isinstance(file_arg, list), f"Expected list, got {type(file_arg)}"
+        assert len(file_arg) == 3, f"Expected 3 items, got {len(file_arg)}"
+        assert file_arg[0] is mock_msg1.media
+        assert file_arg[1] is mock_msg2.media
+        assert file_arg[2] is mock_msg3.media
+        assert call_kwargs["caption"] == "caption for album"
+
+    @pytest.mark.asyncio
+    async def test_single_own_url_still_passes_single_media(
+        self, http_no_auth_config, mock_client
+    ):
+        """Single own attachment URL should still pass a single media object (not a list)."""
+        http_no_auth_config.domain = "files.example.test"
+        set_config(http_no_auth_config)
+
+        from src.tools.messages.sending import _send_message_or_files
+
+        mock_msg = MagicMock()
+        mock_msg.id = 555
+        mock_msg.media = MagicMock()
+        mock_client.get_messages.return_value = mock_msg
+
+        with patch("src.tools.messages.sending.get_attachment_ticket") as mint:
+            mint.return_value = MagicMock(session_token="tok", chat_id=-100, message_id=555)
+            result_error, result_msg = await _send_message_or_files(
+                client=mock_client,
+                entity="me",
+                message="single file",
+                files=["https://files.example.test/v1/attachments/ticket-555/photo_555.jpg"],
+                reply_to_msg_id=None,
+                parse_mode=None,
+                operation="send_message",
+                params={},
+            )
+
+        mock_client.send_file.assert_called_once()
+        call_kwargs = mock_client.send_file.call_args.kwargs
+        # Single file should be passed directly, not wrapped in a list
+        file_arg = call_kwargs["file"]
+        assert file_arg is mock_msg.media
+        assert call_kwargs["caption"] == "single file"
+
+    @pytest.mark.asyncio
     async def test_multiple_files_mixed_urls(self, http_no_auth_config, mock_client):
-        """Mixed own + external URLs: own ones use file_id, external still downloads."""
+        """Mixed own + external URLs: own ones are collected and sent together."""
         http_no_auth_config.domain = "files.example.test"
         set_config(http_no_auth_config)
 
@@ -195,8 +296,61 @@ class TestSendMessageFileIdPassthrough:
                     operation="send_message",
                     params={},
                 )
-                # Our URL intercepts and returns early — download path not called
+                # Own URL media is collected and sent via send_file;
+                # the external URL is NOT sent separately when own URLs are present
                 send_files.assert_not_called()
+                mock_client.send_file.assert_called_once()
+
+
+    @pytest.mark.asyncio
+    async def test_multiple_own_urls_with_force_document(
+        self, http_no_auth_config, mock_client
+    ):
+        """force_document is computed from all own URLs (not per-URL) when sending multiple."""
+        http_no_auth_config.domain = "files.example.test"
+        set_config(http_no_auth_config)
+
+        from src.tools.messages.sending import _send_message_or_files
+
+        mock_msg1 = MagicMock()
+        mock_msg1.id = 111
+        mock_msg1.media = MagicMock()
+
+        mock_msg2 = MagicMock()
+        mock_msg2.id = 222
+        mock_msg2.media = MagicMock()
+
+        async def get_messages_side_effect(chat_id, ids):
+            if ids == 111:
+                return mock_msg1
+            if ids == 222:
+                return mock_msg2
+            return MagicMock()
+
+        mock_client.get_messages = AsyncMock(side_effect=get_messages_side_effect)
+
+        with patch("src.tools.messages.sending.get_attachment_ticket") as mint:
+            mint.side_effect = lambda tid: MagicMock(
+                session_token="tok", chat_id=-100, message_id=int(tid.split("-")[1])
+            )
+            await _send_message_or_files(
+                client=mock_client,
+                entity="me",
+                message="doc album",
+                files=[
+                    "https://files.example.test/v1/attachments/ticket-111/photo_111.jpg",
+                    "https://files.example.test/v1/attachments/ticket-222/doc.pdf",
+                ],
+                reply_to_msg_id=None,
+                parse_mode=None,
+                operation="send_message",
+                params={},
+            )
+
+        mock_client.send_file.assert_called_once()
+        call_kwargs = mock_client.send_file.call_args.kwargs
+        # Mixed image+document should force_document=True
+        assert call_kwargs["force_document"] is True
 
 
 class TestPhotoSyntheticFilename:

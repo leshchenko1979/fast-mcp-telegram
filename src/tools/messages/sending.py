@@ -79,6 +79,7 @@ async def _send_message_or_files(
     if files:
         file_list = files if isinstance(files, list) else [files]
         if own_urls := [f for f in file_list if is_own_attachment_url(f)]:
+            media_list = []
             for url in own_urls:
                 ticket_id = url.rstrip("/").split("/")[-2]
                 ticket = await get_attachment_ticket(ticket_id)
@@ -88,15 +89,20 @@ async def _send_message_or_files(
                     )
                     msg = msgs[0] if isinstance(msgs, list) else msgs
                     if msg and getattr(msg, "media", None):
-                        result = await client.send_file(
-                            entity=entity,
-                            file=msg.media,
-                            caption=message or None,
-                            reply_to=reply_to_msg_id,
-                            parse_mode=parse_mode,
-                            force_document=force_document_for_file_list([url]),
-                        )
-                        return None, _extract_first_message(result)
+                        media_list.append(msg.media)
+
+            if media_list:
+                force_doc = force_document_for_file_list(file_list)
+                file_arg = media_list[0] if len(media_list) == 1 else media_list
+                result = await client.send_file(
+                    entity=entity,
+                    file=file_arg,
+                    caption=message or None,
+                    reply_to=reply_to_msg_id,
+                    parse_mode=parse_mode,
+                    force_document=force_doc,
+                )
+                return None, _extract_first_message(result)
 
         file_list, validation_error = _validate_file_paths(files, operation, params)
         if validation_error or file_list is None:
