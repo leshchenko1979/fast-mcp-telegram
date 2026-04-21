@@ -2,6 +2,13 @@
 
 ## 2026 Development History
 
+### 2026-04-21
+- **Attachment URL file_id passthrough**: `send_message(files=[<attachment_download_url>])` now intercepts our own URLs, looks up the ticket, and passes Telegram's `msg.media` directly to `send_file` — Telegram re-uploads from CDN via `file_id`, no bytes through our server. Works for all media types (photo, video, audio, document).
+- **Single route pattern**: Attachment download URL now includes filename: `/v1/attachments/{uuid}/{filename}`. Photos get synthetic `photo_{msg_id}.jpg` since Telegram stores photos without filenames.
+- **Route changed**: `attachment_routes.py` now uses single route `/{ticket_id}/{filename}` — `{filename}` ignored by handler.
+- **Files modified**: `message_format.py`, `attachment_routes.py`, `file_handling.py` (`is_own_attachment_url` helper), `sending.py` (intercept + file_id passthrough).
+- **Tests added**: `tests/test_file_id_passthrough.py` (11 tests covering URL detection, msg.media passthrough, fallback for unknown tickets and external URLs).
+
 ### 2026-03-29
 - Archived older decisions from activeContext.md to progress_history.md for memory bank size compliance (293→65 lines)
 

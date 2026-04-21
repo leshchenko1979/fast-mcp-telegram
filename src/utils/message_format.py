@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import quote
 
 from telethon.errors import RPCError
 from telethon.tl.functions.messages import TranscribeAudioRequest
@@ -99,7 +100,13 @@ async def _maybe_set_attachment_download_url(
         mime_type=mime_type if isinstance(mime_type, str) else None,
     )
     base = cfg.public_base_url_normalized
-    media_dict["attachment_download_url"] = f"{base}/v1/attachments/{tid}"
+    url = f"{base}/v1/attachments/{tid}"
+    if tid_filename := media_dict.get("filename"):
+        url = f"{url}/{quote(tid_filename, safe='')}"
+    else:
+        msg_id = getattr(message, "id", "unknown")
+        url = f"{url}/photo_{msg_id}.jpg"
+    media_dict["attachment_download_url"] = url
 
 
 def _has_any_media(message) -> bool:

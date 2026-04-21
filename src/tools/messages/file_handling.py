@@ -14,6 +14,15 @@ from src.tools.messages.security import _validate_url_security
 
 logger = logging.getLogger(__name__)
 
+
+def is_own_attachment_url(url: str) -> bool:
+    cfg = get_config()
+    return bool(
+        cfg.public_base_url_normalized
+        and url.startswith(cfg.public_base_url_normalized)
+    )
+
+
 # Filename suffixes Telethon can reliably treat as photos when force_document=False.
 _IMAGE_SUFFIXES = frozenset(
     (".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff")

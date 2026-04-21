@@ -136,7 +136,7 @@ async def test_maybe_sets_url_and_mint_args_with_request_token(http_no_auth_conf
 
     assert (
         media["attachment_download_url"]
-        == f"https://files.example.test/v1/attachments/{FIXED_TICKET}"
+        == f"https://files.example.test/v1/attachments/{FIXED_TICKET}/report.pdf"
     )
     mint_m.assert_awaited_once_with(
         "req-token-xyz",
@@ -164,7 +164,7 @@ async def test_maybe_falls_back_to_session_name_when_no_request_token(
 
     assert (
         media["attachment_download_url"]
-        == f"https://files.example.test/v1/attachments/{FIXED_TICKET}"
+        == f"https://files.example.test/v1/attachments/{FIXED_TICKET}/p.jpg"
     )
     mint_m.assert_awaited_once_with(
         "only-session",

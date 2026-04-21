@@ -6,10 +6,12 @@ import logging
 from typing import Any
 
 from src.client.connection import get_connected_client
+from src.server_components.attachment_tickets import get_attachment_ticket
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
 from src.tools.messages.file_handling import (
     _calculate_file_count,
     force_document_for_file_list,
+    is_own_attachment_url,
     prepare_files_for_send,
 )
 from src.tools.messages.security import _validate_file_paths
@@ -75,6 +77,27 @@ async def _send_message_or_files(
     effective_reply_to = reply_to_msg_id
 
     if files:
+        file_list = files if isinstance(files, list) else [files]
+        if own_urls := [f for f in file_list if is_own_attachment_url(f)]:
+            for url in own_urls:
+                ticket_id = url.rstrip("/").split("/")[-2]
+                ticket = await get_attachment_ticket(ticket_id)
+                if ticket:
+                    msgs = await client.get_messages(
+                        ticket.chat_id, ids=ticket.message_id
+                    )
+                    msg = msgs[0] if isinstance(msgs, list) else msgs
+                    if msg and getattr(msg, "media", None):
+                        result = await client.send_file(
+                            entity=entity,
+                            file=msg.media,
+                            caption=message or None,
+                            reply_to=reply_to_msg_id,
+                            parse_mode=parse_mode,
+                            force_document=force_document_for_file_list([url]),
+                        )
+                        return None, _extract_first_message(result)
+
         file_list, validation_error = _validate_file_paths(files, operation, params)
         if validation_error or file_list is None:
             return validation_error or {}, None

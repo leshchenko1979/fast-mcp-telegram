@@ -130,6 +130,6 @@ async def handle_attachment_download(request: Any) -> Response | StreamingRespon
 
 
 def register_attachment_routes(mcp_app) -> None:
-    mcp_app.custom_route("/v1/attachments/{ticket_id}", methods=["GET"])(
+    mcp_app.custom_route("/v1/attachments/{ticket_id}/{filename}", methods=["GET"])(
         handle_attachment_download
     )
