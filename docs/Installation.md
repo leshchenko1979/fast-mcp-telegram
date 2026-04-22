@@ -11,8 +11,6 @@ Fast MCP Telegram runs in two modes:
 | **Local** (`stdio`) | File-based | Local MCP clients | CLI |
 | **Production** (`http-auth`) | Token-based | Remote servers | Web or CLI |
 
-Sessions are stored in `~/.config/fast-mcp-telegram/`.
-
 ---
 
 ## Local Setup (stdio)
@@ -129,7 +127,7 @@ See [Web Setup Interface](#web-setup-interface) for detailed instructions.
 }
 ```
 
-**Health check:** See [Health Monitoring](#health-monitoring) below.
+**Health check:** `curl https://your-domain.com/health`
 
 ---
 
@@ -139,49 +137,9 @@ The web setup interface manages Telegram sessions directly from your browser. Ac
 
 ### Session Management
 
-See [Session Management](#session-management) in Configuration Reference below.
-
-### Available Options
-
-#### 1. Create New Session
-Set up a completely new Telegram session. Click **"Create New Session"**, enter your phone number (with country code, e.g., `+1234567890`), then enter the verification code Telegram sends you. If 2FA is enabled, enter your password. Download the generated `mcp.json` configuration file and use it in your MCP client.
-
-#### 2. Reauthorize Existing Session
-Refresh an expired or unauthorized session while keeping your bearer token. Click **"Reauthorize Existing Session"**, enter your existing bearer token, confirm your phone number, then enter the verification code. If 2FA is enabled, enter your password. Your session is refreshed with the same token.
-
-#### 3. Delete Session
-Permanently remove a session file. Click **"Delete Session"**, enter your bearer token, then confirm deletion (this action cannot be undone). The session file is permanently removed.
-
----
-
-## Configuration Reference
-
-### Environment Variables
-
-Create a `.env` file for easy configuration:
-
-```bash
-# Required
-API_ID=your_api_id
-API_HASH=your_api_hash
-
-# Optional
-SERVER_MODE=stdio              # Local mode (default)
-PORT=8000                      # Server port
-LOG_LEVEL=INFO                 # Logging verbosity
-SESSION_NAME=telegram          # Session identifier
-MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret  # Firewall proxy
-```
-
-**Tip:** The CLI setup automatically loads `.env` files from your current directory.
-
-### Session Management
-
 Sessions are stored in `~/.config/fast-mcp-telegram/`:
 - **Local:** `{SESSION_NAME}.session` (default: `telegram.session`)
 - **Production:** `{bearer_token}.session` (auto-managed per user)
-
-Priority: CLI arg → env var → `.env` → default (`telegram`).
 
 Use different Telegram accounts for personal, work, or testing:
 
