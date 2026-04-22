@@ -13,29 +13,18 @@ from src.tools.messages import (
     send_message_impl,
 )
 from src.utils.message_format import _extract_topic_metadata, build_message_result
-
-
-class Channel:
-    def __init__(self, *, chat_id: int, title: str, forum: bool):
-        self.id = chat_id
-        self.title = title
-        self.forum = forum
-        self.broadcast = True
-        self.megagroup = False
+from tests.conftest import make_forum_channel, make_topic_message
 
 
 @pytest.mark.asyncio
 async def test_build_message_result_includes_topic_fields_for_forum_chat():
-    entity = Channel(chat_id=123, title="Forum Chat", forum=True)
-    message = SimpleNamespace(
-        id=10,
-        date=datetime.now(UTC),
+    entity = make_forum_channel(123, "Forum Chat", forum=True)
+    message = make_topic_message(
+        msg_id=10,
         text="hello",
-        message="hello",
-        caption=None,
         reply_to_msg_id=51,
-        reply_to=SimpleNamespace(reply_to_top_id=51, forum_topic=True),
-        media=None,
+        reply_to_top_id=51,
+        forum_topic=True,
     )
 
     with (
@@ -55,18 +44,13 @@ async def test_build_message_result_includes_topic_fields_for_forum_chat():
 
 @pytest.mark.asyncio
 async def test_build_message_result_topic_fallback_to_message_reply_to_msg_id():
-    entity = Channel(chat_id=123, title="Forum Chat", forum=True)
-    message = SimpleNamespace(
-        id=12,
-        date=datetime.now(UTC),
+    entity = make_forum_channel(123, "Forum Chat", forum=True)
+    message = make_topic_message(
+        msg_id=12,
         text="hello",
-        message="hello",
-        caption=None,
         reply_to_msg_id=42,
-        reply_to=SimpleNamespace(
-            reply_to_top_id=None, forum_topic=True, reply_to_msg_id=None
-        ),
-        media=None,
+        reply_to_top_id=None,
+        forum_topic=True,
     )
 
     with (
@@ -86,19 +70,15 @@ async def test_build_message_result_topic_fallback_to_message_reply_to_msg_id():
 
 @pytest.mark.asyncio
 async def test_build_message_result_topic_fallback_to_reply_object_reply_to_msg_id():
-    entity = Channel(chat_id=123, title="Forum Chat", forum=True)
-    message = SimpleNamespace(
-        id=13,
-        date=datetime.now(UTC),
+    entity = make_forum_channel(123, "Forum Chat", forum=True)
+    message = make_topic_message(
+        msg_id=13,
         text="hello",
-        message="hello",
-        caption=None,
         reply_to_msg_id=None,
-        reply_to=SimpleNamespace(
-            reply_to_top_id=None, forum_topic=True, reply_to_msg_id=99
-        ),
-        media=None,
+        reply_to_top_id=None,
+        forum_topic=True,
     )
+    message.reply_to.reply_to_msg_id = 99
 
     with (
         patch(
@@ -117,19 +97,15 @@ async def test_build_message_result_topic_fallback_to_reply_object_reply_to_msg_
 
 @pytest.mark.asyncio
 async def test_build_message_result_omits_topic_fields_when_forum_topic_has_no_ids():
-    entity = Channel(chat_id=123, title="Forum Chat", forum=True)
-    message = SimpleNamespace(
-        id=14,
-        date=datetime.now(UTC),
+    entity = make_forum_channel(123, "Forum Chat", forum=True)
+    message = make_topic_message(
+        msg_id=14,
         text="hello",
-        message="hello",
-        caption=None,
         reply_to_msg_id=None,
-        reply_to=SimpleNamespace(
-            reply_to_top_id=None, forum_topic=True, reply_to_msg_id=None
-        ),
-        media=None,
+        reply_to_top_id=None,
+        forum_topic=True,
     )
+    message.reply_to.reply_to_msg_id = None
 
     with (
         patch(
@@ -148,16 +124,13 @@ async def test_build_message_result_omits_topic_fields_when_forum_topic_has_no_i
 
 @pytest.mark.asyncio
 async def test_build_message_result_omits_topic_fields_for_non_forum_chat():
-    entity = Channel(chat_id=124, title="Regular Channel", forum=False)
-    message = SimpleNamespace(
-        id=11,
-        date=datetime.now(UTC),
+    entity = make_forum_channel(124, "Regular Channel", forum=False)
+    message = make_topic_message(
+        msg_id=11,
         text="hello",
-        message="hello",
-        caption=None,
         reply_to_msg_id=51,
-        reply_to=SimpleNamespace(reply_to_top_id=None, forum_topic=False),
-        media=None,
+        reply_to_top_id=None,
+        forum_topic=False,
     )
 
     with (
@@ -177,7 +150,7 @@ async def test_build_message_result_omits_topic_fields_for_non_forum_chat():
 
 @pytest.mark.asyncio
 async def test_get_chat_info_returns_topics_for_forum_chat():
-    entity = Channel(chat_id=999, title="Forum Chat", forum=True)
+    entity = make_forum_channel(999, "Forum Chat", forum=True)
 
     with (
         patch(
@@ -213,7 +186,7 @@ async def test_get_chat_info_returns_topics_for_forum_chat():
 
 @pytest.mark.asyncio
 async def test_get_chat_info_skips_topics_for_non_forum_chat():
-    entity = Channel(chat_id=1000, title="Regular", forum=False)
+    entity = make_forum_channel(1000, "Regular", forum=False)
 
     with (
         patch(
@@ -639,7 +612,7 @@ async def test_get_chat_info_not_found_returns_error_dict():
 
 @pytest.mark.asyncio
 async def test_get_chat_info_forum_topics_failure_is_non_fatal():
-    entity = Channel(chat_id=999, title="Forum Chat", forum=True)
+    entity = make_forum_channel(999, "Forum Chat", forum=True)
 
     with (
         patch(

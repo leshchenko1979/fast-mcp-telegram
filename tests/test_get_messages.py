@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from src.tools.search import search_messages_impl
+from tests.conftest import make_mock_message
 
 
 class TestGetMessagesParameterConflicts:
@@ -295,15 +296,12 @@ class TestGetMessagesChatFieldExclusion:
         from telethon.tl.types import PeerUser
 
         mock_client = AsyncMock()
-        mock_msg = Mock()
-        mock_msg.id = 1
-        mock_msg.text = "global search result"
-        mock_msg.date = datetime.now()
-        mock_msg.media = None
-        mock_msg.reply_to_msg_id = None
-        mock_msg.reply_to = None
-        mock_msg.forum_topic = False
-        mock_msg.peer_id = PeerUser(user_id=123)
+        mock_msg = make_mock_message(
+            id=1,
+            text="global search result",
+            date=datetime.now(),
+            peer_id=PeerUser(user_id=123),
+        )
 
         mock_search_result = Mock()
         mock_search_result.messages = [mock_msg]
@@ -387,14 +385,11 @@ class TestReadMessagesByIdsChatExclusion:
 
         mock_get_entity.return_value = mock_entity
 
-        mock_msg = Mock()
-        mock_msg.id = 1
-        mock_msg.text = "message text"
-        mock_msg.date = datetime.now()
-        mock_msg.media = None
-        mock_msg.reply_to_msg_id = None
-        mock_msg.reply_to = None
-        mock_msg.forum_topic = False
+        mock_msg = make_mock_message(
+            id=1,
+            text="message text",
+            date=datetime.now(),
+        )
 
         mock_client = AsyncMock()
         mock_client.get_messages = AsyncMock(return_value=[mock_msg])

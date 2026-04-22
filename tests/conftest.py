@@ -387,6 +387,146 @@ MockChat = make_chat
 MockChannel = make_channel
 
 
+# ============== Forum Channel Fixtures ==============
+
+
+def make_forum_channel(chat_id, title, forum=True):
+    """Mock Channel with forum/broadcast/megagroup attrs.
+
+    Args:
+        chat_id: The channel's ID
+        title: The channel's title
+        forum: True for forum channels, False for regular channels
+    """
+    attrs = {
+        "id": chat_id,
+        "title": title,
+        "forum": forum,
+        "broadcast": True,
+        "megagroup": False,
+        "first_name": None,
+        "last_name": None,
+        "username": None,
+        "phone": None,
+    }
+    return type("Channel", (), attrs)()
+
+
+# ============== Mock Message Fixtures ==============
+
+
+def make_mock_message(
+    id=1,
+    text="",
+    date=None,
+    peer_id=None,
+    media=None,
+    reply_to_msg_id=None,
+    forum_topic=False,
+    reply_to=None,
+    **kwargs,
+):
+    """Create a mock Message object.
+
+    Args:
+        id: Message ID
+        text: Message text
+        date: Message date (datetime or string)
+        peer_id: Peer object (PeerUser, PeerChat, etc.)
+        media: Message media (None for no media)
+        reply_to_msg_id: ID of message being replied to
+        forum_topic: Whether this is a forum topic message
+        reply_to: Reply-to object with reply_to_top_id and reply_to_msg_id
+        **kwargs: Additional attributes to set
+    """
+    msg = MagicMock()
+    msg.id = id
+    msg.text = text
+    msg.message = text  # Some code uses .message instead of .text
+    msg.date = date
+    msg.media = media
+    msg.reply_to_msg_id = reply_to_msg_id
+    msg.forum_topic = forum_topic
+    msg.peer_id = peer_id
+    msg.reply_to = reply_to
+    for k, v in kwargs.items():
+        setattr(msg, k, v)
+    return msg
+
+
+def make_mock_reply_to(forum_topic, reply_to_top_id=None, reply_to_msg_id=None):
+    """Mock reply_to object for forum topic tests."""
+    return MagicMock(
+        reply_to_top_id=reply_to_top_id,
+        forum_topic=forum_topic,
+        reply_to_msg_id=reply_to_msg_id,
+    )
+
+
+def make_topic_message(msg_id, text, reply_to_msg_id, reply_to_top_id, forum_topic):
+    """Full message object with reply_to for forum topic tests.
+
+    Args:
+        msg_id: Message ID
+        text: Message text
+        reply_to_msg_id: Top-level reply message ID
+        reply_to_top_id: Forum topic ID being replied to
+        forum_topic: Whether this is in a forum topic
+    """
+    from datetime import datetime
+
+    return make_mock_message(
+        id=msg_id,
+        text=text,
+        date=datetime.now(),
+        reply_to_msg_id=reply_to_msg_id,
+        forum_topic=forum_topic,
+        reply_to=make_mock_reply_to(forum_topic, reply_to_top_id, reply_to_msg_id),
+    )
+
+
+# ============== Folder Fixtures ==============
+
+
+def make_folder(id, title_text):
+    """Mock DialogFilter/Folder for dialog filter tests.
+
+    Args:
+        id: Folder ID
+        title_text: Folder title text
+    """
+    folder = MagicMock()
+    folder.id = id
+    folder.title = type("obj", (object,), {"text": title_text})()
+    return folder
+
+
+# ============== Request Fixtures ==============
+
+
+def make_mock_request(path, scheme="https", netloc="example.com", query=""):
+    """Mock Starlette Request for middleware tests.
+
+    Args:
+        path: Request path
+        scheme: URL scheme (default https)
+        netloc: URL netloc (default example.com)
+        query: URL query string (default empty)
+    """
+    from starlette.requests import Request
+
+    request = MagicMock(spec=Request)
+    request.scope = {"path": path, "headers": []}
+    request.url = MagicMock()
+    request.url.path = path
+    request.url.scheme = scheme
+    request.url.netloc = netloc
+    request.url.query = query
+    # Mock headers._list for injection
+    request.headers.__dict__ = {"_list": []}
+    return request
+
+
 # ============== Cache Management Fixtures ==============
 
 

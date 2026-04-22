@@ -23,6 +23,7 @@ from src.server_components.auth_middleware import (
     UrlTokenMiddleware,
     generate_url_based_config,
 )
+from tests.conftest import make_mock_request
 
 
 class TestPathPattern:
@@ -104,23 +105,10 @@ class TestUrlTokenMiddleware:
         """Create middleware instance."""
         return UrlTokenMiddleware(mock_app, mock_config)
 
-    def _make_mock_request(self, path: str):
-        """Create a mock request with given path."""
-        request = MagicMock(spec=Request)
-        request.scope = {"path": path}
-        request.url = MagicMock()
-        request.url.path = path
-        request.url.scheme = "https"
-        request.url.netloc = "example.com"
-        request.url.query = ""
-        # Mock headers._list for injection
-        request.headers.__dict__ = {"_list": []}
-        return request
-
     @pytest.mark.asyncio
     async def test_injects_header_for_valid_token(self, middleware, mock_app):
         """Test that valid token in URL injects Authorization header."""
-        request = self._make_mock_request("/v1/url_auth/MyToken123/mcp/tools/call")
+        request = make_mock_request("/v1/url_auth/MyToken123/mcp/tools/call")
 
         mock_app.return_value = JSONResponse({"status": "ok"})
         await middleware.dispatch(request, mock_app)
@@ -134,7 +122,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_passes_through_non_matching_path(self, middleware, mock_app):
         """Test that non-matching paths pass through without header injection."""
-        request = self._make_mock_request("/health")
+        request = make_mock_request("/health")
 
         await middleware.dispatch(request, mock_app)
 
@@ -149,7 +137,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_passes_through_setup_path(self, middleware, mock_app):
         """Test that /setup path passes through without header injection."""
-        request = self._make_mock_request("/setup")
+        request = make_mock_request("/setup")
 
         await middleware.dispatch(request, mock_app)
 
@@ -161,7 +149,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_rejects_reserved_name_telegram(self, middleware, mock_app):
         """Test that 'telegram' reserved name is rejected."""
-        request = self._make_mock_request("/v1/url_auth/telegram/mcp/tools/call")
+        request = make_mock_request("/v1/url_auth/telegram/mcp/tools/call")
 
         response = await middleware.dispatch(request, mock_app)
 
@@ -171,7 +159,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_rejects_reserved_name_default(self, middleware, mock_app):
         """Test that 'default' reserved name is rejected."""
-        request = self._make_mock_request("/v1/url_auth/default/mcp/tools/call")
+        request = make_mock_request("/v1/url_auth/default/mcp/tools/call")
 
         response = await middleware.dispatch(request, mock_app)
 
@@ -181,7 +169,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_rejects_reserved_name_session(self, middleware, mock_app):
         """Test that 'session' reserved name is rejected."""
-        request = self._make_mock_request("/v1/url_auth/session/mcp/tools/call")
+        request = make_mock_request("/v1/url_auth/session/mcp/tools/call")
 
         response = await middleware.dispatch(request, mock_app)
 
@@ -191,7 +179,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_rejects_reserved_name_case_insensitive(self, middleware, mock_app):
         """Test that reserved name rejection is case-insensitive."""
-        request = self._make_mock_request("/v1/url_auth/TELEGRAM/mcp/tools/call")
+        request = make_mock_request("/v1/url_auth/TELEGRAM/mcp/tools/call")
 
         response = await middleware.dispatch(request, mock_app)
 
@@ -215,7 +203,7 @@ class TestUrlTokenMiddleware:
         ]
 
         for name in reserved_names:
-            request = self._make_mock_request(f"/v1/url_auth/{name}/mcp/tools/call")
+            request = make_mock_request(f"/v1/url_auth/{name}/mcp/tools/call")
             response = await middleware.dispatch(request, mock_app)
             assert response.status_code == 401, f"'{name}' should be rejected"
             mock_app.reset_mock()
@@ -223,7 +211,7 @@ class TestUrlTokenMiddleware:
     @pytest.mark.asyncio
     async def test_mtproto_api_path_passes_through(self, middleware, mock_app):
         """Test that mtproto-api path passes through (uses its own auth)."""
-        request = self._make_mock_request("/mtproto-api/messages.sendMessage")
+        request = make_mock_request("/mtproto-api/messages.sendMessage")
 
         await middleware.dispatch(request, mock_app)
 

@@ -17,7 +17,7 @@ from src.utils.entity import (
     get_available_folders,
     get_normalized_chat_type,
 )
-from tests.conftest import MockChannel, MockChat, MockDialog, MockUser
+from tests.conftest import MockChannel, MockChat, MockDialog, MockUser, make_folder
 
 # ============== Bot Type Detection Tests ==============
 
@@ -179,15 +179,10 @@ class TestGetAvailableFolders:
         mock_client = MagicMock()
         mock_client.session = MockSession()
 
-        class MockFolder:
-            def __init__(self, id, title_text):
-                self.id = id
-                self.title = type("obj", (object,), {"text": title_text})()
-
         mock_result = MagicMock()
         mock_result.dialog_filters = [
-            MockFolder(1, "Work"),
-            MockFolder(2, "Personal"),
+            make_folder(1, "Work"),
+            make_folder(2, "Personal"),
         ]
 
         async def mock_call(*args, **kwargs):
