@@ -51,10 +51,7 @@ Add to your `mcp.json`:
 
 **Option 1: Docker (Recommended)**
 
-1. Fork this repository
-2. Configure GitHub secrets (see [Deployment Guide](Deployment.md))
-3. Edit `.env` with your API credentials
-4. Push to `main` — deployment happens automatically
+Use Docker Compose with Traefik — see [Remote Server Setup](Remote-Server-Setup.md) for step-by-step instructions. After the server is running, authenticate via the web interface at `https://your-domain.com/setup`.
 
 **Option 2: Manual**
 
@@ -74,7 +71,7 @@ SERVER_MODE=http-auth fast-mcp-telegram
 # ✅ Done! Use the downloaded mcp.json in your MCP client
 ```
 
-See [Deployment Guide](Deployment.md) for full deployment documentation.
+See [Remote Server Setup](Remote-Server-Setup.md) for full deployment documentation.
 
 ## 🌐 Web Setup Interface
 

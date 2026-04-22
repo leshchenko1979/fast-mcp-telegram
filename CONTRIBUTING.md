@@ -16,7 +16,6 @@ Thank you for your interest in contributing to fast-mcp-telegram! This document 
 - [🔐 Session Management Architecture](#-session-management-architecture)
 - [📝 Contributing Guidelines](#-contributing-guidelines)
 - [🧠 Memory Bank System](#-memory-bank-system)
-- [🚀 Deployment](#-deployment)
 
 ---
 
@@ -484,18 +483,6 @@ When updating the Memory Bank, consider these best practices:
 2. **Peer Review**: At least one maintainer review required
 3. **Approval**: Code owner approval for major changes
 4. **Merge**: Squash merge with descriptive commit message
-
----
-
-## 🚀 Deployment
-
-For development deployment, see the sections above. For production deployment instructions, see the [Deployment Guide](docs/Deployment.md) which covers:
-
-- Docker deployment and production setup
-- Environment configuration
-- Session management and persistence
-- Health monitoring and troubleshooting
-- Remote server deployment
 
 ---
 

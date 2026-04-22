@@ -111,18 +111,11 @@ Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx in
 {"tool": "send_message", "params": {"chat_id": "me", "message": "Hello!"}}
 ```
 
-## Deploy to Production
+## Deploy to Remote Server
 
-This project uses **GitHub Actions** for automatic builds and deployments.
+Deploy your own MCP server on a VDS with Docker Compose and Traefik — no SSL config needed, Traefik handles it.
 
-1. Fork this repository
-2. Add secrets in GitHub Settings: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`
-3. Edit `.env` in your fork
-4. Push to `main` — deployment happens automatically
-
-**Manual deployment:** Use `scripts/sync-remote-config.sh`
-
-See [Deployment Guide](docs/Deployment.md) for details.
+See [Remote Server Setup](docs/Remote-Server-Setup.md) for full instructions.
 
 ## Available Tools
 
@@ -150,7 +143,7 @@ See [SECURITY.md](SECURITY.md) for details.
 ## Documentation
 
 - [Installation Guide](docs/Installation.md) - Local and production setup
-- [Deployment Guide](docs/Deployment.md) - Docker and VDS deployment
+- [Remote Server Setup](docs/Remote-Server-Setup.md) - Deploy to a VDS with Docker and Traefik
 - [Tools Reference](docs/Tools-Reference.md) - Complete tools documentation
 - [MTProto Bridge](docs/MTProto-Bridge.md) - Direct API access via curl
 - [Operations Guide](docs/Operations.md) - Monitoring and troubleshooting

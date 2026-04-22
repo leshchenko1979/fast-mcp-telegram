@@ -64,7 +64,7 @@ fast-mcp-telegram/
 │   └── README.md                 # Test documentation and guidelines
 ├── docs/                         # Documentation
 │   ├── Installation.md           # Installation guide
-│   ├── Deployment.md             # Deployment guide
+│   ├── Remote-Server-Setup.md   # Remote server setup guide
 │   ├── MTProto-Bridge.md         # MTProto HTTP endpoint documentation
 │   ├── Tools-Reference.md        # Complete tools reference
 │   ├── Search-Guidelines.md      # Search best practices
