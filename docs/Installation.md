@@ -217,7 +217,6 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 
 ## More Resources
 
-- **[Operations Guide](docs/Operations.md)** - Monitoring, debugging, health checks
 - **[Tools Reference](docs/Tools-Reference.md)** - Available MCP tools and usage
 - **[SECURITY.md](../SECURITY.md)** - Security best practices
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Development setup for contributors

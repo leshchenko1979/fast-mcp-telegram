@@ -67,7 +67,6 @@ fast-mcp-telegram/
 │   ├── MTProto-Bridge.md         # MTProto HTTP endpoint documentation
 │   ├── Tools-Reference.md        # Complete tools reference
 │   ├── Search-Guidelines.md      # Search best practices
-│   ├── Operations.md             # Operations and monitoring guide
 │   └── Project-Structure.md      # This file
 ├── scripts/                      # Deployment and utility scripts
 │   ├── sync-remote-config.sh     # Remote config synchronization script

@@ -37,11 +37,11 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :busts_in_silhouette: **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment | [Docs](docs/Tools-Reference.md) |
 | :file_folder: **Folder Filtering** | Filter chats by dialog folder (archived, custom folders) with integer ID or name matching | [Docs](docs/Tools-Reference.md) |
 | :robot: **Bot Chat Detection** | Bots identified with `type: "bot"` and filterable via `chat_type="bot"` | [Docs](docs/MTProto-Bridge.md) |
-| :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization | [Docs](docs/Operations.md) |
-| :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling with clear actionable messages | [Docs](docs/Operations.md) |
 | :dart: **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations | [Docs](docs/Tools-Reference.md) |
 | :globe_with_meridians: **Web Setup Interface** | Browser-based authentication flow with immediate config generation | [Docs](docs/Installation.md) |
 | :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection | [Docs](docs/Installation.md) |
+| :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization | |
+| :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling | |
 
 ## Quick Start
 
@@ -114,7 +114,6 @@ See [SECURITY.md](SECURITY.md) for details.
 - [Installation Guide](docs/Installation.md) - Local setup and remote server deployment
 - [Tools Reference](docs/Tools-Reference.md) - Complete tools documentation
 - [MTProto Bridge](docs/MTProto-Bridge.md) - Direct API access via curl
-- [Operations Guide](docs/Operations.md) - Monitoring and troubleshooting
 - [SECURITY.md](SECURITY.md) - Security features and best practices
 
 ## License
