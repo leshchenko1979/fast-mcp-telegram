@@ -49,29 +49,84 @@ Add to your `mcp.json`:
 
 ### 🌐 For Remote Servers (Production)
 
-**Option 1: Docker (Recommended)**
+Deploy on a VDS with Docker Compose and Traefik — Traefik handles SSL, no per-service TLS config needed.
 
-Use Docker Compose with Traefik — see [Remote Server Setup](Remote-Server-Setup.md) for step-by-step instructions. After the server is running, authenticate via the web interface at `https://your-domain.com/setup`.
+**Step 1 — Get the Docker Compose file**
 
-**Option 2: Manual**
-
+Option A (clone):
 ```bash
-# 1. Install
-pip install fast-mcp-telegram
-
-# 2. Start server with authentication
-SERVER_MODE=http-auth fast-mcp-telegram
-
-# 3. Open browser → http://your-server.com/setup
-#    - Choose "Create New Session"
-#    - Enter phone number
-#    - Enter verification code
-#    - Download mcp.json
-
-# ✅ Done! Use the downloaded mcp.json in your MCP client
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
+cd fast-mcp-telegram
 ```
 
-See [Remote Server Setup](Remote-Server-Setup.md) for full deployment documentation.
+Option B (download only):
+```bash
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/.env.example
+mv .env.example .env
+```
+
+**Step 2 — Configure environment**
+
+Edit `.env` with at minimum:
+```bash
+API_ID=your_api_id
+API_HASH=your_api_hash
+DOMAIN=your-domain.com
+```
+
+**Step 3 — Add Traefik labels**
+
+The compose file doesn't include Traefik labels. Add them to the `fast-mcp-telegram` service:
+
+```yaml
+services:
+  fast-mcp-telegram:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fast-mcp-telegram.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.fast-mcp-telegram.entrypoints=websecure"
+      - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=le"
+```
+
+The service must be on the `traefik-public` network (already configured). Traefik handles SSL via certResolver: le.
+
+**Step 4 — Start the server**
+
+```bash
+docker compose up -d --pull
+docker compose logs -f
+```
+
+**Step 5 — Authenticate via web interface**
+
+Open `https://your-domain.com/setup`. Three options are available:
+
+- **Create New Session** — add a new Telegram account
+- **Reauthorize Existing Session** — refresh an expired session using its bearer token
+- **Delete Session** — remove a session by bearer token
+
+For new session: enter phone number, verification code, and 2FA password if enabled. Download the `mcp.json` file.
+
+**Step 6 — Connect your MCP client**
+
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-domain.com/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+**Health check:**
+```bash
+curl https://your-domain.com/health
+```
 
 ## 🌐 Web Setup Interface
 

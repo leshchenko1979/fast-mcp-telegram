@@ -43,26 +43,9 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :globe_with_meridians: **Web Setup Interface** | Browser-based authentication flow with immediate config generation |
 | :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection |
 
-## Quick Start (pip)
+## Quick Start
 
-### 1. Install
-```bash
-pip install fast-mcp-telegram
-```
-
-### 2. Authenticate
-```bash
-fast-mcp-telegram-setup \
-  --api-id="your_api_id" \
-  --api-hash="your_api_hash" \
-  --phone-number="+123456789"
-```
-
-Or use the web interface: run `fast-mcp-telegram` and open `/setup`
-
-## Quick Start (uvx)
-
-### 1. First-time setup (authenticate)
+### 1. Install and authenticate
 ```bash
 uvx --from fast-mcp-telegram fast-mcp-telegram-setup \
   --api-id="your_api_id" \
@@ -70,11 +53,11 @@ uvx --from fast-mcp-telegram fast-mcp-telegram-setup \
   --phone-number="+123456789"
 ```
 
-Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx invocations.
+Sessions are stored in `~/.config/fast-mcp-telegram/`.
 
 ### 2. Configure MCP Client
 
-**STDIO:**
+**stdio mode (local):**
 ```json
 {
   "mcpServers": {
@@ -90,21 +73,9 @@ Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx in
 }
 ```
 
-**HTTP_AUTH:**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "url": "https://your-server.com",
-      "headers": {
-        "Authorization": "Bearer AbCdEfGh123456789..."
-      }
-    }
-  }
-}
-```
+**http-auth mode (remote):** See [Installation Guide](docs/Installation.md) for deploying your own server and authenticating via web interface.
 
-### 4. Start Using
+### 3. Start Using
 ```json
 {"tool": "search_messages_globally", "params": {"query": "hello", "limit": 5}}
 {"tool": "get_messages", "params": {"chat_id": "me", "limit": 10}}
@@ -113,9 +84,7 @@ Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx in
 
 ## Deploy to Remote Server
 
-Deploy your own MCP server on a VDS with Docker Compose and Traefik — no SSL config needed, Traefik handles it.
-
-See [Remote Server Setup](docs/Remote-Server-Setup.md) for full instructions.
+Deploy your own MCP server on a VDS — see [Installation Guide](docs/Installation.md) for step-by-step instructions.
 
 ## Available Tools
 
@@ -142,8 +111,7 @@ See [SECURITY.md](SECURITY.md) for details.
 
 ## Documentation
 
-- [Installation Guide](docs/Installation.md) - Local and production setup
-- [Remote Server Setup](docs/Remote-Server-Setup.md) - Deploy to a VDS with Docker and Traefik
+- [Installation Guide](docs/Installation.md) - Local setup and remote server deployment
 - [Tools Reference](docs/Tools-Reference.md) - Complete tools documentation
 - [MTProto Bridge](docs/MTProto-Bridge.md) - Direct API access via curl
 - [Operations Guide](docs/Operations.md) - Monitoring and troubleshooting
