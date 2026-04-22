@@ -1,76 +1,8 @@
-# 🔧 Tools Reference
+# Tools Reference
 
 ## Overview
 
 This MCP server provides comprehensive Telegram integration tools optimized for AI assistants. The design philosophy is to **save context space for LLMs** by keeping tools general-purpose: fewer tools with broader capabilities (e.g. `get_messages` covers 5 modes, `invoke_mtproto` covers raw API access) consume less context than many narrow-purpose tools. We accept more parameters per tool in exchange for fewer tools. Uniform schemas across tools (entity, message, error) enable automatic processing of responses when possible. All tools support consistent error handling and MCP ToolAnnotations for better AI agent decision-making.
-
-## Error Handling
-
-This MCP server implements comprehensive error handling with clear, actionable error messages:
-
-### Session Authentication Errors
-When a Telegram session is not authorized (e.g., session file missing or expired), tools return:
-```json
-{
-  "ok": false,
-  "error": "Session not authorized. Please authenticate your Telegram session first.",
-  "action": "authenticate_session",
-  "operation": "tool_name"
-}
-```
-
-### Telegram Transport Errors
-When the session file has credentials but Telegram cannot be reached (network, firewall, or **MTPROTO_PROXY** misconfigured or down), tools return a **TelegramTransportError**-derived message and `action: "retry"`:
-```json
-{
-  "ok": false,
-  "error": "Cannot reach Telegram; check network connectivity and MTProto proxy if MTPROTO_PROXY is set.",
-  "action": "retry",
-  "operation": "tool_name"
-}
-```
-The exact `error` text may include RPC class names or proxy diagnostics from the server.
-
-### Common Error Types
-- **Authentication Issues**: Clear guidance to authenticate sessions (`authenticate_session`)
-- **Transport / proxy**: Retry after fixing network or `MTPROTO_PROXY` (`retry`)
-- **Network/Connection Problems**: Other connectivity patterns may still map to generic connection messages
-- **Database Errors**: Retry guidance for temporary server issues
-- **Invalid Chat IDs**: Clear validation messages for incorrect identifiers
-
-### Error Response Format
-All error responses follow this consistent structure:
-```json
-{
-  "ok": false,
-  "error": "Human-readable error message",
-  "operation": "tool_name",
-  "error_code": "USER_ALREADY_PARTICIPANT",  // optional: Telegram RPC code (invoke_mtproto)
-  "action": "suggested_action",  // optional: what to do next
-  "exception": {                 // optional: technical details
-    "type": "ExceptionType",
-    "message": "Technical details"
-  }
-}
-```
-
-## ToolAnnotations for AI Guidance
-
-All tools include MCP ToolAnnotations to help AI agents make informed decisions:
-
-- **`openWorldHint=True`**: All tools interact with external Telegram APIs
-- **`readOnlyHint=True`**: Applied to search and informational tools (safe to retry)
-- **`destructiveHint=True`**: Applied to messaging and state-changing tools (use cautiously)
-- **`idempotentHint=True`**: Applied to safely repeatable operations (can retry safely)
-
-## AI-Optimized Parameter Constraints
-
-This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
-
-- **`parse_mode`**: Constrained to `"markdown"`, `"html"`, or `"auto"` (default: `"auto"`)
-- **`chat_type`**: Limited to `"private"`, `"group"`, `"channel"`, or `"bot"` for search filters (bots return `type: "bot"` instead of `type: "private"`)
-- **Enhanced Validation**: FastMCP automatically validates these constraints
-- **Better AI Guidance**: AI models see only valid options, reducing errors
 
 ## Supported Chat ID Formats
 
@@ -80,397 +12,9 @@ All tools that accept a `chat_id` parameter support these formats:
 - `123456789` - Numeric user ID
 - `-1001234567890` - Channel ID (always starts with -100)
 
-## Uniform Entity Schema
+## 1. Discovery
 
-All tools return chat/user objects in the same schema via `build_entity_dict`:
-
-```json
-{
-  "id": 133526395,
-  "title": "John Doe",           // falls back to full name or @username
-  "type": "private",            // one of: private | group | channel | bot
-  "username": "johndoe",        // if available
-  "first_name": "John",         // users
-  "last_name": "Doe",           // users
-  "members_count": 1234,          // groups (when available)
-  "subscribers_count": 56789,     // channels (when available)
-  "is_forum": true               // present and true for forum-enabled supergroups only
-}
-```
-
-`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format, except when `chat_id` is explicitly provided (per-chat modes) — then `chat` is omitted to save context.
-
-## Uniform Message Schema
-
-All message-returning tools (search, read, send, edit) return messages in a consistent schema via `build_message_result`:
-
-```json
-{
-  "id": 12345,                    // Message ID (unique within chat)
-  "date": "2024-01-15T10:30:00",  // ISO format timestamp
-  "chat": {                       // Chat entity (same uniform schema as above)
-    "id": 133526395,
-    "title": "John Doe",
-    "type": "private",
-    "username": "johndoe"
-  },
-  "text": "Hello world!",          // Message content (text/caption)
-  "link": "https://t.me/johndoe/12345",  // Direct Telegram link (when available)
-  "sender": {                     // Sender entity (same uniform schema, optional)
-    "id": 133526395,
-    "title": "John Doe",
-    "type": "private",
-    "username": "johndoe"
-  },
-  "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
-  "topic_id": 52,                 // Forum topic ID (forum chats only)
-  "media": {                      // Media attachment info (optional, lightweight)
-    "type": "voice",              // Media type (voice, photo, video, etc.)
-    "mime_type": "image/jpeg",    // File MIME type
-    "filename": "photo.jpg",      // Original filename (if available)
-    "approx_size_bytes": 2048576, // Approximate file size
-    "duration_seconds": 45,       // Duration for audio/video (optional)
-    "attachment_download_url": "https://your-mcp-host.example/v1/attachments/<uuid>/<filename>"  // HTTP mode + real DOMAIN only; see README — secret URL, no Authorization on GET
-  },
-  "transcription": "Hello, this is a voice message transcription...",  // Voice transcription (Premium accounts only)
-  "forwarded_from": {             // Forwarded message info (optional)
-    "id": 999999999,
-    "title": "Original Channel",
-    "type": "channel",
-    "username": "original_channel"
-  },
-  "reply_markup": {               // Interactive elements (optional)
-    "type": "inline",             // "keyboard", "inline", "force_reply", "hide"
-    "rows": [                     // Button rows (for keyboard/inline types)
-      [
-        {
-          "text": "Click me!",    // Button text
-          "type": "url",          // Button type: "url", "callback_data", etc.
-          "url": "https://example.com"  // Button data (varies by type)
-        }
-      ]
-    ]
-  }
-}
-```
-
-**Message Content Priority:**
-1. `text` - Primary message content
-2. `message` - Alternative text field
-3. `caption` - Media caption (if no text)
-
-**Media Attachments:**
-- Lightweight metadata only (not actual files)
-- Includes MIME type, filename, approximate size, and media type
-- Voice messages include duration and automatic transcription (Premium accounts)
-- Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
-- **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not a placeholder), documents (non-voice, non-round-video) and photos may include this URL. The URL format is `/v1/attachments/<uuid>/<filename>` — photos get a synthetic `photo_<msg_id>.jpg`. **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
-
-**Voice Message Transcription:**
-- Automatic transcription for Premium Telegram accounts
-- Parallel processing of multiple voice messages
-- Polling for completion (up to 30 seconds)
-- Graceful cancellation if Premium requirement fails
-- Added to `transcription` field in message results
-
-**Forwarded Messages:**
-- `forwarded_from` contains original sender info
-- Uses same entity schema as chat/sender fields
-
-**Reply Markup:**
-- `reply_markup` contains interactive keyboard and inline button elements
-- Automatically extracted from messages with keyboard markup
-- Includes button text, types (URL, callback, etc.), and associated data
-- Supports all Telegram markup types: keyboards, inline buttons, force reply, hide keyboard
-
-## Tools Reference
-
-### 🔍 search_messages_globally
-**Search messages across all Telegram chats**
-
-```typescript
-search_messages_globally(
-  query: str,                    // Search terms (comma-separated, required)
-  limit?: number = 50,          // Max results
-  chat_type?: string, // Filter by chat type ('private','group','channel', comma-separated for multiple)
-  public?: boolean,             // Filter by public discoverability (true=with username, false=without username). Never applies to private chats.
-  min_date?: string,            // ISO date format
-  max_date?: string             // ISO date format
-) -> {
-  messages: Message[],          // Array of message objects
-  has_more: boolean,            // Whether more results exist
-  total_count?: number,         // Total matching messages (if requested)
-}
-```
-
-**Examples:**
-```json
-// Global search across all chats
-{"tool": "search_messages_globally", "params": {"query": "deadline", "limit": 20}}
-
-// Multi-term global search (comma-separated)
-{"tool": "search_messages_globally", "params": {"query": "project, launch", "limit": 30}}
-
-// Partial word search (finds "project", "projects", etc.)
-{"tool": "search_messages_globally", "params": {"query": "proj", "limit": 20}}
-
-// Filtered by date and type
-{"tool": "search_messages_globally", "params": {
-  "query": "meeting",
-  "chat_type": "private",
-  "min_date": "2024-01-01"
-}}
-
-// Search only in public groups and channels
-{"tool": "search_messages_globally", "params": {
-  "query": "announcement",
-  "public": true
-}}
-
-// Search private groups only
-{"tool": "search_messages_globally", "params": {
-  "query": "team",
-  "chat_type": "group",
-  "public": false
-}}
-
-// Search in multiple chat types
-{"tool": "search_messages_globally", "params": {
-  "query": "urgent",
-  "chat_type": "private,group"
-}}
-```
-
-### 📬 get_messages
-**Unified message retrieval - search, browse, read by IDs, or get replies**
-
-```typescript
-get_messages(
-  chat_id: str,                  // Target chat ID (required)
-  query?: str,                   // Search terms (optional)
-  message_ids?: number[],        // Specific message IDs to retrieve
-  reply_to_id?: number,          // Get replies (post comments, forum topics, message replies)
-  limit?: number = 50,           // Max results
-  min_date?: string,             // ISO date filter
-  max_date?: string,             // ISO date filter
-  auto_expand_batches?: number = 2,  // Extra batches for filtered searches
-  include_total_count?: boolean = false  // Include total count (chat search only)
-)
-```
-
-**5 Modes (parameter combinations):**
-1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
-2. **Browse chat**: `chat_id` only - Get latest messages
-3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
-4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message (universal)
-5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
-
-**reply_to_id automatically handles:**
-- 📢 **Channel post comments** - Detects discussion group and fetches comments
-- 📋 **Forum topic messages** - Fetches messages from forum topic
-- 💬 **Message replies** - Fetches direct replies to any message
-
-**Parameter Conflicts (will error):**
-- `message_ids` + `reply_to_id`: Cannot combine
-- `message_ids` + `query`: Cannot combine (specific IDs don't need search)
-
-**Examples:**
-```json
-// 1. Search in chat
-{"tool": "get_messages", "params": {
-  "chat_id": "-1001234567890",
-  "query": "launch"
-}}
-
-// 2. Browse latest messages (no query)
-{"tool": "get_messages", "params": {
-  "chat_id": "me",
-  "limit": 10
-}}
-
-// 3. Read specific messages by ID
-{"tool": "get_messages", "params": {
-  "chat_id": "me",
-  "message_ids": [680204, 680205]
-}}
-
-// 4. Get channel post comments (auto-detects discussion)
-{"tool": "get_messages", "params": {
-  "chat_id": "-1001234567890",
-  "reply_to_id": 123
-}}
-
-// 5. Get forum topic messages (same parameter!)
-{"tool": "get_messages", "params": {
-  "chat_id": "-1001234567890",
-  "reply_to_id": 52
-}}
-
-// 6. Get replies to any message
-{"tool": "get_messages", "params": {
-  "chat_id": "me",
-  "reply_to_id": 100
-}}
-
-// 7. Search within replies
-{"tool": "get_messages", "params": {
-  "chat_id": "-1001234567890",
-  "reply_to_id": 123,
-  "query": "bug"
-}}
-
-// Multi-term search
-{"tool": "get_messages", "params": {
-  "chat_id": "telegram",
-  "query": "update, news"
-}}
-```
-
-**Response (unified format for all modes):**
-```json
-{
-  "messages": [...],           // List of message dicts
-  "has_more": false,           // Boolean (always false for message_ids mode)
-  "total_count": 123,          // Optional: only if include_total_count=true
-  "reply_to_id": 100,          // Optional: only for reply_to_id mode
-  "discussion_chat_id": "...", // Optional: only for channel posts with discussion
-  "discussion_total_count": 45 // Optional: only for channel posts with discussion
-}
-```
-
-**Features:**
-- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
-- **Voice Transcription**: Automatic for Premium accounts with parallel processing
-- **Universal Replies**: Single parameter for post comments, forum topics, and message replies
-- **Auto-Detection**: Automatically detects channel posts and uses discussion group
-- **Structured Data**: LLM-friendly JSON structures
-- **Context Optimization**: When `chat_id` is provided (per-chat modes), the `chat` field is omitted from each message to save context. Global search includes `chat` since messages span different chats.
-
-**💡 Tips:**
-- **No query**: Returns latest messages from chat
-- **Multi-term**: Use comma-separated words for broader results
-- **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
-- **reply_to_id**: Works for channel posts, forum topics, and regular message replies
-- **Forum topics**: Use topic root message ID as reply_to_id (get from get_chat_info)
-
-### 💬 send_message
-**Send new messages with formatting and optional files**
-
-```typescript
-send_message(
-  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  message: str,                  // Message content (becomes caption when files sent)
-  reply_to_id?: number,          // Reply target (message ID, forum topic root, or channel post for comments)
-  parse_mode?: 'markdown'|'html'|'auto' = 'auto', // Text formatting (auto-detect by default)
-  files?: string[]               // One or more file URLs or local paths (use a one-element array for a single file)
-)
-```
-
-**reply_to_id automatically handles:**
-- 📢 **Channel post comments** - Detects discussion group and posts comment there
-- 📋 **Forum topic messages** - Posts into forum topic
-- 💬 **Message replies** - Replies to any message
-
-**File Sending:**
-- `files`: Array of one or more files (URLs or local paths); for a single attachment use a one-element array
-- **URLs**: Public HTTP/HTTPS URLs are supported. SSRF protections block localhost, private IP ranges, and cloud metadata endpoints by default.
-- **Local paths**: Only in stdio mode (blocked in HTTP modes)
-- **Size limits**: Download size capped (configurable)
-- Supports: images, videos, documents, audio, and other file types
-- Multiple files are sent as an album when possible
-- Message becomes the file caption when files are provided
-
-**Examples:**
-```json
-// Send text message
-{"tool": "send_message", "params": {
-  "chat_id": "me",
-  "message": "Hello from AI! 🚀"
-}}
-
-// Send file from URL
-{"tool": "send_message", "params": {
-  "chat_id": "me",
-  "message": "Check this document",
-  "files": ["https://example.com/document.pdf"]
-}}
-
-// Send multiple images as album
-{"tool": "send_message", "params": {
-  "chat_id": "@channel",
-  "message": "Project screenshots",
-  "files": ["https://example.com/img1.png", "https://example.com/img2.png"]
-}}
-
-// Send local file (stdio mode only)
-{"tool": "send_message", "params": {
-  "chat_id": "me",
-  "message": "Report attached",
-  "files": ["/path/to/report.pdf"]
-}}
-
-// Reply with formatting
-{"tool": "send_message", "params": {
-  "chat_id": "@username",
-  "message": "*Important:* Meeting at 3 PM",
-  "parse_mode": "markdown",
-  "reply_to_id": 67890
-}}
-
-// Post into a forum topic (use topic_id from get_chat_info topics list as reply_to_id)
-{"tool": "send_message", "params": {
-  "chat_id": "-1001234567890",
-  "message": "Hello forum thread!",
-  "reply_to_id": 52
-}}
-
-// Post comment on channel post (auto-detects discussion group)
-{"tool": "send_message", "params": {
-  "chat_id": "-1001234567890",
-  "message": "Great post!",
-  "reply_to_id": 42
-}}
-```
-
-### ✏️ edit_message
-**Edit existing messages with formatting**
-
-```typescript
-edit_message(
-  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  message_id: number,            // Message ID to edit (required)
-  message: str,                  // New message content
-  parse_mode?: 'markdown'|'html'|'auto' = 'auto' // Text formatting (auto-detect by default)
-)
-```
-
-**Examples:**
-```json
-// Edit existing message
-{"tool": "edit_message", "params": {
-  "chat_id": "-1001234567890",
-  "message_id": 12345,
-  "message": "Updated: Project deadline extended"
-}}
-
-// Edit with formatting (auto-detected)
-{"tool": "edit_message", "params": {
-  "chat_id": "me",
-  "message_id": 67890,
-  "message": "*Updated:* Meeting rescheduled to 4 PM"
-}}
-
-// Edit with explicit formatting
-{"tool": "edit_message", "params": {
-  "chat_id": "me",
-  "message_id": 67890,
-  "message": "<b>Updated:</b> Meeting rescheduled to 4 PM",
-  "parse_mode": "html"
-}}
-
-```
-
-### 👥 find_chats
+### find_chats
 **Find users, groups, and channels (uniform entity schema)**
 
 ```typescript
@@ -555,7 +99,7 @@ find_chats(
 {"tool": "find_chats", "params": {"min_date": "2026-04-01", "folder": "Бридж"}}
 ```
 
-### ℹ️ get_chat_info
+### get_chat_info
 **Get user/chat profile information (enriched with member/subscriber counts)**
 
 ```typescript
@@ -591,7 +135,295 @@ Counts are fetched via Telethon full-info requests and reflect current values.
 {"tool": "get_chat_info", "params": {"chat_id": "-1001234567890", "topics_limit": 50}}
 ```
 
-### 📱 send_message_to_phone
+### search_messages_globally
+**Search messages across all Telegram chats**
+
+```typescript
+search_messages_globally(
+  query: str,                    // Search terms (comma-separated, required)
+  limit?: number = 50,          // Max results
+  chat_type?: string, // Filter by chat type ('private','group','channel', comma-separated for multiple)
+  public?: boolean,             // Filter by public discoverability (true=with username, false=without username). Never applies to private chats.
+  min_date?: string,            // ISO date format
+  max_date?: string             // ISO date format
+) -> {
+  messages: Message[],          // Array of message objects
+  has_more: boolean,            // Whether more results exist
+  total_count?: number,         // Total matching messages (if requested)
+}
+```
+
+**Examples:**
+```json
+// Global search across all chats
+{"tool": "search_messages_globally", "params": {"query": "deadline", "limit": 20}}
+
+// Multi-term global search (comma-separated)
+{"tool": "search_messages_globally", "params": {"query": "project, launch", "limit": 30}}
+
+// Partial word search (finds "project", "projects", etc.)
+{"tool": "search_messages_globally", "params": {"query": "proj", "limit": 20}}
+
+// Filtered by date and type
+{"tool": "search_messages_globally", "params": {
+  "query": "meeting",
+  "chat_type": "private",
+  "min_date": "2024-01-01"
+}}
+
+// Search only in public groups and channels
+{"tool": "search_messages_globally", "params": {
+  "query": "announcement",
+  "public": true
+}}
+
+// Search private groups only
+{"tool": "search_messages_globally", "params": {
+  "query": "team",
+  "chat_type": "group",
+  "public": false
+}}
+
+// Search in multiple chat types
+{"tool": "search_messages_globally", "params": {
+  "query": "urgent",
+  "chat_type": "private,group"
+}}
+```
+
+## 2. Read
+
+### get_messages
+**Unified message retrieval - search, browse, read by IDs, or get replies**
+
+```typescript
+get_messages(
+  chat_id: str,                  // Target chat ID (required)
+  query?: str,                   // Search terms (optional)
+  message_ids?: number[],        // Specific message IDs to retrieve
+  reply_to_id?: number,          // Get replies (post comments, forum topics, message replies)
+  limit?: number = 50,           // Max results
+  min_date?: string,             // ISO date filter
+  max_date?: string,             // ISO date filter
+  auto_expand_batches?: number = 2,  // Extra batches for filtered searches
+  include_total_count?: boolean = false  // Include total count (chat search only)
+)
+```
+
+**5 Modes (parameter combinations):**
+1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
+2. **Browse chat**: `chat_id` only - Get latest messages
+3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
+4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message (universal)
+5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
+
+**reply_to_id automatically handles:**
+- 📢 **Channel post comments** - Detects discussion group and fetches comments
+- 📋 **Forum topic messages** - Fetches messages from forum topic
+- 💬 **Message replies** - Fetches direct replies to any message
+
+**Parameter Conflicts (will error):**
+- `message_ids` + `reply_to_id`: Cannot combine
+- `message_ids` + `query`: Cannot combine (specific IDs don't need search)
+
+**Response (unified format for all modes):**
+```json
+{
+  "messages": [...],           // List of message dicts
+  "has_more": false,           // Boolean (always false for message_ids mode)
+  "total_count": 123,          // Optional: only if include_total_count=true
+  "reply_to_id": 100,          // Optional: only for reply_to_id mode
+  "discussion_chat_id": "...", // Optional: only for channel posts with discussion
+  "discussion_total_count": 45 // Optional: only for channel posts with discussion
+}
+```
+
+**Features:**
+- **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
+- **Voice Transcription**: Automatic for Premium accounts with parallel processing
+- **Universal Replies**: Single parameter for post comments, forum topics, and message replies
+- **Auto-Detection**: Automatically detects channel posts and uses discussion group
+- **Structured Data**: LLM-friendly JSON structures
+- **Context Optimization**: When `chat_id` is provided (per-chat modes), the `chat` field is omitted from each message to save context. Global search includes `chat` since messages span different chats.
+
+**💡 Tips:**
+- **No query**: Returns latest messages from chat
+- **Multi-term**: Use comma-separated words for broader results
+- **Partial words**: Use shorter forms (e.g., "proj" finds "project", "projects")
+- **reply_to_id**: Works for channel posts, forum topics, and regular message replies
+- **Forum topics**: Use topic root message ID as reply_to_id (get from get_chat_info)
+
+**Examples:**
+```json
+// 1. Search in chat
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "query": "launch"
+}}
+
+// 2. Browse latest messages (no query)
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "limit": 10
+}}
+
+// 3. Read specific messages by ID
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "message_ids": [680204, 680205]
+}}
+
+// 4. Get channel post comments (auto-detects discussion)
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 123
+}}
+
+// 5. Get forum topic messages (same parameter!)
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 52
+}}
+
+// 6. Get replies to any message
+{"tool": "get_messages", "params": {
+  "chat_id": "me",
+  "reply_to_id": 100
+}}
+
+// 7. Search within replies
+{"tool": "get_messages", "params": {
+  "chat_id": "-1001234567890",
+  "reply_to_id": 123,
+  "query": "bug"
+}}
+
+// Multi-term search
+{"tool": "get_messages", "params": {
+  "chat_id": "telegram",
+  "query": "update, news"
+}}
+```
+
+## 3. Write
+
+### send_message
+**Send new messages with formatting and optional files**
+
+```typescript
+send_message(
+  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
+  message: str,                  // Message content (becomes caption when files sent)
+  reply_to_id?: number,          // Reply target (message ID, forum topic root, or channel post for comments)
+  parse_mode?: 'markdown'|'html'|'auto' = 'auto', // Text formatting (auto-detect by default)
+  files?: string[]               // One or more file URLs or local paths (use a one-element array for a single file)
+)
+```
+
+**reply_to_id automatically handles:**
+- 📢 **Channel post comments** - Detects discussion group and posts comment there
+- 📋 **Forum topic messages** - Posts into forum topic
+- 💬 **Message replies** - Replies to any message
+
+**File Sending:**
+- `files`: Array of one or more files (URLs or local paths); for a single attachment use a one-element array
+- **URLs**: Public HTTP/HTTPS URLs are supported. SSRF protections block localhost, private IP ranges, and cloud metadata endpoints by default.
+- **Local paths**: Only in stdio mode (blocked in HTTP modes)
+- **Size limits**: Download size capped (configurable)
+- Supports: images, videos, documents, audio, and other file types
+- Multiple files are sent as an album when possible
+- Message becomes the file caption when files are provided
+
+**Examples:**
+```json
+// Send text message
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Hello from AI! 🚀"
+}}
+
+// Send file from URL
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Check this document",
+  "files": ["https://example.com/document.pdf"]
+}}
+
+// Send multiple images as album
+{"tool": "send_message", "params": {
+  "chat_id": "@channel",
+  "message": "Project screenshots",
+  "files": ["https://example.com/img1.png", "https://example.com/img2.png"]
+}}
+
+// Send local file (stdio mode only)
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Report attached",
+  "files": ["/path/to/report.pdf"]
+}}
+
+// Reply with formatting
+{"tool": "send_message", "params": {
+  "chat_id": "@username",
+  "message": "*Important:* Meeting at 3 PM",
+  "parse_mode": "markdown",
+  "reply_to_id": 67890
+}}
+
+// Post into a forum topic (use topic_id from get_chat_info topics list as reply_to_id)
+{"tool": "send_message", "params": {
+  "chat_id": "-1001234567890",
+  "message": "Hello forum thread!",
+  "reply_to_id": 52
+}}
+
+// Post comment on channel post (auto-detects discussion group)
+{"tool": "send_message", "params": {
+  "chat_id": "-1001234567890",
+  "message": "Great post!",
+  "reply_to_id": 42
+}}
+```
+
+### edit_message
+**Edit existing messages with formatting**
+
+```typescript
+edit_message(
+  chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
+  message_id: number,            // Message ID to edit (required)
+  message: str,                  // New message content
+  parse_mode?: 'markdown'|'html'|'auto' = 'auto' // Text formatting (auto-detect by default)
+)
+```
+
+**Examples:**
+```json
+// Edit existing message
+{"tool": "edit_message", "params": {
+  "chat_id": "-1001234567890",
+  "message_id": 12345,
+  "message": "Updated: Project deadline extended"
+}}
+
+// Edit with formatting (auto-detected)
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 67890,
+  "message": "*Updated:* Meeting rescheduled to 4 PM"
+}}
+
+// Edit with explicit formatting
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 67890,
+  "message": "<b>Updated:</b> Meeting rescheduled to 4 PM",
+  "parse_mode": "html"
+}}
+```
+
+### send_message_to_phone
 **Message by phone number (auto-contact management) with optional files**
 
 ```typescript
@@ -637,7 +469,9 @@ send_message_to_phone(
 }}
 ```
 
-### 🔧 invoke_mtproto
+## 4. Advanced
+
+### invoke_mtproto
 **Direct Telegram API access with automatic TL object construction**
 
 ```typescript
@@ -664,44 +498,7 @@ invoke_mtproto(
 
 **Use cases:** Advanced operations with complex parameters, raw Telegram API access, joining groups via invite links
 
-**Examples:**
-```json
-// Get your own user information
-{"tool": "invoke_mtproto", "params": {
-  "method_full_name": "users.GetFullUser",
-  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}"
-}}
-
-// Get account information (safe method)
-{"tool": "invoke_mtproto", "params": {
-  "method_full_name": "account.GetAccountTTL",
-  "params_json": "{}"
-}}
-
-// Delete messages (requires explicit dangerous flag)
-{"tool": "invoke_mtproto", "params": {
-  "method_full_name": "messages.DeleteMessages",
-  "params_json": "{\"id\": [123, 456, 789]}",
-  "allow_dangerous": true
-}}
-
-// Get nearest data center (method normalization works)
-{"tool": "invoke_mtproto", "params": {
-  "method_full_name": "help.getnearestdc",
-  "params_json": "{}"
-}}
-
-// Join a group via invite link - hash must be string (from t.me/+... link)
-{"tool": "invoke_mtproto", "params": {
-  "method_full_name": "messages.ImportChatInvite",
-  "params_json": "{\"hash\": \"ABC123xyz\"}"
-}}
-```
-
-On RPC errors, the response includes a machine-readable `error_code` (e.g., `USER_ALREADY_PARTICIPANT`, `INVITE_HASH_EXPIRED`) for programmatic handling.
-
-### 🔄 **Automatic TL Object Construction**
-
+**Automatic TL Object Construction:**
 `invoke_mtproto` automatically constructs complex Telegram TL objects from JSON dictionaries. Simply use the `"_"` key to specify the object type:
 
 ```json
@@ -795,36 +592,230 @@ When `resolve=true` (default for both MCP tool and HTTP bridge), these parameter
 - `user`, `user_id`, `channel`, `chat`, `chat_id`
 - `users`, `chats`, `peers`
 
-## Error Handling
+**Examples:**
+```json
+// Get your own user information
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "users.GetFullUser",
+  "params_json": "{\"id\": {\"_\": \"inputUserSelf\"}}"
+}}
 
-All tools return structured error responses instead of raising exceptions:
+// Get account information (safe method)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "account.GetAccountTTL",
+  "params_json": "{}"
+}}
 
+// Delete messages (requires explicit dangerous flag)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.DeleteMessages",
+  "params_json": "{\"id\": [123, 456, 789]}",
+  "allow_dangerous": true
+}}
+
+// Get nearest data center (method normalization works)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "help.getnearestdc",
+  "params_json": "{}"
+}}
+
+// Join a group via invite link - hash must be string (from t.me/+... link)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.ImportChatInvite",
+  "params_json": "{\"hash\": \"ABC123xyz\"}"
+}}
+```
+
+## Appendix
+
+### Error Handling
+
+This MCP server implements comprehensive error handling with clear, actionable error messages.
+
+**Session Authentication Errors:**
+When a Telegram session is not authorized (e.g., session file missing or expired), tools return:
 ```json
 {
   "ok": false,
-  "error": "Error description",
-  "error_type": "ErrorType",
+  "error": "Session not authorized. Please authenticate your Telegram session first.",
+  "action": "authenticate_session",
   "operation": "tool_name"
 }
 ```
 
-Common error types:
+**Telegram Transport Errors:**
+When the session file has credentials but Telegram cannot be reached (network, firewall, or **MTPROTO_PROXY** misconfigured or down), tools return a **TelegramTransportError**-derived message and `action: "retry"`:
+```json
+{
+  "ok": false,
+  "error": "Cannot reach Telegram; check network connectivity and MTProto proxy if MTPROTO_PROXY is set.",
+  "action": "retry",
+  "operation": "tool_name"
+}
+```
+The exact `error` text may include RPC class names or proxy diagnostics from the server.
+
+**Common Error Types:**
+- **Authentication Issues**: Clear guidance to authenticate sessions (`authenticate_session`)
+- **Transport / proxy**: Retry after fixing network or `MTPROTO_PROXY` (`retry`)
+- **Network/Connection Problems**: Other connectivity patterns may still map to generic connection messages
+- **Database Errors**: Retry guidance for temporary server issues
+- **Invalid Chat IDs**: Clear validation messages for incorrect identifiers
+
+**Error Response Format:**
+All error responses follow this consistent structure:
+```json
+{
+  "ok": false,
+  "error": "Human-readable error message",
+  "operation": "tool_name",
+  "error_code": "USER_ALREADY_PARTICIPANT",  // optional: Telegram RPC code (invoke_mtproto)
+  "action": "suggested_action",  // optional: what to do next
+  "exception": {                 // optional: technical details
+    "type": "ExceptionType",
+    "message": "Technical details"
+  }
+}
+```
+
+**Common Error Types (tool-level):**
 - `AuthenticationError`: Invalid or missing Bearer token
 - `EntityNotFound`: Chat/user not found
 - `InvalidParameter`: Invalid input parameters
 - `TelegramError`: Telegram API errors
 - `FileError`: File sending/download errors
 
-## Performance Considerations
+### ToolAnnotations for AI Guidance
 
-### Search Limits
+All tools include MCP ToolAnnotations to help AI agents make informed decisions:
+
+- **`openWorldHint=True`**: All tools interact with external Telegram APIs
+- **`readOnlyHint=True`**: Applied to search and informational tools (safe to retry)
+- **`destructiveHint=True`**: Applied to messaging and state-changing tools (use cautiously)
+- **`idempotentHint=True`**: Applied to safely repeatable operations (can retry safely)
+
+### AI-Optimized Parameter Constraints
+
+This MCP server uses `Literal` parameter types to guide AI model choices and ensure valid inputs:
+
+- **`parse_mode`**: Constrained to `"markdown"`, `"html"`, or `"auto"` (default: `"auto"`)
+- **`chat_type`**: Limited to `"private"`, `"group"`, `"channel"`, or `"bot"` for search filters (bots return `type: "bot"` instead of `type: "private"`)
+- **Enhanced Validation**: FastMCP automatically validates these constraints
+- **Better AI Guidance**: AI models see only valid options, reducing errors
+
+### Uniform Entity Schema
+
+All tools return chat/user objects in the same schema via `build_entity_dict`:
+
+```json
+{
+  "id": 133526395,
+  "title": "John Doe",           // falls back to full name or @username
+  "type": "private",            // one of: private | group | channel | bot
+  "username": "johndoe",        // if available
+  "first_name": "John",         // users
+  "last_name": "Doe",           // users
+  "members_count": 1234,          // groups (when available)
+  "subscribers_count": 56789,     // channels (when available)
+  "is_forum": true               // present and true for forum-enabled supergroups only
+}
+```
+
+`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format, except when `chat_id` is explicitly provided (per-chat modes) — then `chat` is omitted to save context.
+
+### Uniform Message Schema
+
+All message-returning tools (search, read, send, edit) return messages in a consistent schema via `build_message_result`:
+
+```json
+{
+  "id": 12345,                    // Message ID (unique within chat)
+  "date": "2024-01-15T10:30:00",  // ISO format timestamp
+  "chat": {                       // Chat entity (same uniform schema as above)
+    "id": 133526395,
+    "title": "John Doe",
+    "type": "private",
+    "username": "johndoe"
+  },
+  "text": "Hello world!",          // Message content (text/caption)
+  "link": "https://t.me/johndoe/12345",  // Direct Telegram link (when available)
+  "sender": {                     // Sender entity (same uniform schema, optional)
+    "id": 133526395,
+    "title": "John Doe",
+    "type": "private",
+    "username": "johndoe"
+  },
+  "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
+  "topic_id": 52,                 // Forum topic ID (forum chats only)
+  "media": {                      // Media attachment info (optional, lightweight)
+    "type": "voice",              // Media type (voice, photo, video, etc.)
+    "mime_type": "image/jpeg",    // File MIME type
+    "filename": "photo.jpg",      // Original filename (if available)
+    "approx_size_bytes": 2048576, // Approximate file size
+    "duration_seconds": 45,       // Duration for audio/video (optional)
+    "attachment_download_url": "https://your-mcp-host.example/v1/attachments/<uuid>/<filename>"  // HTTP mode + real DOMAIN only; see README — secret URL, no Authorization on GET
+  },
+  "transcription": "Hello, this is a voice message transcription...",  // Voice transcription (Premium accounts only)
+  "forwarded_from": {             // Forwarded message info (optional)
+    "id": 999999999,
+    "title": "Original Channel",
+    "type": "channel",
+    "username": "original_channel"
+  },
+  "reply_markup": {               // Interactive elements (optional)
+    "type": "inline",             // "keyboard", "inline", "force_reply", "hide"
+    "rows": [                     // Button rows (for keyboard/inline types)
+      [
+        {
+          "text": "Click me!",    // Button text
+          "type": "url",          // Button type: "url", "callback_data", etc.
+          "url": "https://example.com"  // Button data (varies by type)
+        }
+      ]
+    ]
+  }
+}
+```
+
+**Message Content Priority:**
+1. `text` - Primary message content
+2. `message` - Alternative text field
+3. `caption` - Media caption (if no text)
+
+**Media Attachments:**
+- Lightweight metadata only (not actual files)
+- Includes MIME type, filename, approximate size, and media type
+- Voice messages include duration and automatic transcription (Premium accounts)
+- Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
+- **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not a placeholder), documents (non-voice, non-round-video) and photos may include this URL. The URL format is `/v1/attachments/<uuid>/<filename>` — photos get a synthetic `photo_<msg_id>.jpg`. **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
+
+**Voice Message Transcription:**
+- Automatic transcription for Premium Telegram accounts
+- Parallel processing of multiple voice messages
+- Polling for completion (up to 30 seconds)
+- Graceful cancellation if Premium requirement fails
+- Added to `transcription` field in message results
+
+**Forwarded Messages:**
+- `forwarded_from` contains original sender info
+- Uses same entity schema as chat/sender fields
+
+**Reply Markup:**
+- `reply_markup` contains interactive keyboard and inline button elements
+- Automatically extracted from messages with keyboard markup
+- Includes button text, types (URL, callback, etc.), and associated data
+- Supports all Telegram markup types: keyboards, inline buttons, force reply, hide keyboard
+
+### Performance Considerations
+
+**Search Limits:**
 - **Default limit**: 50 results to prevent LLM context window overflow
 - **Result limiting**: Use `limit` parameter to control the number of results returned
 - **Auto-expansion**: Limited to 2 additional batches by default to balance completeness with performance
 - **Parallel Execution**: Multi-query searches execute simultaneously for better performance
 - **Deduplication**: Results automatically deduplicated to prevent duplicates across queries
 
-### LLM Usage Guidelines
+**LLM Usage Guidelines:**
 - **Start Small**: Begin searches with limit=10-20 for initial exploration
 - **Use Filters**: Apply date ranges and chat type filters before increasing limits
 - **Avoid Large Limits**: Never request more than 50 results in a single search
