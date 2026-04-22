@@ -61,7 +61,11 @@ Or use the web interface: run `fast-mcp-telegram` and open `/setup`
 
 ### 1. First-time setup
 ```bash
-uvx --from fast-mcp-telegram fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
+uvx --from fast-mcp-telegram \
+  fast-mcp-telegram-setup \
+  --api-id="your_api_id" \
+  --api-hash="your_api_hash" \
+  --phone-number="+123456789"
 ```
 
 Sessions are stored in `~/.config/fast-mcp-telegram/` and persist between uvx invocations.
