@@ -148,11 +148,11 @@ When `resolve: true` is set, the bridge automatically resolves:
 
 ```bash
 # These all work with resolve: true
-{"peer": "@durov"}           # Username
-{"peer": "me"}               # Saved Messages
-{"peer": 123456789}          # User ID
-{"peer": "-1001234567890"}   # Channel ID
-{"peer": "+1234567890"}      # Phone number
+{"params": {"peer": "@durov"}}       # Username
+{"params": {"peer": "me"}}           # Saved Messages
+{"params": {"peer": 123456789}}       # User ID
+{"params": {"peer": "-1001234567890"}} # Channel ID
+{"params": {"peer": "+1234567890"}}   # Phone number
 ```
 
 ## Automatic TL Object Construction
@@ -287,9 +287,8 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.DeleteHistory" \
 
 ### HTTP Status Codes
 - **200**: Success
-- **400**: Bad request (invalid parameters)
+- **400**: Bad request (invalid parameters or dangerous method blocked)
 - **401**: Unauthorized (missing/invalid Bearer token)
-- **403**: Forbidden (dangerous method blocked)
 - **500**: Internal server error
 
 ### Common Errors
@@ -408,7 +407,7 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
 Bot accounts have the following restrictions:
 
 - **Bridge Only**: Only `/mtproto-api/...` endpoints and the `invoke_mtproto` tool are available
-- **No High-level Tools**: `search_messages`, `send_message`, `find_chats`, etc. are disabled for bots
+- **No High-level Tools**: `search_messages_globally`, `get_messages`, `send_message`, `edit_message`, `find_chats`, `get_chat_info`, `send_message_to_phone` are disabled for bots
 - **Bot Account Restrictions**: Standard Telegram bot limitations apply (cannot message arbitrary users, limited search capabilities, etc.)
 - **Session Isolation**: Each bot has its own session file (`{token}.session`) and Bearer token
 

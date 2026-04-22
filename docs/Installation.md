@@ -159,6 +159,7 @@ SERVER_MODE=http-auth             # stdio (default) or http-auth for remote
 PORT=8000                          # Server port (http-auth mode)
 LOG_LEVEL=INFO                    # Logging verbosity
 SESSION_NAME=telegram             # Session file name (stdio mode only)
+SESSION_DIR=~/.config/fast-mcp-telegram  # Custom session directory
 MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret  # Firewall proxy
 ```
 
@@ -170,6 +171,8 @@ For connections behind a firewall. Supported formats:
 - `tg://proxy?server=&port=&secret=` (URL)
 - `host:port:secret` (simple)
 - `ee` or `7` prefix for fake TLS (auto-detected)
+
+> **Note:** Fake TLS (EE prefix) support requires the `TelethonFakeTLS` package: `pip install TelethonFakeTLS`. Without it, Fake TLS proxies fall back to standard TCP.
 
 ### Multiple Accounts
 
@@ -214,8 +217,8 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 
 ## More Resources
 
-- **[Operations Guide](Operations.md)** - Monitoring, debugging, health checks
-- **[Tools Reference](Tools-Reference.md)** - Available MCP tools and usage
+- **[Operations Guide](docs/Operations.md)** - Monitoring, debugging, health checks
+- **[Tools Reference](docs/Tools-Reference.md)** - Available MCP tools and usage
 - **[SECURITY.md](../SECURITY.md)** - Security best practices
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Development setup for contributors
 

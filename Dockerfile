@@ -34,10 +34,10 @@ COPY src/ ./src/
 # Add local bin to PATH to fix script warnings
 ENV PATH="/home/appuser/.local/bin:$PATH"
 
-# Environment for FastMCP HTTP
-ENV MCP_TRANSPORT=http \
-    MCP_HOST=0.0.0.0 \
-    MCP_PORT=8000 \
+# Environment defaults for FastMCP HTTP (SERVER_MODE, HOST, PORT override these)
+ENV SERVER_MODE=http \
+    HOST=0.0.0.0 \
+    PORT=8000 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
@@ -45,7 +45,7 @@ ENV MCP_TRANSPORT=http \
 EXPOSE 8000
 
 # Healthcheck: use the dedicated health endpoint
-HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --start-interval=1s --retries=1 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=2 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Command to run the application

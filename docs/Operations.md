@@ -31,15 +31,20 @@ curl -s https://your-domain.com/health
       "token_prefix": "AbCdEfGh...",
       "hours_since_access": 0.25,
       "is_connected": true,
-      "last_access": "Thu Jan 4 16:30:15 2025"
+      "last_access": "Thu Apr  4 16:30:15 2026"
     },
     {
       "token_prefix": "XyZ123Ab...",
       "hours_since_access": 2.5,
       "is_connected": false,
-      "last_access": "Thu Jan 4 14:15:30 2025"
+      "last_access": "Thu Apr  4 14:15:30 2026"
     }
-  ]
+  ],
+  "health_stats": {
+    "total_sessions": 3,
+    "failed_sessions": 0,
+    "failure_details": {}
+  }
 }
 ```
 
@@ -157,7 +162,7 @@ SESSION_NAME=telegram fast-mcp-telegram-setup --overwrite --phone-number="+12345
 ls -la ~/.config/fast-mcp-telegram/
 
 # Monitor session creation/deletion
-tail -f /var/log/telegram-sessions.log
+docker compose logs -f fast-mcp-telegram | grep -i session
 
 # Check session permissions
 find ~/.config/fast-mcp-telegram/ -type f -exec ls -la {} \;
@@ -242,7 +247,7 @@ docker exec fast-mcp-telegram ping -c 3 api.telegram.org
 ### Debug Mode
 ```bash
 # Enable debug logging
-docker compose up -d --env LOG_LEVEL=DEBUG
+LOG_LEVEL=DEBUG docker compose up -d
 
 # Monitor debug output
 docker compose logs -f fast-mcp-telegram
@@ -330,7 +335,7 @@ docker compose logs fast-mcp-telegram | grep -i "dangerous"
 tar -czf telegram-sessions-backup-$(date +%Y%m%d).tar.gz ~/.config/fast-mcp-telegram/
 
 # Restore sessions
-tar -xzf telegram-sessions-backup-20240104.tar.gz -C ~/
+tar -xzf telegram-sessions-backup-20240104.tar.gz -C ~
 ```
 
 ### Configuration Backup

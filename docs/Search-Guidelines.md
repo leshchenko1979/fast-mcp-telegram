@@ -79,8 +79,8 @@ Telegram search has specific limitations that AI models should understand to pro
 // ✅ Good: Filter by date range
 {"tool": "search_messages_globally", "params": {
   "query": "project",
-  "min_date": "2024-01-01",
-  "max_date": "2024-12-31",
+  "min_date": "2025-01-01",
+  "max_date": "2025-12-31",
   "limit": 30
 }}
 
@@ -88,7 +88,7 @@ Telegram search has specific limitations that AI models should understand to pro
 {"tool": "search_messages_globally", "params": {
   "query": "deadline, urgent",
   "chat_type": "private",
-  "min_date": "2024-01-01",
+  "min_date": "2025-01-01",
   "limit": 15
 }}
 ```
@@ -121,7 +121,7 @@ Telegram search has specific limitations that AI models should understand to pro
 // Use date filters to narrow results
 {"tool": "search_messages_globally", "params": {
   "query": "meeting",
-  "min_date": "2024-01-01",
+  "min_date": "2025-01-01",
   "limit": 20
 }}
 
@@ -155,8 +155,8 @@ Telegram search has specific limitations that AI models should understand to pro
 // Messages in a specific time period
 {"tool": "search_messages_globally", "params": {
   "query": "project",
-  "min_date": "2024-01-01",
-  "max_date": "2024-01-31",
+  "min_date": "2025-01-01",
+  "max_date": "2025-01-31",
   "limit": 30
 }}
 

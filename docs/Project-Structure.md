@@ -61,7 +61,7 @@ fast-mcp-telegram/
 │   ├── __init__.py               # Tests package initialization
 │   ├── conftest.py               # Shared fixtures and configuration
 │   ├── test_*.py                 # Organized test modules by functionality
-│   └── README.md                 # Test documentation and guidelines
+│   └── README.md                 # Project documentation (this file)
 ├── docs/                         # Documentation
 │   ├── Installation.md           # Installation and remote deployment guide
 │   ├── MTProto-Bridge.md         # MTProto HTTP endpoint documentation
@@ -69,13 +69,6 @@ fast-mcp-telegram/
 │   ├── Search-Guidelines.md      # Search best practices
 │   ├── Operations.md             # Operations and monitoring guide
 │   └── Project-Structure.md      # This file
-├── memory-bank/                  # Project documentation
-│   ├── projectbrief.md           # Core requirements and project goals
-│   ├── productContext.md         # User experience and problem-solving focus
-│   ├── activeContext.md          # Current work focus and active decisions
-│   ├── systemPatterns.md         # Architecture and technical patterns
-│   ├── techContext.md            # Technologies, setup, and technical constraints
-│   └── progress.md               # What's working and what needs to be built
 ├── scripts/                      # Deployment and utility scripts
 │   ├── sync-remote-config.sh     # Remote config synchronization script
 │   └── check-status.sh           # Health status check script
@@ -197,8 +190,6 @@ fast-mcp-telegram/
   - Message content formatting
   - Media placeholder generation
   - Link generation and formatting
-- **`src/utils/discussion.py`**: Discussion group utilities
-  - Discussion group detection and handling
 - **`src/utils/mcp_config.py`**: MCP configuration utilities
   - MCP server configuration helpers
 
