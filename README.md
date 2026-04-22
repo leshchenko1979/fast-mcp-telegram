@@ -52,17 +52,19 @@ pip install fast-mcp-telegram
 
 ### 2. Authenticate
 ```bash
-fast-mcp-telegram-setup --api-id="your_api_id" --api-hash="your_api_hash" --phone-number="+123456789"
+fast-mcp-telegram-setup \
+  --api-id="your_api_id" \
+  --api-hash="your_api_hash" \
+  --phone-number="+123456789"
 ```
 
 Or use the web interface: run `fast-mcp-telegram` and open `/setup`
 
 ## Quick Start (uvx)
 
-### 1. First-time setup
+### 1. First-time setup (authenticate)
 ```bash
-uvx --from fast-mcp-telegram \
-  fast-mcp-telegram-setup \
+uvx --from fast-mcp-telegram fast-mcp-telegram-setup \
   --api-id="your_api_id" \
   --api-hash="your_api_hash" \
   --phone-number="+123456789"
