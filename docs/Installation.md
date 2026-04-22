@@ -155,10 +155,10 @@ API_ID=your_api_id
 API_HASH=your_api_hash
 
 # Optional
-SERVER_MODE=stdio              # Local mode (default)
-PORT=8000                      # Server port
-LOG_LEVEL=INFO                 # Logging verbosity
-SESSION_NAME=telegram          # Session identifier
+SERVER_MODE=http-auth             # stdio (default) or http-auth for remote
+PORT=8000                          # Server port (http-auth mode)
+LOG_LEVEL=INFO                    # Logging verbosity
+SESSION_NAME=telegram             # Session file name (stdio mode only)
 MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret  # Firewall proxy
 ```
 
