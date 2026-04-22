@@ -1,8 +1,21 @@
-# 📦 Installation Guide
+# Installation Guide
 
 Get your Telegram MCP server running in minutes!
 
-### 🖥️ For Local MCP Clients
+## Overview
+
+Fast MCP Telegram runs in two modes:
+
+| Mode | Security | Best For | Setup Method |
+|------|----------|----------|--------------|
+| **Local** (`stdio`) | File-based | Local MCP clients | CLI |
+| **Production** (`http-auth`) | Token-based | Remote servers | Web or CLI |
+
+Sessions are stored in `~/.config/fast-mcp-telegram/`.
+
+---
+
+## Local Setup (stdio)
 
 **Step 1 — Authenticate**
 ```bash
@@ -30,13 +43,13 @@ Add to your `mcp.json`:
 }
 ```
 
-**Step 3 — Start using it!** Sessions are stored in `~/.config/fast-mcp-telegram/`.
+**Step 3 — Start using it!**
 
 ---
 
-### 🌐 For Remote Servers (Production)
+## Remote Setup (http-auth)
 
-Deploy on a VDS with Docker Compose and Traefik — Traefik handles SSL, no per-service TLS config needed.
+Deploy on a VDS with Docker Compose and Traefik — SSL is managed centrally, no per-service TLS config needed.
 
 **Step 1 — Get the Docker Compose file**
 
@@ -76,7 +89,7 @@ services:
       - "traefik.http.routers.fast-mcp-telegram.tls.certresolver=le"
 ```
 
-The service must be on the `traefik-public` network (already configured). Traefik handles SSL via certResolver: le.
+The service must be on the `traefik-public` network (already configured). Traefik handles SSL via `certResolver: le`.
 
 **Step 4 — Start the server**
 
@@ -87,7 +100,7 @@ docker compose logs -f
 
 **Step 5 — Authenticate via web interface**
 
-Open `https://your-domain.com/setup`. See [Web Setup Interface](#-web-setup-interface) for available options and detailed instructions.
+See [Web Setup Interface](#web-setup-interface) for detailed instructions.
 
 **Step 6 — Connect your MCP client**
 
@@ -121,13 +134,15 @@ Open `https://your-domain.com/setup`. See [Web Setup Interface](#-web-setup-inte
 curl https://your-domain.com/health
 ```
 
-## 🌐 Web Setup Interface
+---
 
-The web setup interface provides a user-friendly way to manage Telegram sessions directly from your browser. Access it at `https://your-server.com/setup` when running in `http-auth` mode.
+## Web Setup Interface
 
-### 📱 Available Options
+The web setup interface manages Telegram sessions directly from your browser. Access it at `https://your-domain.com/setup` when running in `http-auth` mode.
 
-#### 1. **Create New Session** 🔐
+### Available Options
+
+#### 1. Create New Session
 Set up a completely new Telegram session:
 
 1. Click **"Create New Session"**
@@ -138,7 +153,7 @@ Set up a completely new Telegram session:
 6. Download the generated `mcp.json` configuration file
 7. Use this file in your MCP client
 
-#### 2. **Reauthorize Existing Session** 🔄
+#### 2. Reauthorize Existing Session
 Refresh an expired or unauthorized session while keeping your bearer token:
 
 1. Click **"Reauthorize Existing Session"**
@@ -148,15 +163,15 @@ Refresh an expired or unauthorized session while keeping your bearer token:
 5. If 2FA is enabled, enter your password
 6. Your session is refreshed with the same token
 
-#### 3. **Delete Session** 🗑️
+#### 3. Delete Session
 Permanently remove a session file:
 
 1. Click **"Delete Session"**
 2. Enter your bearer token
-3. Confirm deletion (⚠️ **This action cannot be undone**)
+3. Confirm deletion (This action cannot be undone)
 4. Session file is permanently removed
 
-### 🔄 Session Management
+### Session Management
 
 **Reauthorizing Expired Sessions:**
 - Use the **"Reauthorize Existing Session"** option
@@ -170,39 +185,11 @@ Permanently remove a session file:
 - Safely disconnects active connections
 - Completely removes session files from server
 
-### 🔧 Troubleshooting Web Setup
-
-**❌ "Session not found" error:**
-- Verify your bearer token is correct
-- Check that the session file exists on the server
-
-**❌ "Invalid token" error:**
-- Ensure you're not using reserved names like "telegram" or "default"
-- Bearer tokens must be URL-safe strings
-
-**❌ Phone verification issues:**
-- Include country code in phone number (+1, +44, etc.)
-- Wait for SMS or use Telegram app for code
-- Check that your phone number is registered with Telegram
-
-**❌ 2FA password issues:**
-- Use your Telegram cloud password (not app lock PIN)
-- If forgotten, reset via Telegram settings
-
 ---
 
-## 📚 Detailed Configuration
+## Configuration Reference
 
-### Understanding Server Modes
-
-Fast MCP Telegram runs in two modes:
-
-| Mode | Security | Best For | Setup Method |
-|------|----------|----------|--------------|
-| **Local** (`stdio`) | File-based | Local MCP clients | CLI |
-| **Production** (`http-auth`) | Token-based | Remote servers | Web or CLI |
-
-### Environment Configuration
+### Environment Variables
 
 Create a `.env` file for easy configuration:
 
@@ -218,61 +205,43 @@ LOG_LEVEL=INFO                 # Logging verbosity
 SESSION_NAME=telegram          # Session identifier
 
 # MTProto Proxy (for connections behind firewall)
-# Supported formats:
-#   tg://proxy?server=host&port=443&secret=xxx
-#   host:port:secret
-# Fake TLS proxies (ee/7 prefix) are auto-detected
 MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
 ```
 
-**💡 Tip:** The CLI setup automatically loads `.env` files from your current directory.
+Supported proxy formats:
+- `tg://proxy?server=host&port=443&secret=xxx` (URL format)
+- `host:port:secret` (simple format)
+- Fake TLS proxies (`ee` or `7` prefix) are auto-detected
 
-### MCP Client Configuration Examples
+**Tip:** The CLI setup automatically loads `.env` files from your current directory.
 
-**Local Mode (STDIO):**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "command": "uvx",
-      "args": ["fast-mcp-telegram"],
-      "env": {
-        "API_ID": "your_api_id",
-        "API_HASH": "your_api_hash"
-      }
-    }
-  }
-}
+### Session Management
+
+Sessions are stored in `~/.config/fast-mcp-telegram/`:
+- **Local modes:** `{SESSION_NAME}.session` (default: `telegram.session`)
+- **Production mode:** `{bearer_token}.session` (auto-managed per user)
+
+**Configuration priority:**
+1. CLI argument: `--session-name myaccount`
+2. Environment variable: `SESSION_NAME=myaccount`
+3. `.env` file: `SESSION_NAME=myaccount`
+4. Default: `telegram`
+
+### Health Monitoring
+
+**Local:**
+```bash
+curl http://localhost:8000/health
 ```
 
-**Remote Mode (http-auth) — Header auth:**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "url": "https://your-domain.com/v1/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_TOKEN"
-      }
-    }
-  }
-}
-```
-
-**Remote Mode (http-auth) — URL path auth:**
-```json
-{
-  "mcpServers": {
-    "telegram": {
-      "url": "https://your-domain.com/v1/url_auth/YOUR_TOKEN/mcp"
-    }
-  }
-}
+**Remote:**
+```bash
+curl https://your-domain.com/health
 ```
 
 ---
 
-## 👥 Multiple Accounts
+## Multiple Accounts
 
 Use different Telegram accounts for personal, work, or testing:
 
@@ -313,56 +282,12 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 
 ---
 
-## 🔧 Connection Issues / MTProto Proxy
-
-If you're behind a firewall or need to connect via proxy, configure `MTPROTO_PROXY`:
-```bash
-# Add to .env
-MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
-```
-
-Supported formats:
-- `tg://proxy?server=host&port=443&secret=xxx` (URL format)
-- `host:port:secret` (simple format)
-
-The server automatically detects Fake TLS proxies (with `ee` or `7` prefix) and handles secret processing.
-
-### 📖 More Resources
+## More Resources
 
 - **[Operations Guide](Operations.md)** - Monitoring, debugging, health checks
 - **[Tools Reference](Tools-Reference.md)** - Available MCP tools and usage
 - **[SECURITY.md](../SECURITY.md)** - Security best practices
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Development setup for contributors
-
----
-
-## 💡 Advanced Topics
-
-### Session Management
-
-Sessions are stored in `~/.config/fast-mcp-telegram/`:
-- **Local modes:** `{SESSION_NAME}.session` (default: `telegram.session`)
-- **Production mode:** `{bearer_token}.session` (auto-managed per user)
-
-**Configuration priority:**
-1. CLI argument: `--session-name myaccount`
-2. Environment variable: `SESSION_NAME=myaccount`
-3. `.env` file: `SESSION_NAME=myaccount`
-4. Default: `telegram`
-
-### Health Monitoring
-
-Check server status and active sessions:
-
-**Local:**
-```bash
-curl http://localhost:8000/health
-```
-
-**Remote:**
-```bash
-curl https://your-domain.com/health
-```
 
 ---
 
