@@ -476,7 +476,7 @@ def _extract_topic_metadata(message: Any) -> dict[str, Any]:
 
 
 async def build_message_result(
-    client, message, entity_or_chat, link: str | None
+    client, message, entity_or_chat, link: str | None, include_chat_entity: bool = False
 ) -> dict[str, Any]:
     sender = await get_sender_info(client, message)
     chat = build_entity_dict(entity_or_chat)
@@ -491,11 +491,13 @@ async def build_message_result(
     result: dict[str, Any] = {
         "id": message.id,
         "date": message.date.isoformat() if getattr(message, "date", None) else None,
-        "chat": chat,
         "text": full_text,
         "link": link,
         "sender": sender,
     }
+
+    if include_chat_entity:
+        result["chat"] = chat
 
     reply_to_msg_id = getattr(message, "reply_to_msg_id", None) or getattr(
         getattr(message, "reply_to", None), "reply_to_msg_id", None

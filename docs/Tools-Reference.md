@@ -98,7 +98,7 @@ All tools return chat/user objects in the same schema via `build_entity_dict`:
 }
 ```
 
-`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format.
+`find_chats` returns a list of these entities. Message search results include a `chat` field in the same format, except when `chat_id` is explicitly provided (per-chat modes) — then `chat` is omitted to save context.
 
 ## Uniform Message Schema
 
@@ -344,6 +344,7 @@ get_messages(
 - **Universal Replies**: Single parameter for post comments, forum topics, and message replies
 - **Auto-Detection**: Automatically detects channel posts and uses discussion group
 - **Structured Data**: LLM-friendly JSON structures
+- **Context Optimization**: When `chat_id` is provided (per-chat modes), the `chat` field is omitted from each message to save context. Global search includes `chat` since messages span different chats.
 
 **💡 Tips:**
 - **No query**: Returns latest messages from chat

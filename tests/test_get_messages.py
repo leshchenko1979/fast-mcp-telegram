@@ -8,6 +8,7 @@ Tests cover:
 - Error handling for all modes
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -282,3 +283,151 @@ class TestGetMessagesSuccessPaths:
 
         assert "error" in result
         assert "global search" in result["error"].lower()
+
+
+class TestGetMessagesChatFieldExclusion:
+    """Test that chat field is excluded when chat_id is provided."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    async def test_global_search_includes_chat_field(self, mock_get_client):
+        """Global search (no chat_id) should include chat in each message."""
+        from telethon.tl.types import PeerUser
+
+        mock_client = AsyncMock()
+        mock_msg = Mock()
+        mock_msg.id = 1
+        mock_msg.text = "global search result"
+        mock_msg.date = datetime.now()
+        mock_msg.media = None
+        mock_msg.reply_to_msg_id = None
+        mock_msg.reply_to = None
+        mock_msg.forum_topic = False
+        mock_msg.peer_id = PeerUser(user_id=123)
+
+        mock_search_result = Mock()
+        mock_search_result.messages = [mock_msg]
+        mock_client.return_value = mock_search_result
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        mock_chat = Mock()
+        mock_chat.id = 456
+        mock_chat.title = "Some Chat"
+        mock_chat.username = "somechat"
+        mock_chat.broadcast = False
+
+        async def mock_get_entity(peer):
+            return mock_chat
+
+        mock_get_client.return_value = mock_client
+
+        with patch("src.tools.search.get_entity_by_id", side_effect=mock_get_entity):
+            result = await search_messages_impl(
+                chat_id=None,
+                query="hello",
+                limit=5,
+            )
+
+        if "messages" in result:
+            for msg in result["messages"]:
+                assert "chat" in msg, f"Expected chat field in global search result, got {msg.keys()}"
+
+
+class TestGetMessagesRepliesChatExclusion:
+    """Test that replies mode excludes chat field."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    @patch("src.tools.search._fetch_replies", new_callable=AsyncMock)
+    async def test_replies_mode_excludes_chat_field(
+        self, mock_fetch_replies, mock_get_entity, mock_get_client
+    ):
+        """Replies mode should exclude chat from returned messages."""
+        mock_get_client.return_value = AsyncMock()
+        mock_entity = Mock()
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        mock_fetch_replies.return_value = (
+            [
+                {"id": 10, "text": "reply 1"},  # no chat key
+                {"id": 11, "text": "reply 2"},  # no chat key
+            ],
+            None,
+        )
+
+        result = await search_messages_impl(
+            chat_id="testchat",
+            reply_to_id=5,
+            limit=10,
+        )
+
+        assert "messages" in result
+        for msg in result["messages"]:
+            assert "chat" not in msg
+
+
+class TestReadMessagesByIdsChatExclusion:
+    """Test that read_messages_by_ids excludes chat field."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.messages.reading.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.messages.reading.get_entity_by_id", new_callable=AsyncMock)
+    async def test_read_messages_by_ids_excludes_chat_field(
+        self, mock_get_entity, mock_get_client
+    ):
+        """read_messages_by_ids should exclude chat from returned messages."""
+        from src.tools.messages.reading import read_messages_by_ids
+
+        mock_entity = Mock()
+        mock_entity.id = 123456
+        mock_entity.title = "Test Chat"
+        mock_entity.username = "testchat"
+
+        mock_get_entity.return_value = mock_entity
+
+        mock_msg = Mock()
+        mock_msg.id = 1
+        mock_msg.text = "message text"
+        mock_msg.date = datetime.now()
+        mock_msg.media = None
+        mock_msg.reply_to_msg_id = None
+        mock_msg.reply_to = None
+        mock_msg.forum_topic = False
+
+        mock_client = AsyncMock()
+        mock_client.get_messages = AsyncMock(return_value=[mock_msg])
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+        mock_get_client.return_value = mock_client
+
+        with patch(
+            "src.tools.messages.reading.generate_telegram_links",
+            new=AsyncMock(return_value={"message_links": ["https://t.me/testchat/1"]}),
+        ):
+            result = await read_messages_by_ids("testchat", [1])
+
+        assert len(result) == 1
+        assert "chat" not in result[0], f"Expected no chat field, got {result[0].keys()}"
+
+
+class TestGetMessagesChatFieldIntegration:
+    """Integration tests for chat field exclusion behavior."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
+    async def test_message_ids_mode_excludes_chat_field(self, mock_read):
+        """message_ids mode should exclude chat from results."""
+        mock_read.return_value = [
+            {"id": 1, "text": "Message 1"},  # no chat
+            {"id": 2, "text": "Message 2"},  # no chat
+        ]
+
+        result = await search_messages_impl(
+            chat_id="me",
+            message_ids=[1, 2],
+        )
+
+        assert "messages" in result
+        for msg in result["messages"]:
+            assert "chat" not in msg, f"Expected no chat in message_ids mode, got {msg.get('chat')}"

@@ -4,7 +4,7 @@ Tests for message formatting detection functionality.
 
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -443,3 +443,109 @@ class TestParseModeAutodetectionIntegration:
             f"expected {expected_resolved!r}, got {resolved_parse_mode!r}"
         )
         assert result["status"] == "sent"
+
+
+class TestBuildMessageResultExcludeChat:
+    """Test include_chat parameter of build_message_result."""
+
+    @pytest.mark.asyncio
+    async def test_build_message_result_excludes_chat_when_flag_false(self):
+        """When include_chat=False, result should not contain chat field."""
+        from src.utils.message_format import build_message_result
+
+        msg = Mock()
+        msg.id = 123
+        msg.text = "test message"
+        msg.date = datetime.now()
+        msg.media = None
+        msg.reply_to_msg_id = None
+        msg.reply_to = None
+        msg.forum_topic = False
+
+        entity = Mock()
+        entity.id = 456
+        entity.title = "Test Chat"
+        entity.username = "testchat"
+        entity.type = "chat"
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=entity)
+
+        with patch(
+            "src.utils.message_format.get_sender_info",
+            new=AsyncMock(return_value={"id": 789, "name": "Sender"}),
+        ):
+            result = await build_message_result(
+                client, msg, entity, link="https://t.me/testchat/123", include_chat_entity=False
+            )
+
+        assert "chat" not in result, f"Expected no 'chat' field, got {result.keys()}"
+        assert result["id"] == 123
+        assert result["text"] == "test message"
+
+    @pytest.mark.asyncio
+    async def test_build_message_result_includes_chat_when_flag_true(self):
+        """When include_chat=True (default), result should contain chat field."""
+        from src.utils.message_format import build_message_result
+
+        msg = Mock()
+        msg.id = 123
+        msg.text = "test message"
+        msg.date = datetime.now()
+        msg.media = None
+        msg.reply_to_msg_id = None
+        msg.reply_to = None
+        msg.forum_topic = False
+
+        entity = Mock()
+        entity.id = 456
+        entity.title = "Test Chat"
+        entity.username = "testchat"
+        entity.type = "chat"
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=entity)
+
+        with patch(
+            "src.utils.message_format.get_sender_info",
+            new=AsyncMock(return_value={"id": 789, "name": "Sender"}),
+        ):
+            result = await build_message_result(
+                client, msg, entity, link="https://t.me/testchat/123", include_chat_entity=True
+            )
+
+        assert "chat" in result, f"Expected 'chat' field, got {result.keys()}"
+        assert result["chat"]["id"] == 456
+
+    @pytest.mark.asyncio
+    async def test_build_message_result_chat_excluded_by_default(self):
+        """Default behavior (include_chat_entity not passed) excludes chat."""
+        from src.utils.message_format import build_message_result
+
+        msg = Mock()
+        msg.id = 123
+        msg.text = "test message"
+        msg.date = datetime.now()
+        msg.media = None
+        msg.reply_to_msg_id = None
+        msg.reply_to = None
+        msg.forum_topic = False
+
+        entity = Mock()
+        entity.id = 456
+        entity.title = "Test Chat"
+        entity.username = "testchat"
+        entity.type = "chat"
+
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=entity)
+
+        with patch(
+            "src.utils.message_format.get_sender_info",
+            new=AsyncMock(return_value={"id": 789, "name": "Sender"}),
+        ):
+            result = await build_message_result(
+                client, msg, entity, link="https://t.me/testchat/123"
+            )
+
+        assert "chat" not in result, f"Expected no 'chat' field by default, got {result.keys()}"

@@ -84,7 +84,9 @@ async def _build_message_results(
             continue
 
         link = id_to_link.get(getattr(msg, "id", requested_id))
-        built = await build_message_result(client, msg, entity, link)
+        built = await build_message_result(
+            client, msg, entity, link, include_chat_entity=False
+        )
         results.append(built)
 
     return results

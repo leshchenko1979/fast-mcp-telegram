@@ -93,6 +93,7 @@ async def _build_result_for_message(
     client,
     message,
     chat_entity,
+    include_chat_entity: bool = False,
 ) -> dict[str, Any] | None:
     """Build result dict for a single message with link generation.
 
@@ -113,7 +114,9 @@ async def _build_result_for_message(
             identifier, [message.id], resolved_entity=chat_entity
         )
         link = links.get("message_links", [None])[0]
-        return await build_message_result(client, message, chat_entity, link)
+        return await build_message_result(
+            client, message, chat_entity, link, include_chat_entity
+        )
     except Exception as e:
         logger.warning(f"Error processing message: {e}")
         return None
@@ -125,6 +128,7 @@ async def _fetch_replies(
     reply_to_id: int,
     limit: int,
     query: str | None = None,
+    include_chat_entity: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """
     Fetch replies/comments for a message.
@@ -165,7 +169,9 @@ async def _fetch_replies(
         search=query or None,
         limit=limit + 1,
     ):
-        result = await _build_result_for_message(client, message, effective_entity)
+        result = await _build_result_for_message(
+            client, message, effective_entity, include_chat_entity
+        )
         if not result:
             continue
 
@@ -200,7 +206,7 @@ async def _handle_replies_mode(
             raise ValueError(f"Could not find chat with ID '{chat_id}'")
 
         collected, discussion_metadata = await _fetch_replies(
-            client, entity, reply_to_id, limit, query
+            client, entity, reply_to_id, limit, query, include_chat_entity=False
         )
 
         window = collected[:limit] if limit is not None else collected
@@ -278,6 +284,7 @@ async def _collect_messages_in_chat(
     include_total_count: bool,
     collected: list[dict[str, Any]],
     seen_keys: set[Any],
+    include_chat_entity: bool = False,
 ) -> int | None:
     entity = await get_entity_by_id(chat_id)
     if not entity:
@@ -292,6 +299,7 @@ async def _collect_messages_in_chat(
             chat_type,
             public,
             auto_expand_batches,
+            include_chat_entity,
         )
         for q in per_chat_queries
     ]
@@ -311,6 +319,7 @@ async def _collect_messages_global(
     auto_expand_batches: int,
     collected: list[dict[str, Any]],
     seen_keys: set[Any],
+    include_chat_entity: bool = True,
 ) -> None:
     generators = [
         _search_global_messages_generator(
@@ -322,6 +331,7 @@ async def _collect_messages_global(
             chat_type,
             public,
             auto_expand_batches,
+            include_chat_entity,
         )
         for q in queries
         if q and str(q).strip()
@@ -391,6 +401,7 @@ async def _handle_search_mode(
                     include_total_count,
                     collected,
                     seen_keys,
+                    include_chat_entity=False,
                 )
             except Exception as e:
                 return _connection_error_or_build(
@@ -409,6 +420,7 @@ async def _handle_search_mode(
                     auto_expand_batches,
                     collected,
                     seen_keys,
+                    include_chat_entity=True,
                 )
             except Exception as e:
                 return _connection_error_or_build(
@@ -474,7 +486,8 @@ async def search_messages_impl(
         chat_type: Filter by chat type ('private', 'group', 'channel', comma-separated)
         public: Filter by public discoverability (True=with username, False=without). Never applies to private chats.
         auto_expand_batches: Additional batches to fetch for filtered searches (default 1)
-        include_total_count: Include total count in response (per-chat only, default False)
+        include_total_count: Include total count in response (per-chat only, default False).
+            Note: chat entity is excluded from each message when chat_id is provided, to save context.
 
     Returns:
         Dictionary with:
@@ -557,9 +570,20 @@ async def search_messages_impl(
 
 
 async def _search_chat_messages_generator(
-    client, entity, query, limit, chat_type, public, auto_expand_batches
+    client,
+    entity,
+    query,
+    limit,
+    chat_type,
+    public,
+    auto_expand_batches,
+    include_chat_entity=False,
 ):
-    """Async generator version of chat message search for memory efficiency."""
+    """Async generator version of chat message search for memory efficiency.
+
+    include_chat_entity: passed to _build_result_for_message. Per-chat search
+    omits chat from messages since the chat is already known from chat_id.
+    """
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
@@ -579,7 +603,9 @@ async def _search_chat_messages_generator(
             if not _matches_public_filter(entity, public):
                 continue
 
-            result = await _build_result_for_message(client, message, entity)
+            result = await _build_result_for_message(
+                client, message, entity, include_chat_entity
+            )
             if not result:
                 continue
 
@@ -601,8 +627,13 @@ async def _search_global_messages_generator(
     chat_type,
     public,
     auto_expand_batches,
+    include_chat_entity=True,
 ):
-    """Async generator version of global message search for memory efficiency."""
+    """Async generator version of global message search for memory efficiency.
+
+    include_chat_entity: passed to _build_result_for_message. Global search
+    includes chat in each message since messages come from different chats.
+    """
     batch_count = 0
     max_batches = 1 + auto_expand_batches if chat_type else 1
     next_offset_id = 0
@@ -640,7 +671,9 @@ async def _search_global_messages_generator(
                 if not _matches_public_filter(chat, public):
                     continue
 
-                msg_result = await _build_result_for_message(client, message, chat)
+                msg_result = await _build_result_for_message(
+                    client, message, chat, include_chat_entity
+                )
                 if not msg_result:
                     continue
 
