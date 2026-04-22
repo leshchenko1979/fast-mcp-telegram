@@ -129,10 +129,7 @@ See [Web Setup Interface](#web-setup-interface) for detailed instructions.
 }
 ```
 
-**Health check:**
-```bash
-curl https://your-domain.com/health
-```
+**Health check:** See [Health Monitoring](#health-monitoring) below.
 
 ---
 
@@ -142,17 +139,7 @@ The web setup interface manages Telegram sessions directly from your browser. Ac
 
 ### Session Management
 
-**Reauthorizing Expired Sessions:**
-- Use the **"Reauthorize Existing Session"** option
-- Your bearer token remains the same
-- No need to update MCP client configuration
-- Phone verification prevents unauthorized access
-
-**Removing Sessions:**
-- Use the **"Delete Session"** option for permanent removal
-- Requires bearer token authentication
-- Safely disconnects active connections
-- Completely removes session files from server
+See [Session Management](#session-management) in Configuration Reference below.
 
 ### Available Options
 
@@ -183,45 +170,18 @@ SERVER_MODE=stdio              # Local mode (default)
 PORT=8000                      # Server port
 LOG_LEVEL=INFO                 # Logging verbosity
 SESSION_NAME=telegram          # Session identifier
-
-# MTProto Proxy (for connections behind firewall)
-MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
+MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret  # Firewall proxy
 ```
-
-Supported proxy formats:
-- `tg://proxy?server=host&port=443&secret=xxx` (URL format)
-- `host:port:secret` (simple format)
-- Fake TLS proxies (`ee` or `7` prefix) are auto-detected
 
 **Tip:** The CLI setup automatically loads `.env` files from your current directory.
 
 ### Session Management
 
 Sessions are stored in `~/.config/fast-mcp-telegram/`:
-- **Local modes:** `{SESSION_NAME}.session` (default: `telegram.session`)
-- **Production mode:** `{bearer_token}.session` (auto-managed per user)
+- **Local:** `{SESSION_NAME}.session` (default: `telegram.session`)
+- **Production:** `{bearer_token}.session` (auto-managed per user)
 
-**Configuration priority:**
-1. CLI argument: `--session-name myaccount`
-2. Environment variable: `SESSION_NAME=myaccount`
-3. `.env` file: `SESSION_NAME=myaccount`
-4. Default: `telegram`
-
-### Health Monitoring
-
-Local:
-```bash
-curl http://localhost:8000/health
-```
-
-Remote:
-```bash
-curl https://your-domain.com/health
-```
-
----
-
-## Multiple Accounts
+Priority: CLI arg → env var → `.env` → default (`telegram`).
 
 Use different Telegram accounts for personal, work, or testing:
 
