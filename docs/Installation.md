@@ -135,11 +135,43 @@ See [Web Setup Interface](#web-setup-interface) for detailed instructions.
 
 The web setup interface manages Telegram sessions directly from your browser. Access it at `https://your-domain.com/setup` when running in `http-auth` mode.
 
-### Session Management
+### Create or Manage Sessions
 
-Sessions are stored in `~/.config/fast-mcp-telegram/`:
-- **Local:** `{SESSION_NAME}.session` (default: `telegram.session`)
-- **Production:** `{bearer_token}.session` (auto-managed per user)
+**Create New Session:** Click **"Create New Session"**, enter your phone number (with country code, e.g., `+1234567890`), then enter the verification code Telegram sends. If 2FA is enabled, enter your password. Download the generated `mcp.json` and use it in your MCP client.
+
+**Reauthorize Existing Session:** Click **"Reauthorize Existing Session"**, enter your bearer token, confirm your phone number, then enter the verification code. If 2FA is enabled, enter your password. Your session refreshes with the same token.
+
+**Delete Session:** Click **"Delete Session"**, enter your bearer token, then confirm deletion (cannot be undone).
+
+---
+
+## Configuration Reference
+
+### Environment Variables
+
+```bash
+# Required
+API_ID=your_api_id
+API_HASH=your_api_hash
+
+# Optional
+SERVER_MODE=stdio              # Local mode (default)
+PORT=8000                      # Server port
+LOG_LEVEL=INFO                 # Logging verbosity
+SESSION_NAME=telegram          # Session identifier
+MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret  # Firewall proxy
+```
+
+**Tip:** The CLI setup automatically loads `.env` files from your current directory.
+
+### MTProto Proxy
+
+For connections behind a firewall. Supported formats:
+- `tg://proxy?server=&port=&secret=` (URL)
+- `host:port:secret` (simple)
+- `ee` or `7` prefix for fake TLS (auto-detected)
+
+### Multiple Accounts
 
 Use different Telegram accounts for personal, work, or testing:
 
