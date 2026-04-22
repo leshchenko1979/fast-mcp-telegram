@@ -45,7 +45,7 @@ Add to your `mcp.json`:
 
 **Step 3 — Start using it!**
 
----
+Configure your MCP client to connect. See [Tools Reference](Tools-Reference.md) for available tools.
 
 ## Remote Setup (http-auth)
 
@@ -77,7 +77,7 @@ DOMAIN=your-domain.com
 
 **Step 3 — Add Traefik labels**
 
-The compose file doesn't include Traefik labels. Add them to the `fast-mcp-telegram` service:
+Edit your `docker-compose.yml` and add these labels to the existing `fast-mcp-telegram` service:
 
 ```yaml
 services:
@@ -140,37 +140,6 @@ curl https://your-domain.com/health
 
 The web setup interface manages Telegram sessions directly from your browser. Access it at `https://your-domain.com/setup` when running in `http-auth` mode.
 
-### Available Options
-
-#### 1. Create New Session
-Set up a completely new Telegram session:
-
-1. Click **"Create New Session"**
-2. Enter your phone number (include country code, e.g., `+1234567890`)
-3. Telegram will send you a verification code
-4. Enter the 5-digit code when prompted
-5. If 2FA is enabled, enter your password
-6. Download the generated `mcp.json` configuration file
-7. Use this file in your MCP client
-
-#### 2. Reauthorize Existing Session
-Refresh an expired or unauthorized session while keeping your bearer token:
-
-1. Click **"Reauthorize Existing Session"**
-2. Enter your existing bearer token
-3. Confirm your phone number
-4. Enter the verification code sent by Telegram
-5. If 2FA is enabled, enter your password
-6. Your session is refreshed with the same token
-
-#### 3. Delete Session
-Permanently remove a session file:
-
-1. Click **"Delete Session"**
-2. Enter your bearer token
-3. Confirm deletion (This action cannot be undone)
-4. Session file is permanently removed
-
 ### Session Management
 
 **Reauthorizing Expired Sessions:**
@@ -184,6 +153,17 @@ Permanently remove a session file:
 - Requires bearer token authentication
 - Safely disconnects active connections
 - Completely removes session files from server
+
+### Available Options
+
+#### 1. Create New Session
+Set up a completely new Telegram session. Click **"Create New Session"**, enter your phone number (with country code, e.g., `+1234567890`), then enter the verification code Telegram sends you. If 2FA is enabled, enter your password. Download the generated `mcp.json` configuration file and use it in your MCP client.
+
+#### 2. Reauthorize Existing Session
+Refresh an expired or unauthorized session while keeping your bearer token. Click **"Reauthorize Existing Session"**, enter your existing bearer token, confirm your phone number, then enter the verification code. If 2FA is enabled, enter your password. Your session is refreshed with the same token.
+
+#### 3. Delete Session
+Permanently remove a session file. Click **"Delete Session"**, enter your bearer token, then confirm deletion (this action cannot be undone). The session file is permanently removed.
 
 ---
 
@@ -229,12 +209,12 @@ Sessions are stored in `~/.config/fast-mcp-telegram/`:
 
 ### Health Monitoring
 
-**Local:**
+Local:
 ```bash
 curl http://localhost:8000/health
 ```
 
-**Remote:**
+Remote:
 ```bash
 curl https://your-domain.com/health
 ```
