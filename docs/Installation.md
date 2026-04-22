@@ -2,38 +2,25 @@
 
 Get your Telegram MCP server running in minutes!
 
-## 🚀 Quick Start
+### 🖥️ For Local MCP Clients
 
-### Prerequisites
-- Python 3.11+
-- Telegram API credentials ([get them here](https://my.telegram.org/auth))
-- MCP client (Cursor IDE, Claude Desktop, etc.)
-
-### 🖥️ For Local Use (Cursor IDE / Claude Desktop)
-
-**2-minute setup:**
-
+**Step 1 — Authenticate**
 ```bash
-# 1. Install
-pip install fast-mcp-telegram
-
-# 2. Authenticate
-fast-mcp-telegram-setup \
+uvx --from fast-mcp-telegram fast-mcp-telegram-setup \
   --api-id="your_api_id" \
   --api-hash="your_api_hash" \
   --phone-number="+1234567890"
-
-# ✅ Done! Session saved to ~/.config/fast-mcp-telegram/telegram.session
 ```
 
-**3. Configure your MCP client:**
+**Step 2 — Configure your MCP client:**
 
 Add to your `mcp.json`:
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "command": "fast-mcp-telegram",
+      "command": "uvx",
+      "args": ["fast-mcp-telegram"],
       "env": {
         "API_ID": "your_api_id",
         "API_HASH": "your_api_hash"
@@ -43,7 +30,7 @@ Add to your `mcp.json`:
 }
 ```
 
-**4. Start using it!** Search for messages, send messages, and more.
+**Step 3 — Start using it!** Sessions are stored in `~/.config/fast-mcp-telegram/`.
 
 ---
 
@@ -100,16 +87,11 @@ docker compose logs -f
 
 **Step 5 — Authenticate via web interface**
 
-Open `https://your-domain.com/setup`. Three options are available:
-
-- **Create New Session** — add a new Telegram account
-- **Reauthorize Existing Session** — refresh an expired session using its bearer token
-- **Delete Session** — remove a session by bearer token
-
-For new session: enter phone number, verification code, and 2FA password if enabled. Download the `mcp.json` file.
+Open `https://your-domain.com/setup`. See [Web Setup Interface](#-web-setup-interface) for available options and detailed instructions.
 
 **Step 6 — Connect your MCP client**
 
+**Header auth (standard):**
 ```json
 {
   "mcpServers": {
@@ -123,6 +105,17 @@ For new session: enter phone number, verification code, and 2FA password if enab
 }
 ```
 
+**URL path auth (for clients without header support):**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-domain.com/v1/url_auth/YOUR_TOKEN/mcp"
+    }
+  }
+}
+```
+
 **Health check:**
 ```bash
 curl https://your-domain.com/health
@@ -130,7 +123,7 @@ curl https://your-domain.com/health
 
 ## 🌐 Web Setup Interface
 
-The web setup interface provides a user-friendly way to manage Telegram sessions directly from your browser. Access it at `http://your-server.com/setup` when running in `http-auth` mode.
+The web setup interface provides a user-friendly way to manage Telegram sessions directly from your browser. Access it at `https://your-server.com/setup` when running in `http-auth` mode.
 
 ### 📱 Available Options
 
@@ -198,28 +191,15 @@ Permanently remove a session file:
 
 ---
 
-## 🤔 Which Setup Method Do I Need?
-
-| I want to... | Use this |
-|--------------|----------|
-| Use Cursor IDE or Claude Desktop locally | **CLI Setup** (above) |
-| Deploy to a remote server with web interface | **Web Setup** (above) |
-| Use multiple Telegram accounts | [Multiple Accounts](#-multiple-accounts) |
-| Manage sessions without CLI access | **Web Setup** → "Reauthorize Existing Session" |
-| Permanently remove a session | **Web Setup** → "Delete Session" |
-
----
-
 ## 📚 Detailed Configuration
 
 ### Understanding Server Modes
 
-Fast MCP Telegram runs in three modes:
+Fast MCP Telegram runs in two modes:
 
 | Mode | Security | Best For | Setup Method |
 |------|----------|----------|--------------|
-| **Local** (`stdio`) | File-based | Cursor IDE, local clients | CLI |
-| **Dev HTTP** (`http-no-auth`) | No auth ⚠️ | Local testing only | CLI |
+| **Local** (`stdio`) | File-based | Local MCP clients | CLI |
 | **Production** (`http-auth`) | Token-based | Remote servers | Web or CLI |
 
 ### Environment Configuration
@@ -249,14 +229,13 @@ MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
 
 ### MCP Client Configuration Examples
 
-<details>
-<summary><b>Local Mode (STDIO)</b> - Click to expand</summary>
-
+**Local Mode (STDIO):**
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "command": "fast-mcp-telegram",
+      "command": "uvx",
+      "args": ["fast-mcp-telegram"],
       "env": {
         "API_ID": "your_api_id",
         "API_HASH": "your_api_hash"
@@ -265,23 +244,31 @@ MTPROTO_PROXY=tg://proxy?server=your-proxy.com&port=443&secret=your-secret
   }
 }
 ```
-</details>
 
-<details>
-<summary><b>Development HTTP (No Auth)</b> - Click to expand</summary>
-
+**Remote Mode (http-auth) — Header auth:**
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "url": "http://localhost:8000"
+      "url": "https://your-domain.com/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN"
+      }
     }
   }
 }
 ```
 
-⚠️ **Security Warning:** Only use this mode in trusted local environments.
-</details>
+**Remote Mode (http-auth) — URL path auth:**
+```json
+{
+  "mcpServers": {
+    "telegram": {
+      "url": "https://your-domain.com/v1/url_auth/YOUR_TOKEN/mcp"
+    }
+  }
+}
+```
 
 ---
 
@@ -303,7 +290,8 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 {
   "mcpServers": {
     "telegram-personal": {
-      "command": "fast-mcp-telegram",
+      "command": "uvx",
+      "args": ["fast-mcp-telegram"],
       "env": {
         "API_ID": "your_api_id",
         "API_HASH": "your_api_hash",
@@ -311,7 +299,8 @@ SESSION_NAME=work fast-mcp-telegram-setup \
       }
     },
     "telegram-work": {
-      "command": "fast-mcp-telegram",
+      "command": "uvx",
+      "args": ["fast-mcp-telegram"],
       "env": {
         "API_ID": "your_api_id",
         "API_HASH": "your_api_hash",
@@ -324,37 +313,7 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 
 ---
 
-## 🔧 Troubleshooting
-
-<details>
-<summary><b>Session already exists</b></summary>
-
-Use the `--overwrite` flag to replace:
-```bash
-fast-mcp-telegram-setup --overwrite --api-id="..." --api-hash="..." --phone-number="..."
-```
-</details>
-
-<details>
-<summary><b>Authentication failed</b></summary>
-
-Double-check:
-- API credentials are correct
-- Phone number includes country code (e.g., `+1234567890`)
-- You're entering the correct verification code
-</details>
-
-<details>
-<summary><b>Permission denied</b></summary>
-
-Ensure the session directory is writable:
-```bash
-chmod 755 ~/.config/fast-mcp-telegram
-```
-</details>
-
-<details>
-<summary><b>Connection issues / MTProto Proxy</b></summary>
+## 🔧 Connection Issues / MTProto Proxy
 
 If you're behind a firewall or need to connect via proxy, configure `MTPROTO_PROXY`:
 ```bash
@@ -367,7 +326,6 @@ Supported formats:
 - `host:port:secret` (simple format)
 
 The server automatically detects Fake TLS proxies (with `ee` or `7` prefix) and handles secret processing.
-</details>
 
 ### 📖 More Resources
 
@@ -395,11 +353,16 @@ Sessions are stored in `~/.config/fast-mcp-telegram/`:
 ### Health Monitoring
 
 Check server status and active sessions:
+
+**Local:**
 ```bash
 curl http://localhost:8000/health
 ```
 
-Returns session count, uptime, and system statistics.
+**Remote:**
+```bash
+curl https://your-domain.com/health
+```
 
 ---
 
