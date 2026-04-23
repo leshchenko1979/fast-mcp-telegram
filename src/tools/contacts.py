@@ -39,9 +39,7 @@ AVAILABLE_FILTERS_MAX_SHOW = 10
 
 def _normalize_filter_name(name: str | None) -> str:
     """Normalize filter names for comparison: trim and collapse whitespace, lowercase."""
-    if not name:
-        return ""
-    return " ".join(name.split()).lower()
+    return " ".join(name.split()).lower() if name else ""
 
 
 async def _get_filter_by_name(client, filter_name: str) -> dict | None:
