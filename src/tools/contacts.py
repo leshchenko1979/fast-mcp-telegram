@@ -37,8 +37,10 @@ GET_PEER_DIALOGS_CHUNK_SIZE = 50
 AVAILABLE_FILTERS_MAX_SHOW = 10
 
 
-def _normalize_filter_name(name: str) -> str:
+def _normalize_filter_name(name: str | None) -> str:
     """Normalize filter names for comparison: trim and collapse whitespace, lowercase."""
+    if not name:
+        return ""
     return " ".join(name.split()).lower()
 
 
