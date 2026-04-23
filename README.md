@@ -7,17 +7,25 @@
 
 **Fast MCP Telegram Server** - Telegram integration with direct API access, powerful search, and advanced messaging for AI assistants.
 
-## Demo
+## Try the Demo
 
-1. Open https://tg-mcp.l1979.ru/setup to begin the authentication flow.
-2. After finishing, you'll receive a ready-to-use `mcp.json` with your Bearer token.
-3. Use the config with your MCP client to check out this MCP server capabilities.
-4. Or try the HTTP-MTProto Bridge right away with curl (replace TOKEN):
+1. Open https://tg-mcp.l1979.ru/setup and complete authentication
+2. Copy your Bearer token from the setup page
+
+Then choose your path:
+
+**MCP Client (AI assistants)**
+3. Download the `mcp.json` file
+4. Configure your MCP client and ask your AI assistant: "send hello to my saved messages in telegram"
+
+**Direct API (curl)**
+3. Run the command below (replace TOKEN with yours):
 ```bash
 curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"params": {"peer": "me", "message": "Hello from Demo!"}}'
+  -d '{"params": {"peer": "me", "message": "Hello!"}}'
+```
 ```
 
 ## Features
