@@ -5,7 +5,7 @@
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 [![Health Status](https://gatus.l1979.ru/api/v1/endpoints/always-on_fast-mcp-telegram/uptimes/30d/badge.svg)](https://gatus.l1979.ru/endpoints/always-on_fast-mcp-telegram)
 
-**Fast MCP Telegram Server** - Production-ready Telegram integration for AI assistants with comprehensive search, messaging, and direct API access capabilities.
+**Fast MCP Telegram Server** - Production-ready Telegram integration with direct API access via HTTP-MTProto Bridge, comprehensive search, and messaging capabilities.
 
 ## Demo
 
