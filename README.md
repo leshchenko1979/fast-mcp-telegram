@@ -101,20 +101,34 @@ Deploy your own MCP server on a VDS — see [Installation Guide](docs/Installati
 
 See [Tools Reference](docs/Tools-Reference.md) for detailed documentation with examples.
 
-## Security
+## HTTP-MTProto Bridge
 
-- Bearer token authentication with session isolation
-- SSRF protection for file downloads
-- Dangerous method blocking with opt-in override
+**Direct curl access to any Telegram API method** — available for programmatic integration.
 
-See [SECURITY.md](SECURITY.md) for details.
+```bash
+curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"peer": "me", "message": "Hello from curl!"}}'
+```
+
+Supports any Telegram method, automatic entity resolution, and TL object construction.
+
+**Integration examples:**
+- CI/CD: send deploy notifications to Telegram channels
+- Monitoring: push alerts and system metrics to admin groups
+- Webhooks: receive external events and forward to Telegram
+- Backup: export chat history to external storage systems
+- Custom bots: extend functionality with external services
+
+See [MTProto Bridge](docs/MTProto-Bridge.md) for full documentation.
 
 ## Documentation
 
 - [Installation Guide](docs/Installation.md) - Local setup and remote server deployment
 - [Tools Reference](docs/Tools-Reference.md) - Complete tools documentation
 - [MTProto Bridge](docs/MTProto-Bridge.md) - Direct API access via curl
-- [SECURITY.md](SECURITY.md) - Security features and best practices
+- [Contributing](CONTRIBUTING.md) - Guidelines for contributors
 
 ## License
 
