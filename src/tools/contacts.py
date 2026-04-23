@@ -671,6 +671,8 @@ async def _find_chats_by_include_peers(
                 continue
 
         result_dict = dict(ent_dict)
+        # Remove internal fields not meant for API responses
+        result_dict.pop("access_hash", None)
         if pid in last_activity_map:
             result_dict["last_activity_date"] = last_activity_map[pid]
 
