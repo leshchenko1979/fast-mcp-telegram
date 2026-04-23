@@ -5,6 +5,7 @@ Provides tools to help language models find chat IDs for specific contacts.
 
 import logging
 from contextlib import suppress
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +30,66 @@ from src.utils.entity import (
     get_entity_by_id,
 )
 from src.utils.error_handling import log_and_build_error
+
+
+@dataclass
+class ChatView:
+    """Unified view of a chat for filtering and display."""
+
+    type: str | None
+    username: str | None
+    title: str | None
+    first_name: str | None
+    last_name: str | None
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatView":
+        return cls(
+            type=d.get("type"),
+            username=d.get("username"),
+            title=d.get("title"),
+            first_name=d.get("first_name"),
+            last_name=d.get("last_name"),
+        )
+
+    @classmethod
+    def from_entity(cls, entity) -> "ChatView":
+        d = build_entity_dict(entity) or {}
+        return cls.from_dict(d)
+
+
+def _match_chat_type(view: ChatView, chat_type: str | None) -> bool:
+    """Check if view matches chat_type filter."""
+    if not chat_type:
+        return True
+    types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
+    valid = {"private", "bot", "group", "channel"}
+    if any(ct not in valid for ct in types):
+        return False
+    return (view.type or "").lower() in types
+
+
+def _match_public(view: ChatView, public: bool | None) -> bool:
+    """Check if view matches public filter."""
+    if (view.type or "") in ("private", "bot"):
+        return True
+    if public is None:
+        return True
+    has_username = bool(view.username)
+    return has_username if public else not has_username
+
+
+def _match_query(view: ChatView, query_lower: str) -> bool:
+    """Check if view matches query string."""
+    if not query_lower:
+        return True
+    searchable = " ".join(
+        part
+        for part in (view.title, view.username, view.first_name, view.last_name)
+        if part
+    ).lower()
+    return query_lower in searchable
+
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +126,6 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     Note: exclude_muted/exclude_read/exclude_archived require dialog object,
     not just entity. entity param is the Chat/User/Channel, dialog is the Dialog object.
     """
-    is_user = isinstance(entity, TelethonUser)
     is_chat = isinstance(entity, TelethonChat)
     is_channel = isinstance(entity, TelethonChannel)
 
@@ -76,9 +136,11 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     contacts_flag = filter_dict.get("contacts", False)
     non_contacts_flag = filter_dict.get("non_contacts", False)
 
+    is_user = isinstance(entity, TelethonUser)
     if is_user and (contacts_flag or non_contacts_flag):
-        is_contact = getattr(entity, "contact", False) or getattr(entity, "mutual_contact", False)
-        is_non_contact = not is_contact
+        is_contact = getattr(entity, "contact", False) or getattr(
+            entity, "mutual_contact", False
+        )
 
         # If only contacts flag is set and user is not a contact → exclude
         if contacts_flag and not non_contacts_flag and not is_contact:
@@ -86,33 +148,43 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
         # If only non_contacts flag is set and user IS a contact → exclude
         if non_contacts_flag and not contacts_flag and is_contact:
             return False
-        # If neither flag is set (both False): exclude all users (wait for other flags)
-        # Actually when both False, should we include or exclude users? Let other flags decide
-        if not contacts_flag and not non_contacts_flag:
-            pass  # don't filter based on contact status alone
 
     # groups=True → include supergroups (megagroup - Channel with megagroup=True)
-    if filter_dict.get("groups") and not (
-        is_chat or (is_channel and getattr(entity, "megagroup", False))
+    if (
+        filter_dict.get("groups")
+        and not is_chat
+        and (not is_channel or not getattr(entity, "megagroup", False))
     ):
         return False
     # broadcasts=True → include broadcast channels only (not supergroups/megagroups)
-    if filter_dict.get("broadcasts") and not (is_channel and getattr(entity, "broadcast", False)):
+    if filter_dict.get("broadcasts") and not (
+        is_channel and getattr(entity, "broadcast", False)
+    ):
         return False
     # bots=True → include only actual bots; bots=False means don't filter by bot status
     # Only applies to users (channels/groups aren't bots even if they have a bot attr)
-    if filter_dict.get("bots") is True and is_user and not getattr(entity, "bot", False):
+    if (
+        filter_dict.get("bots") is True
+        and is_user
+        and not getattr(entity, "bot", False)
+    ):
         return False
 
     # Exclude filters
     now = datetime.now(UTC).timestamp()
-    mute_until = getattr(getattr(dialog, "notify_settings", None) or {}, "mute_until", 0) or 0
+    mute_until = (
+        getattr(getattr(dialog, "notify_settings", None) or {}, "mute_until", 0) or 0
+    )
     if filter_dict.get("exclude_muted") and mute_until > now:
         return False
     # exclude_read: filter out dialogs with no unread messages
-    if filter_dict.get("exclude_read") and getattr(dialog, "unread_count", 0) == 0:
-        return False
-    return not (filter_dict.get("exclude_archived") and getattr(dialog, "folder_id", None) == 1)
+    return (
+        False
+        if filter_dict.get("exclude_read")
+        and getattr(dialog, "unread_count", 0) == 0
+        else not filter_dict.get("exclude_archived")
+        or getattr(dialog, "folder_id", None) != 1
+    )
 
 
 async def search_contacts_native(
@@ -650,20 +722,20 @@ async def _find_chats_by_include_peers(
         if not ent_dict:
             continue
 
+        view = ChatView.from_dict(ent_dict)
+
         # Apply chat_type filter
-        if chat_type and not _matches_chat_type_from_dict(ent_dict, chat_type):
+        if not _match_chat_type(view, chat_type):
             continue
 
         # Apply public filter
-        if public is not None and not _matches_public_filter_from_dict(
-            ent_dict, public
-        ):
+        if not _match_public(view, public):
             continue
 
         # Apply query filter
         if query:
             query_lower = query.lower().strip()
-            if query_lower and not _matches_dict_query(ent_dict, query_lower):
+            if query_lower and not _match_query(view, query_lower):
                 continue
 
         result_dict = dict(ent_dict)
@@ -686,40 +758,6 @@ def _extract_peer_id(peer) -> int | None:
     if hasattr(peer, "channel_id"):
         return peer.channel_id
     return peer.chat_id if hasattr(peer, "chat_id") else None
-
-
-def _matches_chat_type_from_dict(entity_dict: dict, chat_type: str) -> bool:
-    """Check if entity dict matches chat_type filter."""
-    if not chat_type:
-        return True
-    chat_types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
-    valid_types = {"private", "bot", "group", "channel"}
-    if any(ct not in valid_types for ct in chat_types):
-        return False
-    entity_type = entity_dict.get("type")
-    return entity_type in chat_types
-
-
-def _matches_public_filter_from_dict(entity_dict: dict, public: bool | None) -> bool:
-    """Check if entity dict matches public filter."""
-    if entity_dict.get("type") in ("private", "bot"):
-        return True
-    if public is None:
-        return True
-    has_username = bool(entity_dict.get("username"))
-    return has_username if public else not has_username
-
-
-def _matches_dict_query(entity_dict: dict, query_lower: str) -> bool:
-    """Check if entity dict matches query string."""
-    title = entity_dict.get("title", "") or ""
-    username = entity_dict.get("username", "") or ""
-    first_name = entity_dict.get("first_name", "") or ""
-    last_name = entity_dict.get("last_name", "") or ""
-    searchable = " ".join(
-        part for part in (title, username, first_name, last_name) if part
-    ).lower()
-    return query_lower in searchable
 
 
 async def _find_chats_by_filter_flags(
@@ -762,22 +800,24 @@ async def _find_chats_by_filter_flags(
         if not _filter_matches_flags(entity, dialog, filter_dict):
             continue
 
+        view = ChatView.from_entity(entity)
+
         dialog_date = getattr(dialog, "date", None)
         if not await _dialog_in_date_range(
             entity, client, dialog_date, min_date_dt, max_date_dt
         ):
             continue
 
-        if chat_type and not _matches_chat_type(entity, chat_type):
+        if not _match_chat_type(view, chat_type):
             continue
-        if not _matches_public_filter(entity, public):
+        if not _match_public(view, public):
             continue
 
         if result := build_dialog_entity_dict(dialog, entity):
             # Apply query filter
             if query:
                 query_lower = query.lower().strip()
-                if query_lower and not _matches_dialog_query(entity, query_lower):
+                if query_lower and not _match_query(view, query_lower):
                     continue
             results.append(result)
             if len(results) >= limit:
