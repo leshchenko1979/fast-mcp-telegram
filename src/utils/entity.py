@@ -290,6 +290,8 @@ def build_entity_dict(entity) -> dict | None:
         "subscribers_count": subscribers_count,
         # Present only for forum-enabled channels/supergroups
         "is_forum": True if is_forum else None,
+        # Access hash (required for InputPeer construction)
+        "access_hash": getattr(entity, "access_hash", None),
     }
 
     # Prune None values for a compact, uniform schema
