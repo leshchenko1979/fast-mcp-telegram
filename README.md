@@ -32,7 +32,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | Feature | Description |
 |---------|-------------|
 | :globe_with_meridians: [**HTTP-MTProto Bridge**](docs/MTProto-Bridge.md#key-benefits) | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
-| :dart: [**AI-Optimized**](docs/Tools-Reference.md#overview) | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
+| :dart: [**AI-Optimized**](docs/Tools-Reference.md#overview) | Conserves context with fewer general-purpose tools, LLM-friendly API design, and MCP ToolAnnotations |
 | :closed_lock_with_key: [**Multi-User Authentication**](docs/Installation.md#local-setup-stdio) | Production-ready Bearer token auth with session isolation and LRU cache management |
 | :tv: [**Web Setup Interface**](docs/Installation.md#web-setup-interface) | Browser-based authentication flow with immediate config generation |
 | :building_construction: [**Dual Transport**](docs/Installation.md#local-setup-stdio) | Seamless development (stdio) and production (HTTP) deployment support |
