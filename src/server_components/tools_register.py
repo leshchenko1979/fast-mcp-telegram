@@ -14,7 +14,7 @@ from src.server_components.mcp_tool_types import (
     ContactFirstName,
     ContactLastName,
     FilesListParam,
-    FolderFilter,
+    FilterParam,
     IncludeTotalCount,
     LimitChats,
     LimitMessages,
@@ -82,7 +82,7 @@ _DESC_EDIT_MESSAGE = _tool_description(
 _DESC_FIND_CHATS = _tool_description(
     "Find users/groups/channels by name, username, or phone. "
     "Global search (query required) searches all Telegram; "
-    "with min_date, max_date, or folder, search is limited to your sidebar dialogs. "
+    "with min_date, max_date, or filter, search uses dialog filter. "
     "Success: dict with key chats (list of chat objects). "
 )
 
@@ -250,11 +250,11 @@ def register_tools(mcp: FastMCP) -> None:
         public: PublicFilter = None,
         min_date: MinDate = None,
         max_date: MaxDate = None,
-        folder: FolderFilter = None,
+        filter: FilterParam = None,
     ) -> dict[str, Any]:
-        """Find chats by query, folder, or activity dates (full doc URL in tool description)."""
+        """Find chats by query, filter, or activity dates (full doc URL in tool description)."""
         return await find_chats_impl(
-            query, limit, chat_type, public, min_date, max_date, folder
+            query, limit, chat_type, public, min_date, max_date, filter
         )
 
     @mcp.tool(

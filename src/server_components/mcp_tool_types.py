@@ -189,12 +189,12 @@ QueryFindChats = Annotated[
     ),
 ]
 
-FolderFilter = Annotated[
-    int | str,
+FilterParam = Annotated[
+    str,
     Field(
         description=(
-            "Dialog folder: integer id or exact folder name (case-insensitive). "
-            "Triggers sidebar-only search with other filters."
+            "Dialog filter name (case-insensitive exact match after normalization). "
+            "See Filters-vs-Folders.md for filter vs folder distinction."
         )
     ),
 ]
