@@ -112,7 +112,7 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
 
     # Exclude filters
     now = datetime.now(UTC).timestamp()
-    mute_until = getattr(dialog.notify_settings, "mute_until", 0) or 0
+    mute_until = getattr(getattr(dialog, "notify_settings", None) or {}, "mute_until", 0) or 0
     if filter_dict.get("exclude_muted") and mute_until > now:
         return False
     return (
