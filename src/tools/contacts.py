@@ -69,30 +69,27 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     is_chat = isinstance(entity, TelethonChat)
     is_channel = isinstance(entity, TelethonChannel)
 
-    # Handle contacts AND non_contacts = all users (no contact filter)
+    # Handle contacts AND non_contacts flags
+    # When both True or both False: include all users (skip contact status check)
+    # When only contacts=True: only include actual contacts
+    # When only non_contacts=True: only include non-contacts
     contacts_flag = filter_dict.get("contacts", False)
     non_contacts_flag = filter_dict.get("non_contacts", False)
 
-    if contacts_flag and non_contacts_flag:
-        pass  # include all users, skip contact status check
-    elif (
-        contacts_flag
-        and not (
-            is_user
-            and (
-                getattr(entity, "contact", False)
-                or getattr(entity, "mutual_contact", False)
-            )
-        )
-    ) or (
-        non_contacts_flag
-        and not (
-            is_user
-            and not getattr(entity, "contact", False)
-            and not getattr(entity, "mutual_contact", False)
-        )
-    ):
-        return False
+    if is_user and (contacts_flag or non_contacts_flag):
+        is_contact = getattr(entity, "contact", False) or getattr(entity, "mutual_contact", False)
+        is_non_contact = not is_contact
+
+        # If only contacts flag is set and user is not a contact → exclude
+        if contacts_flag and not non_contacts_flag and not is_contact:
+            return False
+        # If only non_contacts flag is set and user IS a contact → exclude
+        if non_contacts_flag and not contacts_flag and is_contact:
+            return False
+        # If neither flag is set (both False): exclude all users (wait for other flags)
+        # Actually when both False, should we include or exclude users? Let other flags decide
+        if not contacts_flag and not non_contacts_flag:
+            pass  # don't filter based on contact status alone
 
     # groups=True → include supergroups (megagroup - Channel with megagroup=True)
     if filter_dict.get("groups") and not (
@@ -102,10 +99,9 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     # broadcasts=True → include channels
     if filter_dict.get("broadcasts") and not is_channel:
         return False
-    # bots=True → include bots
-    if filter_dict.get("bots") and (
-        not is_user or not getattr(entity, "bot", False)
-    ):
+    # bots=True → include only actual bots; bots=False means don't filter by bot status
+    # Only applies to users (channels/groups aren't bots even if they have a bot attr)
+    if filter_dict.get("bots") is True and is_user and not getattr(entity, "bot", False):
         return False
 
     # Exclude filters
