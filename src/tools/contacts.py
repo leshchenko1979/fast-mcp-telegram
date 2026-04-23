@@ -128,47 +128,63 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     """
     is_chat = isinstance(entity, TelethonChat)
     is_channel = isinstance(entity, TelethonChannel)
+    is_user = isinstance(entity, TelethonUser)
 
-    # Handle contacts AND non_contacts flags
-    # When both True or both False: include all users (skip contact status check)
-    # When only contacts=True: only include actual contacts
-    # When only non_contacts=True: only include non-contacts
+    # Include flags: groups, broadcasts, bots, contacts, non_contacts
+    # When ANY include flag is set, entity must match AT LEAST ONE of them
+    # When NONE are set, entity is included (no include filter applied)
     contacts_flag = filter_dict.get("contacts", False)
     non_contacts_flag = filter_dict.get("non_contacts", False)
+    groups_flag = filter_dict.get("groups", False)
+    broadcasts_flag = filter_dict.get("broadcasts", False)
+    bots_flag = filter_dict.get("bots", False)
 
-    is_user = isinstance(entity, TelethonUser)
-    if is_user and (contacts_flag or non_contacts_flag):
-        is_contact = getattr(entity, "contact", False) or getattr(
-            entity, "mutual_contact", False
-        )
+    has_include_flag = (
+        groups_flag
+        or broadcasts_flag
+        or bots_flag
+        or contacts_flag
+        or non_contacts_flag
+    )
 
-        # If only contacts flag is set and user is not a contact → exclude
-        if contacts_flag and not non_contacts_flag and not is_contact:
+    if has_include_flag:
+        # Entity passes include filter if it matches ANY active flag
+        passes = False
+
+        # groups=True → include supergroups (Channel with megagroup=True) and legacy Chat
+        if groups_flag and (
+            is_chat or (is_channel and getattr(entity, "megagroup", False))
+        ):
+            passes = True
+        # broadcasts=True → include broadcast channels only (not supergroups)
+        if broadcasts_flag and is_channel and getattr(entity, "broadcast", False):
+            passes = True
+        # bots=True → include users that are bots
+        if bots_flag and is_user and getattr(entity, "bot", False):
+            passes = True
+        # contacts=True → include actual contacts
+        if (
+            contacts_flag
+            and is_user
+            and (
+                getattr(entity, "contact", False)
+                or getattr(entity, "mutual_contact", False)
+            )
+        ):
+            passes = True
+        # non_contacts=True → include non-contacts
+        if (
+            non_contacts_flag
+            and is_user
+            and not (
+                getattr(entity, "contact", False)
+                or getattr(entity, "mutual_contact", False)
+            )
+        ):
+            passes = True
+
+        if not passes:
             return False
-        # If only non_contacts flag is set and user IS a contact → exclude
-        if non_contacts_flag and not contacts_flag and is_contact:
-            return False
-
-    # groups=True → include supergroups (megagroup - Channel with megagroup=True)
-    if (
-        filter_dict.get("groups")
-        and not is_chat
-        and (not is_channel or not getattr(entity, "megagroup", False))
-    ):
-        return False
-    # broadcasts=True → include broadcast channels only (not supergroups/megagroups)
-    if filter_dict.get("broadcasts") and not (
-        is_channel and getattr(entity, "broadcast", False)
-    ):
-        return False
-    # bots=True → include only actual bots; bots=False means don't filter by bot status
-    # Only applies to users (channels/groups aren't bots even if they have a bot attr)
-    if (
-        filter_dict.get("bots") is True
-        and is_user
-        and not getattr(entity, "bot", False)
-    ):
-        return False
 
     # Exclude filters - notify_settings is on dialog.dialog (Telethon wrapper wraps TL object)
     ns = getattr(getattr(dialog, "dialog", None), "notify_settings", None)
