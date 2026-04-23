@@ -34,14 +34,34 @@ _FOLDER_LIST_CACHE: dict[str | int, tuple[list[dict], float]] = {}
 _FOLDER_CACHE_TTL_SECONDS = 300  # 5 minutes
 
 
-async def get_available_folders(client) -> list[dict]:
-    """Fetch user's dialog folders from Telegram with 5-minute caching.
+def _extract_filter_flags(filter_obj) -> dict:
+    """Extract boolean flags from DialogFilter/DialogFilterChatlist into flat dict."""
+    return {
+        "id": getattr(filter_obj, "id", None),
+        "title": getattr(filter_obj, "title", None),
+        "contacts": getattr(filter_obj, "contacts", False),
+        "non_contacts": getattr(filter_obj, "non_contacts", False),
+        "groups": getattr(filter_obj, "groups", False),
+        "broadcasts": getattr(filter_obj, "broadcasts", False),
+        "bots": getattr(filter_obj, "bots", False),
+        "exclude_muted": getattr(filter_obj, "exclude_muted", False),
+        "exclude_read": getattr(filter_obj, "exclude_read", False),
+        "exclude_archived": getattr(filter_obj, "exclude_archived", False),
+        "include_peers": getattr(filter_obj, "include_peers", []),
+        "exclude_peers": getattr(filter_obj, "exclude_peers", []),
+    }
+
+
+async def get_dialog_filters(client) -> list[dict]:
+    """Fetch user's dialog filters from Telegram with 5-minute caching.
 
     Uses client(functions.messages.GetDialogFiltersRequest()) via Telethon.
 
-    Returns list of dicts with 'id' (int) and 'title' (str) keys.
+    Returns list of flat dicts with filter metadata and flags:
+    - id, title, contacts, non_contacts, groups, broadcasts, bots,
+      exclude_muted, exclude_read, exclude_archived, include_peers, exclude_peers
 
-    IMPORTANT: Folder title is a TextWithEntities object - extract .text
+    Note: Folder title is a TextWithEntities object - extract .text
     """
     global _FOLDER_LIST_CACHE
 
@@ -53,12 +73,12 @@ async def get_available_folders(client) -> list[dict]:
 
     # Check cache
     if cache_key in _FOLDER_LIST_CACHE:
-        folders, timestamp = _FOLDER_LIST_CACHE[cache_key]
+        filters, timestamp = _FOLDER_LIST_CACHE[cache_key]
         if time.time() - timestamp < _FOLDER_CACHE_TTL_SECONDS:
-            return folders
+            return filters
 
     # Fetch from Telegram
-    folders = []
+    filters = []
     try:
         from telethon import functions
 
@@ -67,23 +87,25 @@ async def get_available_folders(client) -> list[dict]:
             # title is TextWithEntities object - extract .text
             title_obj = getattr(f, "title", None)
             title_text = getattr(title_obj, "text", None) if title_obj else None
-            folders.append(
-                {
-                    "id": getattr(f, "id", None),
-                    "title": title_text,
-                }
-            )
+            filter_dict = _extract_filter_flags(f)
+            filter_dict["title"] = title_text
+            filters.append(filter_dict)
     except asyncio.CancelledError:
         # Let cancellation propagate so shutdown/timeout behavior works correctly
         raise
     except Exception as e:
         logger.debug(f"GetDialogFiltersRequest failed: {e}")
         # Don't cache empty result on failure - allows retry instead of long-lived empty cache
-        return folders
+        return filters
 
     # Update cache only on success
-    _FOLDER_LIST_CACHE[cache_key] = (folders, time.time())
-    return folders
+    _FOLDER_LIST_CACHE[cache_key] = (filters, time.time())
+    return filters
+
+
+async def get_available_folders(client) -> list[dict]:
+    """Deprecated alias for get_dialog_filters."""
+    return await get_dialog_filters(client)
 
 
 def _entity_cache_key(entity) -> tuple:

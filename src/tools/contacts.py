@@ -9,7 +9,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from telethon.tl.functions.contacts import SearchRequest
-from telethon.tl.functions.messages import GetForumTopicsRequest
+from telethon.tl.functions.messages import GetForumTopicsRequest, GetPeerDialogsRequest
+from telethon.tl.types import Channel as TelethonChannel
+from telethon.tl.types import Chat as TelethonChat
+from telethon.tl.types import User as TelethonUser
 
 from src.client.connection import (
     SessionNotAuthorizedError,
@@ -22,42 +25,101 @@ from src.utils.entity import (
     build_dialog_entity_dict,
     build_entity_dict,
     build_entity_dict_enriched,
-    get_available_folders,
+    get_dialog_filters,
     get_entity_by_id,
 )
 from src.utils.error_handling import log_and_build_error
 
 logger = logging.getLogger(__name__)
 
+FLAG_MATCH_MAX_DIALOGS = 500
+GET_PEER_DIALOGS_CHUNK_SIZE = 50
+AVAILABLE_FILTERS_MAX_SHOW = 10
 
-def _normalize_folder_name(name: str) -> str:
-    """Normalize folder names for comparison: trim and collapse whitespace, lowercase."""
+
+def _normalize_filter_name(name: str) -> str:
+    """Normalize filter names for comparison: trim and collapse whitespace, lowercase."""
     return " ".join(name.split()).lower()
 
 
-async def _resolve_folder_id(client, folder: int | str) -> int | None:
-    """Resolve folder parameter to folder ID.
+async def _get_filter_by_name(client, filter_name: str) -> dict | None:
+    """Find filter by name (string). Returns full filter dict or None."""
+    filters = await get_dialog_filters(client)
+    normalized = _normalize_filter_name(filter_name)
+    return next(
+        (
+            f
+            for f in filters
+            if _normalize_filter_name(f.get("title", "")) == normalized
+        ),
+        None,
+    )
 
-    Args:
-        folder: Folder ID (int) or folder name (str, case-insensitive exact match)
 
-    Returns:
-        Folder ID (int) or None if not found
+def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
+    """Check if entity matches filter flags.
 
-    Note: Folder 0 (default) shows as folder_id=null on Dialog objects,
-          so iter_dialogs(folder=0) returns dialogs with folder_id=null
+    filter_dict contains: contacts, non_contacts, groups, broadcasts, bots,
+    exclude_muted, exclude_read, exclude_archived (from filter's flags)
+
+    Note: exclude_muted/exclude_read/exclude_archived require dialog object,
+    not just entity. entity param is the Chat/User/Channel, dialog is the Dialog object.
     """
-    if isinstance(folder, int):
-        return folder
+    is_user = isinstance(entity, TelethonUser)
+    is_chat = isinstance(entity, TelethonChat)
+    is_channel = isinstance(entity, TelethonChannel)
 
-    # String name - load folders and match by title
-    folders = await get_available_folders(client)
-    normalized_folder = _normalize_folder_name(folder)
-    for f in folders:
-        title = f.get("title", "")
-        if title and _normalize_folder_name(title) == normalized_folder:
-            return f.get("id")
-    return None
+    # Handle contacts AND non_contacts = all users (no contact filter)
+    contacts_flag = filter_dict.get("contacts", False)
+    non_contacts_flag = filter_dict.get("non_contacts", False)
+
+    if contacts_flag and non_contacts_flag:
+        pass  # include all users, skip contact status check
+    elif (
+        contacts_flag
+        and not (
+            is_user
+            and (
+                getattr(entity, "contact", False)
+                or getattr(entity, "mutual_contact", False)
+            )
+        )
+    ) or (
+        non_contacts_flag
+        and not (
+            is_user
+            and not getattr(entity, "contact", False)
+            and not getattr(entity, "mutual_contact", False)
+        )
+    ):
+        return False
+
+    # groups=True → include supergroups (megagroup)
+    if filter_dict.get("groups") and not (
+        is_chat and getattr(entity, "megagroup", False)
+    ):
+        return False
+    # broadcasts=True → include channels
+    if filter_dict.get("broadcasts") and not is_channel:
+        return False
+    # bots=True → include bots
+    if filter_dict.get("bots") and (
+        not is_user or not getattr(entity, "bot", False)
+    ):
+        return False
+
+    # Exclude filters
+    now = datetime.now(UTC).timestamp()
+    mute_until = getattr(dialog.notify_settings, "mute_until", 0) or 0
+    if filter_dict.get("exclude_muted") and mute_until <= now:
+        return False
+    return (
+        False
+        if filter_dict.get("exclude_read")
+        and getattr(dialog, "unread_count", 0) == 0
+        else not filter_dict.get("exclude_archived")
+        or getattr(dialog, "folder_id", None) != 1
+    )
 
 
 async def search_contacts_native(
@@ -158,7 +220,7 @@ async def find_chats_impl(
     public: bool | None = None,
     min_date: str | None = None,
     max_date: str | None = None,
-    folder: int | str | None = None,
+    filter: str | None = None,
 ) -> dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -173,16 +235,17 @@ async def find_chats_impl(
         public: Optional filter for public discoverability
         min_date: Minimum last activity date filter (ISO format, e.g. "2024-01-01" or "2024-01-01T14:30:00")
         max_date: Maximum last activity date filter (ISO format, e.g. "2024-12-31" or "2024-12-31T23:59:59")
-        folder: Filter by folder (int ID or str name)
+        filter: Filter by dialog filter name (str). When filter has include_peers,
+                date parameters (min_date/max_date) are ignored.
 
     Returns:
         Dict with "chats" key containing list of matches, or standardized error dict
 
     Raises:
-        ValueError: For invalid parameter combinations (e.g., empty query without date/folder filters)
+        ValueError: For invalid parameter combinations (e.g., empty query without date/filter)
     """
-    has_date_or_folder_filter = (
-        min_date is not None or max_date is not None or folder is not None
+    has_date_or_filter = (
+        min_date is not None or max_date is not None or filter is not None
     )
 
     params = {
@@ -192,11 +255,11 @@ async def find_chats_impl(
         "public": public,
         "min_date": min_date,
         "max_date": max_date,
-        "folder": folder,
+        "filter": filter,
     }
 
     # Validate: global search requires non-empty query
-    if not has_date_or_folder_filter and (
+    if not has_date_or_filter and (
         not query or (isinstance(query, str) and not query.strip())
     ):
         return log_and_build_error(
@@ -204,12 +267,12 @@ async def find_chats_impl(
             error_message=(
                 "query parameter is required for global Telegram search. "
                 "Telegram's global search requires a non-empty search term (name, username, or phone). "
-                "To browse chats in a specific folder, use folder parameter. "
+                "To browse chats in a specific folder, use filter parameter. "
                 "To find chats active in a date range, use min_date/max_date filters. "
-                f"Received: query={query!r} with no date/folder filters."
+                f"Received: query={query!r} with no date/filter."
             ),
             params=params,
-            exception=ValueError("Empty query not allowed without date/folder filters"),
+            exception=ValueError("Empty query not allowed without date/filter"),
         )
 
     # Validate limit
@@ -221,7 +284,18 @@ async def find_chats_impl(
             exception=ValueError(f"Invalid limit: {limit}"),
         )
 
-    if has_date_or_folder_filter:
+    if filter is not None:
+        return await _find_chats_by_filter(
+            query=query,
+            limit=limit,
+            chat_type=chat_type,
+            public=public,
+            min_date=min_date,
+            max_date=max_date,
+            filter_name=filter,
+        )
+
+    if has_date_or_filter:
         return await _find_chats_by_dialogs(
             query=query,
             limit=limit,
@@ -229,15 +303,16 @@ async def find_chats_impl(
             public=public,
             min_date=min_date,
             max_date=max_date,
-            folder=folder,
+            folder_id=None,
         )
 
-    return await _find_chats_global(
+    result = await _find_chats_global(
         query=query,
         limit=limit,
         chat_type=chat_type,
         public=public,
     )
+    return {"chats": result} if isinstance(result, list) else result
 
 
 async def _find_chats_global(
@@ -316,7 +391,7 @@ async def _find_chats_by_dialogs(
     public: bool | None,
     min_date: str | None,
     max_date: str | None,
-    folder: int | str | None = None,
+    folder_id: int | None = None,
 ) -> dict[str, Any]:
     """Dialog-based search with date filtering and last_activity_date."""
     params = {
@@ -326,7 +401,7 @@ async def _find_chats_by_dialogs(
         "public": public,
         "min_date": min_date,
         "max_date": max_date,
-        "folder": folder,
+        "folder_id": folder_id,
     }
 
     min_date_dt = _parse_iso_date(min_date)
@@ -346,14 +421,6 @@ async def _find_chats_by_dialogs(
             params=params,
             exception=ValueError(f"Invalid max_date format: '{max_date}'"),
         )
-
-    # Resolve folder name to ID if needed (only when a folder filter is provided)
-    # Use `is not None` to handle folder=0 correctly (falsy check would skip folder 0)
-    if folder is not None:
-        client = await get_connected_client()
-        folder_id = await _resolve_folder_id(client, folder)
-    else:
-        folder_id = None
 
     results = []
     async for item in search_dialogs_impl(
@@ -378,6 +445,335 @@ async def _find_chats_by_dialogs(
         params=params,
         exception=ValueError(f"No chats found {query_str}{date_str}"),
     )
+
+
+async def _find_chats_by_filter(
+    query: str | None,
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+    min_date: str | None,
+    max_date: str | None,
+    filter_name: str,
+) -> dict[str, Any]:
+    """Filter-based search using dialog filter definition."""
+    params = {
+        "query": query,
+        "limit": limit,
+        "chat_type": chat_type,
+        "public": public,
+        "min_date": min_date,
+        "max_date": max_date,
+        "filter": filter_name,
+    }
+
+    client = await get_connected_client()
+    filter_dict = await _get_filter_by_name(client, filter_name)
+
+    if not filter_dict:
+        all_filters = await get_dialog_filters(client)
+        available = "; ".join(
+            f'"{f.get("title", "")}"' for f in all_filters[:AVAILABLE_FILTERS_MAX_SHOW]
+        )
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Filter '{filter_name}' not found. Available: [{available}]",
+            params=params,
+            exception=ValueError(f"Filter '{filter_name}' not found"),
+        )
+
+    include_peers = filter_dict.get("include_peers", []) or []
+    has_flags = any(
+        filter_dict.get(flag)
+        for flag in (
+            "contacts",
+            "non_contacts",
+            "groups",
+            "broadcasts",
+            "bots",
+            "exclude_muted",
+            "exclude_read",
+            "exclude_archived",
+        )
+    )
+
+    if include_peers:
+        return await _find_chats_by_include_peers(
+            client,
+            filter_dict,
+            query,
+            limit,
+            chat_type,
+            public,
+            min_date,
+            max_date,
+        )
+    if has_flags:
+        return await _find_chats_by_filter_flags(
+            client,
+            filter_dict,
+            query,
+            limit,
+            chat_type,
+            public,
+            min_date,
+            max_date,
+        )
+    # Filter exists but has no include_peers and no active flags
+    return {"chats": []}
+
+
+async def _find_chats_by_include_peers(
+    client,
+    filter_dict: dict,
+    query: str | None,
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+    min_date: str | None,
+    max_date: str | None,
+) -> dict[str, Any]:
+    """Handle filter with explicit include_peers using GetPeerDialogsRequest."""
+    include_peers = filter_dict.get("include_peers", []) or []
+    exclude_peers = filter_dict.get("exclude_peers", []) or []
+
+    # Resolve include_peers InputPeers → actual entities
+    ordered_peer_ids: list[int] = []
+    peer_entity_map: dict[int, dict] = {}
+
+    for inp_peer in include_peers:
+        try:
+            entity = await client.get_entity(inp_peer)
+            eid = getattr(entity, "id", None)
+            if eid is None:
+                continue
+            if eid in ordered_peer_ids:
+                continue
+            entity_dict = build_entity_dict(entity)
+            if not entity_dict:
+                continue
+            ordered_peer_ids.append(eid)
+            peer_entity_map[eid] = entity_dict
+        except Exception as e:
+            logger.debug(f"Failed to resolve include_peer {inp_peer}: {e}")
+            continue
+
+    # Apply exclude_peers
+    for inp_peer in exclude_peers:
+        try:
+            entity = await client.get_entity(inp_peer)
+            eid = getattr(entity, "id", None)
+            if eid and eid in ordered_peer_ids:
+                ordered_peer_ids.remove(eid)
+                peer_entity_map.pop(eid, None)
+        except Exception as e:
+            logger.debug(f"Failed to resolve exclude_peer {inp_peer}: {e}")
+
+    # If filter has flags too, add flag-matching dialogs
+    has_flags = any(
+        filter_dict.get(flag)
+        for flag in (
+            "contacts",
+            "non_contacts",
+            "groups",
+            "broadcasts",
+            "bots",
+            "exclude_muted",
+            "exclude_read",
+            "exclude_archived",
+        )
+    )
+    if has_flags:
+        async for dialog in client.iter_dialogs(
+            limit=min(limit * 10, FLAG_MATCH_MAX_DIALOGS),
+        ):
+            entity = getattr(dialog, "entity", None)
+            if not entity:
+                continue
+            eid = getattr(entity, "id", None)
+            if (
+                eid
+                and eid not in ordered_peer_ids
+                and _filter_matches_flags(entity, dialog, filter_dict)
+                and (entity_dict := build_entity_dict(entity))
+            ):
+                ordered_peer_ids.append(eid)
+                peer_entity_map[eid] = entity_dict
+
+    if not ordered_peer_ids:
+        return {"chats": []}
+
+    # Build InputPeers and batch call GetPeerDialogsRequest
+    last_activity_map: dict[int, str] = {}
+    for chunk_start in range(0, len(ordered_peer_ids), GET_PEER_DIALOGS_CHUNK_SIZE):
+        chunk_ids = ordered_peer_ids[
+            chunk_start : chunk_start + GET_PEER_DIALOGS_CHUNK_SIZE
+        ]
+
+        input_peers = []
+        for pid in chunk_ids:
+            ent = peer_entity_map.get(pid)
+            if not ent:
+                continue
+            ent_type = ent.get("type")
+            if ent_type == "channel":
+                from telethon.tl.types import InputPeerChannel
+
+                input_peers.append(
+                    InputPeerChannel(
+                        channel_id=pid, access_hash=ent.get("access_hash", 0) or 0
+                    )
+                )
+            elif ent_type == "group":
+                from telethon.tl.types import InputPeerChat
+
+                input_peers.append(InputPeerChat(chat_id=pid))
+            elif ent_type in ("private", "bot"):
+                from telethon.tl.types import InputPeerUser
+
+                input_peers.append(
+                    InputPeerUser(
+                        user_id=pid, access_hash=ent.get("access_hash", 0) or 0
+                    )
+                )
+
+        if not input_peers:
+            continue
+
+        try:
+            result = await client(GetPeerDialogsRequest(peers=input_peers))
+            for d, m in zip(result.dialogs, result.messages, strict=True):
+                # Extract peer_id from message.peer
+                peer_id = _extract_peer_id(d.peer)
+                if peer_id and m.date:
+                    last_activity_map[peer_id] = m.date.isoformat()
+        except Exception as e:
+            logger.debug(f"GetPeerDialogsRequest failed: {e}")
+
+    # Build result with filtering
+    results = []
+    for pid in ordered_peer_ids:
+        ent_dict = peer_entity_map.get(pid)
+        if not ent_dict:
+            continue
+
+        # Apply chat_type filter
+        if chat_type and not _matches_chat_type_from_dict(ent_dict, chat_type):
+            continue
+
+        # Apply public filter
+        if public is not None and not _matches_public_filter_from_dict(
+            ent_dict, public
+        ):
+            continue
+
+        # Apply query filter
+        if query:
+            query_lower = query.lower().strip()
+            if query_lower and not _matches_dict_query(ent_dict, query_lower):
+                continue
+
+        result_dict = dict(ent_dict)
+        if pid in last_activity_map:
+            result_dict["last_activity_date"] = last_activity_map[pid]
+
+        results.append(result_dict)
+        if len(results) >= limit:
+            break
+
+    return {"chats": results}
+
+
+def _extract_peer_id(peer) -> int | None:
+    """Extract numeric peer ID from PeerUser/PeerChannel/PeerChat."""
+    if hasattr(peer, "user_id"):
+        return peer.user_id
+    if hasattr(peer, "channel_id"):
+        return peer.channel_id
+    return peer.chat_id if hasattr(peer, "chat_id") else None
+
+
+def _matches_chat_type_from_dict(entity_dict: dict, chat_type: str) -> bool:
+    """Check if entity dict matches chat_type filter."""
+    if not chat_type:
+        return True
+    chat_types = [ct.strip().lower() for ct in chat_type.split(",") if ct.strip()]
+    valid_types = {"private", "bot", "group", "channel"}
+    if any(ct not in valid_types for ct in chat_types):
+        return False
+    entity_type = entity_dict.get("type")
+    return entity_type in chat_types
+
+
+def _matches_public_filter_from_dict(entity_dict: dict, public: bool | None) -> bool:
+    """Check if entity dict matches public filter."""
+    if entity_dict.get("type") in ("private", "bot"):
+        return True
+    if public is None:
+        return True
+    has_username = bool(entity_dict.get("username"))
+    return has_username if public else not has_username
+
+
+def _matches_dict_query(entity_dict: dict, query_lower: str) -> bool:
+    """Check if entity dict matches query string."""
+    title = entity_dict.get("title", "") or ""
+    username = entity_dict.get("username", "") or ""
+    first_name = entity_dict.get("first_name", "") or ""
+    last_name = entity_dict.get("last_name", "") or ""
+    searchable = " ".join(
+        part for part in (title, username, first_name, last_name) if part
+    ).lower()
+    return query_lower in searchable
+
+
+async def _find_chats_by_filter_flags(
+    client,
+    filter_dict: dict,
+    query: str | None,
+    limit: int,
+    chat_type: str | None,
+    public: bool | None,
+    min_date: str | None,
+    max_date: str | None,
+) -> dict[str, Any]:
+    """Handle flag-based filter by iterating all dialogs and matching flags."""
+    min_date_dt = _parse_iso_date(min_date)
+    max_date_dt = _parse_iso_date(max_date)
+
+    results = []
+    async for dialog in client.iter_dialogs(
+        limit=min(limit * 10, FLAG_MATCH_MAX_DIALOGS)
+    ):
+        entity = getattr(dialog, "entity", None)
+        if not entity:
+            continue
+
+        if not _filter_matches_flags(entity, dialog, filter_dict):
+            continue
+
+        dialog_date = getattr(dialog, "date", None)
+        if not await _dialog_in_date_range(
+            entity, client, dialog_date, min_date_dt, max_date_dt
+        ):
+            continue
+
+        if chat_type and not _matches_chat_type(entity, chat_type):
+            continue
+        if not _matches_public_filter(entity, public):
+            continue
+
+        if result := build_dialog_entity_dict(dialog, entity):
+            # Apply query filter
+            if query:
+                query_lower = query.lower().strip()
+                if query_lower and not _matches_dialog_query(entity, query_lower):
+                    continue
+            results.append(result)
+            if len(results) >= limit:
+                break
+
+    return {"chats": results}
 
 
 # Backwards-compatible alias for previous name

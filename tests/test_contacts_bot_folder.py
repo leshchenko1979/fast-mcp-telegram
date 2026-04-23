@@ -6,15 +6,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.tools.contacts import (
-    _normalize_folder_name,
-    _resolve_folder_id,
+    _normalize_filter_name,
+    _get_filter_by_name,
     find_chats_impl,
     search_dialogs_impl,
 )
 from src.utils.entity import (
     _matches_chat_type,
     _matches_public_filter,
-    get_available_folders,
+    get_dialog_filters,
     get_normalized_chat_type,
 )
 from tests.conftest import MockChannel, MockChat, MockDialog, MockUser, make_folder
@@ -136,8 +136,8 @@ class TestMatchesPublicFilter:
 # ============== Folder Filtering Tests ==============
 
 
-class TestGetAvailableFolders:
-    """Tests for get_available_folders function.
+class TestGetDialogFilters:
+    """Tests for get_dialog_filters function.
 
     Note: These tests verify the title extraction logic from TextWithEntities objects.
     The actual async API call is tested via integration tests.
@@ -160,15 +160,15 @@ class TestGetAvailableFolders:
         title_text = getattr(title_obj, "text", None) if title_obj else None
         assert title_text is None
 
-    def test_folder_dict_structure(self):
-        """Verify the folder dict structure returned by get_available_folders."""
-        folder_dict = {"id": 1, "title": "Work"}
-        assert folder_dict["id"] == 1
-        assert folder_dict["title"] == "Work"
+    def test_filter_dict_structure(self):
+        """Verify the filter dict structure returned by get_dialog_filters."""
+        filter_dict = {"id": 1, "title": "Work"}
+        assert filter_dict["id"] == 1
+        assert filter_dict["title"] == "Work"
 
     @pytest.mark.asyncio
     async def test_caches_results_on_first_call(self):
-        """Verify get_available_folders caches results after first API call."""
+        """Verify get_dialog_filters caches results after first API call."""
         from src.utils.entity import _FOLDER_LIST_CACHE
 
         _FOLDER_LIST_CACHE.clear()
@@ -190,7 +190,7 @@ class TestGetAvailableFolders:
 
         mock_client.side_effect = mock_call
 
-        await get_available_folders(mock_client)
+        await get_dialog_filters(mock_client)
 
         assert "cache_test_session" in _FOLDER_LIST_CACHE
         cached_folders, _ = _FOLDER_LIST_CACHE["cache_test_session"]
@@ -214,7 +214,7 @@ class TestGetAvailableFolders:
 
         mock_client.side_effect = Exception("API Error")
 
-        result = await get_available_folders(mock_client)
+        result = await get_dialog_filters(mock_client)
 
         assert result == []
         assert "fail_test_session" not in _FOLDER_LIST_CACHE
@@ -222,103 +222,95 @@ class TestGetAvailableFolders:
         _FOLDER_LIST_CACHE.clear()
 
 
-class TestNormalizeFolderName:
-    """Tests for _normalize_folder_name helper."""
+class TestNormalizeFilterName:
+    """Tests for _normalize_filter_name helper."""
 
     def test_trims_whitespace(self):
         """Should trim leading/trailing whitespace."""
-        assert _normalize_folder_name("  Work  ") == "work"
-        assert _normalize_folder_name("\tPersonal\t") == "personal"
+        assert _normalize_filter_name("  Work  ") == "work"
+        assert _normalize_filter_name("\tPersonal\t") == "personal"
 
     def test_collapse_internal_whitespace(self):
         """Should collapse internal whitespace to single spaces."""
-        assert _normalize_folder_name("Work  Chat") == "work chat"
-        assert _normalize_folder_name("Personal\tGroup") == "personal group"
+        assert _normalize_filter_name("Work  Chat") == "work chat"
+        assert _normalize_filter_name("Personal\tGroup") == "personal group"
 
     def test_lowercase_conversion(self):
         """Should convert to lowercase."""
-        assert _normalize_folder_name("WORK") == "work"
-        assert _normalize_folder_name("Personal") == "personal"
+        assert _normalize_filter_name("WORK") == "work"
+        assert _normalize_filter_name("Personal") == "personal"
 
     def test_combined_normalization(self):
         """Should combine all normalizations."""
-        assert _normalize_folder_name("  Work  Chat  ") == "work chat"
-        assert _normalize_folder_name("  PERSONAL ") == "personal"
+        assert _normalize_filter_name("  Work  Chat  ") == "work chat"
+        assert _normalize_filter_name("  PERSONAL ") == "personal"
 
 
-class TestResolveFolderId:
-    """Tests for _resolve_folder_id helper."""
-
-    @pytest.mark.asyncio
-    async def test_returns_integer_as_is(self):
-        """Integer folder ID should be returned as-is."""
-        mock_client = MagicMock()
-
-        result = await _resolve_folder_id(mock_client, 5)
-        assert result == 5
+class TestGetFilterByName:
+    """Tests for _get_filter_by_name helper."""
 
     @pytest.mark.asyncio
-    async def test_resolves_string_name_to_id(self):
-        """String folder name should be resolved to folder ID."""
+    async def test_resolves_string_name_to_filter_dict(self):
+        """String filter name should be resolved to full filter dict."""
         mock_client = MagicMock()
 
         with patch(
-            "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-        ) as mock_folders:
-            mock_folders.return_value = [
+            "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+        ) as mock_filters:
+            mock_filters.return_value = [
+                {"id": 1, "title": "Work", "contacts": True},
+                {"id": 2, "title": "Personal", "contacts": False},
+            ]
+
+            result = await _get_filter_by_name(mock_client, "Work")
+            assert result == {"id": 1, "title": "Work", "contacts": True}
+
+    @pytest.mark.asyncio
+    async def test_filter_name_case_insensitive(self):
+        """Filter name matching should be case-insensitive."""
+        mock_client = MagicMock()
+
+        with patch(
+            "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+        ) as mock_filters:
+            mock_filters.return_value = [
                 {"id": 1, "title": "Work"},
                 {"id": 2, "title": "Personal"},
             ]
 
-            result = await _resolve_folder_id(mock_client, "Work")
-            assert result == 1
+            result = await _get_filter_by_name(mock_client, "work")
+            assert result["id"] == 1
+
+            result = await _get_filter_by_name(mock_client, "WORK")
+            assert result["id"] == 1
 
     @pytest.mark.asyncio
-    async def test_folder_name_case_insensitive(self):
-        """Folder name matching should be case-insensitive."""
+    async def test_filter_name_with_whitespace_matches(self):
+        """Filter names with extra whitespace should still match."""
         mock_client = MagicMock()
 
         with patch(
-            "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-        ) as mock_folders:
-            mock_folders.return_value = [
-                {"id": 1, "title": "Work"},
-                {"id": 2, "title": "Personal"},
-            ]
+            "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+        ) as mock_filters:
+            mock_filters.return_value = [{"id": 1, "title": "Work"}]
 
-            result = await _resolve_folder_id(mock_client, "work")
-            assert result == 1
+            result = await _get_filter_by_name(mock_client, "  Work  ")
+            assert result["id"] == 1
 
-            result = await _resolve_folder_id(mock_client, "WORK")
-            assert result == 1
-
-    @pytest.mark.asyncio
-    async def test_folder_name_with_whitespace_matches(self):
-        """Folder names with extra whitespace should still match."""
-        mock_client = MagicMock()
-
-        with patch(
-            "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-        ) as mock_folders:
-            mock_folders.return_value = [{"id": 1, "title": "Work"}]
-
-            result = await _resolve_folder_id(mock_client, "  Work  ")
-            assert result == 1
-
-            result = await _resolve_folder_id(mock_client, "Work  Chat")
+            result = await _get_filter_by_name(mock_client, "Work  Chat")
             assert result is None
 
     @pytest.mark.asyncio
     async def test_returns_none_when_not_found(self):
-        """Should return None when folder name is not found."""
+        """Should return None when filter name is not found."""
         mock_client = MagicMock()
 
         with patch(
-            "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-        ) as mock_folders:
-            mock_folders.return_value = [{"id": 1, "title": "Work"}]
+            "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+        ) as mock_filters:
+            mock_filters.return_value = [{"id": 1, "title": "Work"}]
 
-            result = await _resolve_folder_id(mock_client, "Nonexistent")
+            result = await _get_filter_by_name(mock_client, "Nonexistent")
             assert result is None
 
 
@@ -354,18 +346,18 @@ class TestSearchDialogsImplFolder:
             assert len(results) == 1
 
 
-class TestFindChatsImplFolder:
-    """Tests for find_chats_impl with folder parameter."""
+class TestFindChatsImplFilter:
+    """Tests for find_chats_impl with filter parameter."""
 
     @pytest.mark.asyncio
-    async def test_folder_param_uses_dialog_search(self):
-        """When folder is provided, should use dialog-based search."""
+    async def test_filter_param_uses_filter_search(self):
+        """When filter is provided, should use filter-based search."""
         dialog = MockDialog(
             MockUser(1, first_name="TestBot", bot=True),
             date=datetime(2024, 6, 15, tzinfo=UTC),
         )
 
-        async def mock_iter_dialogs(limit=None, folder=None):
+        async def mock_iter_dialogs(limit=None):
             yield dialog
 
         mock_client = MagicMock()
@@ -377,37 +369,38 @@ class TestFindChatsImplFolder:
             mock_get_client.return_value = mock_client
 
             with patch(
-                "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-            ) as mock_folders:
-                mock_folders.return_value = [{"id": 1, "title": "Work"}]
+                "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+            ) as mock_filters:
+                mock_filters.return_value = [
+                    {"id": 1, "title": "Work", "include_peers": [], "groups": True}
+                ]
 
-                result = await find_chats_impl(folder=1)
+                result = await find_chats_impl(filter="Work")
 
                 assert "chats" in result
 
     @pytest.mark.asyncio
-    async def test_folder_param_none_uses_global_search(self):
-        """When no folder (None), should use global search."""
+    async def test_filter_param_none_uses_global_search(self):
+        """When no filter (None), should use global search."""
         with patch(
             "src.tools.contacts._search_contacts_as_list", new_callable=AsyncMock
         ) as mock_search:
             mock_search.return_value = [{"id": 1, "title": "Test"}]
 
-            result = await find_chats_impl(query="test", limit=10, folder=None)
+            result = await find_chats_impl(query="test", limit=10, filter=None)
 
             mock_search.assert_called_once()
             assert "chats" in result
 
     @pytest.mark.asyncio
-    async def test_resolves_folder_name_to_id(self):
-        """Should resolve folder name to folder ID."""
+    async def test_resolves_filter_name(self):
+        """Should resolve filter name to filter dict."""
         dialog = MockDialog(
             MockUser(1, first_name="TestBot", bot=True),
             date=datetime(2024, 6, 15, tzinfo=UTC),
         )
 
-        async def mock_iter_dialogs(limit=None, folder=None):
-            assert folder == 1
+        async def mock_iter_dialogs(limit=None):
             yield dialog
 
         mock_client = MagicMock()
@@ -419,10 +412,12 @@ class TestFindChatsImplFolder:
             mock_get_client.return_value = mock_client
 
             with patch(
-                "src.tools.contacts.get_available_folders", new_callable=AsyncMock
-            ) as mock_folders:
-                mock_folders.return_value = [{"id": 1, "title": "Work"}]
+                "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+            ) as mock_filters:
+                mock_filters.return_value = [
+                    {"id": 1, "title": "Work", "include_peers": [], "groups": True}
+                ]
 
-                result = await find_chats_impl(folder="Work")
+                result = await find_chats_impl(filter="Work")
 
                 assert "chats" in result

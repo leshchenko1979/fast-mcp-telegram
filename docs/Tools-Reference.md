@@ -22,37 +22,36 @@ find_chats(
   query?: str,                  // Search term(s); required for global search (comma-separated for multi-term)
   limit?: number = 20,         // Max results to return
   chat_type?: string, // Optional filter ('private','group','channel','bot', comma-separated for multiple)
-  folder?: number | string,    // Filter by dialog folder (integer ID or string name, case-insensitive exact match)
+  filter?: string,             // Filter by dialog filter name (case-insensitive exact match). See Filters-vs-Folders.md.
   public?: boolean,            // Optional public filter (true=with username, false=without username). Never applies to private chats.
-  min_date?: string,           // ISO date filter: only chats active since this date (last_activity_date)
-  max_date?: string            // ISO date filter: only chats active until this date (last_activity_date)
+  min_date?: string,           // ISO date filter: only chats active since this date (last_activity_date). Ignored for include_peers filters.
+  max_date?: string            // ISO date filter: only chats active until this date (last_activity_date). Ignored for include_peers filters.
 ) -> {
   chats: Chat[],               // Array of chat/user entities
 }
 ```
 
-**Two search modes:**
+**Three search modes:**
 
-1. **GLOBAL SEARCH** (query provided, no date/folder filters) — searches all of Telegram by name/username/phone. Can find any user/group/channel.
+1. **GLOBAL SEARCH** (query provided, no filter or date params) — searches all of Telegram by name/username/phone. Can find any user/group/channel.
 
-2. **DIALOG SEARCH** (min_date/max_date or folder used) — searches your sidebar/dialog list only. Returns chats matching query AND active within the date range. Each result includes `last_activity_date`.
+2. **FILTER SEARCH** (filter used) — searches chats matching the dialog filter. Filters with explicit peers use `GetPeerDialogsRequest`; flag-based filters iterate dialogs. Returns chats matching filter definition.
+
+3. **DIALOG SEARCH** (min_date/max_date used, no filter) — searches your sidebar/dialog list only. Returns chats matching query AND active within the date range. Each result includes `last_activity_date`.
 
 **Search capabilities:**
 - **Saved contacts** - Your Telegram contacts
 - **Global users** - Public Telegram users
 - **Channels & groups** - Public channels and groups
 - **Multi-term** - "term1, term2" runs parallel searches and merges/dedupes
-- **Folder filtering** - Filter by dialog folder (archived, custom folders)
+- **Filter** - Filter by dialog filter name (see Filters-vs-Folders.md)
 
 **Query formats:**
 - Name: `"John Doe"`
 - Username: `"telegram"` (without @)
 - Phone: `"+1234567890"`
 
-**Folder values:**
-- `0` or `"0"` - Default/main folder
-- `1` or `"1"` - Archived folder
-- Folder name as string - Case-insensitive exact match (e.g., `"Бридж"`, `"Work"`)
+**Filter:** Dialog filter name as string. Case-insensitive exact match after normalization (trim whitespace, collapse internal spaces, lowercase). Example: `"Без каналов"`, `"Work"`.
 
 **Examples:**
 ```json
@@ -77,11 +76,8 @@ find_chats(
 // Find private groups only
 {"tool": "find_chats", "params": {"query": "team", "chat_type": "group", "public": false}}
 
-// Find chats in archived folder (folder ID)
-{"tool": "find_chats", "params": {"query": "project", "folder": 1}}
-
-// Find chats in a specific folder by name
-{"tool": "find_chats", "params": {"query": "work", "folder": "Work"}}
+// Find chats by filter name
+{"tool": "find_chats", "params": {"query": "work", "filter": "Work"}}
 
 // Find bots
 {"tool": "find_chats", "params": {"query": "assistant", "chat_type": "bot"}}
@@ -92,11 +88,11 @@ find_chats(
 // Dialog search: your chats active in date range
 {"tool": "find_chats", "params": {"min_date": "2026-01-01", "max_date": "2026-06-30"}}
 
-// Dialog search: with query, in folder
-{"tool": "find_chats", "params": {"query": "project", "folder": "Work"}}
+// Filter search: chats in "Work" filter
+{"tool": "find_chats", "params": {"query": "project", "filter": "Work"}}
 
-// Dialog search: by last activity date in a specific folder
-{"tool": "find_chats", "params": {"min_date": "2026-04-01", "folder": "Бридж"}}
+// Filter search: with date filter (flag-based filter only)
+{"tool": "find_chats", "params": {"min_date": "2026-04-01", "filter": "Без каналов"}}
 ```
 
 ### get_chat_info
