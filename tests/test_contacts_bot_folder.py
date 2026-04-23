@@ -448,3 +448,7 @@ class TestFindChatsImplFilter:
                 assert "Unknown" in result["error"]
                 assert "Work" in result["error"]
                 assert "Personal" in result["error"]
+
+    def test_none_returns_empty_string(self):
+        """None input should return empty string."""
+        assert _normalize_filter_name(None) == ""
