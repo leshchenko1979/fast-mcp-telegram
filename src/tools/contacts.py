@@ -170,18 +170,19 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     ):
         return False
 
-    # Exclude filters
-    now = datetime.now(UTC).timestamp()
-    mute_until = (
-        getattr(getattr(dialog, "notify_settings", None) or {}, "mute_until", 0) or 0
-    )
-    if filter_dict.get("exclude_muted") and mute_until > now:
+    # Exclude filters - notify_settings is on dialog.dialog (Telethon wrapper wraps TL object)
+    ns = getattr(getattr(dialog, "dialog", None), "notify_settings", None)
+    mute_until = getattr(ns, "mute_until", None) if ns else None
+    if (
+        filter_dict.get("exclude_muted")
+        and mute_until
+        and mute_until > datetime.now(UTC)
+    ):
         return False
     # exclude_read: filter out dialogs with no unread messages
     return (
         False
-        if filter_dict.get("exclude_read")
-        and getattr(dialog, "unread_count", 0) == 0
+        if filter_dict.get("exclude_read") and getattr(dialog, "unread_count", 0) == 0
         else not filter_dict.get("exclude_archived")
         or getattr(dialog, "folder_id", None) != 1
     )
