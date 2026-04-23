@@ -209,8 +209,8 @@ get_messages(
 **5 Modes (parameter combinations):**
 1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
 2. **Browse chat**: `chat_id` only - Get latest messages
-3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages *(date filters error)*
-4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message *(date filters error)*
+3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages *(date filters not supported)*
+4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message *(date filters not supported)*
 5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
 
 **reply_to_id automatically handles:**
