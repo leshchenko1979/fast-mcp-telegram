@@ -113,13 +113,10 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     mute_until = getattr(getattr(dialog, "notify_settings", None) or {}, "mute_until", 0) or 0
     if filter_dict.get("exclude_muted") and mute_until > now:
         return False
-    return (
-        False
-        if filter_dict.get("exclude_read")
-        and getattr(dialog, "unread_count", 0) == 0
-        else not filter_dict.get("exclude_archived")
-        or getattr(dialog, "folder_id", None) != 1
-    )
+    # exclude_read: filter out dialogs with no unread messages
+    if filter_dict.get("exclude_read") and getattr(dialog, "unread_count", 0) == 0:
+        return False
+    return not (filter_dict.get("exclude_archived") and getattr(dialog, "folder_id", None) == 1)
 
 
 async def search_contacts_native(
@@ -267,7 +264,7 @@ async def find_chats_impl(
             error_message=(
                 "query parameter is required for global Telegram search. "
                 "Telegram's global search requires a non-empty search term (name, username, or phone). "
-                "To browse chats in a specific folder, use filter parameter. "
+                "To browse chats in a specific filter, use filter parameter. "
                 "To find chats active in a date range, use min_date/max_date filters. "
                 f"Received: query={query!r} with no date/filter."
             ),
@@ -642,7 +639,7 @@ async def _find_chats_by_include_peers(
 
         try:
             result = await client(GetPeerDialogsRequest(peers=input_peers))
-            for d, m in zip(result.dialogs, result.messages, strict=True):
+            for d, m in zip(result.dialogs, result.messages, strict=False):
                 # Extract peer_id from message.peer
                 peer_id = _extract_peer_id(d.peer)
                 if peer_id and m.date:
