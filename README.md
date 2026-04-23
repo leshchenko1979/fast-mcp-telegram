@@ -26,7 +26,6 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
   -H "Content-Type: application/json" \
   -d '{"params": {"peer": "me", "message": "Hello!"}}'
 ```
-```
 
 ## Features
 
