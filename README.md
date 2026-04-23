@@ -129,6 +129,7 @@ See [MTProto Bridge](docs/MTProto-Bridge.md) for full documentation.
 - [Tools Reference](docs/Tools-Reference.md) - Complete tools documentation
 - [MTProto Bridge](docs/MTProto-Bridge.md) - Direct API access via curl
 - [Contributing](CONTRIBUTING.md) - Guidelines for contributors
+- [Security](SECURITY.md) - Security features and best practices
 
 ## License
 
