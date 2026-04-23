@@ -17,6 +17,7 @@ from src.utils.entity import (
     get_dialog_filters,
     get_normalized_chat_type,
 )
+from src.utils.error_handling import log_and_build_error
 from tests.conftest import MockChannel, MockChat, MockDialog, MockUser, make_folder
 
 # ============== Bot Type Detection Tests ==============
@@ -421,3 +422,29 @@ class TestFindChatsImplFilter:
                 result = await find_chats_impl(filter="Work")
 
                 assert "chats" in result
+
+
+    @pytest.mark.asyncio
+    async def test_unknown_filter_returns_error(self):
+        """When filter name is not found, should return error with available filters."""
+        mock_client = MagicMock()
+
+        with patch(
+            "src.tools.contacts.get_connected_client", new_callable=AsyncMock
+        ) as mock_get_client:
+            mock_get_client.return_value = mock_client
+
+            with patch(
+                "src.tools.contacts.get_dialog_filters", new_callable=AsyncMock
+            ) as mock_filters:
+                mock_filters.return_value = [
+                    {"id": 1, "title": "Work"},
+                    {"id": 2, "title": "Personal"},
+                ]
+
+                result = await find_chats_impl(filter="Unknown")
+
+                assert "error" in result
+                assert "Unknown" in result["error"]
+                assert "Work" in result["error"]
+                assert "Personal" in result["error"]
