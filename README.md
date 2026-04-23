@@ -16,7 +16,7 @@ Then choose your path:
 
 **MCP Client (AI assistants)**
 3. Download the `mcp.json` file
-4. Configure your MCP client and ask your AI assistant: "send hello to my saved messages in telegram"
+4. Add the server to your AI client and ask: "send hello to my saved messages in telegram"
 
 **Direct API (curl)**
 3. Run the command below (replace TOKEN with yours):
