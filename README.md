@@ -29,26 +29,26 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 
 ## Features
 
-| Feature | Description | Details |
-|---------|-------------|---------|
-| :globe_with_meridians: **HTTP-MTProto Bridge** | Direct curl access to any Telegram API method with entity resolution and safety guardrails | [Docs](docs/MTProto-Bridge.md#key-benefits) |
-| :dart: **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations | [Docs](docs/Tools-Reference.md#overview) |
-| :closed_lock_with_key: **Multi-User Authentication** | Production-ready Bearer token auth with session isolation and LRU cache management | [Docs](docs/Installation.md#local-setup-stdio) |
-| :tv: **Web Setup Interface** | Browser-based authentication flow with immediate config generation | [Docs](docs/Installation.md#web-setup-interface) |
-| :building_construction: **Dual Transport** | Seamless development (stdio) and production (HTTP) deployment support | [Docs](docs/Installation.md#local-setup-stdio) |
-| :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection | [Docs](docs/Installation.md#remote-setup-http-auth) |
-| :card_file_box: **Unified Session Management** | Single configuration system for setup and server, with multi-account support | [Docs](docs/Installation.md#configuration-reference) |
-| :mag_right: **Intelligent Search** | Global & per-chat message search with multi-query support and intelligent deduplication | [Docs](docs/Search-Guidelines.md#what-works) |
-| :mag: **Unified Message API** | Single `get_messages` tool for search, browse, read by IDs, and replies - 5 modes in one | [Docs](docs/Tools-Reference.md#2-read) |
-| :speech_balloon: **Universal Replies** | Get replies from channel posts, forum topics, or any message with one parameter | [Docs](docs/Tools-Reference.md#2-read) |
-| :busts_in_silhouette: **Smart Contact Discovery** | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment | [Docs](docs/Tools-Reference.md#1-discovery) |
-| :file_folder: **Folder Filtering** | Filter chats by dialog folder (archived, custom folders) with integer ID or name matching | [Docs](docs/Tools-Reference.md#1-discovery) |
-| :envelope: **Advanced Messaging** | Send, edit, reply, post to forum topics, formatting, file attachments, and phone number messaging | [Docs](docs/Tools-Reference.md#3-write) |
-| :file_folder: **Secure File Handling** | Rich media sharing with SSRF protection, size limits, album support, optional HTTP attachment streaming | [Docs](docs/Tools-Reference.md#3-write) |
-| :microphone: **Voice Transcription** | Automatic speech-to-text for Premium accounts with parallel processing and polling | [Docs](docs/Tools-Reference.md#4-advanced) |
-| :robot: **Bot Chat Detection** | Bots identified with `type: "bot"` and filterable via `chat_type="bot"` | [Docs](docs/MTProto-Bridge.md#advanced-features) |
-| :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization | |
-| :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling | |
+| Feature | Description |
+|---------|-------------|
+| [**HTTP-MTProto Bridge**](docs/MTProto-Bridge.md#key-benefits) | Direct curl access to any Telegram API method with entity resolution and safety guardrails |
+| [**AI-Optimized**](docs/Tools-Reference.md#overview) | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations |
+| [**Multi-User Authentication**](docs/Installation.md#local-setup-stdio) | Production-ready Bearer token auth with session isolation and LRU cache management |
+| [**Web Setup Interface**](docs/Installation.md#web-setup-interface) | Browser-based authentication flow with immediate config generation |
+| [**Dual Transport**](docs/Installation.md#local-setup-stdio) | Seamless development (stdio) and production (HTTP) deployment support |
+| [**MTProto Proxy Support**](docs/Installation.md#remote-setup-http-auth) | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection |
+| [**Unified Session Management**](docs/Installation.md#configuration-reference) | Single configuration system for setup and server, with multi-account support |
+| [**Intelligent Search**](docs/Search-Guidelines.md#what-works) | Global & per-chat message search with multi-query support and intelligent deduplication |
+| [**Unified Message API**](docs/Tools-Reference.md#2-read) | Single `get_messages` tool for search, browse, read by IDs, and replies - 5 modes in one |
+| [**Universal Replies**](docs/Tools-Reference.md#2-read) | Get replies from channel posts, forum topics, or any message with one parameter |
+| [**Smart Contact Discovery**](docs/Tools-Reference.md#1-discovery) | Search users, groups, channels with uniform entity schemas, forum detection, profile enrichment |
+| [**Folder Filtering**](docs/Tools-Reference.md#1-discovery) | Filter chats by dialog folder (archived, custom folders) with integer ID or name matching |
+| [**Advanced Messaging**](docs/Tools-Reference.md#3-write) | Send, edit, reply, post to forum topics, formatting, file attachments, and phone number messaging |
+| [**Secure File Handling**](docs/Tools-Reference.md#3-write) | Rich media sharing with SSRF protection, size limits, album support, optional HTTP attachment streaming |
+| [**Voice Transcription**](docs/Tools-Reference.md#4-advanced) | Automatic speech-to-text for Premium accounts with parallel processing and polling |
+| [**Bot Chat Detection**](docs/MTProto-Bridge.md#advanced-features) | Bots identified with `type: "bot"` and filterable via `chat_type="bot"` |
+| :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization |
+| :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling |
 
 ## Quick Start
 
