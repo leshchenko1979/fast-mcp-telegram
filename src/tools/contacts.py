@@ -96,8 +96,8 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
         is_chat or (is_channel and getattr(entity, "megagroup", False))
     ):
         return False
-    # broadcasts=True → include channels
-    if filter_dict.get("broadcasts") and not is_channel:
+    # broadcasts=True → include broadcast channels only (not supergroups/megagroups)
+    if filter_dict.get("broadcasts") and not (is_channel and getattr(entity, "broadcast", False)):
         return False
     # bots=True → include only actual bots; bots=False means don't filter by bot status
     # Only applies to users (channels/groups aren't bots even if they have a bot attr)
