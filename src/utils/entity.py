@@ -83,7 +83,7 @@ async def get_dialog_filters(client) -> list[dict]:
         from telethon import functions
 
         result = await client(functions.messages.GetDialogFiltersRequest())
-        for f in result.dialog_filters:
+        for f in result.filters:
             # title is TextWithEntities object - extract .text
             title_obj = getattr(f, "title", None)
             title_text = getattr(title_obj, "text", None) if title_obj else None

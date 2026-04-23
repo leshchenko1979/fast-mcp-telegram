@@ -180,7 +180,7 @@ class TestGetDialogFilters:
         mock_client.session = MockSession()
 
         mock_result = MagicMock()
-        mock_result.dialog_filters = [
+        mock_result.filters = [
             make_folder(1, "Work"),
             make_folder(2, "Personal"),
         ]

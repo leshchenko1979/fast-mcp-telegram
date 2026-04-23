@@ -94,9 +94,9 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     ):
         return False
 
-    # groups=True → include supergroups (megagroup)
+    # groups=True → include supergroups (megagroup - Channel with megagroup=True)
     if filter_dict.get("groups") and not (
-        is_chat and getattr(entity, "megagroup", False)
+        is_chat or (is_channel and getattr(entity, "megagroup", False))
     ):
         return False
     # broadcasts=True → include channels
@@ -111,7 +111,7 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     # Exclude filters
     now = datetime.now(UTC).timestamp()
     mute_until = getattr(dialog.notify_settings, "mute_until", 0) or 0
-    if filter_dict.get("exclude_muted") and mute_until <= now:
+    if filter_dict.get("exclude_muted") and mute_until > now:
         return False
     return (
         False
@@ -739,7 +739,22 @@ async def _find_chats_by_filter_flags(
 ) -> dict[str, Any]:
     """Handle flag-based filter by iterating all dialogs and matching flags."""
     min_date_dt = _parse_iso_date(min_date)
+    if min_date is not None and min_date_dt is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid min_date format: '{min_date}'. Use ISO format (e.g., '2024-01-01')",
+            params={},
+            exception=ValueError(f"Invalid min_date format: '{min_date}'"),
+        )
+
     max_date_dt = _parse_iso_date(max_date)
+    if max_date is not None and max_date_dt is None:
+        return log_and_build_error(
+            operation="find_chats",
+            error_message=f"Invalid max_date format: '{max_date}'. Use ISO format (e.g., '2024-12-31')",
+            params={},
+            exception=ValueError(f"Invalid max_date format: '{max_date}'"),
+        )
 
     results = []
     async for dialog in client.iter_dialogs(
