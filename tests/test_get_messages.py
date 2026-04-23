@@ -8,8 +8,8 @@ Tests cover:
 - Error handling for all modes
 """
 
-from datetime import datetime
-from unittest.mock import AsyncMock, Mock, patch
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -91,8 +91,8 @@ class TestGetMessagesReadByIds:
 
     @pytest.mark.asyncio
     @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
-    async def test_message_ids_ignores_other_params(self, mock_read):
-        """Should ignore limit/date filters when using message_ids."""
+    async def test_message_ids_rejects_date_filters(self, mock_read):
+        """Should reject date filters when using message_ids."""
         mock_read.return_value = [{"id": 1, "text": "Message"}]
 
         result = await search_messages_impl(
@@ -102,10 +102,8 @@ class TestGetMessagesReadByIds:
             min_date="2024-01-01",
         )
 
-        # Should call with only chat_id and message_ids
-        mock_read.assert_called_once_with("me", [1])
-        assert isinstance(result, dict)
-        assert result["has_more"] is False
+        assert "error" in result
+        assert "not supported for message_ids mode" in result["error"]
 
     @pytest.mark.asyncio
     @patch("src.tools.search.read_messages_by_ids", new_callable=AsyncMock)
@@ -426,3 +424,218 @@ class TestGetMessagesChatFieldIntegration:
         assert "messages" in result
         for msg in result["messages"]:
             assert "chat" not in msg, f"Expected no chat in message_ids mode, got {msg.get('chat')}"
+
+
+class TestGetMessagesDateFiltering:
+    """Test min_date/max_date filtering for per-chat search."""
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_search_chat_respects_min_date(self, mock_get_entity, mock_get_client):
+        """Should filter out messages older than min_date."""
+        from tests.conftest import make_mock_message
+
+        # Set up entity mock
+        mock_entity = Mock()
+        mock_entity.id = 123
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        # Set up client mock with iter_messages
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        # Create messages with different dates
+        old_msg = make_mock_message(id=1, text="Old message", date=datetime(2023, 1, 1, tzinfo=timezone.utc))
+        recent_msg = make_mock_message(id=2, text="Recent message", date=datetime(2024, 6, 15, tzinfo=timezone.utc))
+        future_msg = make_mock_message(id=3, text="Future message", date=datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+        # Return messages in order (newest to oldest when iterated)
+        # iter_messages is an async iterator, so we need to return an async iterator
+        async def mock_iter_messages_gen():
+            for msg in [future_msg, recent_msg, old_msg]:
+                yield msg
+
+        mock_client.iter_messages = MagicMock(return_value=mock_iter_messages_gen())
+        mock_get_client.return_value = mock_client
+
+        result = await search_messages_impl(
+            chat_id="me",
+            query="message",
+            min_date="2024-01-01",
+            limit=50,
+        )
+
+        assert "messages" in result
+        # Should return 2 messages (2024 and 2025), not 2023
+        assert len(result["messages"]) == 2
+        msg_ids = {msg["id"] for msg in result["messages"]}
+        assert 1 not in msg_ids  # Old message should be filtered
+        assert 2 in msg_ids  # Recent message should be included
+        assert 3 in msg_ids  # Future message should be included
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_search_chat_respects_max_date(self, mock_get_entity, mock_get_client):
+        """Should filter out messages newer than max_date."""
+        from tests.conftest import make_mock_message
+
+        mock_entity = Mock()
+        mock_entity.id = 123
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        old_msg = make_mock_message(id=1, text="Old message", date=datetime(2023, 1, 1, tzinfo=timezone.utc))
+        recent_msg = make_mock_message(id=2, text="Recent message", date=datetime(2024, 6, 15, tzinfo=timezone.utc))
+        future_msg = make_mock_message(id=3, text="Future message", date=datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+        async def mock_iter_messages_gen():
+            for msg in [future_msg, recent_msg, old_msg]:
+                yield msg
+
+        mock_client.iter_messages = MagicMock(return_value=mock_iter_messages_gen())
+        mock_get_client.return_value = mock_client
+
+        result = await search_messages_impl(
+            chat_id="me",
+            query="message",
+            max_date="2024-12-31",
+            limit=50,
+        )
+
+        assert "messages" in result
+        # Should return 2 messages (2023 and 2024), not 2025
+        assert len(result["messages"]) == 2
+        msg_ids = {msg["id"] for msg in result["messages"]}
+        assert 3 not in msg_ids  # Future message should be filtered
+        assert 2 in msg_ids  # Recent message should be included
+        assert 1 in msg_ids  # Old message should be included
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_search_chat_respects_date_range(self, mock_get_entity, mock_get_client):
+        """Should filter to only messages within min_date and max_date range."""
+        from tests.conftest import make_mock_message
+
+        mock_entity = Mock()
+        mock_entity.id = 123
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        old_msg = make_mock_message(id=1, text="Old message", date=datetime(2023, 1, 1, tzinfo=timezone.utc))
+        recent_msg = make_mock_message(id=2, text="Recent message", date=datetime(2024, 6, 15, tzinfo=timezone.utc))
+        future_msg = make_mock_message(id=3, text="Future message", date=datetime(2025, 1, 1, tzinfo=timezone.utc))
+
+        async def mock_iter_messages_gen():
+            for msg in [future_msg, recent_msg, old_msg]:
+                yield msg
+
+        mock_client.iter_messages = MagicMock(return_value=mock_iter_messages_gen())
+        mock_get_client.return_value = mock_client
+
+        result = await search_messages_impl(
+            chat_id="me",
+            query="message",
+            min_date="2024-01-01",
+            max_date="2024-12-31",
+            limit=50,
+        )
+
+        assert "messages" in result
+        # Should return only 1 message (2024-06-15)
+        assert len(result["messages"]) == 1
+        assert result["messages"][0]["id"] == 2
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_search_chat_stops_at_min_date_boundary(
+        self, mock_get_entity, mock_get_client
+    ):
+        """Should stop fetching when hitting min_date boundary (return, not continue)."""
+        from tests.conftest import make_mock_message
+
+        mock_entity = Mock()
+        mock_entity.id = 123
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        # Create 5 messages - only 2 should be returned after min_date filter
+        msgs = [
+            make_mock_message(id=5, text="Msg 2025", date=datetime(2025, 1, 1, tzinfo=timezone.utc)),
+            make_mock_message(id=4, text="Msg mid 2024", date=datetime(2024, 6, 15, tzinfo=timezone.utc)),
+            make_mock_message(id=3, text="Msg early 2024", date=datetime(2024, 1, 15, tzinfo=timezone.utc)),  # min boundary
+            make_mock_message(id=2, text="Msg late 2023", date=datetime(2023, 12, 1, tzinfo=timezone.utc)),
+            make_mock_message(id=1, text="Msg 2022", date=datetime(2022, 1, 1, tzinfo=timezone.utc)),
+        ]
+
+        async def mock_iter_messages_gen():
+            for msg in msgs:
+                yield msg
+
+        mock_client.iter_messages = MagicMock(return_value=mock_iter_messages_gen())
+        mock_get_client.return_value = mock_client
+
+        result = await search_messages_impl(
+            chat_id="me",
+            query="Msg",
+            min_date="2024-01-01",
+            limit=10,
+        )
+
+        assert "messages" in result
+        # Should return 3 messages (2025, mid 2024, early 2024)
+        # Should STOP at early 2024 (id=3) and NOT process late 2023 (id=2) or 2022 (id=1)
+        assert len(result["messages"]) == 3
+        msg_ids = {msg["id"] for msg in result["messages"]}
+        assert msg_ids == {5, 4, 3}
+        assert 2 not in msg_ids  # Should not have processed these
+        assert 1 not in msg_ids
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.get_connected_client", new_callable=AsyncMock)
+    @patch("src.tools.search.get_entity_by_id", new_callable=AsyncMock)
+    async def test_search_chat_handles_none_date(self, mock_get_entity, mock_get_client):
+        """Should pass through messages with None date (unknown date = don't filter)."""
+        from tests.conftest import make_mock_message
+
+        mock_entity = Mock()
+        mock_entity.id = 123
+        mock_entity.broadcast = False
+        mock_get_entity.return_value = mock_entity
+
+        mock_client = MagicMock()
+        mock_client.get_me = AsyncMock(return_value=Mock(premium=False))
+
+        msg_with_date = make_mock_message(id=1, text="Dated message", date=datetime(2024, 6, 15, tzinfo=timezone.utc))
+        msg_no_date = make_mock_message(id=2, text="Unknown date", date=None)
+
+        async def mock_iter_messages_gen():
+            for msg in [msg_with_date, msg_no_date]:
+                yield msg
+
+        mock_client.iter_messages = MagicMock(return_value=mock_iter_messages_gen())
+        mock_get_client.return_value = mock_client
+
+        result = await search_messages_impl(
+            chat_id="me",
+            query="message",
+            min_date="2024-01-01",
+            limit=50,
+        )
+
+        assert "messages" in result
+        # Both messages should pass - None date is not filtered
+        assert len(result["messages"]) == 2

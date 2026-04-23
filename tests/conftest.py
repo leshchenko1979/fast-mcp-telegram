@@ -5,6 +5,7 @@ Pytest configuration and shared fixtures for Telegram MCP Server tests.
 This module provides common fixtures and configuration used across all test files.
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,12 +29,12 @@ class MockTelegramClient:
         self.is_connected_value = True
         self.messages = {
             "me": [
-                {"id": 1, "text": "Test message 1", "date": "2024-01-01"},
-                {"id": 2, "text": "Test message 2", "date": "2024-01-02"},
+                {"id": 1, "text": "Test message 1", "date": datetime(2024, 1, 1)},
+                {"id": 2, "text": "Test message 2", "date": datetime(2024, 1, 2)},
             ],
             "@test_channel": [
-                {"id": 10, "text": "Channel message 1", "date": "2024-01-01"},
-                {"id": 11, "text": "Channel message 2", "date": "2024-01-02"},
+                {"id": 10, "text": "Channel message 1", "date": datetime(2024, 1, 1)},
+                {"id": 11, "text": "Channel message 2", "date": datetime(2024, 1, 2)},
             ],
         }
 
@@ -41,7 +42,7 @@ class MockTelegramClient:
         # Telethon's client.is_connected() is synchronous; keep mock signature aligned.
         return self.is_connected_value
 
-    async def iter_messages(self, entity, limit=50, search=None):
+    async def iter_messages(self, entity, limit=50, search=None, offset_date=None):
         """Mock message iteration."""
         chat_id = (
             getattr(entity, "username", str(entity))
@@ -54,6 +55,9 @@ class MockTelegramClient:
             messages = [
                 msg for msg in messages if search.lower() in msg["text"].lower()
             ]
+        # Filter by offset_date (messages older than offset_date)
+        if offset_date:
+            messages = [msg for msg in messages if msg["date"] < offset_date]
 
         for msg in messages[:limit]:
             mock_msg = MagicMock()

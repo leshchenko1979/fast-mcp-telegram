@@ -199,8 +199,8 @@ get_messages(
   message_ids?: number[],        // Specific message IDs to retrieve
   reply_to_id?: number,          // Get replies (post comments, forum topics, message replies)
   limit?: number = 50,           // Max results
-  min_date?: string,             // ISO date filter
-  max_date?: string,             // ISO date filter
+  min_date?: string,             // ISO date filter (search/browse modes only)
+  max_date?: string,             // ISO date filter (search/browse modes only)
   auto_expand_batches?: number = 2,  // Extra batches for filtered searches
   include_total_count?: boolean = false  // Include total count (chat search only)
 )
@@ -209,8 +209,8 @@ get_messages(
 **5 Modes (parameter combinations):**
 1. **Search in chat**: `chat_id` + `query` - Search messages in a specific chat
 2. **Browse chat**: `chat_id` only - Get latest messages
-3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages
-4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message (universal)
+3. **Read by IDs**: `chat_id` + `message_ids` - Get specific messages *(date filters error)*
+4. **Get replies**: `chat_id` + `reply_to_id` - Get replies to a message *(date filters error)*
 5. **Search replies**: `chat_id` + `reply_to_id` + `query` - Search within replies
 
 **reply_to_id automatically handles:**

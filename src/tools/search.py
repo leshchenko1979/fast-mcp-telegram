@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any
 
@@ -278,6 +278,8 @@ async def _collect_messages_in_chat(
     chat_id: str,
     queries: list[str],
     limit: int,
+    min_datetime: datetime | None,
+    max_datetime: datetime | None,
     chat_type: str | None,
     public: bool | None,
     auto_expand_batches: int,
@@ -296,6 +298,8 @@ async def _collect_messages_in_chat(
             entity,
             (q or ""),
             limit,
+            min_datetime,
+            max_datetime,
             chat_type,
             public,
             auto_expand_batches,
@@ -365,8 +369,14 @@ async def _handle_search_mode(
             exception=ValueError("Search query must not be empty for global search"),
         )
 
-    min_datetime = datetime.fromisoformat(min_date) if min_date else None
-    max_datetime = datetime.fromisoformat(max_date) if max_date else None
+    min_datetime = (
+        datetime.fromisoformat(min_date).replace(tzinfo=timezone.utc)
+        if min_date else None
+    )
+    max_datetime = (
+        datetime.fromisoformat(max_date).replace(tzinfo=timezone.utc)
+        if max_date else None
+    )
 
     def _connection_error_or_build(
         exc: Exception, fallback_message: str
@@ -395,6 +405,8 @@ async def _handle_search_mode(
                     chat_id,
                     queries,
                     limit,
+                    min_datetime,
+                    max_datetime,
                     chat_type,
                     public,
                     auto_expand_batches,
@@ -543,6 +555,13 @@ async def search_messages_impl(
                 params=params,
                 exception=ValueError("Missing required params"),
             )
+        if min_date or max_date:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="min_date and max_date are not supported for message_ids mode",
+                params=params,
+                exception=ValueError("Date filters not supported for message_ids mode"),
+            )
         return await _handle_message_ids_mode(chat_id, message_ids, params)
 
     if mode is MessageRetrievalMode.REPLIES:
@@ -552,6 +571,13 @@ async def search_messages_impl(
                 error_message="chat_id and reply_to_id required for replies mode",
                 params=params,
                 exception=ValueError("Missing required params"),
+            )
+        if min_date or max_date:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message="min_date and max_date are not supported for replies mode",
+                params=params,
+                exception=ValueError("Date filters not supported for replies mode"),
             )
         return await _handle_replies_mode(chat_id, reply_to_id, limit, query, params)
 
@@ -574,6 +600,8 @@ async def _search_chat_messages_generator(
     entity,
     query,
     limit,
+    min_datetime,
+    max_datetime,
     chat_type,
     public,
     auto_expand_batches,
@@ -591,11 +619,21 @@ async def _search_chat_messages_generator(
     while batch_count < max_batches:
         last_id = None
         async for message in client.iter_messages(
-            entity, search=query, offset_id=next_offset_id
+            entity, search=query, offset_id=next_offset_id, offset_date=max_datetime
         ):
             if not message:
                 continue
             last_id = getattr(message, "id", None) or last_id
+
+            # Skip messages newer than max_datetime (offset_date is exclusive,
+            # but Python filter needed for batches 2+ since Telethon clears max_date)
+            if max_datetime and message.date and message.date > max_datetime:
+                continue
+            # Stop when we hit min_datetime boundary - all subsequent messages
+            # will be older since we iterate newest->oldest. return exits the
+            # entire generator, not just the inner loop.
+            if min_datetime and message.date and message.date < min_datetime:
+                return
 
             if not _matches_chat_type(entity, chat_type):
                 continue
