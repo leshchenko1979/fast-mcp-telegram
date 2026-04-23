@@ -126,10 +126,6 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     Note: exclude_muted/exclude_read/exclude_archived require dialog object,
     not just entity. entity param is the Chat/User/Channel, dialog is the Dialog object.
     """
-    is_chat = isinstance(entity, TelethonChat)
-    is_channel = isinstance(entity, TelethonChannel)
-    is_user = isinstance(entity, TelethonUser)
-
     # Include flags: groups, broadcasts, bots, contacts, non_contacts
     # When ANY include flag is set, entity must match AT LEAST ONE of them
     # When NONE are set, entity is included (no include filter applied)
@@ -139,18 +135,18 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     broadcasts_flag = filter_dict.get("broadcasts", False)
     bots_flag = filter_dict.get("bots", False)
 
-    has_include_flag = (
+    if has_include_flag := (
         groups_flag
         or broadcasts_flag
         or bots_flag
         or contacts_flag
         or non_contacts_flag
-    )
-
-    if has_include_flag:
+    ):
         # Entity passes include filter if it matches ANY active flag
         passes = False
 
+        is_chat = isinstance(entity, TelethonChat)
+        is_channel = isinstance(entity, TelethonChannel)
         # groups=True → include supergroups (Channel with megagroup=True) and legacy Chat
         if groups_flag and (
             is_chat or (is_channel and getattr(entity, "megagroup", False))
@@ -159,6 +155,8 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
         # broadcasts=True → include broadcast channels only (not supergroups)
         if broadcasts_flag and is_channel and getattr(entity, "broadcast", False):
             passes = True
+        is_user = isinstance(entity, TelethonUser)
+
         # bots=True → include users that are bots
         if bots_flag and is_user and getattr(entity, "bot", False):
             passes = True
@@ -176,10 +174,8 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
         if (
             non_contacts_flag
             and is_user
-            and not (
-                getattr(entity, "contact", False)
-                or getattr(entity, "mutual_contact", False)
-            )
+            and not getattr(entity, "contact", False)
+            and not getattr(entity, "mutual_contact", False)
         ):
             passes = True
 
@@ -747,6 +743,16 @@ async def _find_chats_by_include_peers(
 
         # Apply public filter
         if not _match_public(view, public):
+            continue
+
+        # Apply date range filter using last_activity_date
+        min_date_dt = _parse_iso_date(min_date) if min_date else None
+        max_date_dt = _parse_iso_date(max_date) if max_date else None
+        last_activity_str = last_activity_map.get(pid)
+        last_activity_dt = _parse_iso_date(last_activity_str) if last_activity_str else None
+        if not await _dialog_in_date_range(
+            entity, client, last_activity_dt, min_date_dt, max_date_dt
+        ):
             continue
 
         # Apply query filter

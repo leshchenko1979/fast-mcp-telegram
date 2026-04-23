@@ -13,7 +13,7 @@ from src.tools.contacts import (
     build_dialog_entity_dict,
     find_chats_impl,
 )
-from tests.conftest import MockChat, MockDialog, MockUser
+from tests.conftest import MockChat, MockDialog, MockUser, make_user
 
 # ============== Helper Function Tests ==============
 
@@ -568,3 +568,76 @@ async def test_find_chats_global_multi_term_no_results_returns_error():
         assert "error" in result
         assert result["operation"] == "search_contacts_multi"
         assert "No contacts found" in result["error"]
+
+
+# ============== _find_chats_by_include_peers date filtering tests ==============
+
+
+@pytest.mark.asyncio
+async def test_find_chats_by_include_peers_respects_min_date():
+    """min_date filter should exclude peers with last_activity below the threshold.
+
+    This is a regression test for the bug where _find_chats_by_include_peers
+    received min_date/max_date parameters but never applied them.
+    """
+    from datetime import UTC, datetime
+    from unittest.mock import AsyncMock, MagicMock
+
+    from telethon.tl.types import InputPeerUser
+
+    from src.tools.contacts import _find_chats_by_include_peers
+
+    # Two users with different last_activity dates
+    user_new = make_user(1, first_name="NewUser")
+    user_old = make_user(2, first_name="OldUser")
+
+    # Mock client that resolves entities and returns GetPeerDialogsResponse
+    # For await client(GetPeerDialogsRequest(...)) to work, client must be AsyncMock
+    mock_result = MagicMock()
+    mock_result.dialogs = [
+        MagicMock(peer=MagicMock(user_id=1)),
+        MagicMock(peer=MagicMock(user_id=2)),
+    ]
+    mock_result.messages = [
+        MagicMock(date=datetime(2024, 6, 15, tzinfo=UTC)),
+        MagicMock(date=datetime(2020, 1, 1, tzinfo=UTC)),
+    ]
+    mock_client = AsyncMock(return_value=mock_result)
+
+    async def mock_get_entity(inp_peer):
+        if isinstance(inp_peer, InputPeerUser):
+            if inp_peer.user_id == 1:
+                return user_new
+            if inp_peer.user_id == 2:
+                return user_old
+        return None
+
+    mock_client.get_entity = mock_get_entity
+
+    # Patch GetPeerDialogsRequest at the module level so it's recognized but not called
+    with patch("src.tools.contacts.GetPeerDialogsRequest", MagicMock()):
+        with patch(
+            "src.tools.contacts.get_connected_client", AsyncMock(return_value=mock_client)
+        ):
+            result = await _find_chats_by_include_peers(
+                client=mock_client,
+                filter_dict={
+                    "include_peers": [
+                        InputPeerUser(user_id=1, access_hash=0),
+                        InputPeerUser(user_id=2, access_hash=0),
+                    ],
+                    "exclude_peers": [],
+                },
+                query=None,
+                limit=10,
+                chat_type=None,
+                public=None,
+                min_date="2024-01-01",
+                max_date=None,
+            )
+
+    chats = result.get("chats", [])
+    # NewUser (last_activity 2024-06-15 >= 2024-01-01) should be included
+    # OldUser (last_activity 2020-01-01 < 2024-01-01) should be excluded
+    assert len(chats) == 1, f"Expected 1 chat, got {len(chats)}: {chats}"
+    assert chats[0]["first_name"] == "NewUser"
