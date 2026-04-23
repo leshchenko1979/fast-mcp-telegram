@@ -15,11 +15,11 @@
 Then choose your path:
 
 **MCP Client (AI assistants)**
-3. Download the `mcp.json` file
-4. Add the server to your AI client and ask: "send hello to my saved messages in telegram"
+- Download the `mcp.json` file
+- Add the server to your AI client and ask: "send hello to my saved messages in telegram"
 
 **Direct API (curl)**
-3. Run the command below (replace TOKEN with yours):
+- Run the command below (replace TOKEN with yours):
 ```bash
 curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
   -H "Authorization: Bearer TOKEN" \
@@ -45,7 +45,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 | :file_folder: **Folder Filtering** | Filter chats by dialog folder (archived, custom folders) with integer ID or name matching | [Docs](docs/Tools-Reference.md) |
 | :robot: **Bot Chat Detection** | Bots identified with `type: "bot"` and filterable via `chat_type="bot"` | [Docs](docs/MTProto-Bridge.md) |
 | :dart: **AI-Optimized** | Literal parameter constraints, LLM-friendly API design, and MCP ToolAnnotations | [Docs](docs/Tools-Reference.md) |
-| :globe_with_meridians: **Web Setup Interface** | Browser-based authentication flow with immediate config generation | [Docs](docs/Installation.md) |
+| :tv: **Web Setup Interface** | Browser-based authentication flow with immediate config generation | [Docs](docs/Installation.md) |
 | :rocket: **MTProto Proxy Support** | Connect via MTProto proxy with automatic Fake TLS (EE prefix) and standard proxy detection | [Docs](docs/Installation.md) |
 | :zap: **High Performance** | Async operations, parallel queries, connection pooling, and memory optimization | |
 | :shield: **Production Reliability** | Auto-reconnect, structured logging, comprehensive error handling | |
