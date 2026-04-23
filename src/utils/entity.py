@@ -621,6 +621,9 @@ def build_dialog_entity_dict(dialog, entity) -> dict | None:
     if not base:
         return None
 
+    # Strip internal fields not meant for API responses
+    base.pop("access_hash", None)
+
     last_activity_date = None
     if dialog_date := getattr(dialog, "date", None):
         with contextlib.suppress(Exception):
