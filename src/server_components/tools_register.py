@@ -82,7 +82,8 @@ _DESC_EDIT_MESSAGE = _tool_description(
 _DESC_FIND_CHATS = _tool_description(
     "Find users/groups/channels by name, username, or phone. "
     "Global search (query required) searches all Telegram; "
-    "with min_date, max_date, or filter, search uses dialog filter. "
+    "with min_date, max_date, or filter, search uses dialog list or a named filter; "
+    "include_peers filters use last-activity from GetPeerDialogs; flag-based filters use dialog list dates. "
     "Success: dict with key chats (list of chat objects). "
 )
 

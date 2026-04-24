@@ -3,7 +3,9 @@ Contact resolution utilities for the Telegram MCP server.
 Provides tools to help language models find chat IDs for specific contacts.
 """
 
+import asyncio
 import logging
+import time
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -94,7 +96,10 @@ def _match_query(view: ChatView, query_lower: str) -> bool:
 logger = logging.getLogger(__name__)
 
 FLAG_MATCH_MAX_DIALOGS = 500
+# messages.getPeerDialogs: conservative batch size; raising requires checking current layer input limits.
 GET_PEER_DIALOGS_CHUNK_SIZE = 50
+# Parallel get_entity for include/exclude resolution (semaphore limit).
+GET_ENTITY_CONCURRENCY = 8
 AVAILABLE_FILTERS_MAX_SHOW = 10
 
 
@@ -135,7 +140,7 @@ def _filter_matches_flags(entity, dialog, filter_dict: dict) -> bool:
     broadcasts_flag = filter_dict.get("broadcasts", False)
     bots_flag = filter_dict.get("bots", False)
 
-    if has_include_flag := (
+    if (
         groups_flag
         or broadcasts_flag
         or bots_flag
@@ -313,8 +318,9 @@ async def find_chats_impl(
         public: Optional filter for public discoverability
         min_date: Minimum last activity date filter (ISO format, e.g. "2024-01-01" or "2024-01-01T14:30:00")
         max_date: Maximum last activity date filter (ISO format, e.g. "2024-12-31" or "2024-12-31T23:59:59")
-        filter: Filter by dialog filter name (str). When filter has include_peers,
-                date parameters (min_date/max_date) are ignored.
+        filter: Filter by dialog filter name (str). For include_peers folders, min_date/max_date
+                apply to last-activity from GetPeerDialogs; for flag-based folders, dialog last
+                activity uses dialog top-message date (early skip) or a history fallback when needed.
 
     Returns:
         Dict with "chats" key containing list of matches, or standardized error dict
@@ -601,6 +607,19 @@ async def _find_chats_by_filter(
     return {"chats": []}
 
 
+def _last_activity_datetime_in_range(
+    activity: datetime,
+    min_date_dt: datetime | None,
+    max_date_dt: datetime | None,
+) -> bool:
+    """Same window semantics as the truthy path in _dialog_in_date_range (inclusive min, max upper bound)."""
+    if activity.tzinfo is None:
+        activity = activity.replace(tzinfo=UTC)
+    if max_date_dt and activity > max_date_dt:
+        return False
+    return not (min_date_dt and activity < min_date_dt)
+
+
 async def _find_chats_by_include_peers(
     client,
     filter_dict: dict,
@@ -618,34 +637,68 @@ async def _find_chats_by_include_peers(
     # Resolve include_peers InputPeers → actual entities
     ordered_peer_ids: list[int] = []
     peer_entity_map: dict[int, dict] = {}
+    peer_objects: dict[int, Any] = {}
+    sem = asyncio.Semaphore(GET_ENTITY_CONCURRENCY)
 
-    for inp_peer in include_peers:
-        try:
-            entity = await client.get_entity(inp_peer)
-            eid = getattr(entity, "id", None)
-            if eid is None:
-                continue
-            if eid in ordered_peer_ids:
-                continue
-            entity_dict = build_entity_dict(entity)
-            if not entity_dict:
-                continue
-            ordered_peer_ids.append(eid)
-            peer_entity_map[eid] = entity_dict
-        except Exception as e:
-            logger.debug(f"Failed to resolve include_peer {inp_peer}: {e}")
+    async def _get_include(inp_peer) -> tuple[Any | None, dict | None]:
+        async with sem:
+            try:
+                ent = await client.get_entity(inp_peer)
+                eid = getattr(ent, "id", None)
+                if eid is None:
+                    return None, None
+                ed = build_entity_dict(ent)
+                if not ed:
+                    return None, None
+                return ent, ed
+            except Exception as e:
+                logger.debug("Failed to resolve include_peer %s: %s", inp_peer, e)
+                return None, None
+
+    t_incl = time.monotonic()
+    include_results: list = []
+    if include_peers:
+        include_results = list(
+            await asyncio.gather(*(_get_include(p) for p in include_peers))
+        )
+    if include_peers and logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "find_chats include_peers get_entity: n=%d duration_s=%.3f",
+            len(include_peers),
+            time.monotonic() - t_incl,
+        )
+
+    for ent, ent_dict in include_results:
+        if not ent or not ent_dict:
             continue
+        eid = getattr(ent, "id", None)
+        if eid is None or eid in ordered_peer_ids:
+            continue
+        ordered_peer_ids.append(eid)
+        peer_entity_map[eid] = ent_dict
+        peer_objects[eid] = ent
 
     # Apply exclude_peers
-    for inp_peer in exclude_peers:
-        try:
-            entity = await client.get_entity(inp_peer)
-            eid = getattr(entity, "id", None)
+    async def _get_exclude_id(inp_peer) -> int | None:
+        async with sem:
+            try:
+                e = await client.get_entity(inp_peer)
+                eid = getattr(e, "id", None)
+                if isinstance(eid, int):
+                    return eid
+                return None
+            except Exception as e:
+                logger.debug("Failed to resolve exclude_peer %s: %s", inp_peer, e)
+                return None
+
+    if exclude_peers:
+        for eid in await asyncio.gather(*(_get_exclude_id(p) for p in exclude_peers)):
             if eid and eid in ordered_peer_ids:
                 ordered_peer_ids.remove(eid)
                 peer_entity_map.pop(eid, None)
-        except Exception as e:
-            logger.debug(f"Failed to resolve exclude_peer {inp_peer}: {e}")
+                peer_objects.pop(eid, None)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("find_chats exclude_peers: n=%d", len(exclude_peers))
 
     # If filter has flags too, add flag-matching dialogs
     has_flags = any(
@@ -665,24 +718,25 @@ async def _find_chats_by_include_peers(
         async for dialog in client.iter_dialogs(
             limit=min(limit * 10, FLAG_MATCH_MAX_DIALOGS),
         ):
-            entity = getattr(dialog, "entity", None)
-            if not entity:
+            ent = getattr(dialog, "entity", None)
+            if not ent:
                 continue
-            eid = getattr(entity, "id", None)
+            eid = getattr(ent, "id", None)
             if (
                 eid
                 and eid not in ordered_peer_ids
-                and _filter_matches_flags(entity, dialog, filter_dict)
-                and (entity_dict := build_entity_dict(entity))
+                and _filter_matches_flags(ent, dialog, filter_dict)
+                and (entity_dict := build_entity_dict(ent))
             ):
                 ordered_peer_ids.append(eid)
                 peer_entity_map[eid] = entity_dict
+                peer_objects[eid] = ent
 
     if not ordered_peer_ids:
         return {"chats": []}
 
     # Build InputPeers and batch call GetPeerDialogsRequest
-    last_activity_map: dict[int, str] = {}
+    last_activity_by_peer: dict[int, datetime] = {}
     for chunk_start in range(0, len(ordered_peer_ids), GET_PEER_DIALOGS_CHUNK_SIZE):
         chunk_ids = ordered_peer_ids[
             chunk_start : chunk_start + GET_PEER_DIALOGS_CHUNK_SIZE
@@ -720,52 +774,73 @@ async def _find_chats_by_include_peers(
 
         try:
             result = await client(GetPeerDialogsRequest(peers=input_peers))
-            for d, m in zip(result.dialogs, result.messages, strict=False):
-                # Extract peer_id from message.peer
+            dialogs = result.dialogs or []
+            messages = result.messages or []
+            n_d, n_m = len(dialogs), len(messages)
+            if n_d != n_m:
+                logger.warning(
+                    "GetPeerDialogs: len(dialogs)=%s != len(messages)=%s; pairing by min length",
+                    n_d,
+                    n_m,
+                )
+            n_pair = min(n_d, n_m)
+            for i in range(n_pair):
+                d = dialogs[i]
+                m = messages[i]
                 peer_id = _extract_peer_id(d.peer)
-                if peer_id and m.date:
-                    last_activity_map[peer_id] = m.date.isoformat()
+                if not peer_id or m is None:
+                    continue
+                msg_date = getattr(m, "date", None)
+                if not msg_date:
+                    continue
+                act = msg_date
+                if act.tzinfo is None:
+                    act = act.replace(tzinfo=UTC)
+                last_activity_by_peer[peer_id] = act
         except Exception as e:
-            logger.debug(f"GetPeerDialogsRequest failed: {e}")
+            logger.debug("GetPeerDialogsRequest failed: %s", e)
 
     # Build result with filtering
+    min_date_dt = _parse_iso_date(min_date) if min_date else None
+    max_date_dt = _parse_iso_date(max_date) if max_date else None
+
     results = []
     for pid in ordered_peer_ids:
         ent_dict = peer_entity_map.get(pid)
         if not ent_dict:
             continue
+        ent = peer_objects.get(pid)
+        if ent is None:
+            continue
 
         view = ChatView.from_dict(ent_dict)
 
-        # Apply chat_type filter
         if not _match_chat_type(view, chat_type):
             continue
 
-        # Apply public filter
         if not _match_public(view, public):
             continue
 
-        # Apply date range filter using last_activity_date
-        min_date_dt = _parse_iso_date(min_date) if min_date else None
-        max_date_dt = _parse_iso_date(max_date) if max_date else None
-        last_activity_str = last_activity_map.get(pid)
-        last_activity_dt = _parse_iso_date(last_activity_str) if last_activity_str else None
-        if not await _dialog_in_date_range(
-            entity, client, last_activity_dt, min_date_dt, max_date_dt
-        ):
-            continue
+        if min_date_dt is not None or max_date_dt is not None:
+            act_dt = last_activity_by_peer.get(pid)
+            if act_dt is not None:
+                if not _last_activity_datetime_in_range(act_dt, min_date_dt, max_date_dt):
+                    continue
+            else:
+                if not await _dialog_in_date_range(
+                    ent, client, None, min_date_dt, max_date_dt
+                ):
+                    continue
 
-        # Apply query filter
         if query:
             query_lower = query.lower().strip()
             if query_lower and not _match_query(view, query_lower):
                 continue
 
         result_dict = dict(ent_dict)
-        # Remove internal fields not meant for API responses
         result_dict.pop("access_hash", None)
-        if pid in last_activity_map:
-            result_dict["last_activity_date"] = last_activity_map[pid]
+        if pid in last_activity_by_peer:
+            result_dict["last_activity_date"] = last_activity_by_peer[pid].isoformat()
 
         results.append(result_dict)
         if len(results) >= limit:
@@ -820,14 +895,26 @@ async def _find_chats_by_filter_flags(
         if not entity:
             continue
 
+        dialog_date = getattr(dialog, "date", None)
+        # If top dialog date is outside the window, the chat cannot match min/max — skip before flag work.
+        if dialog_date is not None and (min_date_dt is not None or max_date_dt is not None):
+            ddt = dialog_date
+            if ddt.tzinfo is None:
+                ddt = ddt.replace(tzinfo=UTC)
+            if max_date_dt and ddt > max_date_dt:
+                continue
+            if min_date_dt and ddt < min_date_dt:
+                continue
+
         if not _filter_matches_flags(entity, dialog, filter_dict):
             continue
 
         view = ChatView.from_entity(entity)
-
-        dialog_date = getattr(dialog, "date", None)
-        if not await _dialog_in_date_range(
-            entity, client, dialog_date, min_date_dt, max_date_dt
+        if (min_date_dt is not None or max_date_dt is not None) and (
+            dialog_date is None
+            and not await _dialog_in_date_range(
+                entity, client, None, min_date_dt, max_date_dt
+            )
         ):
             continue
 

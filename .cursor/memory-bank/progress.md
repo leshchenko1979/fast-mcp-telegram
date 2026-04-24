@@ -1,3 +1,6 @@
+### 2026-04-24
+- **find_chats filter+date performance and correctness** (`src/tools/contacts.py`): `include_peers` path now keeps `pid → Telethon entity` for date fallbacks, sync last-activity window when `GetPeerDialogs` returns message dates, bounded parallel `get_entity` (semaphore 8, optional debug timing), `GetPeerDialogs` warning + `min(len)` pairing when `dialogs`/`messages` lengths differ, early `dialog.date` reject in `_find_chats_by_filter_flags` before flag matching. Doc updates: `find_chats_impl`, `docs/Tools-Reference.md`, `_DESC_FIND_CHATS`. `GET_PEER_DIALOGS_CHUNK_SIZE` left at 50 (conservative; raising needs layer limit confirmation). New tests for per-peer `iter_messages` and GPD length mismatch.
+
 ### 2026-04-14
 - **Todo list MCP serialization**: `get_messages` / `build_message_result` — `MessageMediaToDo` completion `completed_by` can be a Telethon `Peer` (e.g. `PeerUser`); was assigned raw and failed FastMCP structured output. Normalized to integer Telegram id using `_forward_peer_id_and_type_label`; legacy `int` unchanged; non-int peer ids omitted. Regression tests in `tests/test_todo_media_placeholder.py`.
 

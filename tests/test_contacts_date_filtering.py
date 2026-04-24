@@ -615,29 +615,146 @@ async def test_find_chats_by_include_peers_respects_min_date():
     mock_client.get_entity = mock_get_entity
 
     # Patch GetPeerDialogsRequest at the module level so it's recognized but not called
-    with patch("src.tools.contacts.GetPeerDialogsRequest", MagicMock()):
-        with patch(
+    with (
+        patch("src.tools.contacts.GetPeerDialogsRequest", MagicMock()),
+        patch(
             "src.tools.contacts.get_connected_client", AsyncMock(return_value=mock_client)
-        ):
-            result = await _find_chats_by_include_peers(
-                client=mock_client,
-                filter_dict={
-                    "include_peers": [
-                        InputPeerUser(user_id=1, access_hash=0),
-                        InputPeerUser(user_id=2, access_hash=0),
-                    ],
-                    "exclude_peers": [],
-                },
-                query=None,
-                limit=10,
-                chat_type=None,
-                public=None,
-                min_date="2024-01-01",
-                max_date=None,
-            )
+        ),
+    ):
+        result = await _find_chats_by_include_peers(
+            client=mock_client,
+            filter_dict={
+                "include_peers": [
+                    InputPeerUser(user_id=1, access_hash=0),
+                    InputPeerUser(user_id=2, access_hash=0),
+                ],
+                "exclude_peers": [],
+            },
+            query=None,
+            limit=10,
+            chat_type=None,
+            public=None,
+            min_date="2024-01-01",
+            max_date=None,
+        )
 
     chats = result.get("chats", [])
     # NewUser (last_activity 2024-06-15 >= 2024-01-01) should be included
     # OldUser (last_activity 2020-01-01 < 2024-01-01) should be excluded
     assert len(chats) == 1, f"Expected 1 chat, got {len(chats)}: {chats}"
     assert chats[0]["first_name"] == "NewUser"
+
+
+@pytest.mark.asyncio
+async def test_find_chats_by_include_peers_fallback_iter_messages_uses_per_peer_entity():
+    """When GetPeerDialogs omits last-activity, fallback must call iter_messages on that peer's entity."""
+    from datetime import UTC, datetime
+    from unittest.mock import AsyncMock, MagicMock
+
+    from telethon.tl.types import InputPeerUser
+
+    from src.tools.contacts import _find_chats_by_include_peers
+
+    user_a = make_user(1, first_name="A")
+    user_b = make_user(2, first_name="B")
+
+    mock_result = MagicMock()
+    mock_result.dialogs = [
+        MagicMock(peer=MagicMock(user_id=1)),
+        MagicMock(peer=MagicMock(user_id=2)),
+    ]
+    mock_result.messages = [
+        MagicMock(date=None),
+        MagicMock(date=None),
+    ]
+
+    mock_client = AsyncMock(return_value=mock_result)
+    iter_entity_ids: list[int] = []
+
+    async def mock_get_entity(inp_peer):
+        if isinstance(inp_peer, InputPeerUser):
+            if inp_peer.user_id == 1:
+                return user_a
+            if inp_peer.user_id == 2:
+                return user_b
+        return None
+
+    async def iter_messages(entity, limit=1):
+        iter_entity_ids.append(getattr(entity, "id", None))
+        m = MagicMock()
+        m.date = datetime(2024, 6, 1, tzinfo=UTC)
+        yield m
+
+    mock_client.get_entity = mock_get_entity
+    mock_client.iter_messages = iter_messages
+
+    with (
+        patch("src.tools.contacts.GetPeerDialogsRequest", MagicMock()),
+        patch(
+            "src.tools.contacts.get_connected_client", AsyncMock(return_value=mock_client)
+        ),
+    ):
+        result = await _find_chats_by_include_peers(
+            client=mock_client,
+            filter_dict={
+                "include_peers": [
+                    InputPeerUser(user_id=1, access_hash=0),
+                    InputPeerUser(user_id=2, access_hash=0),
+                ],
+                "exclude_peers": [],
+            },
+            query=None,
+            limit=10,
+            chat_type=None,
+            public=None,
+            min_date="2024-01-01",
+            max_date=None,
+        )
+
+    assert len(result.get("chats", [])) == 2
+    assert iter_entity_ids == [1, 2], (
+        f"iter_messages should run per peer entity; got order/ids {iter_entity_ids!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_find_chats_get_peer_dialogs_mismatch_warns(caplog):
+    """Mismatched dialogs vs messages length should log a warning, not assume extra rows."""
+    from datetime import UTC, datetime
+    from unittest.mock import AsyncMock, MagicMock
+
+    from telethon.tl.types import InputPeerUser
+
+    from src.tools.contacts import _find_chats_by_include_peers
+
+    u = make_user(1, first_name="Solo")
+    mock_result = MagicMock()
+    mock_result.dialogs = [MagicMock(peer=MagicMock(user_id=1))]
+    mock_result.messages = [
+        MagicMock(date=datetime(2024, 6, 1, tzinfo=UTC)),
+        MagicMock(date=datetime(2024, 6, 2, tzinfo=UTC)),
+    ]
+    mock_client = AsyncMock(return_value=mock_result)
+    mock_client.get_entity = AsyncMock(return_value=u)
+
+    with (
+        caplog.at_level("WARNING", logger="src.tools.contacts"),
+        patch("src.tools.contacts.GetPeerDialogsRequest", MagicMock()),
+        patch(
+            "src.tools.contacts.get_connected_client", AsyncMock(return_value=mock_client)
+        ),
+    ):
+        await _find_chats_by_include_peers(
+            client=mock_client,
+            filter_dict={
+                "include_peers": [InputPeerUser(user_id=1, access_hash=0)],
+                "exclude_peers": [],
+            },
+            query=None,
+            limit=10,
+            chat_type=None,
+            public=None,
+            min_date=None,
+            max_date=None,
+        )
+    assert any("GetPeerDialogs" in r.message and "len(dialogs)" in r.message for r in caplog.records)

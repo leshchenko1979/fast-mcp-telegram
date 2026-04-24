@@ -4,8 +4,13 @@
 Run with: uv run python3 tests/integration/test_find_chats_date_filtering.py
 """
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from src.client.connection import get_connected_client
 from src.tools.contacts import find_chats_impl
+
+MSK = ZoneInfo("Europe/Moscow")
 
 
 async def run_find_chats_date_filtering_test():
@@ -99,9 +104,19 @@ async def run_find_chats_date_filtering_test():
         chats = result.get("chats", [])
         print(f"Found {len(chats)} chats")
 
-    # Test 5: find_chats with filter "Без каналов" and min_date
-    print("\n--- Test 5: find_chats with filter='Без каналов' and min_date ---")
-    result = await find_chats_impl(query=None, limit=20, filter="Без каналов", min_date="2026-04-23")
+    # Test 5: find_chats with filter "Без каналов" and min_date (start of day, Moscow)
+    start_today_msk = datetime.now(MSK).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    min_date_msk = start_today_msk.isoformat()
+    print("\n--- Test 5: find_chats with filter='Без каналов' and min_date (Moscow) ---")
+    print(
+        f"Using min_date={min_date_msk} (start of current calendar day, Europe/Moscow; "
+        f"calendar date {start_today_msk.date()})"
+    )
+    result = await find_chats_impl(
+        query=None, limit=20, filter="Без каналов", min_date=min_date_msk
+    )
     if "error" in result:
         print(f"ERROR: {result['error']}")
     else:

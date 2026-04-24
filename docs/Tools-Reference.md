@@ -24,8 +24,8 @@ find_chats(
   chat_type?: string, // Optional filter ('private','group','channel','bot', comma-separated for multiple)
   filter?: string,             // Filter by dialog filter name (case-insensitive exact match). See Filters-vs-Folders.md.
   public?: boolean,            // Optional public filter (true=with username, false=without username). Never applies to private chats.
-  min_date?: string,           // ISO date filter: only chats active since this date (last_activity_date). Ignored for include_peers filters.
-  max_date?: string            // ISO date filter: only chats active until this date (last_activity_date). Ignored for include_peers filters.
+  min_date?: string,           // ISO last-activity window. include_peers: from GetPeerDialogs top message; flag filter: from dialog list date, or 1-message fallback when that date is missing. Early filter skips (flag path) can omit edge cases if `dialog.date` lags true activity.
+  max_date?: string            // ISO last-activity upper bound; same sources as min_date.
 ) -> {
   chats: Chat[],               // Array of chat/user entities
 }
@@ -91,7 +91,7 @@ find_chats(
 // Filter search: chats in "Work" filter
 {"tool": "find_chats", "params": {"query": "project", "filter": "Work"}}
 
-// Filter search: with date filter (flag-based filter only)
+// Filter search: with date filter (flag-based folder; include_peers folders also respect min/max via GetPeerDialogs)
 {"tool": "find_chats", "params": {"min_date": "2026-04-01", "filter": "Без каналов"}}
 ```
 
