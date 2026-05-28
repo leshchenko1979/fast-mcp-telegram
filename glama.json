@@ -1,0 +1,37 @@
+{
+  "id": "leshchenko1979/fast-mcp-telegram",
+  "name": "Fast MCP Telegram",
+  "description": "Production-grade Telegram MCP server with direct MTProto API access, multi-user Bearer ACL, dual transport (stdio + HTTP SSE), voice transcription, file attachments, and context-optimized design. One-command setup with uvx fast-mcp-telegram.",
+  "categories": ["communication", "messaging", "telegram"],
+  "repository": "https://github.com/leshchenko1979/fast-mcp-telegram",
+  "homepage": "https://tg-mcp.l1979.ru",
+  "license": "MIT",
+  "relatedServers": [
+    "chaindead/telegram-mcp",
+    "chigwell/telegram-mcp",
+    "overpod/mcp-telegram",
+    "FantomaSkaRus1/telegram-bot-mcp"
+  ],
+  "env": {
+    "TELEGRAM_API_ID": {
+      "description": "Telegram API ID from my.telegram.org",
+      "required": true
+    },
+    "TELEGRAM_API_HASH": {
+      "description": "Telegram API Hash from my.telegram.org",
+      "required": true
+    },
+    "TG_SESSION_STRING": {
+      "description": "Telegram session string (generated during setup)",
+      "required": true
+    },
+    "AUTH_TOKENS": {
+      "description": "Comma-separated Bearer tokens for multi-user access control",
+      "required": false
+    },
+    "ACL": {
+      "description": "JSON string for per-user/per-chat access control list",
+      "required": false
+    }
+  }
+}
