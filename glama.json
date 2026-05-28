@@ -13,24 +13,36 @@
     "FantomaSkaRus1/telegram-bot-mcp"
   ],
   "env": {
-    "TELEGRAM_API_ID": {
-      "description": "Telegram API ID from my.telegram.org",
+    "API_ID": {
+      "description": "Telegram API ID from my.telegram.org. Required for both user and bot accounts.",
       "required": true
     },
-    "TELEGRAM_API_HASH": {
-      "description": "Telegram API Hash from my.telegram.org",
+    "API_HASH": {
+      "description": "Telegram API Hash from my.telegram.org. Required for both user and bot accounts.",
       "required": true
     },
-    "TG_SESSION_STRING": {
-      "description": "Telegram session string (generated during setup)",
-      "required": true
-    },
-    "AUTH_TOKENS": {
-      "description": "Comma-separated Bearer tokens for multi-user access control",
+    "PHONE_NUMBER": {
+      "description": "Phone number with country code (e.g. +1234567890). Required for user account setup.",
       "required": false
     },
-    "ACL": {
-      "description": "JSON string for per-user/per-chat access control list",
+    "BOT_TOKEN": {
+      "description": "Bot token from @BotFather. Alternative to phone number for bot account setup. Simpler authentication, limited to bot API features.",
+      "required": false
+    },
+    "SERVER_MODE": {
+      "description": "Server transport mode: stdio (local MCP clients), http-auth (remote/production, requires Bearer token), http-no-auth (dev, no auth). Default: http-auth",
+      "required": false
+    },
+    "DOMAIN": {
+      "description": "Public domain for web setup UI and attachment URL generation. Required for http-auth mode.",
+      "required": false
+    },
+    "SESSION_NAME": {
+      "description": "Session file name for stdio mode. Default: telegram",
+      "required": false
+    },
+    "MTPROTO_PROXY": {
+      "description": "MTProto proxy connection string (tg://proxy?server=...&port=...&secret=...)",
       "required": false
     }
   }
