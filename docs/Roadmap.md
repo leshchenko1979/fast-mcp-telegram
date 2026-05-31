@@ -2,7 +2,7 @@
 
 Official priorities for fast-mcp-telegram. Capability facts live in [Strategic-Market-Positioning.md](Strategic-Market-Positioning.md). Third-party Gemini research is under [research/](research/).
 
-Last updated: 2026-05-27.
+Last updated: 2026-05-31.
 
 ## North star
 
@@ -90,6 +90,9 @@ flowchart LR
 | 6. Telemetry for QA | Planned | Telemetry | `feature/telemetry` | Tool/error/latency signals → case backlog |
 | 7. GG depth + live eval | Planned | QA | `feature/evals` | Cases driven by telemetry; optional VDS live matrix |
 | 8. Merge feature branches | Pending | — | — | PRs: `feature/acl`, `feature/telemetry`, `feature/evals` |
+| 9. Smithery URL-based listing | In progress | Infrastructure | — | Register `tg-mcp.l1979.ru` on Smithery as URL-based deployment (bring your own VPS) |
+| 10. Database session storage | Planned | Infrastructure | — | Replace file-based `.session` with PostgreSQL/Telethon session store — unblocks Smithery Hosted |
+| 11. Smithery Hosted migration | Planned | Infrastructure | — | Move from URL-based to Smithery-hosted containers (ephemeral → DB-backed sessions) |
 
 ## Shipped on `master`
 
@@ -148,12 +151,14 @@ See [evals/README.md](../evals/README.md) on branch `feature/evals`.
 | ACL v2 permission matrix | Trust | Prgebish-style read/send per chat |
 | Prompt-injection scanner | Trust | After ACL + QA coverage |
 | OAuth2 / IdP | Enterprise | Federation path |
-| **External session storage** (PostgreSQL / Redis) | Infrastructure | Persistent Telethon sessions for ephemeral deployments (Smithery hosted). Options: PostgreSQL-backed session store or Redis-based StringSession cache. Unblocks userbot scenarios in hosted Docker environments. See [research/session-storage-design.md](research/session-storage-design.md) |
+| **External session storage** (PostgreSQL / Redis) | Infrastructure | Phase of Smithery deployment (step 10): persistent Telethon sessions via PostgreSQL-backed session store or Redis StringSession cache. Unblocks Smithery Hosted (step 11). See [research/session-storage-design.md](research/session-storage-design.md) |
 | Stdio path sandbox | Trust | Local stdio users |
 | Multi-replica attachment tickets | Ops | Shared ticket store |
 | Media OCR pipeline | Features | Beyond voice transcription |
+| **Interactive session setup** | Onboarding | Agent-driven setup flow via MCP: OAuth link presentation, phone number elicitation, auth code collection through `tg_mtproto` / `connection.py`. Eliminates manual `phone_code` / `code` / 2FA prompts. Requires MCP `sampling` or the calling agent to drive the dialog loop. See [research/setup-agent-dialog.md](research/setup-agent-dialog.md) when documented. |
 | **Refactoring** | All lanes | Post-Phase-3 cleanup: consolidate session config, extract shared logic from `connection.py`/`server.py`, reduce duplication across transport modes, standardise error types. Unblocks faster iteration in subsequent phases. |
 | **Docs review** | Docs / strategy | Post-Phase-3 audit: verify every public function has a docstring, every tool has usage examples, every ADR is up to date with code, all `TODO`s are intentional. Publish API reference. |
+| **Remote file upload** (base64) | Infrastructure | Users connecting to a remote deployment (Smithery, VPS) can't reference local filesystem paths. Add base64-encoded file upload support to `send_photo`/`send_document`/misc file tools — detect inline base64 payloads, decode server-side, attach as binary to Telegram calls. Consider: size limits, MIME detection, streaming vs memory-bound decode. |
 
 ## Where to record future work
 
