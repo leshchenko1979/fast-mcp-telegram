@@ -303,7 +303,6 @@ def _try_unlink_session_on_auth_error(session_path: Path, token: str) -> None:
 def _log_client_creation_failed(
     session_path: Path, token: str, exc: BaseException
 ) -> None:
-    is_auth_error = _error_message_suggests_auth_issue(exc)
     logger.error(
         f"Failed to create client for token {token[:8]}...",
         extra={
