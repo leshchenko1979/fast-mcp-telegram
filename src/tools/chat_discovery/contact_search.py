@@ -74,12 +74,11 @@ async def search_contacts_native(
     except FloodWaitError as e:
         logger.warning(
             "FloodWait on SearchRequest for '%s': %ds (~%.1fh)",
-            query, e.seconds, e.seconds / 3600,
+            query,
+            e.seconds,
+            e.seconds / 3600,
         )
-        raise RuntimeError(
-            f"FloodWait on SearchRequest: {e.seconds}s (~{e.seconds/3600:.1f}h) "
-            f"for query '{query}'"
-        ) from e
+        raise
     except SessionNotAuthorizedError:
         raise
     except TelegramTransportError:
