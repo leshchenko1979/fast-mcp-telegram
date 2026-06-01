@@ -243,6 +243,20 @@ class ServerConfig(BaseSettings):
         default="DEBUG", description="Logging level (DEBUG, INFO, WARNING, ERROR)"
     )
 
+    # Session inactivity cleanup (delete unused .session files)
+    inactive_session_days: int = Field(
+        default=30,
+        ge=0,
+        validation_alias=AliasChoices(
+            "inactive_session_days",
+            "TELEGRAM_INACTIVE_SESSION_DAYS",
+        ),
+        description=(
+            "Auto-delete .session files unused for >N days. "
+            "Set to 0 to disable. Uses file mtime to determine inactivity."
+        ),
+    )
+
     # Backward compatibility: DISABLE_AUTH environment variable
     disable_auth_env: str | None = Field(
         default=None,

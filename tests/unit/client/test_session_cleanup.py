@@ -5,9 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from src.client.connection import _INACTIVE_SESSION_DAYS, _cleanup_inactive_sessions
+from src.client.connection import _cleanup_inactive_sessions
 
 _TOKEN = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFg"  # 43-char valid token
+
+# Match the default in src/config/server_config.py
+_DEFAULT_INACTIVE_DAYS = 30
 
 
 def make_session_file(session_dir: Path, token: str) -> Path:
@@ -27,10 +30,9 @@ class TestCleanupInactiveSessions:
 
     @pytest.mark.asyncio
     async def test_deletes_when_mtime_older_than_cutoff(self, tmp_path):
-        """Session file with mtime >30 days ago is deleted."""
+        """Session file with mtime >inactive_session_days days ago is deleted."""
         now = 1_000_000_000.0
-        cutoff_days = _INACTIVE_SESSION_DAYS
-        old_mtime = now - cutoff_days * 86400 - 100  # well before cutoff
+        old_mtime = now - _DEFAULT_INACTIVE_DAYS * 86400 - 100  # well before cutoff
 
         session_file = make_session_file(tmp_path, _TOKEN)
         # Set old mtime
@@ -51,7 +53,7 @@ class TestCleanupInactiveSessions:
 
     @pytest.mark.asyncio
     async def test_keeps_when_mtime_recent(self, tmp_path):
-        """Session file with mtime <30 days ago is kept."""
+        """Session file with mtime <inactive_session_days days ago is kept."""
         now = 1_000_000_000.0
         recent_mtime = now - 10  # 10 seconds ago
 
@@ -73,8 +75,7 @@ class TestCleanupInactiveSessions:
     async def test_mixed_old_and_recent(self, tmp_path):
         """Multiple session files: old ones deleted, recent kept."""
         now = 1_000_000_000.0
-        cutoff_days = _INACTIVE_SESSION_DAYS
-        old_mtime = now - cutoff_days * 86400 - 500
+        old_mtime = now - _DEFAULT_INACTIVE_DAYS * 86400 - 500
         recent_mtime = now - 10
 
         token_a = _TOKEN
@@ -111,7 +112,7 @@ class TestCleanupInactiveSessions:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("days", [0, -1])
     async def test_disabled_when_non_positive(self, tmp_path, days):
-        """When INACTIVE_SESSION_DAYS <= 0, cleanup does nothing."""
+        """When inactive_session_days <= 0, cleanup does nothing."""
         now = 1_000_000_000.0
         old_mtime = now - 86400 * 100  # 100 days ago
 
@@ -123,8 +124,9 @@ class TestCleanupInactiveSessions:
         with (
             patch("src.client.connection.SESSION_DIR", tmp_path),
             patch("src.client.connection.time.time", return_value=now),
-            patch("src.client.connection._INACTIVE_SESSION_DAYS", days),
+            patch("src.client.connection.get_config") as mock_get_config,
         ):
+            mock_get_config.return_value.inactive_session_days = days
             deleted = await _cleanup_inactive_sessions()
 
         assert deleted == 0
