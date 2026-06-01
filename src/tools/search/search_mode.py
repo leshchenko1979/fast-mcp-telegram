@@ -58,6 +58,14 @@ async def _execute_parallel_searches_generators(
         active_gens = next_active
 
 
+async def _run_with_limits(coro, semaphore: asyncio.Semaphore | None) -> Any:
+    """Run a coroutine with optional concurrency limiting semaphore."""
+    if semaphore:
+        async with semaphore:
+            return await coro
+    return await coro
+
+
 async def _gather_global_batch(
     client,
     terms: list[dict],
@@ -93,14 +101,7 @@ async def _gather_global_batch(
     if not requests:
         return []
 
-    # Wrap requests with optional semaphore
-    async def _run_with_limits(coro) -> Any:
-        if semaphore:
-            async with semaphore:
-                return await coro
-        return await coro
-
-    wrapped = [_run_with_limits(r) for r in requests]
+    wrapped = [_run_with_limits(r, semaphore=semaphore) for r in requests]
     responses = await asyncio.gather(*wrapped, return_exceptions=True)
 
     results: list[tuple[int, Any]] = []

@@ -1,7 +1,6 @@
 """Tests for concurrency control in search_mode.py."""
 
 import asyncio
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -23,19 +22,31 @@ class TestRunWithLimits:
     @pytest.mark.asyncio
     async def test_runs_without_semaphore(self):
         """Coroutine executes directly when semaphore is None."""
-        mock_coro = AsyncMock(return_value="result")
-        result = await _run_with_limits(mock_coro, semaphore=None)
+        executed = False
+
+        async def coro():
+            nonlocal executed
+            executed = True
+            return "result"
+
+        result = await _run_with_limits(coro(), semaphore=None)
         assert result == "result"
-        mock_coro.assert_awaited_once()
+        assert executed
 
     @pytest.mark.asyncio
     async def test_runs_with_semaphore(self):
         """Coroutine executes under semaphore when one is provided."""
+        executed = False
+
+        async def coro():
+            nonlocal executed
+            executed = True
+            return "result"
+
         semaphore = asyncio.Semaphore(2)
-        mock_coro = AsyncMock(return_value="result")
-        result = await _run_with_limits(mock_coro, semaphore=semaphore)
+        result = await _run_with_limits(coro(), semaphore=semaphore)
         assert result == "result"
-        mock_coro.assert_awaited_once()
+        assert executed
 
     @pytest.mark.asyncio
     async def test_semaphore_limits_concurrency(self):
@@ -53,10 +64,7 @@ class TestRunWithLimits:
             return "done"
 
         coros = [
-            _run_with_limits(track_concurrent(), semaphore=semaphore)
-            for _ in range(20)
+            _run_with_limits(track_concurrent(), semaphore=semaphore) for _ in range(20)
         ]
         await asyncio.gather(*coros)
-        assert max_concurrent <= 2, (
-            f"Expected max 2 concurrent, got {max_concurrent}"
-        )
+        assert max_concurrent <= 2, f"Expected max 2 concurrent, got {max_concurrent}"
