@@ -196,6 +196,43 @@ async def _collect_messages_in_chat(
     return await _get_chat_message_count(chat_id) if include_total_count else None
 
 
+async def _round_robin_merge_iters(
+    term_iters: list[tuple[int, Any]],
+    target_limit: int,
+    collected: list[dict[str, Any]],
+    seen_keys: set[Any],
+    client: Any,
+    chat_type: str | None,
+    public: bool | None,
+    include_chat_entity: bool,
+) -> list[tuple[int, Any]]:
+    """Process one round-robin pass over term iterators."""
+    next_iters: list[tuple[int, Any]] = []
+    for term_idx, it in term_iters:
+        raw_msg = next(it, None)
+        if raw_msg is None:
+            continue
+
+        msg_result = await _process_raw_message(
+            client,
+            raw_msg,
+            chat_type,
+            public,
+            include_chat_entity,
+        )
+        if msg_result:
+            _append_dedup_until_limit(
+                collected,
+                seen_keys,
+                [msg_result],
+                target_limit,
+            )
+            if len(collected) >= target_limit:
+                break
+        next_iters.append((term_idx, it))
+    return next_iters
+
+
 async def _collect_messages_global(
     client,
     queries: list[str],
@@ -254,41 +291,26 @@ async def _collect_messages_global(
         if not batch_results:
             break
 
-        # Build per-term message iterators from raw responses
-        term_iters: list[tuple[int, Any]] = []
-        for term_idx, response in batch_results:
-            if hasattr(response, "messages") and response.messages:
-                term_iters.append((term_idx, iter(response.messages)))
-
+        term_iters: list[tuple[int, Any]] = [
+            (term_idx, iter(response.messages))
+            for term_idx, response in batch_results
+            if hasattr(response, "messages") and response.messages
+        ]
         if not term_iters:
             break
 
         # Lazy round-robin: process only what's needed
         while term_iters and len(collected) < target_limit:
-            next_iters: list[tuple[int, Any]] = []
-            for term_idx, it in term_iters:
-                raw_msg = next(it, None)
-                if raw_msg is None:
-                    continue
-
-                msg_result = await _process_raw_message(
-                    client,
-                    raw_msg,
-                    chat_type,
-                    public,
-                    include_chat_entity,
-                )
-                if msg_result:
-                    _append_dedup_until_limit(
-                        collected,
-                        seen_keys,
-                        [msg_result],
-                        target_limit,
-                    )
-                    if len(collected) >= target_limit:
-                        break
-                next_iters.append((term_idx, it))
-            term_iters = next_iters
+            term_iters = await _round_robin_merge_iters(
+                term_iters,
+                target_limit,
+                collected,
+                seen_keys,
+                client,
+                chat_type,
+                public,
+                include_chat_entity,
+            )
 
         if len(collected) >= target_limit:
             break
