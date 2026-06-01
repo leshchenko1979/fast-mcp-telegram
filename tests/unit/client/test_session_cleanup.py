@@ -45,7 +45,9 @@ class TestCleanupInactiveSessions:
         with (
             patch("src.client.connection.SESSION_DIR", tmp_path),
             patch("src.client.connection.time.time", return_value=now),
+            patch("src.client.connection.get_config") as mock_get_config,
         ):
+            mock_get_config.return_value.inactive_session_days = _DEFAULT_INACTIVE_DAYS
             deleted = await _cleanup_inactive_sessions()
 
         assert deleted == 1
@@ -65,7 +67,9 @@ class TestCleanupInactiveSessions:
         with (
             patch("src.client.connection.SESSION_DIR", tmp_path),
             patch("src.client.connection.time.time", return_value=now),
+            patch("src.client.connection.get_config") as mock_get_config,
         ):
+            mock_get_config.return_value.inactive_session_days = _DEFAULT_INACTIVE_DAYS
             deleted = await _cleanup_inactive_sessions()
 
         assert deleted == 0
@@ -92,7 +96,9 @@ class TestCleanupInactiveSessions:
         with (
             patch("src.client.connection.SESSION_DIR", tmp_path),
             patch("src.client.connection.time.time", return_value=now),
+            patch("src.client.connection.get_config") as mock_get_config,
         ):
+            mock_get_config.return_value.inactive_session_days = _DEFAULT_INACTIVE_DAYS
             deleted = await _cleanup_inactive_sessions()
 
         assert deleted == 1
