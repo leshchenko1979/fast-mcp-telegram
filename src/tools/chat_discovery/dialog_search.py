@@ -58,7 +58,7 @@ async def search_dialogs_impl(
         # limit*10 alone can miss groups/channels beyond position N*10 for large accounts.
         # The +200 floor ensures at least ~200 dialogs are checked even at small limits.
         iter_limit = max(limit * 10, limit + 200)
-        async for dialog in client.iter_dialogs(limit=iter_limit, folder=folder_id):  # type: ignore[arg-type]
+        async for dialog in client.iter_dialogs(limit=iter_limit, folder=folder_id):  # type: ignore[arg-type]  # ty: ignore
             if count >= limit:
                 break
 

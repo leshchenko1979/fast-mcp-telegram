@@ -235,9 +235,7 @@ async def _fetch_replies(
                 include_chat_entity,
             )
 
-    await transcribe_voice_messages(
-        collected[:limit], effective_entity, client=client
-    )
+    await transcribe_voice_messages(collected[:limit], effective_entity, client=client)
 
     return collected, discussion_metadata
 
@@ -292,7 +290,7 @@ async def _handle_reply_mode(
             response |= discussion_metadata
 
         if warning := response_attachment_warning(window):
-            response["_warning"] = warning
+            response["_warning"] = warning  # ty: ignore
 
         return response
 

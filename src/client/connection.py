@@ -291,15 +291,6 @@ async def _build_telegram_client_for_token(
     return client
 
 
-def _try_unlink_session_on_auth_error(session_path: Path, token: str) -> None:
-    """Log auth error but keep the session file for web-setup re-authorization."""
-    if not _session_file_exists(session_path):
-        return
-    logger.warning(
-        f"Session file for token {token[:8]}... is invalid — keep file for re-authorization via setup page"
-    )
-
-
 def _log_client_creation_failed(
     session_path: Path, token: str, exc: BaseException
 ) -> None:
@@ -315,7 +306,6 @@ def _log_client_creation_failed(
                     },
                     "token": f"{token[:8]}...",
                     "session_path": str(session_path),
-                    "auto_deleted": False,  # no longer auto-delete; kept for setup re-auth
                 }
             )
         },
@@ -344,7 +334,10 @@ async def _get_client_by_token(token: str) -> TelegramClient:
             return client
         except Exception as e:
             if _error_message_suggests_auth_issue(e):
-                _try_unlink_session_on_auth_error(session_path, token)
+                logger.warning(
+                    f"Session file for token {token[:8]}... is invalid — "
+                    "keep file for re-authorization via setup page"
+                )
             _log_client_creation_failed(session_path, token, e)
             raise
 
