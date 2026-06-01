@@ -19,6 +19,8 @@ from .include_peers import _find_chats_by_include_peers
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_MAX_CONCURRENT: int = 2
+
 
 async def find_chats_impl(
     query: str | None = None,
@@ -28,6 +30,7 @@ async def find_chats_impl(
     min_date: str | None = None,
     max_date: str | None = None,
     folder: str | None = None,
+    max_concurrent: int | None = _DEFAULT_MAX_CONCURRENT,
 ) -> dict[str, Any]:
     """
     High-level contacts search with support for comma-separated multi-term queries.
@@ -46,6 +49,7 @@ async def find_chats_impl(
                 For include_peers folders, min_date/max_date apply to last-activity from GetPeerDialogs;
                 for flag-based folders, dialog last activity uses dialog top-message date (early skip)
                 or a history fallback when needed.
+        max_concurrent: Maximum concurrent search requests for multi-term queries (default: 2)
 
     Returns:
         Dict with "chats" key containing list of matches, or standardized error dict
@@ -151,6 +155,7 @@ async def find_chats_impl(
         limit=limit,
         chat_type=chat_type,
         public=public,
+        max_concurrent=max_concurrent,
     )
     return {"chats": result} if isinstance(result, list) else result
 
@@ -160,6 +165,7 @@ async def _find_chats_global(
     limit: int,
     chat_type: str | None,
     public: bool | None,
+    max_concurrent: int | None = _DEFAULT_MAX_CONCURRENT,
 ) -> dict[str, Any]:
     """
     Global Telegram search without date filtering.
@@ -178,7 +184,9 @@ async def _find_chats_global(
         )
         return {"chats": result} if isinstance(result, list) else result
 
-    return await _find_chats_global_multi_term(terms, limit, chat_type, public)
+    return await _find_chats_global_multi_term(
+        terms, limit, chat_type, public, max_concurrent
+    )
 
 
 def _normalize_gather_result(
@@ -286,12 +294,26 @@ async def _gather_term_results(
     limit: int,
     chat_type: str | None,
     public: bool | None,
+    max_concurrent: int | None = _DEFAULT_MAX_CONCURRENT,
 ) -> tuple[list[list[dict[str, Any]]] | None, tuple[str, ...]]:
-    """Execute all term searches in parallel via asyncio.gather.
+    """Execute all term searches with optional concurrency limit.
+
+    Uses asyncio.Semaphore when max_concurrent is set to throttle concurrent requests.
+    Falls back to bare asyncio.gather when max_concurrent is None (original behavior).
 
     Returns (term_results, errors) where term_results is None if no term succeeded.
     """
-    tasks = [_search_contacts_as_list(term, limit, chat_type, public) for term in terms]
+    semaphore = asyncio.Semaphore(max_concurrent) if max_concurrent else None
+
+    async def _run_with_limits(term: str) -> list[dict[str, Any]] | dict[str, Any]:
+        """Run a single term search, applying semaphore if configured."""
+        coro = _search_contacts_as_list(term, limit, chat_type, public)
+        if semaphore:
+            async with semaphore:
+                return await coro
+        return await coro
+
+    tasks = [_run_with_limits(term) for term in terms]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     term_results: list[list[dict[str, Any]]] = []
@@ -344,6 +366,7 @@ async def _find_chats_global_multi_term(
     limit: int,
     chat_type: str | None,
     public: bool | None,
+    max_concurrent: int | None = _DEFAULT_MAX_CONCURRENT,
 ) -> dict[str, Any]:
     """
     Multi-term global search using parallel gather + round-robin merge.
@@ -354,7 +377,7 @@ async def _find_chats_global_multi_term(
     Deduplicates by entity ID.
     """
     term_results, failed_terms = await _gather_term_results(
-        terms, limit, chat_type, public
+        terms, limit, chat_type, public, max_concurrent
     )
     if term_results is None:
         error_detail = (
