@@ -292,15 +292,12 @@ async def _build_telegram_client_for_token(
 
 
 def _try_unlink_session_on_auth_error(session_path: Path, token: str) -> None:
+    """Log auth error but keep the session file for web-setup re-authorization."""
     if not _session_file_exists(session_path):
         return
-    try:
-        _unlink_session_file(session_path)
-        logger.warning(
-            f"Auto-deleted invalid session file for token {token[:8]}... due to auth error"
-        )
-    except Exception as delete_error:
-        logger.warning(f"Failed to delete invalid session file: {delete_error}")
+    logger.warning(
+        f"Session file for token {token[:8]}... is invalid — keep file for re-authorization via setup page"
+    )
 
 
 def _log_client_creation_failed(
@@ -319,7 +316,7 @@ def _log_client_creation_failed(
                     },
                     "token": f"{token[:8]}...",
                     "session_path": str(session_path),
-                    "auto_deleted": is_auth_error and session_path.exists(),
+                    "auto_deleted": False,  # no longer auto-delete; kept for setup re-auth
                 }
             )
         },
@@ -442,21 +439,11 @@ async def ensure_connection(client: TelegramClient, token: str) -> bool:
 
         if is_fatal:
             logger.critical(
-                f"Fatal session error for token {token[:8]}...: {e}. Removing session and stopping retries."
+                f"Fatal session error for token {token[:8]}...: {e}. "
+                "Session file kept for re-authorization via setup page."
             )
-            # Remove session file immediately to prevent loop
-            try:
-                session_path = _resolve_session_path_for_token(token)
-            except InvalidSessionTokenError:
-                session_path = None
-            if session_path is not None and _session_file_exists(session_path):
-                try:
-                    _unlink_session_file(session_path)
-                    logger.info(f"Removed fatal session file for token {token[:8]}...")
-                except Exception as del_e:
-                    logger.warning(f"Failed to remove fatal session file: {del_e}")
 
-            # Remove from cache to force re-initialization (which will fail auth check)
+            # Remove from cache so caller gets a fresh client attempt next time
             async with _cache_lock:
                 _session_cache.pop(token, None)
 
