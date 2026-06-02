@@ -85,6 +85,33 @@ class TestParseDataUri:
         assert filename is not None
         assert filename.endswith(".pdf")
 
+    def test_explicit_filename_preserved(self) -> None:
+        """filename= param in data: URI header overrides auto-generated name."""
+        from urllib.parse import quote
+
+        raw = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 10).decode()
+        fname = quote("report_final.png")
+        uri = f"data:image/png;filename={fname};base64,{raw}"
+        _mime, _data, filename = _parse_data_uri(uri)
+        assert filename == "report_final.png"
+
+    def test_explicit_filename_with_special_chars(self) -> None:
+        """URL-encoded filenames with spaces and unicode are decoded."""
+        from urllib.parse import quote
+
+        raw = base64.b64encode(b"hello").decode()
+        fname = quote("мой файл.txt")
+        uri = f"data:text/plain;filename={fname};base64,{raw}"
+        _mime, _data, filename = _parse_data_uri(uri)
+        assert filename == "мой файл.txt"
+
+    def test_no_filename_param_falls_back_to_mime_ext(self) -> None:
+        """Without filename=, auto-generate upload.ext from MIME type."""
+        raw = base64.b64encode(b"hello").decode()
+        uri = f"data:text/plain;base64,{raw}"
+        _mime, _data, filename = _parse_data_uri(uri)
+        assert filename == "upload.txt"
+
 
 # ---------------------------------------------------------------------------
 # _validate_file_paths with data: URIs
