@@ -107,10 +107,17 @@ async def _forum_topic_search(
     topic_id: int,
     offset_id: int,
     query: str | None,
+    min_date=None,
+    max_date=None,
 ) -> list[Any]:
     result = await client(
         topic_search_request(
-            entity, top_msg_id=topic_id, offset_id=offset_id, query=query
+            entity,
+            top_msg_id=topic_id,
+            offset_id=offset_id,
+            query=query,
+            min_date=min_date,
+            max_date=max_date,
         )
     )
     return list(getattr(result, "messages", None) or [])
@@ -205,6 +212,8 @@ async def _scan_forum_topic_messages(
     start_offset_id: int,
     cap: int | None,
     include_nested: bool,
+    min_date=None,
+    max_date=None,
 ) -> list[Any]:
     raw_messages: list[Any] = []
     offset_id = start_offset_id
@@ -212,7 +221,10 @@ async def _scan_forum_topic_messages(
     direct_count = 0
 
     while cap is None or len(raw_messages) < cap:
-        messages = await _forum_topic_search(client, entity, topic_id, offset_id, query)
+        messages = await _forum_topic_search(
+            client, entity, topic_id, offset_id, query,
+            min_date=min_date, max_date=max_date,
+        )
         if not messages:
             break
         raw_messages.extend(messages)
@@ -241,6 +253,8 @@ async def _forum_search_collect_pass(
     scan_cap: int | None,
     margin: int,
     include_nested: bool,
+    min_date=None,
+    max_date=None,
 ) -> list[Any]:
     raw = await _scan_forum_topic_messages(
         client,
@@ -252,6 +266,8 @@ async def _forum_search_collect_pass(
         start_offset_id=start_offset_id,
         cap=scan_cap,
         include_nested=include_nested,
+        min_date=min_date,
+        max_date=max_date,
     )
     raw = await _enrich_forum_search_reply_metadata(
         client,
@@ -281,6 +297,8 @@ async def _collect_forum_anchor_replies(
     include_chat_entity: bool,
     *,
     include_nested: bool,
+    min_date=None,
+    max_date=None,
 ) -> list[dict[str, Any]]:
     """Replies to a message inside a forum topic via messages.search."""
     anchor_msg_id = anchor_message.id
@@ -298,6 +316,8 @@ async def _collect_forum_anchor_replies(
             scan_cap=THREAD_SEARCH_CHUNK * 3,
             margin=margin,
             include_nested=include_nested,
+            min_date=min_date,
+            max_date=max_date,
         )
         if matched:
             break
@@ -314,6 +334,8 @@ async def _collect_forum_anchor_replies(
             scan_cap=FORUM_LEGACY_SCAN_CAP,
             margin=FORUM_LEGACY_SCAN_CAP,
             include_nested=include_nested,
+            min_date=min_date,
+            max_date=max_date,
         )
 
     matched.sort(key=lambda m: m.id, reverse=True)

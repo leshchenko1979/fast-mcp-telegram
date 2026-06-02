@@ -13,6 +13,7 @@ def topic_search_request(
     offset_id: int = 0,
     query: str | None = None,
     limit: int = THREAD_SEARCH_CHUNK,
+    min_date=None,
     max_date=None,
 ) -> SearchRequest:
     """Build SearchRequest with top_msg_id for supergroup or forum topic windows."""
@@ -20,7 +21,7 @@ def topic_search_request(
         peer=peer,
         q=query or "",
         filter=InputMessagesFilterEmpty(),
-        min_date=None,
+        min_date=min_date,
         max_date=max_date,
         offset_id=offset_id,
         add_offset=0,

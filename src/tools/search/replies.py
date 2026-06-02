@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from src.client.connection import get_connected_client
+from src.utils.datetime_parse import parse_iso_datetime_utc
 from src.utils.discussion import get_post_discussion_info
 from src.utils.entity import get_entity_by_id
 from src.utils.error_handling import log_and_build_error
@@ -67,6 +68,8 @@ async def _collect_full_thread_messages(
     limit: int,
     query: str | None,
     include_chat_entity: bool,
+    min_date=None,
+    max_date=None,
 ) -> list[dict[str, Any]]:
     collected: list[dict[str, Any]] = []
     offset_id = 0
@@ -79,6 +82,8 @@ async def _collect_full_thread_messages(
                 top_msg_id=top_msg_id,
                 offset_id=offset_id,
                 query=query,
+                min_date=min_date,
+                max_date=max_date,
             )
         )
         messages = getattr(result, "messages", None) or []
@@ -109,6 +114,8 @@ async def _fetch_direct_replies(
     limit: int,
     query: str | None,
     include_chat_entity: bool,
+    min_date=None,
+    max_date=None,
 ) -> list[dict[str, Any]]:
     collected: list[dict[str, Any]] = []
     async for message in client.iter_messages(
@@ -116,7 +123,12 @@ async def _fetch_direct_replies(
         reply_to=reply_to_id,
         search=query or None,
         limit=limit + 1,
+        offset_date=max_date,
     ):
+        if not message:
+            continue
+        if min_date and message.date and message.date < min_date:
+            continue
         result = await results._build_result_for_message(
             client, message, entity, include_chat_entity
         )
@@ -136,6 +148,8 @@ async def _fetch_replies(
     query: str | None = None,
     include_chat_entity: bool = False,
     thread_scope: ThreadScope = "auto",
+    min_date=None,
+    max_date=None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     """Fetch replies/comments; routes forum in-topic, discussion, and thread search."""
     effective_entity = chat_entity
@@ -185,6 +199,8 @@ async def _fetch_replies(
                     query,
                     include_chat_entity,
                     include_nested=thread_scope == "full",
+                    min_date=min_date,
+                    max_date=max_date,
                 )
             except ForumAnchorNotInTopicError:
                 logger.debug(
@@ -198,6 +214,8 @@ async def _fetch_replies(
                     limit,
                     query,
                     include_chat_entity,
+                    min_date=min_date,
+                    max_date=max_date,
                 )
         else:
             collected = await _fetch_direct_replies(
@@ -207,6 +225,8 @@ async def _fetch_replies(
                 limit,
                 query,
                 include_chat_entity,
+                min_date=min_date,
+                max_date=max_date,
             )
 
     if collected is None:
@@ -224,6 +244,8 @@ async def _fetch_replies(
                 limit,
                 query,
                 include_chat_entity,
+                min_date=min_date,
+                max_date=max_date,
             )
         else:
             collected = await _fetch_direct_replies(
@@ -233,6 +255,8 @@ async def _fetch_replies(
                 limit,
                 query,
                 include_chat_entity,
+                min_date=min_date,
+                max_date=max_date,
             )
 
     await transcribe_voice_messages(collected[:limit], effective_entity, client=client)
@@ -247,6 +271,8 @@ async def _handle_reply_mode(
     query: str | None,
     params: dict[str, Any],
     thread_scope: ThreadScope = "auto",
+    min_date: str | None = None,
+    max_date: str | None = None,
 ) -> dict[str, Any]:
     """Handle reply_to_id mode (discussion, forum, direct replies, full thread)."""
     client = await get_connected_client()
@@ -254,6 +280,30 @@ async def _handle_reply_mode(
         entity = await get_entity_by_id(chat_id)
         if not entity:
             raise ValueError(f"Could not find chat with ID '{chat_id}'")
+
+        min_datetime = parse_iso_datetime_utc(min_date) if min_date else None
+        if min_date and min_datetime is None:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message=(
+                    f"Invalid min_date format: '{min_date}'. "
+                    "Use ISO format (e.g., '2024-01-01')"
+                ),
+                params=params,
+                exception=ValueError(f"Invalid min_date format: '{min_date}'"),
+            )
+
+        max_datetime = parse_iso_datetime_utc(max_date) if max_date else None
+        if max_date and max_datetime is None:
+            return log_and_build_error(
+                operation="get_messages",
+                error_message=(
+                    f"Invalid max_date format: '{max_date}'. "
+                    "Use ISO format (e.g., '2024-12-31')"
+                ),
+                params=params,
+                exception=ValueError(f"Invalid max_date format: '{max_date}'"),
+            )
 
         collected, discussion_metadata = await _fetch_replies(
             client,
@@ -263,6 +313,8 @@ async def _handle_reply_mode(
             query,
             include_chat_entity=False,
             thread_scope=thread_scope,
+            min_date=min_datetime,
+            max_date=max_datetime,
         )
 
         window = collected[:limit] if limit is not None else collected
