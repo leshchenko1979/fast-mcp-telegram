@@ -211,6 +211,71 @@ class TestGetMessagesReplies:
         assert "error" in result
         assert "chat_id is required" in result["error"]
 
+    @pytest.mark.asyncio
+    @patch("src.tools.search.core._handle_reply_mode", new_callable=AsyncMock)
+    async def test_replies_accepts_min_date(self, mock_handler):
+        """Should pass min_date to handler without error."""
+        mock_handler.return_value = {
+            "messages": [{"id": 1, "text": "Reply"}],
+            "has_more": False,
+            "reply_to_id": 100,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            reply_to_id=100,
+            min_date="2024-01-01",
+            limit=50,
+        )
+
+        assert "error" not in result
+        mock_handler.assert_called_once()
+        assert mock_handler.call_args[1]["min_date"] == "2024-01-01"
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.core._handle_reply_mode", new_callable=AsyncMock)
+    async def test_replies_accepts_max_date(self, mock_handler):
+        """Should pass max_date to handler without error."""
+        mock_handler.return_value = {
+            "messages": [{"id": 1, "text": "Reply"}],
+            "has_more": False,
+            "reply_to_id": 100,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            reply_to_id=100,
+            max_date="2024-12-31",
+            limit=50,
+        )
+
+        assert "error" not in result
+        mock_handler.assert_called_once()
+        assert mock_handler.call_args[1]["max_date"] == "2024-12-31"
+
+    @pytest.mark.asyncio
+    @patch("src.tools.search.core._handle_reply_mode", new_callable=AsyncMock)
+    async def test_replies_accepts_date_range(self, mock_handler):
+        """Should pass both min_date and max_date to handler without error."""
+        mock_handler.return_value = {
+            "messages": [{"id": 1, "text": "Reply"}],
+            "has_more": False,
+            "reply_to_id": 100,
+        }
+
+        result = await search_messages_impl(
+            chat_id="-1001111111111",
+            reply_to_id=100,
+            min_date="2024-01-01",
+            max_date="2024-12-31",
+            limit=50,
+        )
+
+        assert "error" not in result
+        mock_handler.assert_called_once()
+        assert mock_handler.call_args[1]["min_date"] == "2024-01-01"
+        assert mock_handler.call_args[1]["max_date"] == "2024-12-31"
+
 
 class TestGetMessagesRepliesErrors:
     """Error paths for replies mode."""
