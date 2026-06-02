@@ -184,6 +184,16 @@ class TestPrepareFilesForSendDataUri:
         uri = f"data:image/png;base64,{raw}"
         assert force_document_for_file_list([uri]) is False
 
+    def test_data_uri_image_with_filename_not_sent_as_document(self) -> None:
+        """Image data URIs with filename= param must still be detected as images."""
+        from urllib.parse import quote
+
+        png_data = b"\x89PNG\r\n\x1a\n" + b"\x00" * 10
+        raw = base64.b64encode(png_data).decode()
+        fname = quote("my_photo.png")
+        uri = f"data:image/png;filename={fname};base64,{raw}"
+        assert force_document_for_file_list([uri]) is False
+
     @pytest.mark.asyncio
     async def test_data_uri_pdf_sent_as_document(self) -> None:
         raw = base64.b64encode(b"%PDF-1.4").decode()

@@ -140,12 +140,12 @@ def _basename_from_url_or_path(url_or_path: str) -> str:
 def _is_likely_image_filename(url_or_path: str) -> bool:
     """Whether the path/URL/data: URI looks like a raster image (for send_file hint)."""
     if url_or_path.startswith("data:"):
-        # Parse MIME type from data URI: data:image/png;base64,...
+        # Parse MIME type from data URI: data:image/png;filename=...;base64,...
         header_end = url_or_path.find(",", 5)
         header = url_or_path[5:header_end] if header_end != -1 else url_or_path[5:]
         mime = ""
         for part in header.split(";"):
-            if part and part != "base64":
+            if part and part != "base64" and not part.startswith("filename="):
                 mime = part
         return mime.startswith("image/")
     base = _basename_from_url_or_path(url_or_path)
