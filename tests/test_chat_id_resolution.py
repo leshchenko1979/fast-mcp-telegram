@@ -6,7 +6,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from telethon.tl.types import PeerChannel, PeerChat, PeerUser
+from telethon.tl.types import PeerChannel, PeerUser
 
 from src.tools.search import search_messages_impl
 from src.utils.entity import (
@@ -152,6 +152,8 @@ async def test_replies_use_same_entity_regardless_of_passed_chat_id_string():
         query=None,
         include_chat_entity=False,
         thread_scope="auto",
+        min_date=None,
+        max_date=None,
     ):
         fetch_calls.append(
             f"{type(entity).__name__}:{getattr(entity, 'id', None)}:{reply_to_id}:{limit}"
@@ -183,7 +185,7 @@ async def test_replies_use_same_entity_regardless_of_passed_chat_id_string():
 
         assert "error" not in result
         assert len(fetch_calls) == len(CHAT_ID_FORMATS)
-        assert len({c for c in fetch_calls}) == 1
+        assert len(set(fetch_calls)) == 1
 
 
 @pytest.mark.integration

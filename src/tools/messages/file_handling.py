@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import os
 from io import BytesIO
@@ -13,6 +14,91 @@ from src.config.server_config import get_config
 from src.tools.messages.security import _validate_url_security
 
 logger = logging.getLogger(__name__)
+
+# MIME type → default filename extension for data: URI payloads
+_MIME_TO_EXT: dict[str, str] = {
+    "application/pdf": ".pdf",
+    "application/zip": ".zip",
+    "application/json": ".json",
+    "application/xml": ".xml",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "text/html": ".html",
+    "text/xml": ".xml",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+    "video/mp4": ".mp4",
+    "video/webm": ".webm",
+    "audio/mpeg": ".mp3",
+    "audio/ogg": ".ogg",
+}
+
+
+def _parse_data_uri(uri: str) -> tuple[str, bytes, str]:
+    """
+    Parse a data: URI and return (mime_type, decoded_bytes, filename).
+
+    Only base64-encoded data URIs are supported (data:<mime>;base64,<payload>).
+    Raises ValueError for invalid URIs, non-base64 encoding, or empty payloads.
+    """
+    if not uri.startswith("data:"):
+        raise ValueError(f"Not a data URI: expected 'data:' scheme, got {uri[:20]}")
+
+    # Format: data:[<mime>][;base64],<payload>
+    # Split only on first comma to get header and payload
+    comma_idx = uri.find(",", 5)  # skip "data:"
+    if comma_idx == -1:
+        raise ValueError("Invalid data URI: missing comma separator")
+
+    header = uri[5:comma_idx]  # e.g. "image/png;base64" or ";base64"
+    payload = uri[comma_idx + 1:]
+
+    if not payload:
+        raise ValueError("Invalid data URI: empty payload")
+
+    # Parse header parts
+    parts = header.split(";")
+    is_base64 = False
+    mime_type = ""
+
+    for part in parts:
+        if part == "base64":
+            is_base64 = True
+        elif part:
+            mime_type = part
+
+    if not is_base64:
+        raise ValueError(
+            "Only base64-encoded data URIs are supported "
+            "(use data:<mime>;base64,<payload>)"
+        )
+
+    if not mime_type:
+        mime_type = "application/octet-stream"
+
+    # Decode base64 payload
+    try:
+        decoded = base64.b64decode(payload, validate=True)
+    except Exception as exc:
+        raise ValueError(f"Invalid base64 in data URI: {exc}") from exc
+
+    # Enforce size limit
+    config = get_config()
+    max_bytes = config.max_file_size_mb * 1024 * 1024
+    if len(decoded) > max_bytes:
+        raise ValueError(
+            f"Data URI payload too large: {len(decoded)} bytes "
+            f"(max: {max_bytes} bytes)"
+        )
+
+    # Derive filename from MIME type
+    ext = _MIME_TO_EXT.get(mime_type, ".bin")
+    filename = f"upload{ext}"
+
+    return mime_type, decoded, filename
 
 
 def is_own_attachment_url(url: str) -> bool:
@@ -40,7 +126,16 @@ def _basename_from_url_or_path(url_or_path: str) -> str:
 
 
 def _is_likely_image_filename(url_or_path: str) -> bool:
-    """Whether the path/URL basename looks like a raster image (for send_file hint)."""
+    """Whether the path/URL/data: URI looks like a raster image (for send_file hint)."""
+    if url_or_path.startswith("data:"):
+        # Parse MIME type from data URI: data:image/png;base64,...
+        header_end = url_or_path.find(",", 5)
+        header = url_or_path[5:header_end] if header_end != -1 else url_or_path[5:]
+        mime = ""
+        for part in header.split(";"):
+            if part and part != "base64":
+                mime = part
+        return mime.startswith("image/")
     base = _basename_from_url_or_path(url_or_path)
     if not base:
         return False
@@ -62,32 +157,40 @@ def force_document_for_file_list(file_list: list[str]) -> bool:
 
 async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
     """
-    Resolve http(s) URLs to BytesIO with a .name for type detection; keep local paths as-is.
+    Resolve files for sending: data: URIs → BytesIO, http(s) URLs → BytesIO, local paths as-is.
 
-    Single-URL sends previously passed the raw URL string to Telethon, which could trigger
-    MediaInvalidError for non-images; downloading here matches multi-URL behavior.
+    - data: URIs are decoded inline (base64 payload → BytesIO with filename)
+    - http(s) URLs are downloaded with security validation
+    - Local paths are kept as-is (stdio mode only, validated elsewhere)
     """
-    if not any(f.startswith(("http://", "https://")) for f in file_list):
+    if not any(
+        f.startswith(("http://", "https://", "data:")) for f in file_list
+    ):
         return file_list
 
     url_entries = [f for f in file_list if f.startswith(("http://", "https://"))]
-    downloaded = await _download_urls_to_bytes(url_entries)
+    downloaded = await _download_urls_to_bytes(url_entries) if url_entries else []
     url_to_content: dict[str, bytes | str] = dict(
         zip(url_entries, downloaded, strict=True)
     )
     out: list[BytesIO | str] = []
     for f in file_list:
-        if not f.startswith(("http://", "https://")):
-            out.append(f)
-            continue
-        content = url_to_content[f]
-        if isinstance(content, bytes):
-            filename = _basename_from_url_or_path(f) or "file"
-            file_obj = BytesIO(content)
+        if f.startswith("data:"):
+            _mime_type, data, filename = _parse_data_uri(f)
+            file_obj = BytesIO(data)
             file_obj.name = filename
             out.append(file_obj)
+        elif f.startswith(("http://", "https://")):
+            content = url_to_content[f]
+            if isinstance(content, bytes):
+                filename = _basename_from_url_or_path(f) or "file"
+                file_obj = BytesIO(content)
+                file_obj.name = filename
+                out.append(file_obj)
+            else:
+                out.append(content)
         else:
-            out.append(content)
+            out.append(f)
     return out
 
 

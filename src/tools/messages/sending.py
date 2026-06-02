@@ -158,8 +158,11 @@ async def send_message_impl(
         reply_to_id: ID of the message to reply to. For forum chats, pass topic root ID.
             For channel posts, automatically posts comment in discussion group.
         parse_mode: Parse mode ('markdown' or 'html')
-        files: Single file or list of files. URLs (http/https) work in all server modes;
-            local filesystem paths are only allowed in stdio mode (blocked for HTTP transports).
+        files: Single file or list of files. Supports three formats:
+            - **data: URIs** (`data:<mime>;base64,<payload>`) — works in all server modes;
+              ideal for remote deployments where local paths are unavailable.
+            - **http(s) URLs** — downloaded server-side with security validation.
+            - **Local filesystem paths** — only allowed in stdio mode.
     """
     parse_mode = _normalize_parse_mode(parse_mode)
     resolved_parse_mode = parse_mode

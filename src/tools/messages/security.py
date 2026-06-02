@@ -82,8 +82,10 @@ def _validate_file_paths(
     """
     Normalize and validate file paths with security checks.
 
-    Local paths (non-URL strings) are rejected unless the server runs in stdio mode;
-    HTTP transports (http-no-auth, http-auth) only accept http(s) URLs.
+    Accepts:
+    - data: URIs (base64 inline payloads) — all transport modes
+    - http(s) URLs — all transport modes (with SSRF validation)
+    - Local filesystem paths — stdio mode only
 
     Returns:
         (file_list, error): file_list if valid, error dict if validation fails
@@ -92,6 +94,21 @@ def _validate_file_paths(
     config = get_config()
 
     for file in file_list:
+        # data: URIs are accepted in all transport modes
+        if file.startswith("data:"):
+            try:
+                from src.tools.messages.file_handling import _parse_data_uri
+
+                _parse_data_uri(file)  # validate format and size
+            except ValueError as exc:
+                return None, log_and_build_error(
+                    operation=operation,
+                    error_message=f"Invalid data URI: {exc}",
+                    params=params,
+                    exception=ValueError(f"Data URI validation failed: {exc}"),
+                )
+            continue
+
         if (
             not file.startswith(("http://", "https://"))
             and config.server_mode != ServerMode.STDIO
