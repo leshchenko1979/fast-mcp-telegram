@@ -35,6 +35,13 @@ _MIME_TO_EXT: dict[str, str] = {
     "video/webm": ".webm",
     "audio/mpeg": ".mp3",
     "audio/ogg": ".ogg",
+    # Office document types
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "application/msword": ".doc",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.ms-powerpoint": ".ppt",
 }
 
 

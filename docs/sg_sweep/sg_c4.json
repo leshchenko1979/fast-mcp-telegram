@@ -1,0 +1,191 @@
+{
+  "timestamp": "2026-05-30T20:08:29Z",
+  "python_version": "3.14.5 (main, May 11 2026, 23:08:05) [GCC 15.2.0]",
+  "config": {
+    "max_concurrent": 4
+  },
+  "scenarios": {
+    "single_term": {
+      "mean_s": 0.9674,
+      "min_s": 0.8446,
+      "max_s": 1.0639,
+      "median_s": 0.9937,
+      "p90_s": 1.0639,
+      "durations_s": [
+        1.0639,
+        0.8446,
+        0.9937
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "two_terms": {
+      "mean_s": 1.4513,
+      "min_s": 1.305,
+      "max_s": 1.5476,
+      "median_s": 1.5012,
+      "p90_s": 1.5476,
+      "durations_s": [
+        1.305,
+        1.5012,
+        1.5476
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "three_terms": {
+      "mean_s": 2.3396,
+      "min_s": 2.1937,
+      "max_s": 2.5075,
+      "median_s": 2.3176,
+      "p90_s": 2.5075,
+      "durations_s": [
+        2.1937,
+        2.5075,
+        2.3176
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "five_terms": {
+      "mean_s": 2.0815,
+      "min_s": 1.7833,
+      "max_s": 2.5534,
+      "median_s": 1.9078,
+      "p90_s": 2.5534,
+      "durations_s": [
+        1.7833,
+        2.5534,
+        1.9078
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "three_terms_large": {
+      "mean_s": 5.2082,
+      "min_s": 4.7439,
+      "max_s": 5.5165,
+      "median_s": 5.3642,
+      "p90_s": 5.5165,
+      "durations_s": [
+        5.5165,
+        5.3642,
+        4.7439
+      ],
+      "results_counts": [
+        50,
+        50,
+        50
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "dedup_check": {
+      "mean_s": 8.1787,
+      "min_s": 2.0927,
+      "max_s": 19.8772,
+      "median_s": 2.5663,
+      "p90_s": 19.8772,
+      "durations_s": [
+        2.5663,
+        2.0927,
+        19.8772
+      ],
+      "results_counts": [
+        15,
+        15,
+        15
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "fairness_check": {
+      "mean_s": 7.3431,
+      "min_s": 6.6844,
+      "max_s": 7.9392,
+      "median_s": 7.4058,
+      "p90_s": 7.9392,
+      "durations_s": [
+        7.4058,
+        6.6844,
+        7.9392
+      ],
+      "results_counts": [
+        20,
+        20,
+        20
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    }
+  }
+}

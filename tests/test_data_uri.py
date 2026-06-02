@@ -85,6 +85,14 @@ class TestParseDataUri:
         assert filename is not None
         assert filename.endswith(".pdf")
 
+    def test_filename_inferred_from_docx_mime(self) -> None:
+        """DOCX MIME type maps to .docx extension."""
+        raw = base64.b64encode(b"PK\x03\x04" + b"\x00" * 10).decode()
+        uri = f"data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{raw}"
+        _mime, _data, filename = _parse_data_uri(uri)
+        assert filename is not None
+        assert filename.endswith(".docx")
+
     def test_explicit_filename_preserved(self) -> None:
         """filename= param in data: URI header overrides auto-generated name."""
         from urllib.parse import quote

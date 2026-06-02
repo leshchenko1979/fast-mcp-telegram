@@ -1,0 +1,191 @@
+{
+  "timestamp": "2026-05-30T20:05:09Z",
+  "python_version": "3.14.5 (main, May 11 2026, 23:08:05) [GCC 15.2.0]",
+  "config": {
+    "max_concurrent": 2
+  },
+  "scenarios": {
+    "single_term": {
+      "mean_s": 1.0623,
+      "min_s": 0.9698,
+      "max_s": 1.2249,
+      "median_s": 0.9923,
+      "p90_s": 1.2249,
+      "durations_s": [
+        0.9698,
+        1.2249,
+        0.9923
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "two_terms": {
+      "mean_s": 1.4065,
+      "min_s": 1.3441,
+      "max_s": 1.5173,
+      "median_s": 1.3581,
+      "p90_s": 1.5173,
+      "durations_s": [
+        1.3441,
+        1.5173,
+        1.3581
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "three_terms": {
+      "mean_s": 1.9947,
+      "min_s": 1.7556,
+      "max_s": 2.4171,
+      "median_s": 1.8115,
+      "p90_s": 2.4171,
+      "durations_s": [
+        1.7556,
+        2.4171,
+        1.8115
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "five_terms": {
+      "mean_s": 2.5337,
+      "min_s": 1.9604,
+      "max_s": 3.5148,
+      "median_s": 2.1259,
+      "p90_s": 3.5148,
+      "durations_s": [
+        3.5148,
+        1.9604,
+        2.1259
+      ],
+      "results_counts": [
+        10,
+        10,
+        10
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "three_terms_large": {
+      "mean_s": 7.9641,
+      "min_s": 4.8009,
+      "max_s": 12.1671,
+      "median_s": 6.9244,
+      "p90_s": 12.1671,
+      "durations_s": [
+        4.8009,
+        12.1671,
+        6.9244
+      ],
+      "results_counts": [
+        50,
+        50,
+        50
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "dedup_check": {
+      "mean_s": 2.7754,
+      "min_s": 2.4194,
+      "max_s": 3.3805,
+      "median_s": 2.5263,
+      "p90_s": 3.3805,
+      "durations_s": [
+        2.4194,
+        2.5263,
+        3.3805
+      ],
+      "results_counts": [
+        15,
+        15,
+        15
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    },
+    "fairness_check": {
+      "mean_s": 13.4243,
+      "min_s": 8.826,
+      "max_s": 22.1506,
+      "median_s": 9.2963,
+      "p90_s": 22.1506,
+      "durations_s": [
+        8.826,
+        22.1506,
+        9.2963
+      ],
+      "results_counts": [
+        20,
+        20,
+        20
+      ],
+      "errors": [
+        null,
+        null,
+        null
+      ],
+      "all_ok": true,
+      "n_clean": 3,
+      "n_skipped": 0,
+      "n_floodwait_exceeded": 0
+    }
+  }
+}
