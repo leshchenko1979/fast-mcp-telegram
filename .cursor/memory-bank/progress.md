@@ -1,4 +1,6 @@
 ### 2026-06-02
+- **PR #103 — Data URI file uploads:** Added `data:` URI (base64) support in `send_message` `files` parameter. Clients can now attach inline files without filesystem access or hosting. `_parse_data_uri()` parses MIME types, validates base64, infers filenames via `_MIME_TO_EXT` mapping. `_validate_file_paths()` accepts data: URIs in all transport modes. 18 TDD tests, 628 total passed. Sourcery rate-limited, CodeQL green.
+
 - **PR #102 — Forum topic date filtering:** Removed `"min_date and max_date are not supported for replies mode"` error in `core.py`. `reply_to_id` (forum topics) now supports `min_date`/`max_date` filters. Changes in 4 files: `topic_search.py` (added `min_date` param), `forum_replies.py` (threaded date params through topic search chain), `replies.py` (threaded dates through direct replies + thread search), `core.py` (removed date filter error for replies mode, kept for `message_ids`). `MESSAGE_IDS` mode still blocks date filters (reads by ID, dates make no sense). 87 tests pass (27 existing + 3 new: `test_replies_accepts_min_date`, `test_replies_accepts_max_date`, `test_replies_accepts_date_range`). CI green, merged. Sourcery GH App rate-limited (5/7 weekly budget used).
 
 ### 2026-06-01

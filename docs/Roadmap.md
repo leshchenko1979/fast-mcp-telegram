@@ -153,7 +153,7 @@ See [evals/README.md](../evals/README.md) on branch `feature/evals`.
 | OAuth2 / IdP | Enterprise | Federation path |
 | **External session storage** (PostgreSQL / Redis) | Infrastructure | **Phase 2 of Smithery plan.** Persistent Telethon sessions for ephemeral deployments (Smithery Hosted). Options: PostgreSQL-backed session store or Redis-based StringSession cache. Unblocks userbot scenarios in hosted Docker environments. See [research/session-storage-design.md](research/session-storage-design.md) |
 | **Setup via agent dialog** | Infrastructure | OAuth + interactive MCP-based phone/code elicitation for remote deployment setup (Telegram login via agent dialog) |
-| **Remote file upload (base64)** | Features | For remote deployments (Smithery URL-based, VPS), users can't send local file paths. Accept `data:...;base64` inline payloads, decode server-side, forward to Telegram API |
+| **Remote file upload (base64)** ✅ PR #103 | Features | For remote deployments (Smithery URL-based, VPS), users can't send local file paths. Accept `data:...;base64` inline payloads, decode server-side, forward to Telegram API |
 | Stdio path sandbox | Trust | Local stdio users |
 | Multi-replica attachment tickets | Ops | Shared ticket store |
 | Media OCR pipeline | Features | Beyond voice transcription |
