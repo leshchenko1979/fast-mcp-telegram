@@ -1,5 +1,6 @@
 """Tests for file preparation and force_document hints for send_file."""
 
+from io import BytesIO
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -53,14 +54,21 @@ async def test_prepare_files_for_send_downloads_http_url() -> None:
 
 
 @pytest.mark.asyncio
-async def test_prepare_files_for_send_keeps_local_path() -> None:
-    with patch(
-        "src.tools.messages.file_handling._download_urls_to_bytes",
-        new_callable=AsyncMock,
-    ) as dl:
-        out = await prepare_files_for_send(["/tmp/local.pdf"])
-    dl.assert_not_called()
-    assert out == ["/tmp/local.pdf"]
+async def test_prepare_files_for_send_reads_local_path() -> None:
+    """Local paths are now read from disk and returned as BytesIO."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+        f.write(b"local pdf content")
+        path = f.name
+    try:
+        out = await prepare_files_for_send([path])
+        assert isinstance(out[0], BytesIO)
+        assert out[0].getvalue() == b"local pdf content"
+        assert out[0].name.endswith(".pdf")
+    finally:
+        import os
+        os.unlink(path)
 
 
 @pytest.mark.asyncio
@@ -89,19 +97,29 @@ async def test_prepare_files_for_send_multiple_http_urls() -> None:
 
 @pytest.mark.asyncio
 async def test_prepare_files_for_send_mixed_local_and_url() -> None:
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+        f.write(b"local data")
+        local_path = f.name
     data = b"remote"
-    with patch(
-        "src.tools.messages.file_handling._download_urls_to_bytes",
-        new_callable=AsyncMock,
-        return_value=[data],
-    ) as dl:
-        out = await prepare_files_for_send(
-            ["/tmp/local.txt", "https://x/a/session.bin"]
-        )
-    dl.assert_awaited_once_with(["https://x/a/session.bin"])
-    assert out[0] == "/tmp/local.txt"
-    assert out[1].name == "session.bin"
-    assert out[1].getvalue() == data
+    try:
+        with patch(
+            "src.tools.messages.file_handling._download_urls_to_bytes",
+            new_callable=AsyncMock,
+            return_value=[data],
+        ) as dl:
+            out = await prepare_files_for_send(
+                [local_path, "https://x/a/session.bin"]
+            )
+        dl.assert_awaited_once_with(["https://x/a/session.bin"])
+        assert isinstance(out[0], BytesIO)
+        assert out[0].getvalue() == b"local data"
+        assert out[1].name == "session.bin"
+        assert out[1].getvalue() == data
+    finally:
+        import os
+        os.unlink(local_path)
 
 
 @pytest.mark.asyncio

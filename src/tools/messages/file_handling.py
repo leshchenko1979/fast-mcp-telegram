@@ -169,17 +169,14 @@ def force_document_for_file_list(file_list: list[str]) -> bool:
 
 async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
     """
-    Resolve files for sending: data: URIs → BytesIO, http(s) URLs → BytesIO, local paths as-is.
+    Resolve files for sending: data: URIs → BytesIO, http(s) URLs → BytesIO,
+    local paths → BytesIO (read inline).
 
-    - data: URIs are decoded inline (base64 payload → BytesIO with filename)
-    - http(s) URLs are downloaded with security validation
-    - Local paths are kept as-is (stdio mode only, validated elsewhere)
+    All file formats are resolved to BytesIO objects (for data: URIs, URLs,
+    and local paths) or kept as strings (for own-attachment URLs).
+    Local paths are read from disk and turned into BytesIO with the
+    original basename preserved.
     """
-    if not any(
-        f.startswith(("http://", "https://", "data:")) for f in file_list
-    ):
-        return file_list
-
     url_entries = [f for f in file_list if f.startswith(("http://", "https://"))]
     downloaded = await _download_urls_to_bytes(url_entries) if url_entries else []
     url_to_content: dict[str, bytes | str] = dict(
@@ -202,7 +199,22 @@ async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
             else:
                 out.append(content)
         else:
-            out.append(f)
+            # Local file path — read from disk and inline as BytesIO
+            path = f
+            if not os.path.isfile(path):
+                raise ValueError(f"Local file not found: {path}")
+            with open(path, "rb") as f:
+                data = f.read()
+            config = get_config()
+            max_bytes = config.max_file_size_mb * 1024 * 1024
+            if len(data) > max_bytes:
+                raise ValueError(
+                    f"Local file too large: {len(data)} bytes (max: {max_bytes} bytes)"
+                )
+            filename = os.path.basename(path)
+            file_obj = BytesIO(data)
+            file_obj.name = filename
+            out.append(file_obj)
     return out
 
 

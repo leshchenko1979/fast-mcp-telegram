@@ -229,3 +229,112 @@ class TestPrepareFilesForSendDataUri:
             uri = f"data:application/octet-stream;base64,{big}"
             with pytest.raises(ValueError, match="too large"):
                 await prepare_files_for_send([uri])
+
+
+# ---------------------------------------------------------------------------
+# Local file inlining
+# ---------------------------------------------------------------------------
+
+
+class TestLocalFileInlining:
+    """Tests for local file paths being inlined as BytesIO in all modes."""
+
+    @pytest.mark.asyncio
+    async def test_local_path_inlined_to_bytesio(self, tmp_path) -> None:
+        """Local paths are read and returned as BytesIO with filename."""
+        f = tmp_path / "report.pdf"
+        f.write_bytes(b"%PDF-1.4")
+        out = await prepare_files_for_send([str(f)])
+        assert len(out) == 1
+        assert isinstance(out[0], BytesIO)
+        assert out[0].getvalue() == b"%PDF-1.4"
+        assert out[0].name == "report.pdf"
+
+    @pytest.mark.asyncio
+    async def test_local_image_inlined(self, tmp_path) -> None:
+        """Local image files are inlined correctly."""
+        f = tmp_path / "photo.png"
+        f.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 10)
+        out = await prepare_files_for_send([str(f)])
+        assert len(out) == 1
+        assert isinstance(out[0], BytesIO)
+        assert out[0].name == "photo.png"
+        assert out[0].getvalue().startswith(b"\x89PNG")
+
+    @pytest.mark.asyncio
+    async def test_local_path_nonexistent_raises(self) -> None:
+        """Non-existent local paths should raise ValueError."""
+        with pytest.raises(ValueError, match=r"not found|does not exist"):
+            await prepare_files_for_send(["/nonexistent/path/file.txt"])
+
+    @pytest.mark.asyncio
+    async def test_local_path_inlined_in_http_mode(self, tmp_path) -> None:
+        """Local paths must work in HTTP mode (inlined, not blocked)."""
+        f = tmp_path / "doc.docx"
+        f.write_bytes(b"PK\x03\x04" + b"\x00" * 10)
+        with patch.object(get_config(), "server_mode", ServerMode.HTTP_AUTH):
+            file_list, error = _validate_file_paths(str(f), "send_message", {})
+        assert error is None
+        assert file_list is not None
+
+    @pytest.mark.asyncio
+    async def test_mixed_local_path_and_url(self, tmp_path) -> None:
+        """Mix of local path and URL: both resolved correctly."""
+        f = tmp_path / "local.txt"
+        f.write_bytes(b"local data")
+        url_data = b"remote data"
+        with patch(
+            "src.tools.messages.file_handling._download_urls_to_bytes",
+            new_callable=AsyncMock,
+            return_value=[url_data],
+        ):
+            out = await prepare_files_for_send(
+                [str(f), "https://example.com/file.bin"]
+            )
+        assert len(out) == 2
+        assert isinstance(out[0], BytesIO)
+        assert out[0].getvalue() == b"local data"
+        assert out[0].name == "local.txt"
+        assert isinstance(out[1], BytesIO)
+        assert out[1].getvalue() == url_data
+
+    @pytest.mark.asyncio
+    async def test_local_path_oversized_raises(self, tmp_path) -> None:
+        """Local files exceeding max_file_size_mb should be rejected."""
+        f = tmp_path / "big.bin"
+        f.write_bytes(b"x" * 2000)
+        with (
+            patch.object(get_config(), "max_file_size_mb", 0.001),  # 1 KB limit
+            pytest.raises(ValueError, match="too large"),
+        ):
+                await prepare_files_for_send([str(f)])
+
+
+class TestValidateFilePathsLocalPaths:
+    """Tests for _validate_file_paths accepting local paths in all modes."""
+
+    def test_local_path_accepted_in_http_mode(self, tmp_path) -> None:
+        """Local paths must be accepted in HTTP mode (will be inlined)."""
+        f = tmp_path / "file.txt"
+        f.write_text("hello")
+        with patch.object(get_config(), "server_mode", ServerMode.HTTP_AUTH):
+            file_list, error = _validate_file_paths(str(f), "send_message", {})
+        assert error is None
+        assert file_list == [str(f)]
+
+    def test_local_path_accepted_in_stdio_mode(self, tmp_path) -> None:
+        """Local paths still work in stdio mode."""
+        f = tmp_path / "file.txt"
+        f.write_text("hello")
+        with patch.object(get_config(), "server_mode", ServerMode.STDIO):
+            file_list, error = _validate_file_paths(str(f), "send_message", {})
+        assert error is None
+        assert file_list == [str(f)]
+
+    def test_local_path_nonexistent_rejected(self) -> None:
+        """Non-existent local paths should be rejected by validation."""
+        with patch.object(get_config(), "server_mode", ServerMode.HTTP_AUTH):
+            _file_list, error = _validate_file_paths(
+                "/nonexistent/file.txt", "send_message", {}
+            )
+        assert error is not None

@@ -162,7 +162,7 @@ async def send_message_impl(
             - **data: URIs** (`data:<mime>;base64,<payload>`) — works in all server modes;
               ideal for remote deployments where local paths are unavailable.
             - **http(s) URLs** — downloaded server-side with security validation.
-            - **Local filesystem paths** — only allowed in stdio mode.
+            - **Local filesystem paths** — read from disk and inlined; works in all server modes.
     """
     parse_mode = _normalize_parse_mode(parse_mode)
     resolved_parse_mode = parse_mode

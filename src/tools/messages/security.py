@@ -6,7 +6,7 @@ import contextlib
 import ipaddress
 from typing import Any
 
-from src.config.server_config import ServerMode, get_config
+from src.config.server_config import get_config
 from src.utils.error_handling import log_and_build_error
 
 
@@ -85,13 +85,12 @@ def _validate_file_paths(
     Accepts:
     - data: URIs (base64 inline payloads) — all transport modes
     - http(s) URLs — all transport modes (with SSRF validation)
-    - Local filesystem paths — stdio mode only
+    - Local filesystem paths — read from disk and inlined; works in all server modes
 
     Returns:
         (file_list, error): file_list if valid, error dict if validation fails
     """
     file_list = [files] if isinstance(files, str) else files
-    config = get_config()
 
     for file in file_list:
         # data: URIs are accepted in all transport modes
@@ -109,17 +108,6 @@ def _validate_file_paths(
                 )
             continue
 
-        if (
-            not file.startswith(("http://", "https://"))
-            and config.server_mode != ServerMode.STDIO
-        ):
-            return None, log_and_build_error(
-                operation=operation,
-                error_message="Local file paths only supported in stdio mode",
-                params=params,
-                exception=ValueError("Local file paths require stdio mode"),
-            )
-
         if file.startswith(("http://", "https://")):
             is_safe, error_msg = _validate_url_security(file)
             if not is_safe:
@@ -131,5 +119,18 @@ def _validate_file_paths(
                         f"URL security validation failed: {error_msg}"
                     ),
                 )
+            continue
+
+        # Local file path — accepted in all modes (inlined by prepare_files_for_send).
+        # Validate that the file exists to fail early.
+        import os
+
+        if not os.path.isfile(file):
+            return None, log_and_build_error(
+                operation=operation,
+                error_message=f"Local file not found: {file}",
+                params=params,
+                exception=FileNotFoundError(f"File not found: {file}"),
+            )
 
     return file_list, None

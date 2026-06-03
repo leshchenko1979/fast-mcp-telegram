@@ -118,7 +118,7 @@ FilesListParam = Annotated[
         description=(
             "List of attachment URLs, local paths, or data URIs (one or more strings). "
             "data: URIs (data:<mime>;base64,<payload>) work in all server modes; "
-            "local paths work in stdio mode only."
+            "local paths are inlined from disk and work in all server modes."
         )
     ),
 ]
