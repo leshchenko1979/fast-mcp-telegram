@@ -38,7 +38,7 @@ Without path restrictions, an agent manipulated by indirect prompt injection cou
 **fast-mcp-telegram today** (corrected vs original report):
 
 - **Stdio mode:** local file paths are allowed for attachments — there is **no** directory allowlist or sandbox
-- **HTTP modes:** local paths are **rejected**; only URL downloads with SSRF validation ([SECURITY.md](../../SECURITY.md))
+- **HTTP modes:** local paths are **inlined from disk as data: URIs** — work in all transport modes
 
 Open-source **mcp-telegram** (Prgebish) offers a strict default-deny ACL — a capability **fast-mcp-telegram does not yet ship**. See [gemini-roadmap-proposal.md](gemini-roadmap-proposal.md) for the proposed ACL work.
 

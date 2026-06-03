@@ -55,8 +55,8 @@ See [research/acl-design-brief.md](research/acl-design-brief.md) and [Roadmap.md
 
 | Area | Behavior |
 | --- | --- |
-| Local file paths | Allowed only in **stdio** mode |
-| HTTP modes | All local paths rejected; URL downloads only |
+| Local file paths | Allowed in **all transport modes** — inlined from disk as data: URIs |
+| HTTP modes | Local paths inlined automatically; URL downloads with SSRF protection |
 | URL downloads | SSRF protection, size limits, redirect blocking ([SECURITY.md](../SECURITY.md), [src/tools/messages/security.py](../src/tools/messages/security.py)) |
 | Attachments | Ticketed streaming at `GET /v1/attachments/{uuid}/{filename}` ([src/server_components/attachment_routes.py](../src/server_components/attachment_routes.py)) |
 | Bot sessions | Non-bridge tools blocked ([src/server_components/bot_restrictions.py](../src/server_components/bot_restrictions.py)) |

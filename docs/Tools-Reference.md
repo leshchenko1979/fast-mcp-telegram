@@ -357,10 +357,10 @@ send_message(
 - 💬 **Message replies** - Replies to any message
 
 **File Sending:**
-- `files`: Array of one or more files (paths, URLs, or data: URIs); for a single attachment use a one-element array
+- `files`: Array of one or more files; for a single attachment use a one-element array
 - **data: URIs**: Inline base64-encoded files, work in all transport modes. Format: `data:<mime>;base64,<data>`. Add `;filename=name.ext` to preserve original filename. MIME type auto-detected, images sent as photos, non-images as documents.
 - **URLs**: Public HTTP/HTTPS URLs are supported. SSRF protections block localhost, private IP ranges, and cloud metadata endpoints by default.
-- **Local paths**: Only in stdio mode (blocked in HTTP modes)
+- **Local paths**: Work in all transport modes. Resolved and inlined automatically — no need to convert to data: URIs manually.
 - **Size limits**: Download size capped (configurable)
 - Supports: images, videos, documents, audio, and other file types
 - Multiple files are sent as an album when possible
@@ -388,7 +388,7 @@ send_message(
   "files": ["https://example.com/img1.png", "https://example.com/img2.png"]
 }}
 
-// Send local file (stdio mode only)
+// Send local file (all transport modes)
 {"tool": "send_message", "params": {
   "chat_id": "me",
   "message": "Report attached",
@@ -481,8 +481,8 @@ send_message_to_phone(
 - Auto-creates contact if phone not in contacts
 - Optional contact cleanup after sending
 - Full formatting support
-- File sending support (URLs, data: URIs, or local paths)
-- data: URIs work in all modes; local paths in stdio only
+- File sending support (URLs, data: URIs, or local paths — all modes)
+- data: URIs and local paths work in all modes
 - Multiple files sent as album when possible
 
 **Examples:**

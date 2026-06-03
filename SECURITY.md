@@ -178,7 +178,7 @@ When **`DOMAIN`** is set to a non-placeholder public host and the server runs ov
 - **Configuration Options**: `allow_http_urls`, `max_file_size_mb`, `block_private_ips` settings
 
 ### Local File Access
-- **Local paths**: Only allowed in stdio mode for security
+- **Local paths**: Allowed in all transport modes — automatically inlined as data: URIs
 - **URL downloads**: Supported in all modes with SSRF protection
 - **Size validation**: Both header and content validation for downloaded files
 
