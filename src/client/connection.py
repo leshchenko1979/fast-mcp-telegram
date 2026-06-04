@@ -8,6 +8,7 @@ import secrets
 import time
 import traceback
 from contextvars import ContextVar
+from functools import lru_cache
 from pathlib import Path
 
 from telethon import TelegramClient
@@ -23,35 +24,34 @@ from ..server_components.session_token_validation import (
 )
 from ..utils.proxy import build_mtproto_client_args
 
-_PKG_VERSION: str | None = None
-_DEVICE_MODEL: str | None = None
-
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
 def _get_app_version() -> str:
-    global _PKG_VERSION
-    if _PKG_VERSION is not None:
-        return _PKG_VERSION
     try:
-        from importlib.metadata import version
+        from importlib.metadata import PackageNotFoundError, version
 
-        _PKG_VERSION = version("fast-mcp-telegram")
+        return version("fast-mcp-telegram")
+    except PackageNotFoundError:
+        return "0.0.0"
     except Exception:
-        _PKG_VERSION = "0.0.0"
-    return _PKG_VERSION
+        logger.exception(
+            "Unexpected error while resolving package version for fast-mcp-telegram"
+        )
+        return "0.0.0"
 
 
+@lru_cache(maxsize=1)
 def _get_device_model() -> str:
-    global _DEVICE_MODEL
-    if _DEVICE_MODEL is not None:
-        return _DEVICE_MODEL
     try:
         system = platform.uname()
-        _DEVICE_MODEL = f"{system.system} {system.machine}"
+        return f"{system.system} {system.machine}"
+    except OSError:
+        return "Unknown"
     except Exception:
-        _DEVICE_MODEL = "Unknown"
-    return _DEVICE_MODEL
+        logger.exception("Unexpected error while resolving device model")
+        return "Unknown"
 
 
 class SessionNotAuthorizedError(Exception):
