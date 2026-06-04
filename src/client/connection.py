@@ -3,6 +3,7 @@ import base64
 import contextlib
 import inspect
 import logging
+import platform
 import secrets
 import time
 import traceback
@@ -22,7 +23,35 @@ from ..server_components.session_token_validation import (
 )
 from ..utils.proxy import build_mtproto_client_args
 
+_PKG_VERSION: str | None = None
+_DEVICE_MODEL: str | None = None
+
 logger = logging.getLogger(__name__)
+
+
+def _get_app_version() -> str:
+    global _PKG_VERSION
+    if _PKG_VERSION is not None:
+        return _PKG_VERSION
+    try:
+        from importlib.metadata import version
+
+        _PKG_VERSION = version("fast-mcp-telegram")
+    except Exception:
+        _PKG_VERSION = "0.0.0"
+    return _PKG_VERSION
+
+
+def _get_device_model() -> str:
+    global _DEVICE_MODEL
+    if _DEVICE_MODEL is not None:
+        return _DEVICE_MODEL
+    try:
+        system = platform.uname()
+        _DEVICE_MODEL = f"{system.system} {system.machine}"
+    except Exception:
+        _DEVICE_MODEL = "Unknown"
+    return _DEVICE_MODEL
 
 
 class SessionNotAuthorizedError(Exception):
@@ -285,6 +314,8 @@ async def _build_telegram_client_for_token(
         "api_id": api_id_int,
         "api_hash": raw_hash,
         "entity_cache_limit": _cfg.entity_cache_limit,
+        "app_version": _get_app_version(),
+        "device_model": _get_device_model(),
     }
     client_kwargs |= build_mtproto_client_args(_cfg.mtproto_proxy, logger.info)
     client = TelegramClient(**client_kwargs)
