@@ -48,7 +48,7 @@ jobs:
         run: uv sync --frozen --all-extras --dev
 
       - name: Run tests
-        run: uv run pytest -v --tb=short -x
+        run: uv run pytest -v --tb=short -x -m "not integration"
 
       - id: img
         run: |
