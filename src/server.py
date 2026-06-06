@@ -15,6 +15,7 @@ from src.client.connection import (
     _cleanup_inactive_sessions,
     cleanup_idle_sessions,
     cleanup_session_cache,
+    validate_api_credentials,
 )
 from src.config.logging import setup_logging
 from src.config.server_config import get_config
@@ -82,7 +83,14 @@ async def _run_inactivity_cleanup():
 @asynccontextmanager
 async def lifespan(app: FastMCP):
     """Lifecycle manager for the MCP server."""
-    # Startup
+    # Startup: validate credentials early
+    try:
+        validate_api_credentials()
+    except ValueError as e:
+        logger.error(f"❌ Configuration error: {e}")
+        raise
+
+    # Startup: background cleanup
     global _cleanup_task
     _cleanup_task = asyncio.create_task(cleanup_loop())
 

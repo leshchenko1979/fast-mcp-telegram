@@ -16,7 +16,7 @@ from telethon import errors as tg_errors
 from telethon.tl import functions
 
 from ..config.logging import format_diagnostic_info
-from ..config.server_config import PROJECT_ROOT, get_config
+from ..config.server_config import PROJECT_ROOT, ServerMode, get_config
 from ..config.settings import SESSION_DIR
 from ..server_components.session_token_validation import (
     InvalidSessionTokenError,
@@ -25,6 +25,37 @@ from ..server_components.session_token_validation import (
 from ..utils.proxy import build_mtproto_client_args
 
 logger = logging.getLogger(__name__)
+
+
+def validate_api_credentials() -> None:
+    """Validate Telegram API credentials at startup.
+
+    Raises ValueError if credentials are missing when required (bot token mode or HTTP auth).
+    Logs warning if credentials are missing in other modes.
+    """
+    cfg = get_config()
+
+    # Bot token mode requires API credentials for auto-authentication
+    if cfg.bot_api_token:
+        if not cfg.api_id or not cfg.api_id.strip():
+            raise ValueError(
+                "Telegram API_ID is required when using bot_api_token. "
+                "Set API_ID in .env at the project root or via --api-id argument."
+            )
+        if not cfg.api_hash or not cfg.api_hash.strip():
+            raise ValueError(
+                "Telegram API_HASH is required when using bot_api_token. "
+                "Set API_HASH in .env at the project root or via --api-hash argument."
+            )
+        logger.info("✓ Telegram API credentials validated")
+
+    # HTTP auth mode should have credentials (warn if missing)
+    elif cfg.server_mode == ServerMode.HTTP_AUTH:
+        if not cfg.api_id or not cfg.api_hash:
+            logger.warning(
+                "⚠️ HTTP_AUTH mode without API_ID/API_HASH - "
+                "web setup and session creation will fail until credentials are configured"
+            )
 
 
 @lru_cache(maxsize=1)
