@@ -123,7 +123,7 @@ def mcp_tool_with_restrictions(operation_name: str, *, allow_bot_sessions: bool 
     def decorator(func):
         decorated_func = enforce_session_acl(operation_name)(func)
         decorated_func = server_errors.with_error_handling(operation_name)(decorated_func)
-        decorated_func = server_auth.with_auth_context(decorated_func)
+        decorated_func = server_auth.require_auth(decorated_func)
         if allow_bot_sessions:
             return decorated_func
         return bot_restrictions.restrict_non_bridge_for_bot_sessions(operation_name)(
