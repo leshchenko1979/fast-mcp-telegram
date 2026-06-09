@@ -1,12 +1,15 @@
+import base64
 import contextlib
 import json
 import logging
 import os
 import shutil
 import time
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+import qrcode
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.templating import Jinja2Templates
@@ -18,6 +21,7 @@ from telethon.tl.functions.account import GetPasswordRequest
 from src.client.connection import _cache_lock, _session_cache, generate_bearer_token
 from src.config.server_config import ServerMode, cfg
 from src.server_components.auth_middleware import generate_url_based_config
+from src.server_components.qr_login import QrLoginManager
 from src.server_components.session_token_validation import (
     InvalidSessionTokenError,
     session_file_path,
@@ -217,6 +221,77 @@ async def _cleanup_session_state(state: dict[str, Any]):
                 or p.name.startswith(REAUTH_SESSION_PREFIX)
             ) and p.exists():
                 p.unlink(missing_ok=True)
+
+
+# Global QR login manager for in-memory QR sessions.
+_qr_manager: QrLoginManager | None = None
+
+
+def _get_qr_manager() -> QrLoginManager:
+    """Get or create the global QR login manager singleton."""
+    global _qr_manager
+    if _qr_manager is None:
+        _qr_manager = QrLoginManager(timeout_seconds=60)
+    return _qr_manager
+
+
+async def _complete_qr_login(
+    request: Request,
+    state: dict[str, Any],
+    qr_session_id: str,
+) -> Any:
+    """Finalise a QR login: persist session file and generate bearer token."""
+    qr_mgr = _get_qr_manager()
+    authorized_client = qr_mgr.get_client(qr_session_id)
+    temp_path = Path(state["session_path"])
+
+    token = generate_bearer_token()
+    session_dir = cfg().session_directory
+    dst = session_file_path(session_dir, token)
+
+    try:
+        with contextlib.suppress(Exception):
+            if authorized_client:
+                await authorized_client.send_read_acknowledge(None)
+                await authorized_client.disconnect()
+
+        if temp_path.exists():
+            temp_path.rename(dst)
+    except Exception as e:
+        return _fragment(
+            request, "fragments/error.html",
+            {"error": f"Failed to persist session: {e}"},
+        )
+
+    domain = cfg().domain
+    header_config_json = generate_mcp_config_json(
+        ServerMode.HTTP_AUTH,
+        session_name="",
+        bearer_token=token,
+        domain=domain,
+    )
+    url_config = generate_url_based_config(domain or "your-server.com", token)
+    url_config_json = json.dumps(url_config, indent=2)
+
+    state.clear()
+    state.update(
+        {
+            "token": token,
+            "final_session_path": str(dst),
+            "created_at": time.time(),
+        }
+    )
+
+    return _fragment(
+        request,
+        "fragments/config.html",
+        {
+            "setup_id": state.get("_setup_id", ""),
+            "token": token,
+            "header_config_json": header_config_json,
+            "url_config_json": url_config_json,
+        },
+    )
 
 
 async def setup_complete_reauth(request: Request):
@@ -748,4 +823,106 @@ def register_web_setup_routes(mcp_app):
         headers = {"Content-Disposition": "attachment; filename=mcp.json"}
         return PlainTextResponse(
             config_json, media_type="application/json", headers=headers
+        )
+
+    # ------------------------------------------------------------------
+    # QR login routes
+    # ------------------------------------------------------------------
+
+    @mcp_app.custom_route("/setup/qr", methods=["POST"])
+    async def setup_qr(request: Request):
+        """Create a QR login session and return the QR code image.
+
+        Returns an HTML fragment that displays the QR code and starts
+        polling for scan completion.
+        """
+        await cleanup_stale_setup_sessions()
+
+        setup_id = str(int(time.time() * 1000))
+        temp_session_path = (
+            cfg().session_directory / f"{SETUP_SESSION_PREFIX}{setup_id}.session"
+        )
+
+        client = create_session_client(temp_session_path)
+        try:
+            await client.connect()
+        except Exception as e:
+            await client.disconnect()
+            temp_session_path.unlink(missing_ok=True)
+            return _setup_error_fragment(request, f"Failed to connect: {e}")
+
+        qr_mgr = _get_qr_manager()
+        qr_session_id, qr_url = qr_mgr.create_session(client)
+
+        # Generate QR code image as base64 PNG
+        qr = qrcode.QRCode(box_size=10, border=2)
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        img = qr.make_image()
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+        # Store setup session state
+        _setup_sessions[setup_id] = {
+            "qr_session_id": qr_session_id,
+            "session_path": str(temp_session_path),
+            "client": client,
+            "authorized": False,
+            "created_at": time.time(),
+        }
+
+        return _fragment(
+            request,
+            "fragments/qr_display.html",
+            {
+                "setup_id": setup_id,
+                "qr_image": qr_b64,
+            },
+        )
+
+    @mcp_app.custom_route("/setup/qr/status", methods=["GET"])
+    async def setup_qr_status(request: Request):
+        """Poll QR login status.
+
+        Returns an HTML fragment:
+        - ``qr_polling.html`` while waiting (keeps HTMX polling alive)
+        - ``config.html`` when the QR is scanned (token + MCP config)
+        - ``qr_expired.html`` when the QR expires
+        """
+        setup_id = request.query_params.get("setup_id", "")
+        state = _setup_sessions.get(setup_id)
+
+        if not state:
+            return _fragment(
+                request, "fragments/error.html", {"error": "Session not found."}
+            )
+
+        qr_session_id = state.get("qr_session_id")
+        if not qr_session_id:
+            return _fragment(
+                request,
+                "fragments/error.html",
+                {"error": "No QR session in progress."},
+            )
+
+        qr_mgr = _get_qr_manager()
+        status = await qr_mgr.poll_status(qr_session_id)
+
+        if status == "completed":
+            state["authorized"] = True
+            return await _complete_qr_login(request, state, qr_session_id)
+
+        if status == "expired":
+            return _fragment(
+                request,
+                "fragments/qr_expired.html",
+                {"setup_id": setup_id},
+            )
+
+        # Still pending — keep polling
+        return _fragment(
+            request,
+            "fragments/qr_polling.html",
+            {"setup_id": setup_id},
         )

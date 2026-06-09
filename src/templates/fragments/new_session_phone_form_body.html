@@ -1,10 +1,72 @@
 <h2 id="new-session-heading">Create New Session</h2>
 {% include "fragments/inline_error.html" %}
-<p class="muted">Enter your phone number to authenticate with Telegram.</p>
-<p class="muted">Use international format with country code, for example: +14155552671.</p>
 
-<form hx-post="/setup/phone" hx-target="#setup-flow" hx-swap="innerHTML">
-    <label for="phone">Phone number</label>
-    <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+1234567890" required />
-    <button type="submit">Send Code</button>
-</form>
+<div class="auth-options">
+    <div class="auth-option">
+        <h3>Scan QR Code <span class="badge">Recommended</span></h3>
+        <p class="muted">Fastest way — scan from Telegram mobile.</p>
+        <form hx-post="/setup/qr" hx-target="#setup-flow" hx-swap="innerHTML">
+            <button type="submit" class="primary">Scan QR Code</button>
+        </form>
+    </div>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <div class="auth-option">
+        <h3>Enter Phone Number</h3>
+        <p class="muted">Use international format with country code, for example: +14155552671.</p>
+        <form hx-post="/setup/phone" hx-target="#setup-flow" hx-swap="innerHTML">
+            <label for="phone">Phone number</label>
+            <input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+1234567890" required />
+            <button type="submit">Send Code</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .auth-options {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+    .auth-option {
+        padding: 1rem;
+        border: 1px solid #333;
+        border-radius: 8px;
+    }
+    .auth-option h3 {
+        margin: 0 0 0.25rem 0;
+    }
+    .auth-option .muted {
+        margin: 0 0 0.75rem 0;
+    }
+    .auth-divider {
+        text-align: center;
+        color: #666;
+        font-size: 0.9rem;
+    }
+    .badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 12px;
+        background: #4f46e5;
+        color: #fff;
+        font-weight: 600;
+        vertical-align: middle;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    button.primary {
+        background: #4f46e5;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+    button.primary:hover {
+        background: #4338ca;
+    }
+</style>

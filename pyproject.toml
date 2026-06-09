@@ -31,6 +31,7 @@ dependencies = [
     "jinja2",
     "pydantic-settings",
     "pyyaml",
+    "qrcode[pil]",
 ]
 
 [project.urls]

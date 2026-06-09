@@ -1,0 +1,57 @@
+<div id="qr-login-container">
+    <h2>Scan QR Code</h2>
+    <p class="muted">Open Telegram mobile, go to Settings → Devices → Scan QR code.</p>
+
+    <div class="qr-image-wrapper">
+        <img src="data:image/png;base64,{{ qr_image }}" alt="QR Code" class="qr-code" />
+    </div>
+
+    <div id="qr-status-wrapper" hx-get="/setup/qr/status?setup_id={{ setup_id }}" hx-trigger="load delay:3s" hx-swap="innerHTML">
+        {% include "fragments/qr_polling.html" %}
+    </div>
+
+    <p class="muted small">
+        QR code expires in 60 seconds. <br />
+        After scanning, the page will automatically show your bearer token and configuration.
+    </p>
+</div>
+
+<style>
+    .qr-image-wrapper {
+        display: flex;
+        justify-content: center;
+        margin: 1.5rem 0;
+    }
+    .qr-code {
+        max-width: 280px;
+        height: auto;
+        border-radius: 8px;
+        padding: 8px;
+        background: #fff;
+    }
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #4f46e5;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: middle;
+        margin-right: 8px;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    .qr-status-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem 0;
+    }
+    .small {
+        font-size: 0.85rem;
+        color: #888;
+    }
+</style>
