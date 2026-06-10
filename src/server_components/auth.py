@@ -219,7 +219,7 @@ def with_auth_context(func: Callable) -> Callable:
 
         # Fall back to FastMCP's get_access_token (old HTTP mode with transport auth)
         if token is None:
-            try:
+            with contextlib.suppress(Exception):
                 from fastmcp.server.dependencies import get_access_token
 
                 access_token = get_access_token()
@@ -230,9 +230,6 @@ def with_auth_context(func: Callable) -> Callable:
                         f"Bearer token from auth provider: {validated[:8]}..."
                     )
                     return await func(*args, **kwargs)
-            except Exception:
-                pass
-
             error_msg = (
                 "Missing Bearer token in Authorization header. HTTP requests require "
                 "authentication. Use: 'Authorization: Bearer <your-token>' header."

@@ -139,13 +139,10 @@ class QrLoginManager:
 
         # If the task is done, we have a result
         if state._poll_task.done():
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 exc = state._poll_task.exception()
                 if exc is not None:
                     raise exc
-            except asyncio.CancelledError:
-                pass
-
         return state.status
 
     async def _wait_for_login(self, session_id: str, state: SessionState) -> None:
@@ -254,4 +251,4 @@ class QrLoginManager:
     @property
     def active_session_count(self) -> int:
         """Number of active (non-expired) QR sessions."""
-        return sum(1 for s in self._sessions.values() if s.status not in ("expired",))
+        return sum(s.status not in ("expired",) for s in self._sessions.values())

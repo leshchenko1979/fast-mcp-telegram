@@ -274,13 +274,11 @@ async def _complete_qr_login(
     url_config_json = json.dumps(url_config, indent=2)
 
     state.clear()
-    state.update(
-        {
-            "token": token,
-            "final_session_path": str(dst),
-            "created_at": time.time(),
-        }
-    )
+    state |= {
+        "token": token,
+        "final_session_path": str(dst),
+        "created_at": time.time(),
+    }
 
     return _fragment(
         request,
