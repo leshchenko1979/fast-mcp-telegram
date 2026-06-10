@@ -16,7 +16,6 @@ from src.server_components.auth import (
 )
 from src.server_components.session_token_validation import InvalidSessionTokenError
 
-
 # ---------------------------------------------------------------------------
 # require_auth decorator
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ from functools import wraps
 from typing import Any
 
 from fastmcp.exceptions import ToolError
+
 from src.client.connection import set_request_token
 from src.config.server_config import cfg
 from src.server_components.session_token_validation import (
