@@ -34,7 +34,7 @@ class SessionState:
         self.created_at: float = time.time()
         self.resulting_client: Any = None  # Set when QR is scanned successfully
         self._poll_task: asyncio.Task[Any] | None = None
-        self._completed: bool = False
+        self._qr_login_obj: Any = None  # Telethon QRLogin object, set by manager
         self._status: str = "pending"
 
     @property
@@ -47,14 +47,13 @@ class SessionState:
 
     @property
     def is_completed(self) -> bool:
-        return self._completed
+        return self._status == "completed"
 
     def mark_expired(self) -> None:
         self._status = "expired"
 
     def mark_completed(self, client: Any) -> None:
         self.resulting_client = client
-        self._completed = True
         self._status = "completed"
 
 
@@ -142,7 +141,8 @@ class QrLoginManager:
             with contextlib.suppress(asyncio.CancelledError):
                 exc = state._poll_task.exception()
                 if exc is not None:
-                    raise exc
+                    logger.warning("QR session %s background task failed: %s", session_id, exc)
+                    state.mark_expired()
         return state.status
 
     async def _wait_for_login(self, session_id: str, state: SessionState) -> None:
@@ -160,21 +160,22 @@ class QrLoginManager:
             state.mark_completed(connected_client)
             logger.info("QR session %s completed — user scanned the QR", session_id)
 
+            # Disconnect the temporary Telethon client (no longer needed)
+            with contextlib.suppress(Exception):
+                await state.telethon_client.disconnect()
+
             if self._on_complete:
                 try:
                     self._on_complete(session_id, connected_client)
                 except Exception as exc:
                     logger.warning("on_complete callback failed: %s", exc)
 
-        except TimeoutError:
-            state.mark_expired()
-            logger.info("QR session %s expired (timeout=%ss)", session_id, self._timeout)
-            # Disconnect the temporary Telethon client
-            with contextlib.suppress(Exception):
-                await state.telethon_client.disconnect()
         except Exception as exc:
+            if isinstance(exc, TimeoutError):
+                logger.info("QR session %s expired (timeout=%ss)", session_id, self._timeout)
+            else:
+                logger.warning("QR session %s failed: %s", session_id, exc)
             state.mark_expired()
-            logger.warning("QR session %s failed: %s", session_id, exc)
             with contextlib.suppress(Exception):
                 await state.telethon_client.disconnect()
 
@@ -226,29 +227,38 @@ class QrLoginManager:
         return new_url
 
     def cleanup_expired(self) -> int:
-        """Remove expired sessions and return the count of removed entries.
+        """Remove expired and completed sessions and return the count of removed entries.
 
         Expired sessions (exceeded timeout) have already been marked as expired
-        by their background poll tasks. This method removes them from memory.
+        by their background poll tasks. Completed sessions (scanned) older than 2x
+        timeout are also purged. This method removes them from memory.
         """
         expired_ids: list[str] = []
+        now = time.time()
         for sid, state in list(self._sessions.items()):
             if state.status == "expired":
                 expired_ids.append(sid)
-            elif state.age > self._timeout * 2 and not state.is_completed:
+            elif state.is_completed and now - state.created_at > self._timeout * 2:
+                # Completed sessions older than 2x timeout
+                expired_ids.append(sid)
+            elif state.age > self._timeout * 2 and state.status == "pending":
                 # Safety net: sessions stuck in "pending" beyond 2x timeout
                 state.mark_expired()
                 expired_ids.append(sid)
 
         for sid in expired_ids:
-            self._sessions.pop(sid, None)
+            if state := self._sessions.pop(sid, None):
+                # Ensure disconnected
+                with contextlib.suppress(Exception):
+                    # Can't await in cleanup, but disconnect is best-effort
+                    pass
 
         if expired_ids:
-            logger.debug("Cleanup removed %d expired QR session(s)", len(expired_ids))
+            logger.debug("Cleanup removed %d expired/completed QR session(s)", len(expired_ids))
 
         return len(expired_ids)
 
     @property
     def active_session_count(self) -> int:
         """Number of active (non-expired) QR sessions."""
-        return sum(s.status not in ("expired",) for s in self._sessions.values())
+        return sum(s.status != "expired" for s in self._sessions.values())

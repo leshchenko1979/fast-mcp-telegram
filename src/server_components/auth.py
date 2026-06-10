@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import warnings
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -28,27 +29,24 @@ def _auth_guidance_response(message: str | None = None) -> dict[str, Any]:
     is not authenticated, instead of raising an exception. The agent
     sees this as a tool call result (not a crash).
     """
-    if message:
-        guidance = message
-    else:
-        guidance = (
-            "🔐 **Authentication Required**\n\n"
-            "This Telegram MCP server requires authentication to use its tools.\n\n"
-            "### How to authenticate:\n"
-            "1. **Open the setup page** in your browser:\n"
-            "   [Setup Page](/setup)\n\n"
-            "2. **Scan the QR code** from Telegram mobile (recommended)\n"
-            "   or enter your phone number on the same page.\n\n"
-            "3. **Copy the bearer token** shown after successful login.\n\n"
-            "4. **Configure your MCP client** by setting the Authorization header:\n"
-            "   ```\n"
-            "   Authorization: Bearer <your-token>\n"
-            "   ```\n\n"
-            "For clients that can't set headers, use URL-path authentication:\n"
-            "   `/v1/url_auth/<your-token>/mcp`\n\n"
-            "Once configured, the token identifies your session and all tools "
-            "will work normally."
-        )
+    guidance = message or (
+        "🔐 **Authentication Required**\n\n"
+        "This Telegram MCP server requires authentication to use its tools.\n\n"
+        "### How to authenticate:\n"
+        "1. **Open the setup page** in your browser:\n"
+        "   [Setup Page](/setup)\n\n"
+        "2. **Scan the QR code** from Telegram mobile (recommended)\n"
+        "   or enter your phone number on the same page.\n\n"
+        "3. **Copy the bearer token** shown after successful login.\n\n"
+        "4. **Configure your MCP client** by setting the Authorization header:\n"
+        "   ```\n"
+        "   Authorization: Bearer <your-token>\n"
+        "   ```\n\n"
+        "For clients that can't set headers, use URL-path authentication:\n"
+        "   `/v1/url_auth/<your-token>/mcp`\n\n"
+        "Once configured, the token identifies your session and all tools "
+        "will work normally."
+    )
     return {
         "isError": True,
         "content": [{"type": "text", "text": guidance}],
@@ -59,7 +57,7 @@ def _get_bearer_token_from_http() -> str | None:
     """Extract Bearer token from the current HTTP request headers.
 
     Returns None if running on a non-HTTP transport or no token is present.
-    The token is NOT validated — caller must validate.
+    The token is validated by ``_extract_bearer_token_from_headers``.
     """
     try:
         config = cfg()
@@ -208,6 +206,11 @@ def with_auth_context(func: Callable) -> Callable:
 
     @wraps(func)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        warnings.warn(
+            "with_auth_context is deprecated, use require_auth instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         config = cfg()
 
         if config.disable_auth:

@@ -188,7 +188,7 @@ def create_session_client(session_path: Path) -> TelegramClient:
 
 
 async def cleanup_stale_setup_sessions():
-    """Clean up expired setup sessions and their temporary files."""
+    """Clean up expired setup sessions, their temporary files, and QR sessions."""
     now = time.time()
     stale_ids: list[str] = []
 
@@ -200,6 +200,10 @@ async def cleanup_stale_setup_sessions():
     for sid in stale_ids:
         state = _setup_sessions.pop(sid, None) or {}
         await _cleanup_session_state(state)
+
+    # Also clean up expired QR sessions
+    with contextlib.suppress(Exception):
+        _get_qr_manager().cleanup_expired()
 
 
 async def _cleanup_session_state(state: dict[str, Any]):
@@ -239,6 +243,7 @@ async def _complete_qr_login(
     request: Request,
     state: dict[str, Any],
     qr_session_id: str,
+    setup_id: str,
 ) -> Any:
     """Finalise a QR login: persist session file and generate bearer token."""
     qr_mgr = _get_qr_manager()
@@ -273,18 +278,22 @@ async def _complete_qr_login(
     url_config = generate_url_based_config(domain or "your-server.com", token)
     url_config_json = json.dumps(url_config, indent=2)
 
+    # Mark finalized so duplicate HTMX polls don't re-enter
     state.clear()
     state |= {
         "token": token,
         "final_session_path": str(dst),
         "created_at": time.time(),
+        "_finalized": True,
+        "_header_config_json": header_config_json,
+        "_url_config_json": url_config_json,
     }
 
     return _fragment(
         request,
         "fragments/config.html",
         {
-            "setup_id": state.get("_setup_id", ""),
+            "setup_id": setup_id,
             "token": token,
             "header_config_json": header_config_json,
             "url_config_json": url_config_json,
@@ -896,6 +905,20 @@ def register_web_setup_routes(mcp_app):
                 request, "fragments/error.html", {"error": "Session not found."}
             )
 
+        # Guard: prevent re-entering completion for already-finalized sessions
+        # (HTMX can send duplicate requests for the same completed status)
+        if state.get("_finalized"):
+            return _fragment(
+                request,
+                "fragments/config.html",
+                {
+                    "setup_id": setup_id,
+                    "token": state.get("token", ""),
+                    "header_config_json": state.get("_header_config_json", "{}"),
+                    "url_config_json": state.get("_url_config_json", "{}"),
+                },
+            )
+
         qr_session_id = state.get("qr_session_id")
         if not qr_session_id:
             return _fragment(
@@ -909,7 +932,7 @@ def register_web_setup_routes(mcp_app):
 
         if status == "completed":
             state["authorized"] = True
-            return await _complete_qr_login(request, state, qr_session_id)
+            return await _complete_qr_login(request, state, qr_session_id, setup_id)
 
         if status == "expired":
             return _fragment(
