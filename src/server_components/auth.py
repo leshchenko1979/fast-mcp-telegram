@@ -4,6 +4,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
+from fastmcp.exceptions import ToolError
 from src.client.connection import set_request_token
 from src.config.server_config import cfg
 from src.server_components.session_token_validation import (
@@ -104,6 +105,21 @@ def require_auth(func: Callable) -> Callable:
         # Auth required: extract token from HTTP headers
         token = _get_bearer_token_from_http()
 
+        # Fall back to FastMCP's get_access_token (backward compat for tests / old HTTP)
+        if token is None:
+            try:
+                from fastmcp.server.dependencies import get_access_token
+
+                access_token = get_access_token()
+                if access_token is not None:
+                    validated = access_token.token
+                    set_request_token(validated)
+                    return await func(*args, **kwargs)
+            except ToolError:
+                raise
+            except Exception:
+                pass
+
         if token is None:
             logger.info("Unauthenticated tool call — returning auth guidance")
             return _auth_guidance_response()
@@ -197,9 +213,25 @@ def with_auth_context(func: Callable) -> Callable:
             set_request_token(None)
             return await func(*args, **kwargs)
 
+        # Try HTTP header extraction first (new HTTP mode without transport auth)
         token = _get_bearer_token_from_http()
 
+        # Fall back to FastMCP's get_access_token (old HTTP mode with transport auth)
         if token is None:
+            try:
+                from fastmcp.server.dependencies import get_access_token
+
+                access_token = get_access_token()
+                if access_token is not None:
+                    validated = access_token.token
+                    set_request_token(validated)
+                    logger.info(
+                        f"Bearer token from auth provider: {validated[:8]}..."
+                    )
+                    return await func(*args, **kwargs)
+            except Exception:
+                pass
+
             error_msg = (
                 "Missing Bearer token in Authorization header. HTTP requests require "
                 "authentication. Use: 'Authorization: Bearer <your-token>' header."
