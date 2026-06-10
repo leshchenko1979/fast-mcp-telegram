@@ -230,5 +230,4 @@ def test_create_session_integration_flow():
     status = asyncio.run(manager.poll_status(session_id))
     assert status in ("pending", "completed")
 
-    client = manager.get_client(session_id)
-    # Client may or may not be set depending on event loop timing
+    _ = manager.get_client(session_id)  # Client may/may not be set
