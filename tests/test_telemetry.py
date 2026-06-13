@@ -209,7 +209,7 @@ def test_get_rss_kb_returns_int_on_linux(telemetry_module):
 def test_get_rss_kb_fallback_non_linux(telemetry_module, monkeypatch):
     """_get_rss_kb returns None when /proc/self/status is unavailable."""
     monkeypatch.setattr(
-        "builtins.open", lambda _: (_ for _ in ()).throw(FileNotFoundError())
+        "builtins.open", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError())
     )
     assert telemetry_module._get_rss_kb() is None
 

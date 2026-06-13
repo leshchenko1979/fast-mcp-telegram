@@ -247,10 +247,7 @@ def _get_rss_kb() -> int | None:
     failure so the collector (which expects ``int | null``) handles it
     gracefully.
     """
-    with (
-        contextlib.suppress(OSError, ValueError, IndexError),
-        open("/proc/self/status") as f,
-    ):
+    with contextlib.suppress(OSError, ValueError, IndexError), open("/proc/self/status") as f:
         for line in f:
             if line.startswith("VmRSS:"):
                 parts = line.split()
