@@ -107,7 +107,8 @@ fast-mcp-telegram
   "runtime": {
     "sessions": 4,
     "session_files": 7,
-    "setup_sessions": 1
+    "setup_sessions": 1,
+    "memory_kb": 85144                                     // RSS in kB (via /proc/self/status), null on non-Linux
   },
   "counters": {
     "total_calls": 142,                          // lifetime-of-process tool invocations

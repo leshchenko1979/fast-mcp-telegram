@@ -239,6 +239,23 @@ def _collect_features() -> dict:
     }
 
 
+def _get_rss_kb() -> int | None:
+    """Return the current RSS (resident set size) in kilobytes, or ``None``.
+
+    Reads ``/proc/self/status`` on Linux — no dependencies.  Returns
+    ``None`` on any non-Linux platform, permission error, or parsing
+    failure so the collector (which expects ``int | null``) handles it
+    gracefully.
+    """
+    with contextlib.suppress(OSError, ValueError, IndexError), open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return int(parts[1])
+    return None
+
+
 def _collect_runtime() -> dict:
     """Assemble the ``runtime`` block of the telemetry payload."""
     config = cfg()
@@ -254,6 +271,7 @@ def _collect_runtime() -> dict:
         "sessions": get_active_session_count(),
         "session_files": session_files,
         "setup_sessions": 0,  # not yet tracked
+        "memory_kb": _get_rss_kb(),
     }
 
 

@@ -168,8 +168,10 @@ def test_gather_payload_runtime_structure(telemetry_module):
     """gather_payload runtime block has expected keys."""
     payload = telemetry_module.gather_payload()
     runtime = payload["runtime"]
-    expected = {"sessions", "session_files", "setup_sessions"}
+    expected = {"sessions", "session_files", "setup_sessions", "memory_kb"}
     assert expected.issubset(runtime.keys())
+    # memory_kb is int on Linux, None on non-Linux
+    assert runtime["memory_kb"] is None or isinstance(runtime["memory_kb"], int)
 
 
 def test_gather_payload_counters_structure(telemetry_module):
@@ -190,6 +192,44 @@ def test_gather_payload_server_mode_reflects_config(telemetry_module):
     cfg_obj = cfg()
     payload = telemetry_module.gather_payload()
     assert payload["features"]["server_mode"] == cfg_obj.server_mode.value
+
+
+# ───────────────────────────── _get_rss_kb ────────────────────────────
+
+
+def test_get_rss_kb_returns_int_on_linux(telemetry_module):
+    """_get_rss_kb returns an int when /proc/self/status is readable (Linux)."""
+    rss = telemetry_module._get_rss_kb()
+    # On Linux this returns a positive integer; on other platforms it's None.
+    if rss is not None:
+        assert isinstance(rss, int)
+        assert rss > 0
+
+
+def test_get_rss_kb_fallback_non_linux(telemetry_module, monkeypatch):
+    """_get_rss_kb returns None when /proc/self/status is unavailable."""
+    monkeypatch.setattr(
+        "builtins.open", lambda _: (_ for _ in ()).throw(FileNotFoundError())
+    )
+    assert telemetry_module._get_rss_kb() is None
+
+
+def test_get_rss_kb_missing_vmrss_line(telemetry_module, tmp_path, monkeypatch):
+    """_get_rss_kb returns None when /proc/self/status lacks VmRSS."""
+    dummy = tmp_path / "status"
+    dummy.write_text("Name:\tpython\nPid:\t1\n")
+    _real_open = open
+    monkeypatch.setattr("builtins.open", lambda *a, **kw: _real_open(dummy, *a, **kw))
+    assert telemetry_module._get_rss_kb() is None
+
+
+def test_get_rss_kb_corrupted_line(telemetry_module, tmp_path, monkeypatch):
+    """_get_rss_kb returns None when VmRSS line has no numeric value."""
+    dummy = tmp_path / "status"
+    dummy.write_text("VmRSS:\n")
+    _real_open = open
+    monkeypatch.setattr("builtins.open", lambda *a, **kw: _real_open(dummy, *a, **kw))
+    assert telemetry_module._get_rss_kb() is None
 
 
 # ───────────────────────────── send_heartbeat ──────────────────────────
