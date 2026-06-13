@@ -197,13 +197,18 @@ def test_gather_payload_server_mode_reflects_config(telemetry_module):
 # ───────────────────────────── _get_rss_kb ────────────────────────────
 
 
-def test_get_rss_kb_returns_int_on_linux(telemetry_module):
-    """_get_rss_kb returns an int when /proc/self/status is readable (Linux)."""
-    rss = telemetry_module._get_rss_kb()
-    # On Linux this returns a positive integer; on other platforms it's None.
-    if rss is not None:
-        assert isinstance(rss, int)
-        assert rss > 0
+def test_get_rss_kb_parses_vmrss_from_proc_status(telemetry_module, monkeypatch):
+    """_get_rss_kb parses VmRSS from /proc/self/status when readable."""
+    _real_open = open
+
+    def _fake_open(path, *args, **kwargs):
+        if path == "/proc/self/status":
+            from io import StringIO
+            return StringIO("Name:\tpython\nVmRSS:\t12345 kB\n")
+        return _real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", _fake_open)
+    assert telemetry_module._get_rss_kb() == 12345
 
 
 def test_get_rss_kb_fallback_non_linux(telemetry_module, tmp_path, monkeypatch):

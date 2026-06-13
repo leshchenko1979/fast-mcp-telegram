@@ -252,7 +252,8 @@ def _get_rss_kb() -> int | None:
             for line in f:
                 if line.startswith("VmRSS:"):
                     parts = line.split()
-                    if len(parts) >= 2:
+                    # Expected: "VmRSS:\t<value> kB"
+                    if len(parts) >= 3 and parts[2] == "kB":
                         return int(parts[1])
     return None
 
