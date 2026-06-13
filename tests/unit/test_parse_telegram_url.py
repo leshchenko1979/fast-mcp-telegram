@@ -145,6 +145,66 @@ def test_self_identifier() -> None:
     assert _parse_telegram_url("self") is None
 
 
+# ── tg:// URLs ──
+
+
+def test_tg_resolve_domain() -> None:
+    """tg://resolve?domain=username → username."""
+    assert _parse_telegram_url("tg://resolve?domain=durov") == "durov"
+
+
+def test_tg_resolve_domain_case_insensitive() -> None:
+    assert _parse_telegram_url("TG://RESOLVE?DOMAIN=durov") == "durov"
+
+
+def test_tg_user_id() -> None:
+    """tg://user?id=123456789 → numeric user id."""
+    assert _parse_telegram_url("tg://user?id=123456789") == "123456789"
+
+
+def test_tg_join_invite() -> None:
+    """tg://join?invite=abc123 → https://t.me/+abc123 for Telethon."""
+    assert (
+        _parse_telegram_url("tg://join?invite=abc123DEF")
+        == "https://t.me/+abc123DEF"
+    )
+
+
+def test_tg_openmessage() -> None:
+    """tg://openmessage?user_id=123456 → numeric user id."""
+    assert _parse_telegram_url("tg://openmessage?user_id=123456") == "123456"
+
+
+def test_tg_privatepost() -> None:
+    """tg://privatepost?channel=123456 → -100123456."""
+    assert _parse_telegram_url("tg://privatepost?channel=123456") == "-100123456"
+
+
+def test_tg_settings_returns_none() -> None:
+    """tg://settings is not a peer — should return None."""
+    assert _parse_telegram_url("tg://settings") is None
+
+
+def test_tg_msg_returns_none() -> None:
+    """tg://msg is not a peer — should return None."""
+    assert _parse_telegram_url("tg://msg") is None
+
+
+def test_tg_search_hashtag_returns_none() -> None:
+    """tg://search_hashtag?hashtag=test is not a peer — returns None."""
+    assert _parse_telegram_url("tg://search_hashtag?hashtag=test") is None
+
+
+def test_tg_resolve_no_domain_returns_none() -> None:
+    """tg://resolve without domain param should return None."""
+    assert _parse_telegram_url("tg://resolve") is None
+
+
+def test_tg_user_no_id_returns_none() -> None:
+    """tg://user without id param should return None."""
+    assert _parse_telegram_url("tg://user") is None
+
+
 # ── Edge cases ──
 
 

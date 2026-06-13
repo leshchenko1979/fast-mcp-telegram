@@ -3,6 +3,7 @@ import contextlib
 import logging
 import re
 import time
+import urllib.parse
 from typing import Any
 
 from telethon import TelegramClient
@@ -18,6 +19,65 @@ from .chat_search_text import chat_searchable_text_lower
 logger = logging.getLogger(__name__)
 
 # ── Telegram URL to peer resolver ──
+
+
+def _parse_tg_scheme_url(text: str) -> str | None:
+    """Parse a ``tg://`` scheme URL and extract a peer identifier.
+
+    Handles:
+    - ``tg://resolve?domain=username`` → ``username``
+    - ``tg://user?id=123456789`` → ``123456789`` (numeric user id)
+    - ``tg://join?invite=invitehash`` → ``https://t.me/+invitehash`` (invite link)
+    - ``tg://openmessage?user_id=123456`` → ``123456`` (numeric user id)
+    - ``tg://privatepost?channel=123456`` → ``-100123456`` (channel numeric id)
+    - Other ``tg://`` URLs → **None**
+    """
+    if not text.lower().startswith("tg://"):
+        return None
+
+    parsed = urllib.parse.urlparse(text)
+    host = parsed.netloc.lower()
+    params = urllib.parse.parse_qs(parsed.query)
+
+    # Case-insensitive param key lookup (values preserve original case)
+    pl = {k.lower(): v for k, v in params.items()}
+
+    if host == "resolve":
+        # tg://resolve?domain=username
+        domain = (pl.get("domain") or [None])[0]
+        return domain if domain else None
+
+    if host == "join":
+        # tg://join?invite=invitehash
+        invite = (pl.get("invite") or [None])[0]
+        if invite:
+            return f"https://t.me/+{invite}"  # Telethon handles this format
+        return None
+
+    if host == "user":
+        # tg://user?id=123456789
+        user_id = (pl.get("id") or [None])[0]
+        if user_id and user_id.isdigit():
+            return user_id
+        return None
+
+    if host == "openmessage":
+        # tg://openmessage?user_id=123456
+        user_id = (pl.get("user_id") or [None])[0]
+        if user_id and user_id.isdigit():
+            return user_id
+        return None
+
+    if host == "privatepost":
+        # tg://privatepost?channel=123456
+        channel = (pl.get("channel") or [None])[0]
+        if channel and channel.isdigit():
+            return f"-100{channel}"
+        return None
+
+    # Unsupported tg:// URL types (msg, settings, search_hashtag, etc.)
+    return None
+
 
 # Regex matches t.me, telegram.me, telegram.dog domains (with optional scheme and www)
 _TELEGRAM_URL_RE = re.compile(
@@ -44,6 +104,10 @@ def _parse_telegram_url(text: str) -> str | None:
         return None
 
     text = text.strip()
+
+    # Handle tg:// scheme URLs
+    if text.lower().startswith("tg://"):
+        return _parse_tg_scheme_url(text)
 
     match = _TELEGRAM_URL_RE.match(text)
     if not match:
