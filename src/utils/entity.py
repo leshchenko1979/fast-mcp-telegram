@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import re
 import time
 from typing import Any
 
@@ -15,6 +16,68 @@ from ..client.connection import get_connected_client
 from .chat_search_text import chat_searchable_text_lower
 
 logger = logging.getLogger(__name__)
+
+# ── Telegram URL to peer resolver ──
+
+# Regex matches t.me, telegram.me, telegram.dog domains (with optional scheme and www)
+_TELEGRAM_URL_RE = re.compile(
+    r"(?:https?://)?(?:www\.)?(?:t\.me|telegram\.me|telegram\.dog)/(.+)",
+    re.IGNORECASE,
+)
+
+
+def _parse_telegram_url(text: str) -> str | None:
+    """Parse a Telegram URL and extract a peer identifier.
+
+    Handles:
+    - ``https://t.me/username`` → ``username``
+    - ``https://t.me/username/12345`` → ``username`` (message id stripped)
+    - ``https://t.me/c/1234567890`` → ``-1001234567890`` (channel numeric id)
+    - ``https://t.me/+AbCdEf`` → full invite link (passed through to Telethon)
+    - ``https://t.me/joinchat/XXX`` → full invite link (passed through)
+    - ``t.me/username``, ``telegram.me/username`` — same domains, no scheme
+
+    Returns the extracted peer identifier, or **None** if *text* is not a
+    recognised Telegram URL.
+    """
+    if not text or not text.strip():
+        return None
+
+    text = text.strip()
+
+    match = _TELEGRAM_URL_RE.match(text)
+    if not match:
+        return None
+
+    # Strip query parameters and trailing slash from the captured path
+    path = match.group(1).split("?")[0].rstrip("/")
+
+    # /c/NUMERIC_ID → channel by numeric ID (Telethon uses -100 prefix)
+    if path.startswith("c/"):
+        channel_id = path[2:].split("/")[0]
+        if channel_id.isdigit():
+            return f"-100{channel_id}"
+        return channel_id
+
+    # /s/username → stories URL
+    if path.startswith("s/"):
+        return path[2:].split("/")[0]
+
+    # /boost/username → boost URL
+    if path.startswith("boost/"):
+        return path[6:].split("/")[0]
+
+    # +invitehash or joinchat/XXX → invite links (pass through to Telethon)
+    if path.startswith(("+", "joinchat/")):
+        return text  # Return the full invite link URL for Telethon to parse
+
+    # /username or /username/12345 → extract first segment
+    username = path.split("/")[0]
+    if username:
+        return username
+
+    return None
+
 
 # -------------------------
 # Manual caches (key-safe)
@@ -147,9 +210,10 @@ async def get_entity_by_id(entity_id, *, client: TelegramClient | None = None):
     A wrapper around client.get_entity to handle numeric strings and log errors.
     Special handling for 'me' identifier for Saved Messages.
     Tries multiple peer types (raw ID, PeerChannel, PeerUser, PeerChat) for better resolution.
+    Also resolves Telegram URLs (t.me/…) to peer identifiers when possible.
 
     Args:
-        entity_id: Username, ``me``, numeric id, or numeric string.
+        entity_id: Username, ``me``, numeric id, numeric string, or Telegram URL.
         client: Optional Telethon client; if omitted, ``get_connected_client()`` is used.
     """
     if client is None:
@@ -159,6 +223,13 @@ async def get_entity_by_id(entity_id, *, client: TelegramClient | None = None):
         # Special handling for 'me' identifier (Saved Messages)
         if entity_id == "me":
             return await client.get_me()
+
+        # Resolve Telegram URLs (t.me/…) to peer identifiers
+        if isinstance(entity_id, str):
+            parsed = _parse_telegram_url(entity_id)
+            if parsed is not None:
+                entity_id = parsed
+                logger.debug("Parsed Telegram URL to peer identifier: %s", entity_id)
 
         # Try to convert entity_id to an integer if it's a numeric string
         try:
