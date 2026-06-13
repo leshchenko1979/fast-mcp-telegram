@@ -219,7 +219,13 @@ def test_get_rss_kb_missing_vmrss_line(telemetry_module, tmp_path, monkeypatch):
     dummy = tmp_path / "status"
     dummy.write_text("Name:\tpython\nPid:\t1\n")
     _real_open = open
-    monkeypatch.setattr("builtins.open", lambda *a, **kw: _real_open(dummy, *a, **kw))
+
+    def _fake_open(path, *args, **kwargs):
+        if path == "/proc/self/status":
+            return _real_open(dummy, *args, **kwargs)
+        return _real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", _fake_open)
     assert telemetry_module._get_rss_kb() is None
 
 
@@ -228,7 +234,13 @@ def test_get_rss_kb_corrupted_line(telemetry_module, tmp_path, monkeypatch):
     dummy = tmp_path / "status"
     dummy.write_text("VmRSS:\n")
     _real_open = open
-    monkeypatch.setattr("builtins.open", lambda *a, **kw: _real_open(dummy, *a, **kw))
+
+    def _fake_open(path, *args, **kwargs):
+        if path == "/proc/self/status":
+            return _real_open(dummy, *args, **kwargs)
+        return _real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", _fake_open)
     assert telemetry_module._get_rss_kb() is None
 
 
