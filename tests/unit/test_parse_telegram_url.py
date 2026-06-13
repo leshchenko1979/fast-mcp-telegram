@@ -209,7 +209,8 @@ def test_tg_user_no_id_returns_none() -> None:
 
 
 def test_case_insensitive_domain() -> None:
-    assert _parse_telegram_url("HTTPS://T.ME/Durov") == "Durov"
+    """HTTPS://T.ME/UserName → lowercased to username."""
+    assert _parse_telegram_url("HTTPS://T.ME/Durov") == "durov"
 
 
 def test_username_with_dots() -> None:

@@ -125,11 +125,11 @@ def _parse_telegram_url(text: str) -> str | None:
 
     # /s/username → stories URL
     if path.startswith("s/"):
-        return path[2:].split("/")[0]
+        return path[2:].split("/")[0].lower()
 
     # /boost/username → boost URL
     if path.startswith("boost/"):
-        return path[6:].split("/")[0]
+        return path[6:].split("/")[0].lower()
 
     # +invitehash or joinchat/XXX → invite links (pass through to Telethon)
     if path.startswith(("+", "joinchat/")):
@@ -138,7 +138,7 @@ def _parse_telegram_url(text: str) -> str | None:
     # /username or /username/12345 → extract first segment
     username = path.split("/")[0]
     if username:
-        return username
+        return username.lower()
 
     return None
 
