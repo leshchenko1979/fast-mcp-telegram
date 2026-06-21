@@ -280,14 +280,18 @@ def build_send_edit_result(message, chat, status: str) -> dict[str, Any]:
     chat_dict = build_entity_dict(chat)
     sender_dict = build_entity_dict(getattr(message, "sender", None))
 
-    result = {
+    result: dict[str, Any] = {
         "message_id": message.id,
         "date": message.date.isoformat(),
-        "chat": chat_dict,
         "text": message.text,
         "status": status,
-        "sender": sender_dict,
     }
+    # Only include entity fields when resolved — None fails FastMCP
+    # output validation (TypedDict expects dict, not null).
+    if chat_dict is not None:
+        result["chat"] = chat_dict
+    if sender_dict is not None:
+        result["sender"] = sender_dict
 
     if status == "edited" and hasattr(message, "edit_date") and message.edit_date:
         result["edit_date"] = message.edit_date.isoformat()
