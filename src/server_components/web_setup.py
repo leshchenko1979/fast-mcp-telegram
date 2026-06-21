@@ -214,6 +214,11 @@ async def _cleanup_session_state(state: dict[str, Any]):
     client = state.get("client")
     session_path = state.get("session_path")
 
+    # Flush any buffered auth telemetry for this flow
+    fid = state.get("flow_id")
+    if fid:
+        flush_auth_events(fid)
+
     # Disconnect client
     if client:
         with contextlib.suppress(Exception):

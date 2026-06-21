@@ -16,7 +16,11 @@ from pydantic import Field
 from pydantic_settings import CliImplicitFlag, SettingsConfigDict
 from telethon import TelegramClient
 from telethon.errors import (
+    FloodWaitError,
     PasswordHashInvalidError,
+    PhoneNumberBannedError,
+    PhoneNumberInvalidError,
+    PhoneNumberUnoccupiedError,
     SessionPasswordNeededError,
 )
 from telethon.tl.functions.account import GetPasswordRequest
@@ -28,6 +32,25 @@ from .config.server_config import ServerConfig, ServerMode
 from .telemetry import flush_auth_events, send_auth_event
 from .utils.mcp_config import generate_mcp_config_json
 from .utils.proxy import build_mtproto_client_args
+
+
+def _categorize_cli_error(exc: BaseException) -> str:
+    """Map a Telethon/OS exception to an ADR 0008 error category string."""
+    if isinstance(exc, PasswordHashInvalidError):
+        return "2fa_wrong_password"
+    if isinstance(exc, FloodWaitError):
+        return "flood_wait"
+    if isinstance(exc, PhoneNumberBannedError):
+        return "phone_banned"
+    if isinstance(exc, PhoneNumberInvalidError):
+        return "phone_invalid"
+    if isinstance(exc, PhoneNumberUnoccupiedError):
+        return "phone_unoccupied"
+    if isinstance(exc, ConnectionError):
+        return "connect_failed"
+    if isinstance(exc, (TimeoutError, OSError)):
+        return "timeout"
+    return "unknown"
 
 
 def _is_interactive_terminal() -> bool:
@@ -532,6 +555,16 @@ async def setup_telegram_session(
                         )
                         flush_auth_events(flow_id)
                         raise
+                except Exception as exc:
+                    send_auth_event(
+                        event="code_validated",
+                        flow_id=flow_id,
+                        method="phone",
+                        branch="phone_code",
+                        error=_categorize_cli_error(exc),
+                    )
+                    flush_auth_events(flow_id)
+                    raise
 
             send_auth_event(
                 event="session_established",

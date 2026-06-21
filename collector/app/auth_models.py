@@ -71,6 +71,7 @@ _VALID_ERRORS = {
     "reauth_password_required",
     "qr_session_error",
     "already_authorized",
+    "unknown",
 }
 
 _UUID_RE = re.compile(

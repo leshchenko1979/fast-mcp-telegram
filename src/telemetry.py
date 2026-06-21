@@ -326,28 +326,8 @@ def send_heartbeat(payload: dict | None = None) -> None:
     if payload is None:
         payload = gather_payload()
 
-    # Debug mode — print to stderr instead of sending
-    if os.environ.get("MCP_TELEMETRY_DEBUG", "").strip() == "1":
-        print("TELEMETRY", json.dumps(payload, indent=2), file=sys.stderr)
-        return
-
     # Fire the POST (blocking in this thread — caller runs us in a thread)
-    import urllib.error
-    import urllib.request
-
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        TELEMETRY_ENDPOINT,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        urllib.request.urlopen(req, timeout=10)
-    except urllib.error.HTTPError as exc:
-        logger.debug("Telemetry: HTTP %s from %s", exc.code, TELEMETRY_ENDPOINT)
-    except (OSError, urllib.error.URLError) as exc:
-        logger.debug("Telemetry: network error — %s", exc)
+    _post_json(payload, "TELEMETRY")
 
 
 # ---------------------------------------------------------------------------
@@ -406,6 +386,40 @@ async def telemetry_task() -> None:
 # ``server_config.py`` reads ``DO_NOT_TRACK`` as an env-var-only check (no
 # pydantic field needed).  The check is trivial and lives in ``should_send()``
 # above — the config module does not need a dedicated property.
+
+
+# ---------------------------------------------------------------------------
+# Shared HTTP POST helper
+# ---------------------------------------------------------------------------
+
+
+def _post_json(payload: dict, label: str) -> None:
+    """POST JSON to the telemetry endpoint. Blocking — caller must be in a thread.
+
+    Args:
+        payload: JSON-serialisable dict to send.
+        label: Debug label (e.g. ``"TELEMETRY"`` or ``"AUTH_TELEMETRY"``).
+    """
+    import urllib.error
+    import urllib.request
+
+    if os.environ.get("MCP_TELEMETRY_DEBUG", "").strip() == "1":
+        print(label, json.dumps(payload, indent=2), file=sys.stderr)
+        return
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        TELEMETRY_ENDPOINT,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except urllib.error.HTTPError as exc:
+        logger.debug("%s: HTTP %s from %s", label, exc.code, TELEMETRY_ENDPOINT)
+    except (OSError, urllib.error.URLError) as exc:
+        logger.debug("%s: network error — %s", label, exc)
 
 
 # ---------------------------------------------------------------------------
@@ -484,34 +498,11 @@ def flush_auth_events(flow_id: str) -> None:
     }
 
     try:
-        _send_auth_payload(payload)
+        t = threading.Thread(
+            target=_post_json,
+            args=(payload, "AUTH_TELEMETRY"),
+            daemon=True,
+        )
+        t.start()
     except Exception:
         logger.debug("Auth telemetry: flush failed for flow %s", flow_id, exc_info=True)
-
-
-def _send_auth_payload(payload: dict) -> None:
-    """Send an auth payload to the telemetry endpoint.
-
-    Fire-and-forget — spawns a daemon thread for the HTTP POST.
-    Never blocks the caller.
-    """
-    import urllib.error
-    import urllib.request
-
-    if os.environ.get("MCP_TELEMETRY_DEBUG", "").strip() == "1":
-        print("AUTH_TELEMETRY", json.dumps(payload, indent=2), file=sys.stderr)
-        return
-
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        TELEMETRY_ENDPOINT,
-        data=body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        urllib.request.urlopen(req, timeout=10)
-    except urllib.error.HTTPError as exc:
-        logger.debug("Auth telemetry: HTTP %s from %s", exc.code, TELEMETRY_ENDPOINT)
-    except (OSError, urllib.error.URLError) as exc:
-        logger.debug("Auth telemetry: network error — %s", exc)

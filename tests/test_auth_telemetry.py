@@ -43,6 +43,29 @@ def tel():
     return tel_mod
 
 
+class _SyncThread:
+    """Fake thread that runs target synchronously (for testing)."""
+
+    def __init__(self, target=None, args=(), kwargs=None, daemon=None):
+        self._target = target
+        self._args = args
+        self._kwargs = kwargs or {}
+
+    def start(self):
+        self._target(*self._args, **self._kwargs)
+
+    def join(self, timeout=None):
+        pass
+
+
+@pytest.fixture
+def _sync_threads(monkeypatch):
+    """Make threading.Thread run synchronously for deterministic tests."""
+    import threading
+
+    monkeypatch.setattr(threading, "Thread", _SyncThread)
+
+
 # ───────────────────────────── send_auth_event ───────────────────────────
 
 
@@ -166,14 +189,14 @@ class TestSendAuthEvent:
 class TestFlushAuthEvents:
     """flush_auth_events sends batched HTTP POST and clears buffer."""
 
-    def test_flush_sends_batch(self, tel, monkeypatch):
+    def test_flush_sends_batch(self, tel, monkeypatch, _sync_threads):
         """flush_auth_events sends all accumulated events in one POST."""
         captured = []
 
-        def mock_send(payload):
+        def mock_post(payload, label):
             captured.append(payload)
 
-        monkeypatch.setattr(tel, "_send_auth_payload", mock_send)
+        monkeypatch.setattr(tel, "_post_json", mock_post)
 
         flow_id = str(uuid.uuid4())
         tel.send_auth_event(
@@ -196,9 +219,9 @@ class TestFlushAuthEvents:
         assert payload["flow_id"] == flow_id
         assert len(payload["events"]) == 2
 
-    def test_flush_clears_buffer(self, tel, monkeypatch):
+    def test_flush_clears_buffer(self, tel, monkeypatch, _sync_threads):
         """flush_auth_events clears the buffer after sending."""
-        monkeypatch.setattr(tel, "_send_auth_payload", lambda _: None)
+        monkeypatch.setattr(tel, "_post_json", lambda *_: None)
 
         flow_id = str(uuid.uuid4())
         tel.send_auth_event(
@@ -210,18 +233,18 @@ class TestFlushAuthEvents:
         tel.flush_auth_events(flow_id)
         assert flow_id not in tel._auth_buffers
 
-    def test_flush_noop_for_unknown_flow(self, tel, monkeypatch):
+    def test_flush_noop_for_unknown_flow(self, tel, monkeypatch, _sync_threads):
         """flush_auth_events is a no-op for unknown flow_id."""
         called = []
-        monkeypatch.setattr(tel, "_send_auth_payload", lambda _: called.append(1))
+        monkeypatch.setattr(tel, "_post_json", lambda *_: called.append(1))
 
         tel.flush_auth_events(str(uuid.uuid4()))
         assert len(called) == 0
 
-    def test_flush_includes_metadata(self, tel, monkeypatch):
+    def test_flush_includes_metadata(self, tel, monkeypatch, _sync_threads):
         """Flushed payload includes iid, ver, method, branch."""
         captured = []
-        monkeypatch.setattr(tel, "_send_auth_payload", lambda p: captured.append(p))
+        monkeypatch.setattr(tel, "_post_json", lambda p, _: captured.append(p))
 
         flow_id = str(uuid.uuid4())
         tel.send_auth_event(
@@ -238,13 +261,13 @@ class TestFlushAuthEvents:
         assert payload["method"] == "qr"
         assert payload["branch"] == "qr_scan"
 
-    def test_flush_error_silent(self, tel, monkeypatch):
+    def test_flush_error_silent(self, tel, monkeypatch, _sync_threads):
         """Network errors during flush are silently ignored."""
 
-        def fail(_):
+        def fail(*_):
             raise ConnectionError("refused")
 
-        monkeypatch.setattr(tel, "_send_auth_payload", fail)
+        monkeypatch.setattr(tel, "_post_json", fail)
 
         flow_id = str(uuid.uuid4())
         tel.send_auth_event(
@@ -258,10 +281,10 @@ class TestFlushAuthEvents:
         # Buffer should still be cleared
         assert flow_id not in tel._auth_buffers
 
-    def test_flush_includes_all_event_fields(self, tel, monkeypatch):
+    def test_flush_includes_all_event_fields(self, tel, monkeypatch, _sync_threads):
         """Flushed events include all fields: ts, event, flow_id, method, branch, error."""
         captured = []
-        monkeypatch.setattr(tel, "_send_auth_payload", lambda p: captured.append(p))
+        monkeypatch.setattr(tel, "_post_json", lambda p, _: captured.append(p))
 
         flow_id = str(uuid.uuid4())
         tel.send_auth_event(
