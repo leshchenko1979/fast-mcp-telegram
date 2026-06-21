@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-mcp-telegram"
-version = "0.37.0"
+version = "0.38.0"
 description = "Multi-tenant Telegram gateway for AI agents — HTTP+stdio transport, 8 agent-optimized tools, MTProto User API"
 authors = [
     {name = "Alexey Leshchenko", email = "leshchenko@gmail.com"}

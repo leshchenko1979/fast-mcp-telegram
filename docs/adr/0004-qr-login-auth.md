@@ -187,6 +187,7 @@ The `feature/oidc-phase1-storage` branch is archived. No migration needed — th
 
 - [ADR 0002](./0002-oidc-self-service-auth.md) — Superseded OIDC approach
 - [ADR 0003](./0003-oidc-phase4-scope-based-auth.md) — Superseded Phase 4 draft
+- [ADR 0008](./0008-auth-telemetry-events.md) — Auth telemetry events (instrumented QR login flow)
 - [Telethon QR Login Documentation](https://docs.telethon.dev/en/stable/modules/client.html#TelethonClient.qr_login)
 - [Telegram OIDC Provider](https://oauth.telegram.org/.well-known/openid-configuration)
 - [MCP Elicitation Specification](https://spec.modelcontextprotocol.io/specification/2025-03-26/basic/elicitation-considerations/)

@@ -409,6 +409,7 @@ The rate limits are intentionally generous Layer 1 — they stop floods, not sin
 ## References
 
 - [ADR 0005: Anonymous Tool Telemetry](0005-anonymous-tool-telemetry.md) — defines the telemetry architecture that this ADR secures
+- [ADR 0008: Auth Telemetry Events](0008-auth-telemetry-events.md) — auth flow events sharing the same endpoint and rate limiting
 - [Traefik RateLimit middleware docs](https://doc.traefik.io/traefik/middlewares/http/ratelimit/)
 - [Pydantic v2 `extra="forbid"`](https://docs.pydantic.dev/latest/concepts/config/#extra-fields)
 - [consoledonottrack.com](https://consoledonottrack.com) — DO_NOT_TRACK convention

@@ -160,6 +160,8 @@ See [Tools Reference](docs/Tools-Reference.md) for detailed documentation with e
 
 Anonymous tool telemetry since v0.30.1 — heartbeat every 6h, no credentials or message content collected. Opt out with `DO_NOT_TRACK=1`. See [ADR 0005](docs/adr/0005-anonymous-tool-telemetry.md).
 
+Auth flow telemetry since v0.38.0 — atomic events during setup (phone, QR, bot token, reauthorize). Buffered flush on flow completion. See [ADR 0008](docs/adr/0008-auth-telemetry-events.md).
+
 ## License
 
 MIT License - see [LICENSE](LICENSE)
