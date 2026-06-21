@@ -18,8 +18,9 @@ import pytest
 # Make ``app.*`` module importable (matches the Docker runtime path).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.models import TelemetryPayload  # noqa: E402
-from collector.tests._helpers import make_nested_payload  # noqa: E402
+from app.services import PayloadLike
+
+from collector.tests._helpers import make_nested_payload
 
 
 def pytest_configure(config):
@@ -39,7 +40,7 @@ class InMemoryStorage:
 
     def store(
         self,
-        payload: TelemetryPayload,
+        payload: PayloadLike,
         source_ip_hash: str,
         payload_hash: str,
     ) -> None:

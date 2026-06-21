@@ -3,7 +3,8 @@
 import time
 
 from app.services import INSTANCE_RATE_LIMIT
-from collector.tests._helpers import make_nested_payload
+
+from collector.tests._helpers import make_auth_payload, make_nested_payload
 
 
 class TestHealthEndpoint:
@@ -82,3 +83,53 @@ class TestCollectEndpoint:
         # One more should be rate-limited
         resp = client.post("/v1/event", json=valid_payload_data)
         assert resp.status_code == 429
+
+
+class TestAuthEventEndpoint:
+    """POST /v1/event with auth payloads."""
+
+    def test_valid_auth_payload_returns_204(self, client):
+        """A valid auth payload returns 204 No Content."""
+        resp = client.post("/v1/event", json=make_auth_payload())
+        assert resp.status_code == 204
+
+    def test_invalid_auth_payload_returns_422(self, client):
+        """An invalid auth payload returns 422."""
+        data = make_auth_payload(method="invalid_method")
+        resp = client.post("/v1/event", json=data)
+        assert resp.status_code == 422
+
+    def test_auth_payload_missing_type_returns_422(self, client):
+        """Auth payload without type field returns 422."""
+        data = make_auth_payload()
+        del data["type"]
+        resp = client.post("/v1/event", json=data)
+        assert resp.status_code == 422
+
+    def test_auth_payload_missing_flow_id_returns_422(self, client):
+        """Auth payload without flow_id returns 422."""
+        data = make_auth_payload()
+        del data["flow_id"]
+        resp = client.post("/v1/event", json=data)
+        assert resp.status_code == 422
+
+    def test_auth_payload_invalid_events_returns_422(self, client):
+        """Auth payload with invalid event names returns 422."""
+        import uuid as uuid_mod
+
+        flow_id = str(uuid_mod.uuid4())
+        data = make_auth_payload(
+            flow_id=flow_id,
+            events=[
+                {"ts": 1000, "event": "fake_event", "flow_id": flow_id},
+            ],
+        )
+        resp = client.post("/v1/event", json=data)
+        assert resp.status_code == 422
+
+    def test_auth_and_heartbeat_coexist(self, client):
+        """Auth and heartbeat payloads can be submitted to the same endpoint."""
+        resp1 = client.post("/v1/event", json=make_nested_payload())
+        assert resp1.status_code == 204
+        resp2 = client.post("/v1/event", json=make_auth_payload())
+        assert resp2.status_code == 204
