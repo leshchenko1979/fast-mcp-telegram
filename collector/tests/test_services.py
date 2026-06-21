@@ -30,27 +30,22 @@ class TestProcessEvent:
             process_event(valid_payload_data, "192.168.1.1", storage)
         assert len(storage.events) == 0
 
-    def test_duplicate_within_window_is_deduped(
-        self, storage, valid_payload_data
-    ):
+    def test_duplicate_within_window_is_deduped(self, storage, valid_payload_data):
         """Same payload within 5 min window is silently deduped."""
         process_event(valid_payload_data, "192.168.1.1", storage)
         process_event(valid_payload_data, "192.168.1.1", storage)
         assert len(storage.events) == 1
 
-    def test_duplicate_from_different_ip_stored(
-        self, storage, valid_payload_data
-    ):
+    def test_duplicate_from_different_ip_stored(self, storage, valid_payload_data):
         """Same payload from different IP is still deduped (hash-based)."""
         process_event(valid_payload_data, "192.168.1.1", storage)
         process_event(valid_payload_data, "10.0.0.1", storage)
         assert len(storage.events) == 1
 
-    def test_rate_limit_exceeded_raises(
-        self, storage, valid_payload_data
-    ):
+    def test_rate_limit_exceeded_raises(self, storage, valid_payload_data):
         """Too many events from one iid in 24h raises RateLimitError."""
         from app.services import INSTANCE_RATE_LIMIT
+
         process_event(valid_payload_data, "10.0.0.1", storage)
         for i in range(1, INSTANCE_RATE_LIMIT):
             data = make_nested_payload()
@@ -64,11 +59,10 @@ class TestProcessEvent:
             process_event(new_data, "10.0.0.1", storage)
         assert len(storage.events) == INSTANCE_RATE_LIMIT
 
-    def test_different_instance_not_rate_limited(
-        self, storage, valid_payload_data
-    ):
+    def test_different_instance_not_rate_limited(self, storage, valid_payload_data):
         """Events from different iids don't interfere."""
         from app.services import INSTANCE_RATE_LIMIT
+
         for i in range(INSTANCE_RATE_LIMIT):
             data = make_nested_payload()
             data["iid"] = f"550e8400-e29b-41d4-a716-4466554400{i:02d}"
@@ -113,6 +107,7 @@ class TestProcessAuthEvent:
     def test_auth_event_not_rate_limited_separately(self, storage):
         """Auth events use the same rate limit as heartbeats."""
         from app.services import INSTANCE_RATE_LIMIT
+
         # Fill up the rate limit with heartbeats
         for i in range(INSTANCE_RATE_LIMIT):
             data = make_nested_payload()

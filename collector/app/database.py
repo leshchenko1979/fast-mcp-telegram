@@ -14,15 +14,15 @@ Schema:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import psycopg2
 import psycopg2.extras
-
-from app.models import TelemetryPayload
+from app.services import PayloadLike
 
 _SQL_CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS telemetry (
@@ -94,10 +94,8 @@ class PgStorage:
                 cur.execute("SELECT 1")
         except (psycopg2.InterfaceError, psycopg2.OperationalError):
             print("Database connection stale — reconnecting…", file=sys.stderr)
-            try:
+            with contextlib.suppress(Exception):
                 self._conn.close()
-            except Exception:
-                pass
             self.connect()
 
     def _execute(self, func: Any) -> Any:
@@ -113,7 +111,7 @@ class PgStorage:
 
     def store(
         self,
-        payload: TelemetryPayload,
+        payload: PayloadLike,
         source_ip_hash: str,
         payload_hash: str,
     ) -> None:
@@ -138,9 +136,7 @@ class PgStorage:
 
         self._execute(_do)
 
-    def count_recent_events(
-        self, instance_id: str, window_hours: int = 24
-    ) -> int:
+    def count_recent_events(self, instance_id: str, window_hours: int = 24) -> int:
         """Count events for a given instance_id within a time window."""
 
         def _do() -> int:
@@ -158,9 +154,7 @@ class PgStorage:
 
         return self._execute(_do)
 
-    def has_exact_payload(
-        self, payload_hash: str, window_seconds: int = 300
-    ) -> bool:
+    def has_exact_payload(self, payload_hash: str, window_seconds: int = 300) -> bool:
         """Check if an identical payload hash exists within the time window."""
 
         def _do() -> bool:

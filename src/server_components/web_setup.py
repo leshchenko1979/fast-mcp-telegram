@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import time
+import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from src.server_components.session_token_validation import (
     session_file_path,
     validate_session_token,
 )
+from src.telemetry import flush_auth_events, send_auth_event
 from src.utils.logging_utils import mask_phone_number
 from src.utils.mcp_config import generate_mcp_config_json
 from src.utils.proxy import build_mtproto_client_args
@@ -133,7 +135,9 @@ def _setup_error_fragment(request: Request, error: str):
     return _fragment(request, "fragments/error.html", {"error": error})
 
 
-def _bearer_token_and_session_path(session_dir: Path, raw_token: str) -> tuple[str, Path]:
+def _bearer_token_and_session_path(
+    session_dir: Path, raw_token: str
+) -> tuple[str, Path]:
     """Validate bearer token and return confined session file path."""
     token = validate_session_token(raw_token)
     return token, session_file_path(session_dir, token)
@@ -146,10 +150,14 @@ def _setup_token_path_error_fragment(
 ) -> Any:
     """Map token/path resolution errors to setup HTML fragments."""
     if isinstance(exc, InvalidSessionTokenError):
-        return _fragment(request, template, {"error": INVALID_BEARER_TOKEN_FORMAT_MESSAGE})
+        return _fragment(
+            request, template, {"error": INVALID_BEARER_TOKEN_FORMAT_MESSAGE}
+        )
     if isinstance(exc, OSError):
         logger.warning("Session path access failed: %s", exc)
-        return _fragment(request, template, {"error": SESSION_PATH_ACCESS_ERROR_MESSAGE})
+        return _fragment(
+            request, template, {"error": SESSION_PATH_ACCESS_ERROR_MESSAGE}
+        )
     raise exc
 
 
@@ -276,6 +284,7 @@ async def _persist_session_and_generate_config(
     # S3: checkpoint + upload newly created session
     if is_s3_enabled():
         from src import s3_session
+
         try:
             if not await s3_session.checkpoint_and_upload(token, dst):
                 return _setup_error_fragment(
@@ -293,7 +302,10 @@ async def _persist_session_and_generate_config(
 
     domain = cfg().domain
     header_config_json = generate_mcp_config_json(
-        ServerMode.HTTP_AUTH, session_name="", bearer_token=token, domain=domain,
+        ServerMode.HTTP_AUTH,
+        session_name="",
+        bearer_token=token,
+        domain=domain,
     )
     url_config = generate_url_based_config(domain or "your-server.com", token)
     url_config_json = json.dumps(url_config, indent=2)
@@ -307,7 +319,8 @@ async def _persist_session_and_generate_config(
         )
 
     return _fragment(
-        request, "fragments/config.html",
+        request,
+        "fragments/config.html",
         {
             "setup_id": setup_id,
             "token": token,
@@ -347,7 +360,11 @@ async def _complete_qr_login(
         authorized_client = qr_mgr.get_client(qr_session_id)
 
     response = await _persist_session_and_generate_config(
-        request, authorized_client, state["session_path"], setup_id, state=state,
+        request,
+        authorized_client,
+        state["session_path"],
+        setup_id,
+        state=state,
     )
 
     # HTMX re-entry guard: store completed state so duplicate polls
@@ -388,11 +405,16 @@ async def setup_complete_reauth(request: Request):
         # S3: checkpoint + upload reauthorized session
         if is_s3_enabled():
             from src import s3_session
+
             try:
                 await s3_session.checkpoint_and_upload(existing_token, original_path)
-                logger.info("S3: uploaded reauthorized session for %s...", existing_token[:8])
+                logger.info(
+                    "S3: uploaded reauthorized session for %s...", existing_token[:8]
+                )
             except Exception as e:
-                logger.warning("S3 upload failed for reauth %s...: %s", existing_token[:8], e)
+                logger.warning(
+                    "S3 upload failed for reauth %s...: %s", existing_token[:8], e
+                )
 
         # Clean up
         state.clear()
@@ -431,7 +453,10 @@ async def setup_generate(request: Request):
 
     desired_token = state.get("desired_token")
     response = await _persist_session_and_generate_config(
-        request, client, temp_session_path, setup_id,
+        request,
+        client,
+        temp_session_path,
+        setup_id,
         desired_token=desired_token,
     )
 
@@ -444,6 +469,39 @@ async def _complete_authentication(request: Request, state: dict[str, Any]):
     if state.get("reauthorizing"):
         return await setup_complete_reauth(request)
     return await setup_generate(request)
+
+
+def _categorize_web_error(exc: BaseException) -> str:
+    """Map Telethon/runtime exceptions to ADR 0008 error categories."""
+    from telethon.errors import (
+        FloodWaitError,
+        PasswordHashInvalidError,
+        PhoneCodeExpiredError,
+        PhoneCodeInvalidError,
+        PhoneNumberBannedError,
+        PhoneNumberInvalidError,
+        PhoneNumberUnoccupiedError,
+    )
+
+    if isinstance(exc, PasswordHashInvalidError):
+        return "2fa_wrong_password"
+    if isinstance(exc, PhoneCodeInvalidError):
+        return "invalid_code"
+    if isinstance(exc, PhoneCodeExpiredError):
+        return "code_expired"
+    if isinstance(exc, FloodWaitError):
+        return "flood_wait"
+    if isinstance(exc, PhoneNumberBannedError):
+        return "phone_banned"
+    if isinstance(exc, PhoneNumberInvalidError):
+        return "phone_invalid"
+    if isinstance(exc, PhoneNumberUnoccupiedError):
+        return "phone_unoccupied"
+    if isinstance(exc, ConnectionError):
+        return "connect_failed"
+    if isinstance(exc, (TimeoutError, OSError)):
+        return "timeout"
+    return "unknown"
 
 
 def register_web_setup_routes(mcp_app):
@@ -486,9 +544,9 @@ def register_web_setup_routes(mcp_app):
             logger.info(
                 "Code sent for phone %s: type=%s, phone_code_hash=%s, timeout=%s",
                 masked,
-                getattr(sent, 'type', None),
-                getattr(sent, 'phone_code_hash', None),
-                getattr(sent, 'timeout', None),
+                getattr(sent, "type", None),
+                getattr(sent, "phone_code_hash", None),
+                getattr(sent, "timeout", None),
             )
         except PhoneNumberFloodError:
             await client.disconnect()
@@ -506,7 +564,20 @@ def register_web_setup_routes(mcp_app):
             "session_path": str(temp_session_path),
             "authorized": False,
             "created_at": time.time(),
+            "flow_id": str(uuid.uuid4()),
         }
+
+        # Auth telemetry: user submitted phone, code requested
+        fid = _setup_sessions[setup_id]["flow_id"]
+        send_auth_event(
+            event="user_submitted_phone",
+            flow_id=fid,
+            method="phone",
+            branch="phone_code",
+        )
+        send_auth_event(
+            event="code_requested", flow_id=fid, method="phone", branch="phone_code"
+        )
 
         return _fragment(
             request,
@@ -533,12 +604,30 @@ def register_web_setup_routes(mcp_app):
         if not client or not phone:
             return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
+        fid = state.get("flow_id", "")
+        is_reauth = state.get("reauthorizing", False)
+        method = "reauth" if is_reauth else "phone"
+        branch = "reauth_code" if is_reauth else "phone_code"
+        send_auth_event(
+            event="user_submitted_code", flow_id=fid, method=method, branch=branch
+        )
+
         try:
             await client.sign_in(phone=phone, code=code)
             state["authorized"] = True
             logger.info("Phone %s verified successfully", masked_phone)
+            send_auth_event(
+                event="code_validated", flow_id=fid, method=method, branch=branch
+            )
+            send_auth_event(
+                event="session_established", flow_id=fid, method=method, branch=branch
+            )
+            flush_auth_events(fid)
             return await _complete_authentication(request, state)
         except SessionPasswordNeededError:
+            send_auth_event(
+                event="code_validated", flow_id=fid, method=method, branch=branch
+            )
             hint = ""
             with contextlib.suppress(Exception):
                 pw = await client(GetPasswordRequest())
@@ -548,6 +637,14 @@ def register_web_setup_routes(mcp_app):
             return _fragment(request, "fragments/2fa_form.html", ctx)
         except Exception as e:
             logger.warning("Verification failed for phone %s: %s", masked_phone, e)
+            send_auth_event(
+                event="code_validated",
+                flow_id=fid,
+                method=method,
+                branch=branch,
+                error=_categorize_web_error(e),
+            )
+            flush_auth_events(fid)
             return _fragment(
                 request,
                 "fragments/code_form.html",
@@ -576,11 +673,33 @@ def register_web_setup_routes(mcp_app):
         if not client:
             return _setup_error_fragment(request, INVALID_SETUP_SESSION_MESSAGE)
 
+        fid = state.get("flow_id", "")
+        is_reauth = state.get("reauthorizing", False)
+        method = "reauth" if is_reauth else "phone"
+        branch = "reauth_2fa" if is_reauth else "phone_2fa"
+        send_auth_event(
+            event="user_submitted_password", flow_id=fid, method=method, branch=branch
+        )
+
         try:
             await client.sign_in(password=password)
             state["authorized"] = True
+            send_auth_event(
+                event="password_validated", flow_id=fid, method=method, branch=branch
+            )
+            send_auth_event(
+                event="session_established", flow_id=fid, method=method, branch=branch
+            )
+            flush_auth_events(fid)
             return await _complete_authentication(request, state)
         except PasswordHashInvalidError:
+            send_auth_event(
+                event="password_validated",
+                flow_id=fid,
+                method=method,
+                branch=branch,
+                error="2fa_wrong_password",
+            )
             hint = state.get("hint") or ""
             return _fragment(
                 request,
@@ -593,6 +712,15 @@ def register_web_setup_routes(mcp_app):
                 ),
             )
         except Exception as e:
+            logger.warning("2FA failed: %s", e)
+            send_auth_event(
+                event="password_validated",
+                flow_id=fid,
+                method=method,
+                branch=branch,
+                error=_categorize_web_error(e),
+            )
+            flush_auth_events(fid)
             hint = state.get("hint") or ""
             return _fragment(
                 request,
@@ -628,11 +756,19 @@ def register_web_setup_routes(mcp_app):
         # S3 fallback: try downloading session from S3 if local file is missing
         if not session_path.exists() and is_s3_enabled():
             from src import s3_session
+
             try:
                 if await s3_session.download(existing_token, session_path):
-                    logger.info("S3: downloaded session for reauthorize %s...", existing_token[:8])
+                    logger.info(
+                        "S3: downloaded session for reauthorize %s...",
+                        existing_token[:8],
+                    )
             except Exception as e:
-                logger.warning("S3 download failed for reauthorize %s...: %s", existing_token[:8], e)
+                logger.warning(
+                    "S3 download failed for reauthorize %s...: %s",
+                    existing_token[:8],
+                    e,
+                )
 
         if not session_path.exists():
             return _fragment(
@@ -665,8 +801,7 @@ def register_web_setup_routes(mcp_app):
         # Session needs reauthorization - create temp session for reauth
         setup_id = str(int(time.time() * 1000))
         temp_session_path = (
-            cfg().session_directory
-            / f"{REAUTH_SESSION_PREFIX}{setup_id}.session"
+            cfg().session_directory / f"{REAUTH_SESSION_PREFIX}{setup_id}.session"
         )
 
         # Copy existing session to temp location
@@ -684,7 +819,17 @@ def register_web_setup_routes(mcp_app):
                 "client": client,
                 "reauthorizing": True,
                 "created_at": time.time(),
+                "flow_id": str(uuid.uuid4()),
             }
+
+            # Auth telemetry: reauth flow initiated
+            fid = _setup_sessions[setup_id]["flow_id"]
+            send_auth_event(
+                event="reauth_initiated",
+                flow_id=fid,
+                method="reauth",
+                branch="reauth_code",
+            )
 
             # Ask for phone number since we can't extract it securely from session
             return _fragment(
@@ -734,9 +879,9 @@ def register_web_setup_routes(mcp_app):
             logger.info(
                 "Reauthorization code sent for phone %s: type=%s, phone_code_hash=%s, timeout=%s",
                 mask_phone_number(phone_raw),
-                getattr(sent, 'type', None),
-                getattr(sent, 'phone_code_hash', None),
-                getattr(sent, 'timeout', None),
+                getattr(sent, "type", None),
+                getattr(sent, "phone_code_hash", None),
+                getattr(sent, "timeout", None),
             )
         except PhoneNumberFloodError:
             return _fragment(
@@ -757,6 +902,18 @@ def register_web_setup_routes(mcp_app):
 
         state["phone"] = phone_raw
         state["masked_phone"] = mask_phone_number(phone_raw)
+
+        # Auth telemetry: user submitted phone for reauth, code requested
+        fid = state.get("flow_id", "")
+        send_auth_event(
+            event="user_submitted_phone",
+            flow_id=fid,
+            method="reauth",
+            branch="reauth_code",
+        )
+        send_auth_event(
+            event="code_requested", flow_id=fid, method="reauth", branch="reauth_code"
+        )
 
         return _fragment(
             request,
@@ -800,6 +957,7 @@ def register_web_setup_routes(mcp_app):
             # S3: delete session from S3 BEFORE local unlink
             if is_s3_enabled():
                 from src import s3_session
+
                 await s3_session.delete(token)
                 logger.info("S3: deleted session for %s...", token[:8])
 
@@ -888,7 +1046,14 @@ def register_web_setup_routes(mcp_app):
             "client": client,
             "authorized": False,
             "created_at": time.time(),
+            "flow_id": str(uuid.uuid4()),
         }
+
+        # Auth telemetry: QR session created
+        fid = _setup_sessions[setup_id]["flow_id"]
+        send_auth_event(
+            event="qr_session_created", flow_id=fid, method="qr", branch="qr_scan"
+        )
 
         return _fragment(
             request,
@@ -942,11 +1107,27 @@ def register_web_setup_routes(mcp_app):
         qr_mgr = _get_qr_manager()
         status = await qr_mgr.poll_status(qr_session_id)
 
+        fid = state.get("flow_id", "")
+
         if status == "completed":
             state["authorized"] = True
+            send_auth_event(
+                event="user_scanned_qr", flow_id=fid, method="qr", branch="qr_scan"
+            )
+            send_auth_event(
+                event="qr_login_confirmed", flow_id=fid, method="qr", branch="qr_scan"
+            )
+            send_auth_event(
+                event="session_established", flow_id=fid, method="qr", branch="qr_scan"
+            )
+            flush_auth_events(fid)
             return await _complete_qr_login(request, state, qr_session_id, setup_id)
 
         if status == "expired":
+            send_auth_event(
+                event="qr_expired", flow_id=fid, method="qr", branch="qr_scan"
+            )
+            flush_auth_events(fid)
             return _fragment(
                 request,
                 "fragments/qr_expired.html",
@@ -954,6 +1135,9 @@ def register_web_setup_routes(mcp_app):
             )
 
         if status == "2fa_required":
+            send_auth_event(
+                event="user_scanned_qr", flow_id=fid, method="qr", branch="qr_2fa"
+            )
             hint = qr_mgr.get_password_hint(qr_session_id)
             response = _fragment(
                 request,
@@ -1005,11 +1189,30 @@ def register_web_setup_routes(mcp_app):
         qr_mgr = _get_qr_manager()
         hint = qr_mgr.get_password_hint(qr_session_id)
 
+        fid = state.get("flow_id", "")
+        send_auth_event(
+            event="user_submitted_password", flow_id=fid, method="qr", branch="qr_2fa"
+        )
+
         try:
             await client.sign_in(password=password)
             state["authorized"] = True
             logger.info("QR login 2FA completed for session %s", setup_id)
+            send_auth_event(
+                event="password_validated", flow_id=fid, method="qr", branch="qr_2fa"
+            )
+            send_auth_event(
+                event="session_established", flow_id=fid, method="qr", branch="qr_2fa"
+            )
+            flush_auth_events(fid)
         except PasswordHashInvalidError:
+            send_auth_event(
+                event="password_validated",
+                flow_id=fid,
+                method="qr",
+                branch="qr_2fa",
+                error="2fa_wrong_password",
+            )
             return _fragment(
                 request,
                 "fragments/qr_2fa.html",
@@ -1021,6 +1224,14 @@ def register_web_setup_routes(mcp_app):
             )
         except Exception as e:
             logger.warning("QR 2FA failed for session %s: %s", setup_id, e)
+            send_auth_event(
+                event="password_validated",
+                flow_id=fid,
+                method="qr",
+                branch="qr_2fa",
+                error=_categorize_web_error(e),
+            )
+            flush_auth_events(fid)
             return _fragment(
                 request,
                 "fragments/qr_2fa.html",

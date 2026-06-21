@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import traceback
+import uuid
 from pathlib import Path
 
 import qrcode
@@ -24,6 +25,7 @@ from src.client.connection import generate_bearer_token
 from src.utils.logging_utils import mask_phone_number
 
 from .config.server_config import ServerConfig, ServerMode
+from .telemetry import flush_auth_events, send_auth_event
 from .utils.mcp_config import generate_mcp_config_json
 from .utils.proxy import build_mtproto_client_args
 
@@ -137,7 +139,14 @@ def _finalize_temp_session_files(temp_filename: str | None, session_path: Path) 
             os.rename(str(src), str(dst))
 
 
-async def _wait_for_qr_scan(qr_login: object, max_retries: int = 5) -> None:
+async def _wait_for_qr_scan(
+    qr_login: object,
+    max_retries: int = 5,
+    *,
+    flow_id: str = "",
+    method: str = "qr",
+    branch: str = "qr_scan",
+) -> None:
     """Wait for QR scan with retry on timeout. Raises QrScanFailedError or QrScanNeeds2FAError."""
     for attempt in range(max_retries):
         try:
@@ -147,12 +156,24 @@ async def _wait_for_qr_scan(qr_login: object, max_retries: int = 5) -> None:
         except TimeoutError:
             if attempt >= max_retries - 1:
                 print("\n❌ QR code expired. Maximum retries reached.")
+                send_auth_event(
+                    event="qr_expired", flow_id=flow_id, method=method, branch=branch
+                )
                 raise QrScanFailedError() from None
+            send_auth_event(
+                event="qr_expired", flow_id=flow_id, method=method, branch=branch
+            )
             try:
                 qr_login = await qr_login.recreate()
             except Exception as recreate_err:
                 print(f"\n❌ Failed to regenerate QR: {recreate_err}")
                 raise QrScanFailedError() from recreate_err
+            send_auth_event(
+                event="qr_session_created",
+                flow_id=flow_id,
+                method=method,
+                branch=branch,
+            )
             url = str(getattr(qr_login, "url", "")).strip()
             print("\nQR expired. New code generated:")
             _render_qr_terminal(url)
@@ -161,16 +182,41 @@ async def _wait_for_qr_scan(qr_login: object, max_retries: int = 5) -> None:
             raise QrScanNeeds2FAError() from None
 
 
-async def _handle_qr_2fa(client: TelegramClient) -> bool:
+async def _handle_qr_2fa(
+    client: TelegramClient,
+    *,
+    flow_id: str = "",
+    method: str = "qr",
+    branch: str = "qr_2fa",
+) -> bool:
     """Handle 2FA password prompt after QR scan. Returns True on success."""
     print("\nTwo-step verification is enabled for this account.")
     await _print_2fa_password_hint(client)
     for pwd_attempt in range(3):
         password = getpass.getpass("Please enter your 2FA password: ")
+        send_auth_event(
+            event="user_submitted_password",
+            flow_id=flow_id,
+            method=method,
+            branch=branch,
+        )
         try:
             await client.sign_in(password=password)
+            send_auth_event(
+                event="password_validated",
+                flow_id=flow_id,
+                method=method,
+                branch=branch,
+            )
             return True
         except PasswordHashInvalidError:
+            send_auth_event(
+                event="password_validated",
+                flow_id=flow_id,
+                method=method,
+                branch=branch,
+                error="2fa_wrong_password",
+            )
             if pwd_attempt < 2:
                 print("❌ Wrong password. Try again.")
             else:
@@ -182,6 +228,8 @@ async def _handle_qr_2fa(client: TelegramClient) -> bool:
 async def _qr_login_flow(
     client: TelegramClient,
     session_path: Path,
+    *,
+    flow_id: str = "",
 ) -> bool:
     """Perform QR code login flow. Returns True on success, False on failure.
 
@@ -192,37 +240,59 @@ async def _qr_login_flow(
         qr_login = await client.qr_login()
         url = str(getattr(qr_login, "url", "")).strip()
         if not url:
-            print("❌ Telethon QR login did not return a valid URL")
+            print("\u274c Telethon QR login did not return a valid URL")
             return False
+
+        send_auth_event(
+            event="qr_session_created", flow_id=flow_id, method="qr", branch="qr_scan"
+        )
 
         # Render QR in terminal (best-effort) + always print URL
         rendered = _render_qr_terminal(url)
-        print("\nScan with Telegram: Settings → Devices → Link Desktop Device")
+        print(
+            "\nScan with Telegram: Settings \u2192 Devices \u2192 Link Desktop Device"
+        )
         if not rendered:
-            print("(QR rendering failed — use the link below)")
+            print("(QR rendering failed \u2014 use the link below)")
         print(f"  Or open: {url}")
 
         # Wait for scan (with timeout retries)
         try:
-            await _wait_for_qr_scan(qr_login)
+            await _wait_for_qr_scan(qr_login, flow_id=flow_id)
         except QrScanNeeds2FAError:
-            if not await _handle_qr_2fa(client):
+            send_auth_event(
+                event="user_scanned_qr", flow_id=flow_id, method="qr", branch="qr_2fa"
+            )
+            if not await _handle_qr_2fa(client, flow_id=flow_id):
+                flush_auth_events(flow_id)
                 return False
         except QrScanFailedError:
+            flush_auth_events(flow_id)
             return False
+        else:
+            send_auth_event(
+                event="user_scanned_qr", flow_id=flow_id, method="qr", branch="qr_scan"
+            )
 
         # Validate auth succeeded
         me = await client.get_me()
         if not me:
-            print("❌ Auth succeeded but get_me() failed")
+            print("\u274c Auth succeeded but get_me() failed")
+            flush_auth_events(flow_id)
             return False
 
-        username = getattr(me, "username", None) or getattr(me, "first_name", None) or "user"
-        print(f"✓ Logged in as @{username}")
+        send_auth_event(
+            event="qr_login_confirmed", flow_id=flow_id, method="qr", branch="qr_scan"
+        )
+        username = (
+            getattr(me, "username", None) or getattr(me, "first_name", None) or "user"
+        )
+        print(f"\u2705 Logged in as @{username}")
 
     except Exception as exc:
         traceback.print_exc()
-        print(f"❌ QR login failed due to an unexpected error: {exc}")
+        print(f"\u274c QR login failed due to an unexpected error: {exc}")
+        flush_auth_events(flow_id)
         return False
 
     # Capture session filename before disconnect (client.session may be cleared after disconnect)
@@ -232,6 +302,10 @@ async def _qr_login_flow(
     await client.disconnect()
     _finalize_temp_session_files(temp_session_filename, session_path)
 
+    send_auth_event(
+        event="session_established", flow_id=flow_id, method="qr", branch="qr_scan"
+    )
+    flush_auth_events(flow_id)
     return True
 
 
@@ -260,7 +334,8 @@ async def _qr_session_login(
     client = TelegramClient(**client_kwargs)
     try:
         await client.connect()
-        if not await _qr_login_flow(client, session_path):
+        flow_id = str(uuid.uuid4())
+        if not await _qr_login_flow(client, session_path, flow_id=flow_id):
             await client.disconnect()
             _cleanup_temp_session(Path(temp_path))
             return None
@@ -361,9 +436,23 @@ async def setup_telegram_session(
 
         if setup_config.bot_api_token:
             # Bot authentication
+            flow_id = str(uuid.uuid4())
+            send_auth_event(
+                event="user_submitted_bot_token",
+                flow_id=flow_id,
+                method="bot",
+                branch="bot_token",
+            )
             print("Authenticating as bot...")
             await client.start(bot_token=setup_config.bot_api_token)
             print("Successfully authenticated as bot!")
+            send_auth_event(
+                event="session_established",
+                flow_id=flow_id,
+                method="bot",
+                branch="bot_token",
+            )
+            flush_auth_events(flow_id)
 
             # Test the connection by getting bot info
             me = await client.get_me()
@@ -373,23 +462,84 @@ async def setup_telegram_session(
             print(f"Bot name: {first_name}")
         else:
             # User authentication
+            flow_id = str(uuid.uuid4())
+            send_auth_event(
+                event="user_submitted_phone",
+                flow_id=flow_id,
+                method="phone",
+                branch="phone_code",
+            )
             if not await client.is_user_authorized():
                 print(
                     f"Sending code to {mask_phone_number(setup_config.phone_number)}..."
                 )
                 await client.send_code_request(setup_config.phone_number)
+                send_auth_event(
+                    event="code_requested",
+                    flow_id=flow_id,
+                    method="phone",
+                    branch="phone_code",
+                )
 
                 # Get verification code (interactive only)
                 code = input("Enter the code you received: ")
+                send_auth_event(
+                    event="user_submitted_code",
+                    flow_id=flow_id,
+                    method="phone",
+                    branch="phone_code",
+                )
 
                 try:
                     await client.sign_in(setup_config.phone_number, code)
+                    send_auth_event(
+                        event="code_validated",
+                        flow_id=flow_id,
+                        method="phone",
+                        branch="phone_code",
+                    )
                 except SessionPasswordNeededError:
+                    send_auth_event(
+                        event="code_validated",
+                        flow_id=flow_id,
+                        method="phone",
+                        branch="phone_code",
+                    )
                     print("\nTwo-step verification is enabled for this account.")
                     await _print_2fa_password_hint(client)
                     password = getpass.getpass("Please enter your 2FA password: ")
-                    await client.sign_in(password=password)
+                    send_auth_event(
+                        event="user_submitted_password",
+                        flow_id=flow_id,
+                        method="phone",
+                        branch="phone_2fa",
+                    )
+                    try:
+                        await client.sign_in(password=password)
+                        send_auth_event(
+                            event="password_validated",
+                            flow_id=flow_id,
+                            method="phone",
+                            branch="phone_2fa",
+                        )
+                    except PasswordHashInvalidError:
+                        send_auth_event(
+                            event="password_validated",
+                            flow_id=flow_id,
+                            method="phone",
+                            branch="phone_2fa",
+                            error="2fa_wrong_password",
+                        )
+                        flush_auth_events(flow_id)
+                        raise
 
+            send_auth_event(
+                event="session_established",
+                flow_id=flow_id,
+                method="phone",
+                branch="phone_code",
+            )
+            flush_auth_events(flow_id)
             print("Successfully authenticated!")
 
             # Test the connection by getting some dialogs

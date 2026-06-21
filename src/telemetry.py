@@ -406,3 +406,112 @@ async def telemetry_task() -> None:
 # ``server_config.py`` reads ``DO_NOT_TRACK`` as an env-var-only check (no
 # pydantic field needed).  The check is trivial and lives in ``should_send()``
 # above — the config module does not need a dedicated property.
+
+
+# ---------------------------------------------------------------------------
+# Auth telemetry (ADR 0008)
+# ---------------------------------------------------------------------------
+
+# Per-flow event buffers. Keyed by flow_id (UUID string).
+# Each flow accumulates events during the auth flow, then flushes
+# as a single HTTP POST on completion/failure/abandonment.
+_auth_buffers: dict[str, list[dict]] = {}
+
+
+def send_auth_event(
+    *,
+    event: str,
+    flow_id: str,
+    method: str,
+    branch: str,
+    error: str | None = None,
+) -> None:
+    """Accumulate an atomic auth event in the per-flow buffer.
+
+    Does NOT send anything over the network. Call ``flush_auth_events()``
+    when the flow completes to send all accumulated events in one batch.
+
+    Respects ``DO_NOT_TRACK=1`` — events are silently discarded.
+
+    Args:
+        event: Atomic event name (e.g. ``"user_submitted_phone"``).
+        flow_id: UUID string identifying this auth flow.
+        method: Auth method (``"phone"``, ``"qr"``, ``"bot"``, ``"reauth"``).
+        branch: Current branch tag (e.g. ``"phone_code"``, ``"qr_scan"``).
+        error: Error category if this event failed (optional).
+    """
+    if not should_send():
+        return
+
+    entry: dict = {
+        "ts": int(time.time()),
+        "event": event,
+        "flow_id": flow_id,
+        "method": method,
+        "branch": branch,
+    }
+    if error is not None:
+        entry["error"] = error
+
+    _auth_buffers.setdefault(flow_id, []).append(entry)
+
+
+def flush_auth_events(flow_id: str) -> None:
+    """Send all accumulated events for a flow in one HTTP POST.
+
+    Clears the buffer after sending (or on network error). Never raises.
+
+    Args:
+        flow_id: UUID string identifying the auth flow to flush.
+    """
+    events = _auth_buffers.pop(flow_id, None)
+    if not events:
+        return
+
+    # Derive method/branch from the first event (they're the same for all)
+    method = events[0].get("method", "unknown")
+    branch = events[0].get("branch", "unknown")
+
+    payload = {
+        "type": "auth",
+        "iid": get_instance_id(),
+        "flow_id": flow_id,
+        "ts": int(time.time()),
+        "ver": __version__,
+        "method": method,
+        "branch": branch,
+        "events": events,
+    }
+
+    try:
+        _send_auth_payload(payload)
+    except Exception:
+        logger.debug("Auth telemetry: flush failed for flow %s", flow_id, exc_info=True)
+
+
+def _send_auth_payload(payload: dict) -> None:
+    """Send an auth payload to the telemetry endpoint.
+
+    Fire-and-forget — spawns a daemon thread for the HTTP POST.
+    Never blocks the caller.
+    """
+    import urllib.error
+    import urllib.request
+
+    if os.environ.get("MCP_TELEMETRY_DEBUG", "").strip() == "1":
+        print("AUTH_TELEMETRY", json.dumps(payload, indent=2), file=sys.stderr)
+        return
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        TELEMETRY_ENDPOINT,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10)
+    except urllib.error.HTTPError as exc:
+        logger.debug("Auth telemetry: HTTP %s from %s", exc.code, TELEMETRY_ENDPOINT)
+    except (OSError, urllib.error.URLError) as exc:
+        logger.debug("Auth telemetry: network error — %s", exc)
