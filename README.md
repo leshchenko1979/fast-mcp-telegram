@@ -2,8 +2,6 @@
 
 **Telegram MCP Server** — Model Context Protocol (MCP) gateway for Telegram. 8 context-efficient tools, multi-tenant, MTProto bridge.
 
-> Canonical GitHub repository: [alexeyleshchenko/fast-mcp-telegram](https://github.com/alexeyleshchenko/fast-mcp-telegram). This is the same project previously published under `leshchenko1979/fast-mcp-telegram`. The old GitHub URL is a public 404. Install remains `pip install fast-mcp-telegram` or `uvx --from fast-mcp-telegram`; PyPI is the stable pointer.
-
 ## Try the Demo
 
 1. Open https://tg-mcp.l1979.ru/setup
@@ -27,7 +25,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 
 [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/alexeyleshchenko/fast-mcp-telegram)
+[![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 [![Health Status](https://gatus.l1979.ru/api/v1/endpoints/apps_fast-mcp-telegram/uptimes/30d/badge.svg)](https://gatus.l1979.ru/endpoints/apps_fast-mcp-telegram)
 [![Glama Score](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram/badges/score.svg)](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram)
 
