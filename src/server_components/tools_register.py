@@ -16,6 +16,7 @@ from src.server_components.mcp_tool_types import (
     AutoExpandBatches,
     ChatId,
     ChatTypeComma,
+    CommonChatsLimit,
     ContactFirstName,
     ContactLastName,
     ContextWindow,
@@ -396,10 +397,16 @@ def register_tools(mcp: FastMCP) -> None:
     )
     @mcp_tool_with_restrictions("get_chat_info")
     async def get_chat_info(
-        chat_id: ChatId, topics_limit: TopicsLimit = 20
+        chat_id: ChatId,
+        topics_limit: TopicsLimit = 20,
+        common_chats_limit: CommonChatsLimit = 10,
     ) -> ChatInfoResult:
         """Profile and metadata for one chat or user (full doc URL in tool description)."""
-        return await get_chat_info_impl(chat_id, topics_limit=topics_limit)
+        return await get_chat_info_impl(
+            chat_id,
+            topics_limit=topics_limit,
+            common_chats_limit=common_chats_limit,
+        )
 
     @mcp.tool(
         description=_DESC_SEND_PHONE,
