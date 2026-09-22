@@ -1,5 +1,7 @@
 <img alt="Hero image" src="https://github.com/user-attachments/assets/635236f6-b776-41c7-b6e5-0dd14638ecc1" />
 
+[![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.leshchenko1979/fast-mcp-telegram.svg)](https://mcpqueen.com/s/io.github.leshchenko1979/fast-mcp-telegram)
+
 **Telegram MCP Server** — Model Context Protocol (MCP) gateway for Telegram. 8 context-efficient tools, multi-tenant, MTProto bridge.
 
 ## Try the Demo
