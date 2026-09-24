@@ -143,27 +143,43 @@ async def invoke_mtproto_impl(
                 exception=e,
             )
 
-        # Construct TL objects from dicts + optional entity resolution
-        try:
-            final_params = params
-            if isinstance(params, dict):
-                # Always construct TL objects from nested dicts,
-                # regardless of resolve flag.  Fixes "Cannot cast dict
-                # to Peer" when resolve=false.
+        # Phase 1 — construct TL objects from nested dicts.
+        # Runs unconditionally, regardless of the resolve flag: fixes
+        # "Cannot cast dict to Peer" when resolve=false.
+        final_params = params
+        if isinstance(params, dict):
+            try:
                 final_params = _construct_tl_params(params)
-                if resolve:
+            except Exception as e:
+                return log_and_build_error(
+                    operation="invoke_mtproto",
+                    error_message=f"Failed to construct TL parameters: {e}",
+                    params={
+                        "method_full_name": method_full_name,
+                        "normalized_method": normalized_method,
+                        "params_json": params_json,
+                    },
+                    exception=e,
+                )
+
+            # Phase 2 — resolve entity-like parameters (opt-in).
+            # Kept separate from construction so a client/session-store failure
+            # (get_connected_client inside _resolve_params) is not reported as
+            # a parameter-construction fault.
+            if resolve:
+                try:
                     final_params = await _resolve_params(final_params)
-        except Exception as e:
-            return log_and_build_error(
-                operation="invoke_mtproto",
-                error_message=f"Failed to resolve parameters: {e}",
-                params={
-                    "method_full_name": method_full_name,
-                    "normalized_method": normalized_method,
-                    "params_json": params_json,
-                },
-                exception=e,
-            )
+                except Exception as e:
+                    return log_and_build_error(
+                        operation="invoke_mtproto",
+                        error_message=f"Failed to resolve entity parameters: {e}",
+                        params={
+                            "method_full_name": method_full_name,
+                            "normalized_method": normalized_method,
+                            "params_json": params_json,
+                        },
+                        exception=e,
+                    )
 
         # Now invoke the actual MTProto method
         logger.debug(

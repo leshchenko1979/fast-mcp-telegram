@@ -444,3 +444,123 @@ class TestInvokeMtprotoWithTlDict:
 
         # Should not crash with "required argument is not an integer"
         assert result is not None
+
+
+class TestParameterPhaseErrors:
+    """Phase-accurate labels for the construction vs entity-resolution split.
+
+    Regression guard: ``invoke_mtproto`` used to wrap BOTH phases in one
+    exception boundary and report every failure as "Failed to resolve
+    parameters", so a client/session-store fault read as a parameter fault.
+    """
+
+    @pytest.mark.asyncio
+    async def test_construction_failure_uses_construction_label(self):
+        """A construction fault reports the construction phase, not resolution."""
+        with patch(
+            "src.tools.mtproto._construct_tl_params",
+            side_effect=ValueError("construct-boom"),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": {"_": "inputPeerSelf"}}',
+                resolve=True,
+            )
+
+        assert result["ok"] is False
+        assert "Failed to construct TL parameters" in result["error"]
+        assert "Failed to resolve entity parameters" not in result["error"]
+        assert result["operation"] == "invoke_mtproto"
+        assert result["exception"]["type"] == "ValueError"
+        assert result["exception"]["message"] == "construct-boom"
+
+    @pytest.mark.asyncio
+    async def test_resolution_failure_uses_resolution_label(self):
+        """A client/session fault during resolution reports the resolution phase."""
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ),
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+                side_effect=ValueError("resolve-boom"),
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=True,
+            )
+
+        assert result["ok"] is False
+        assert "Failed to resolve entity parameters" in result["error"]
+        assert "Failed to construct TL parameters" not in result["error"]
+        assert result["operation"] == "invoke_mtproto"
+        assert result["exception"]["type"] == "ValueError"
+        assert result["exception"]["message"] == "resolve-boom"
+
+    @pytest.mark.asyncio
+    async def test_successful_construction_runs_both_phases(self):
+        """Control: on the success path both phases run and no phase label appears."""
+        mock_client = AsyncMock()
+        mock_client.return_value = {"_": "Ok"}
+
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ) as mock_construct,
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+                return_value={"peer": 1},
+            ) as mock_resolve,
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=True,
+            )
+
+        mock_construct.assert_called_once()
+        mock_resolve.assert_called_once()
+        assert result is not None
+        error = result.get("error", "") if isinstance(result, dict) else str(result)
+        assert "Failed to construct TL parameters" not in error
+        assert "Failed to resolve entity parameters" not in error
+
+    @pytest.mark.asyncio
+    async def test_resolve_false_skips_resolution_phase(self):
+        """Phase 2 is opt-in: resolve=False must not call _resolve_params."""
+        mock_client = AsyncMock()
+
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ) as mock_construct,
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+            ) as mock_resolve,
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+        ):
+            await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=False,
+            )
+
+        mock_construct.assert_called_once()
+        mock_resolve.assert_not_called()
