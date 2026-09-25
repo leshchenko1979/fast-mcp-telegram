@@ -150,6 +150,13 @@ _DESC_INVOKE_MTPROTO = _tool_description(
     "Success: API result dict or normalized error. "
     "PII and credential-shaped fields (phone, access_hash) are dropped from a "
     "successful result by default; pass include_sensitive=true for the raw payload. "
+    "A bare message id needs a chat binding: requests with no peer field "
+    "(messages.GetMessages, messages.DeleteMessages) are refused, because a bare id "
+    "resolves against an arbitrary dialog. Use channels.GetMessages or "
+    "messages.GetHistory, which carry the binding. "
+    "messages.GetHistory cannot address a forum topic (no thread_id/top_msg_id in "
+    "the schema, and channels.GetHistory does not exist) -- use messages.Search with "
+    "top_msg_id, or the high-level get_messages with reply_to_id. "
 )
 
 

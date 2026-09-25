@@ -634,6 +634,24 @@ invoke_mtproto(
 
 **Parameter notes:**
 - `hash` parameter accepts both **string** (e.g., invite hash for `messages.ImportChatInvite`) and **integer** (for state/difference methods like `messages.GetState`)
+- **A bare message id needs a chat binding.** Some requests declare no peer field at all — `messages.GetMessages` takes only `id` — so Telegram resolves a bare id against whatever dialog the account can see, and a read can return an unrelated chat's message. Such a request is **refused** with an error naming the scoped alternatives. Use `channels.GetMessages` (`channel` + `id`) or `messages.GetHistory` (`peer`), both of which carry the binding in the request itself. Passing a plain integer is the same hazard as passing `{"_": "inputMessageID", "id": N}` and is refused the same way.
+
+**Forum topic scoping (reading one topic):**
+`messages.GetHistory` **cannot address a forum topic**. Its parameters are `peer, offset_id, offset_date, add_offset, limit, max_id, min_id, hash` — no `thread_id`, no `top_msg_id`. This is structural in the TL schema, not a limitation of this tool: across the whole API layer **zero** requests carry `thread_id`, and `GetHistory` is not among the dozen that carry `top_msg_id`. There is also no `channels.GetHistory` to route to, so no fix to `GetHistory` is possible.
+
+Use `messages.Search` with `top_msg_id` instead — this is the route the server honours, and it is what the high-level tools already use internally:
+
+```json
+// Read one forum topic (top_msg_id = the topic's root message id)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.Search",
+  "params_json": "{\"peer\": -1001234567890, \"q\": \"\", \"filter\": {\"_\": \"InputMessagesFilterEmpty\"}, \"top_msg_id\": 42487, \"limit\": 50}"
+}}
+```
+
+`messages.Search` declares many parameters, but only `peer`, `q`, `filter` and `top_msg_id` need spelling out: the remaining ones (`min_date`, `max_date`, `offset_id`, `add_offset`, `max_id`, `min_id`, `hash`) are integers that `invoke_mtproto` fills with `0` automatically. `peer` wants the raw `-100…` id — a dict peer raises `Cannot cast dict to any kind of Peer` before resolution runs.
+
+The high-level `get_messages` tool exposes the same capability more directly: pass `reply_to_id` set to the topic's root message id.
 
 **Use cases:** Advanced operations with complex parameters, raw Telegram API access, joining groups via invite links
 
@@ -745,10 +763,12 @@ When `resolve=true` (default for both MCP tool and HTTP bridge), these parameter
   "params_json": "{}"
 }}
 
-// Delete messages (requires explicit dangerous flag)
+// Delete messages (requires explicit dangerous flag).
+// Note the channel: messages.DeleteMessages takes a bare id with no peer field,
+// so it is refused. channels.DeleteMessages carries the binding in the request.
 {"tool": "invoke_mtproto", "params": {
-  "method_full_name": "messages.DeleteMessages",
-  "params_json": "{\"id\": [123, 456, 789]}",
+  "method_full_name": "channels.DeleteMessages",
+  "params_json": "{\"channel\": -1001234567890, \"id\": [123, 456, 789]}",
   "allow_dangerous": true
 }}
 
