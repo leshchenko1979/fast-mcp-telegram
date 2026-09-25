@@ -727,7 +727,9 @@ class TestSensitiveFieldStripping:
 
         with p_client, p_convert:
             result = await invoke_mtproto_impl(
-                "messages.GetMessages", '{"id": [1]}', resolve=False
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
+                resolve=False,
             )
 
         user = result["users"][0]
@@ -744,8 +746,8 @@ class TestSensitiveFieldStripping:
 
         with p_client, p_convert:
             result = await invoke_mtproto_impl(
-                "messages.GetMessages",
-                '{"id": [1]}',
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
                 resolve=False,
                 include_sensitive=True,
             )
@@ -781,7 +783,9 @@ class TestSensitiveFieldStripping:
 
         with p_client, p_convert:
             result = await invoke_mtproto_impl(
-                "messages.GetMessages", '{"id": [1]}', resolve=False
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
+                resolve=False,
             )
 
         user = result["users"][0]
@@ -806,16 +810,16 @@ class TestSensitiveFieldStripping:
                 default_call = await client.call_tool(
                     "invoke_mtproto",
                     {
-                        "method_full_name": "messages.GetMessages",
-                        "params_json": '{"id": [1]}',
+                        "method_full_name": "channels.GetMessages",
+                        "params_json": '{"channel": -1001234567890, "id": [1]}',
                         "resolve": False,
                     },
                 )
                 opted_in = await client.call_tool(
                     "invoke_mtproto",
                     {
-                        "method_full_name": "messages.GetMessages",
-                        "params_json": '{"id": [1]}',
+                        "method_full_name": "channels.GetMessages",
+                        "params_json": '{"channel": -1001234567890, "id": [1]}',
                         "resolve": False,
                         "include_sensitive": True,
                     },
@@ -823,3 +827,109 @@ class TestSensitiveFieldStripping:
 
         assert "phone" not in default_call.structured_content["users"][0]
         assert opted_in.structured_content["users"][0]["phone"] == "+79990000000"
+
+
+class TestBareMessageIdRefusal:
+    """#154: a bare message id on a request with no chat binding must be refused.
+
+    messages.GetMessagesRequest declares only `id` -- no peer, no channel -- so
+    the server resolves a bare id against whatever dialog the account can see.
+    The guard refuses rather than letting the server guess.
+    """
+
+    def test_bare_message_id_flagged_on_unbound_method(self):
+        """messages.GetMessages declares no peer field -> a bare int is refused."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        assert _unbound_message_id_params(GetMessagesRequest, {"id": [78605]}) == ["id"]
+
+    def test_bare_message_id_flagged_as_explicit_tl_object(self):
+        """The dict spelling (constructed to InputMessageID) is caught too."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+        from telethon.tl.types import InputMessageID
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"id": [InputMessageID(id=78605)]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == ["id"]
+
+    def test_bare_message_id_not_flagged_when_channel_binds_the_read(self):
+        """Negative control: channels.GetMessages carries a channel."""
+        from telethon.tl.functions.channels import GetMessagesRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"channel": -1001234567890, "id": [78605]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == []
+
+    def test_bare_message_id_not_flagged_when_peer_binds_the_read(self):
+        """Negative control: messages.GetHistory carries a peer."""
+        from telethon.tl.functions.messages import GetHistoryRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"peer": -1001234567890, "limit": 10}
+        assert _unbound_message_id_params(GetHistoryRequest, params) == []
+
+    def test_bare_message_id_ignores_bound_message_variants(self):
+        """InputMessagePinned is a bound variant, not a bare id."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+        from telethon.tl.types import InputMessagePinned
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"id": [InputMessagePinned()]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == []
+
+    def test_bare_message_id_not_flagged_on_non_message_id_param(self):
+        """users.GetUsers takes user ids, not message ids -> untouched."""
+        from telethon.tl.functions.users import GetUsersRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        assert _unbound_message_id_params(GetUsersRequest, {"id": [12345]}) == []
+
+    @pytest.mark.asyncio
+    async def test_bare_message_id_refused_before_reaching_the_wire(self):
+        """The impl refuses, and never calls the client at all."""
+        with patch(
+            "src.tools.mtproto.get_connected_client", new_callable=AsyncMock
+        ) as mock_get:
+            result = await invoke_mtproto_impl(
+                "messages.GetMessages", '{"id": [78605]}', resolve=False
+            )
+
+        assert result.get("ok") is False
+        assert "no peer/channel field" in result.get("error", "")
+        # The scoped alternatives are named in the error.
+        assert "channels.GetMessages" in result["error"]
+        assert "messages.GetHistory" in result["error"]
+        mock_get.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_bare_message_id_scoped_route_still_accepted(self):
+        """Negative control end-to-end: channels.GetMessages still executes."""
+        mock_client = AsyncMock(return_value={"_": "messages.Messages"})
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [78605]}',
+                resolve=False,
+            )
+
+        assert result.get("ok") is not False
+        mock_client.assert_awaited()

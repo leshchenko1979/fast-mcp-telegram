@@ -15,6 +15,7 @@ from src.tools.mtproto_tl import (
     _resolve_method_class,
     _resolve_params,
     _sanitize_mtproto_params,
+    _unbound_message_id_params,
 )
 from src.utils.error_handling import log_and_build_error, log_connection_error_response
 from src.utils.helpers import normalize_method_name
@@ -220,6 +221,30 @@ async def invoke_mtproto_impl(
 
             # Security: Validate and sanitize parameters
             sanitized_params = _sanitize_mtproto_params(final_params)
+
+            # A bare message id on a request with no chat binding reads an
+            # arbitrary dialog: ids are per-chat, so the server resolves one
+            # against whatever the account can see. Refuse rather than let the
+            # server guess -- a successful wrong read is worse than an error.
+            unbound = _unbound_message_id_params(method_cls, sanitized_params)
+            if unbound:
+                return log_and_build_error(
+                    operation="invoke_mtproto",
+                    error_message=(
+                        f"{normalized_method} declares no peer/channel field, so the "
+                        f"message id(s) in {', '.join(unbound)} have nothing to bind "
+                        "to and Telegram would resolve them against an arbitrary "
+                        "dialog. Message ids are per-chat, so a bare id is not a "
+                        "coordinate. Name the chat instead: "
+                        'channels.GetMessages {"channel": -100..., "id": [N]} or '
+                        'messages.GetHistory {"peer": ..., "limit": N}.'
+                    ),
+                    params={
+                        "method_full_name": method_full_name,
+                        "normalized_method": normalized_method,
+                        "params_json": params_json,
+                    },
+                )
 
             # Fill missing required int params with 0 so callers that omit
             # offset_id / offset_date / add_offset / hash etc. get defaults
