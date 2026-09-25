@@ -214,10 +214,18 @@ async def invoke_mtproto_impl(
             client = await get_connected_client()
             result = await client(method_obj)
 
-            # Process result to JSON-safe format
-            result_dict = (
-                result.to_dict() if hasattr(result, "to_dict") else str(result)
-            )
+            # Process result to JSON-safe format.
+            # A non-object RPC result — a bare Bool (e.g. messages.EditChatAbout),
+            # int or str — carries no to_dict(), and rendering it with str() yielded
+            # the Python literal "True", which FastMCP rejects with
+            # "structured_content must be a dict or None". The call had SUCCEEDED, so
+            # the caller saw a hard error for a write that landed. Wrap it instead.
+            if isinstance(result, dict):
+                result_dict = result
+            elif callable(getattr(result, "to_dict", None)):
+                result_dict = result.to_dict()
+            else:
+                result_dict = {"result": result}
             safe_result = _json_safe(result_dict)
 
             logger.info(f"MTProto method {normalized_method} invoked successfully")

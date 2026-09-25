@@ -564,3 +564,116 @@ class TestParameterPhaseErrors:
 
         mock_construct.assert_called_once()
         mock_resolve.assert_not_called()
+
+
+class TestScalarRpcResult:
+    """Regression tests for issue #153.
+
+    A method whose RPC result is a bare ``Bool`` (``messages.EditChatAbout`` is
+    the confirmed instance) rendered as the Python literal ``"True"`` through
+    ``str(result)``, and FastMCP rejected it with ``structured_content must be a
+    dict or None. Got str: 'True'``. The call had SUCCEEDED, so the caller saw a
+    hard error for a write that had already landed.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("raw", [True, False, 42, "ok"])
+    async def test_scalar_result_is_wrapped_not_stringified(self, raw):
+        """A non-object RPC result is wrapped so the success signal survives."""
+        mock_client = AsyncMock(return_value=raw)
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.EditChatAbout",
+                '{"peer": 1, "about": "x"}',
+                resolve=False,
+            )
+
+        assert isinstance(result, dict), (
+            "a scalar RPC result must still be a dict or FastMCP rejects it "
+            "as structured_content (issue #153)"
+        )
+        assert result == {"result": raw}
+
+    @pytest.mark.asyncio
+    async def test_object_result_shape_is_unchanged(self):
+        """Negative control: an object result keeps its own fields, unwrapped."""
+
+        class _FakeTLObject:
+            def to_dict(self):
+                return {"_": "FakeTLObject", "value": 1}
+
+        mock_client = AsyncMock(return_value=_FakeTLObject())
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.EditChatAbout",
+                '{"peer": 1, "about": "x"}',
+                resolve=False,
+            )
+
+        assert result == {"_": "FakeTLObject", "value": 1}
+        assert "result" not in result
+
+    @pytest.mark.asyncio
+    async def test_registered_tool_reports_success_for_scalar_result(self):
+        """The REGISTERED tool must not error on a successful scalar call.
+
+        Driving the registered tool is load-bearing: the defect surfaced in
+        FastMCP's structured_content validation, which the impl-level tests
+        above cannot observe.
+        """
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("invoke_mtproto scalar result test")
+        register_tools(temp_mcp)
+
+        mock_client = AsyncMock(return_value=True)
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            async with Client(temp_mcp) as client:
+                result = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "messages.EditChatAbout",
+                        "params_json": '{"peer": 1, "about": "x"}',
+                        "resolve": False,
+                    },
+                )
+
+        assert result.structured_content == {"result": True}
