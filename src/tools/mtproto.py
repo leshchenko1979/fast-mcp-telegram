@@ -36,6 +36,33 @@ DANGEROUS_METHODS = {
     "channels.DeleteMessages",
 }
 
+
+# Fields dropped from a raw invoke_mtproto result unless the caller opts in with
+# include_sensitive=true. A raw passthrough carries no output schema of its own to
+# protect the caller, which is exactly why it needs an explicit boundary:
+#   phone        -- PII, with no legitimate passthrough use case
+#   access_hash  -- credential-shaped handle; its holder can act as the entity
+_SENSITIVE_RESULT_FIELDS = frozenset({"phone", "access_hash"})
+
+
+def _strip_sensitive_fields(value: Any) -> Any:
+    """Recursively drop _SENSITIVE_RESULT_FIELDS from a JSON-safe result.
+
+    Applied AFTER _json_safe: by then every nested TL object has been expanded
+    into plain dicts, so a User nested inside a messages.Messages envelope is
+    reached. Filtering before _json_safe would miss exactly those.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _strip_sensitive_fields(v)
+            for k, v in value.items()
+            if k not in _SENSITIVE_RESULT_FIELDS
+        }
+    if isinstance(value, list):
+        return [_strip_sensitive_fields(v) for v in value]
+    return value
+
+
 # Reverse mapping: Telethon exception class -> Telegram RPC error code (from Telethon guts)
 _RPC_CLASS_TO_CODE: dict[type, str] = {
     cls: code for code, cls in rpc_errors_dict.items()
@@ -77,6 +104,7 @@ async def invoke_mtproto_impl(
     params_json: str,
     allow_dangerous: bool = False,
     resolve: bool = True,
+    include_sensitive: bool = False,
 ) -> dict[str, Any]:
     """
     Invoke MTProto methods with enhanced features.
@@ -227,6 +255,8 @@ async def invoke_mtproto_impl(
             else:
                 result_dict = {"result": result}
             safe_result = _json_safe(result_dict)
+            if not include_sensitive:
+                safe_result = _strip_sensitive_fields(safe_result)
 
             logger.info(f"MTProto method {normalized_method} invoked successfully")
             return safe_result

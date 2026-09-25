@@ -677,3 +677,149 @@ class TestScalarRpcResult:
                 )
 
         assert result.structured_content == {"result": True}
+
+
+class TestSensitiveFieldStripping:
+    """#156: a raw invoke_mtproto result must not carry PII/credential fields.
+
+    The raw passthrough has no output schema of its own, which is exactly why
+    it needs an explicit boundary: phone and access_hash are dropped unless the
+    caller opts in with include_sensitive=true.
+    """
+
+    @staticmethod
+    def _nested():
+        """A messages.Messages-shaped result carrying one User with PII.
+
+        Built fresh per call so no test can leak state into another.
+        """
+        return {
+            "users": [
+                {
+                    "id": 7,
+                    "phone": "+79990000000",
+                    "access_hash": 123456,
+                    "username": "someone",
+                }
+            ]
+        }
+
+    @staticmethod
+    def _client(return_value):
+        """Patch get_connected_client + _convert_peer_types around a mock client."""
+        return (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(return_value=return_value),
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_dropped_by_default(self):
+        """phone/access_hash are absent from a nested list element by default."""
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "messages.GetMessages", '{"id": [1]}', resolve=False
+            )
+
+        user = result["users"][0]
+        assert "phone" not in user
+        assert "access_hash" not in user
+        # Negative control: only the sensitive pair goes, nothing else.
+        assert user["username"] == "someone"
+        assert user["id"] == 7
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_kept_when_opted_in(self):
+        """include_sensitive=true returns the raw payload."""
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "messages.GetMessages",
+                '{"id": [1]}',
+                resolve=False,
+                include_sensitive=True,
+            )
+
+        user = result["users"][0]
+        assert user["phone"] == "+79990000000"
+        assert user["access_hash"] == 123456
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_stripped_from_real_tl_object(self):
+        """The production shape: a TL object expanded via to_dict().
+
+        _strip_sensitive_fields runs AFTER _json_safe, so a User nested inside
+        a messages.Messages envelope must still be reached.
+        """
+        from telethon.tl.types import User
+        from telethon.tl.types.messages import Messages
+
+        tl_result = Messages(
+            messages=[],
+            topics=[],
+            chats=[],
+            users=[
+                User(
+                    id=7,
+                    phone="+79990000000",
+                    access_hash=123456,
+                    username="someone",
+                )
+            ],
+        )
+        p_client, p_convert = self._client(tl_result)
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "messages.GetMessages", '{"id": [1]}', resolve=False
+            )
+
+        user = result["users"][0]
+        assert "phone" not in user
+        assert "access_hash" not in user
+        assert user["username"] == "someone"
+
+    @pytest.mark.asyncio
+    async def test_registered_tool_exposes_include_sensitive(self):
+        """The REGISTERED tool must advertise and honour include_sensitive."""
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("invoke_mtproto sensitive test")
+        register_tools(temp_mcp)
+
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            async with Client(temp_mcp) as client:
+                default_call = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "messages.GetMessages",
+                        "params_json": '{"id": [1]}',
+                        "resolve": False,
+                    },
+                )
+                opted_in = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "messages.GetMessages",
+                        "params_json": '{"id": [1]}',
+                        "resolve": False,
+                        "include_sensitive": True,
+                    },
+                )
+
+        assert "phone" not in default_call.structured_content["users"][0]
+        assert opted_in.structured_content["users"][0]["phone"] == "+79990000000"

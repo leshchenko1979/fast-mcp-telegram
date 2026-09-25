@@ -338,3 +338,13 @@ ResolveEntities = Annotated[
         )
     ),
 ]
+
+IncludeSensitive = Annotated[
+    bool,
+    Field(
+        description=(
+            "If true, return the raw result including PII and credential-shaped "
+            "fields (phone, access_hash). Default false drops them."
+        )
+    ),
+]

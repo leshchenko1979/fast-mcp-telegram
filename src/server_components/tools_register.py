@@ -24,6 +24,7 @@ from src.server_components.mcp_tool_types import (
     FilterParam,
     FromUser,
     IncludeReplies,
+    IncludeSensitive,
     IncludeTotalCount,
     LimitChats,
     LimitMessages,
@@ -147,6 +148,8 @@ _DESC_INVOKE_MTPROTO = _tool_description(
     "Low-level Telegram API (MTProto) invoke for methods not wrapped by other tools. "
     "Dangerous methods require allow_dangerous=true. "
     "Success: API result dict or normalized error. "
+    "PII and credential-shaped fields (phone, access_hash) are dropped from a "
+    "successful result by default; pass include_sensitive=true for the raw payload. "
 )
 
 
@@ -453,6 +456,7 @@ def register_tools(mcp: FastMCP) -> None:
         params_json: ParamsJson,
         allow_dangerous: AllowDangerous = False,
         resolve: ResolveEntities = True,
+        include_sensitive: IncludeSensitive = False,
     ) -> MtprotoResult:
         """Raw Telegram API invoke, advanced (full doc URL in tool description)."""
         return await invoke_mtproto_impl(
@@ -460,4 +464,5 @@ def register_tools(mcp: FastMCP) -> None:
             params_json=params_json,
             allow_dangerous=allow_dangerous,
             resolve=resolve,
+            include_sensitive=include_sensitive,
         )
