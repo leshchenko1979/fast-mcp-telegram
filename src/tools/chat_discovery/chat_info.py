@@ -6,7 +6,11 @@ from typing import Any
 from telethon.tl.functions.messages import GetCommonChatsRequest, GetForumTopicsRequest
 
 from src.client.connection import get_connected_client
-from src.utils.entity import build_entity_dict, build_entity_dict_enriched, get_entity_by_id
+from src.utils.entity import (
+    build_entity_dict,
+    build_entity_dict_enriched,
+    get_entity_by_id,
+)
 from src.utils.error_handling import log_and_build_error
 
 logger = logging.getLogger(__name__)
