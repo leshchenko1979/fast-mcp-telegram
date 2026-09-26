@@ -70,7 +70,7 @@ from src.tools.return_types import (
 from src.tools.search import search_messages_impl
 
 # Canonical absolute URL for Tools-Reference (appended to each MCP tool description).
-TOOLS_REFERENCE_DOC_URL = "https://github.com/alexeyleshchenko/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
+TOOLS_REFERENCE_DOC_URL = "https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
 
 # MCP-visible tool descriptions (short; full examples at TOOLS_REFERENCE_DOC_URL).
 

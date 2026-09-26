@@ -40,7 +40,7 @@ curl -X POST "$GRAFANA_URL/api/annotations" \
     "tags": ["release", "fast-mcp-telegram"],
     "data": {
       "tag": "v0.0.32",
-      "url": "https://github.com/alexeyleshchenko/fast-mcp-telegram/releases/tag/v0.0.32"
+      "url": "https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/v0.0.32"
     }
   }'
 ```
@@ -58,7 +58,7 @@ from datetime import datetime, timezone
 
 RELEASE_TAG = "v0.0.32"
 RELEASE_NAME = "OAuth2 PKCE"
-RELEASE_URL = f"https://github.com/alexeyleshchenko/fast-mcp-telegram/releases/tag/{RELEASE_TAG}"
+RELEASE_URL = f"https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/{RELEASE_TAG}"
 PUBLISHED_AT = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 
 body = {

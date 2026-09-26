@@ -69,9 +69,9 @@ def register_server_card_route(mcp_app: FastMCP) -> None:
                     "MTProto User API"
                 ),
                 "version": __version__,
-                "websiteUrl": "https://github.com/alexeyleshchenko/fast-mcp-telegram",
+                "websiteUrl": "https://github.com/leshchenko1979/fast-mcp-telegram",
                 "repository": {
-                    "url": "https://github.com/alexeyleshchenko/fast-mcp-telegram",
+                    "url": "https://github.com/leshchenko1979/fast-mcp-telegram",
                     "source": "github",
                 },
                 "remotes": [

@@ -74,14 +74,14 @@ Deploy on a VDS with Docker Compose and Traefik — SSL is managed centrally, no
 
 Option A (clone):
 ```bash
-git clone https://github.com/alexeyleshchenko/fast-mcp-telegram.git
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
 cd fast-mcp-telegram
 ```
 
 Option B (download only):
 ```bash
-curl -O https://raw.githubusercontent.com/alexeyleshchenko/fast-mcp-telegram/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/alexeyleshchenko/fast-mcp-telegram/main/.env.example
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/.env.example
 mv .env.example .env
 ```
 
@@ -382,4 +382,4 @@ SESSION_NAME=work fast-mcp-telegram-setup \
 
 ---
 
-**Need help?** Open an [issue](https://github.com/alexeyleshchenko/fast-mcp-telegram/issues) on GitHub!
+**Need help?** Open an [issue](https://github.com/leshchenko1979/fast-mcp-telegram/issues) on GitHub!

@@ -68,7 +68,7 @@ pytest tests/
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/alexeyleshchenko/fast-mcp-telegram.git
+git clone https://github.com/leshchenko1979/fast-mcp-telegram.git
 cd fast-mcp-telegram
 pip install -e .[dev]  # Install all dependencies including dev tools
 ```
@@ -443,8 +443,8 @@ HTTP Request → extract_bearer_token() → @with_auth_context → set_request_t
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/alexeyleshchenko/fast-mcp-telegram/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/alexeyleshchenko/fast-mcp-telegram/discussions)
+- **Issues**: [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/leshchenko1979/fast-mcp-telegram/discussions)
 - **Community**: [English](https://t.me/+U_3CpNWhXa9jZDcy) · [Russian](https://t.me/mcp_telegram)
 
 ## 📄 License

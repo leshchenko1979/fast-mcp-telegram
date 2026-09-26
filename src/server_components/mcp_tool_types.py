@@ -2,7 +2,7 @@
 Reusable Annotated parameter types for MCP tool JSON schemas.
 
 Field descriptions are surfaced to MCP clients for LLM tool selection and argument filling.
-Narrative tool documentation: https://github.com/alexeyleshchenko/fast-mcp-telegram/blob/main/docs/Tools-Reference.md
+Narrative tool documentation: https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md
 
 Optional parameters: use a plain type (e.g. ``str``, ``int``) with ``= None`` at the tool
 signature — do not annotate ``T | None`` so MCP clients get simpler JSON Schema without
