@@ -618,7 +618,8 @@ invoke_mtproto(
   method_full_name: str,       // Full API method name (e.g., "messages.GetHistory")
   params_json: str,           // JSON string of method parameters (supports automatic TL object construction)
   allow_dangerous: bool,      // Allow dangerous methods (default: false)
-  resolve: bool              // Automatically resolve entities (default: true)
+  resolve: bool,             // Automatically resolve entities (default: true)
+  include_sensitive: bool    // Return the raw result including PII (default: false)
 )
 ```
 
@@ -633,6 +634,7 @@ invoke_mtproto(
 - **Comprehensive error handling**: Structured error responses with machine-readable `error_code` for Telegram RPC errors (e.g., `USER_ALREADY_PARTICIPANT`, `INVITE_HASH_EXPIRED`)
 
 **Parameter notes:**
+- **Results are sanitized by default.** Returned objects drop `phone`, `access_hash` and other credential-shaped fields, including when they are nested inside lists. Pass `include_sensitive: true` to receive the raw payload.
 - `hash` parameter accepts both **string** (e.g., invite hash for `messages.ImportChatInvite`) and **integer** (for state/difference methods like `messages.GetState`)
 - **A bare message id needs a chat binding.** Some requests declare no peer field at all — `messages.GetMessages` takes only `id` — so Telegram resolves a bare id against whatever dialog the account can see, and a read can return an unrelated chat's message. Such a request is **refused** with an error naming the scoped alternatives. Use `channels.GetMessages` (`channel` + `id`) or `messages.GetHistory` (`peer`), both of which carry the binding in the request itself. Passing a plain integer is the same hazard as passing `{"_": "inputMessageID", "id": N}` and is refused the same way.
 
