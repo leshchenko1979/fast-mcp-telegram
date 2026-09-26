@@ -1,11 +1,11 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.alexeyleshchenko/fast-mcp-telegram",
+  "name": "io.github.leshchenko1979/fast-mcp-telegram",
   "description": "Multi-tenant Telegram gateway for AI agents — HTTP+stdio, 8 tools, MTProto User API",
   "version": "0.44.1",
-  "websiteUrl": "https://github.com/alexeyleshchenko/fast-mcp-telegram",
+  "websiteUrl": "https://github.com/leshchenko1979/fast-mcp-telegram",
   "repository": {
-    "url": "https://github.com/alexeyleshchenko/fast-mcp-telegram",
+    "url": "https://github.com/leshchenko1979/fast-mcp-telegram",
     "source": "github"
   },
   "packages": [
