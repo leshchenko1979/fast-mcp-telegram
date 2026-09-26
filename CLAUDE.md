@@ -1,14 +1,28 @@
 # fast-mcp-telegram
 
-Canonical GitHub repository: https://github.com/alexeyleshchenko/fast-mcp-telegram
+Canonical GitHub repository: https://github.com/leshchenko1979/fast-mcp-telegram
 
 Canonical Python package: `fast-mcp-telegram` on PyPI (https://pypi.org/project/fast-mcp-telegram/).
 
-Canonical MCP registry name: `io.github.alexeyleshchenko/fast-mcp-telegram`
+Canonical MCP registry name: `io.github.leshchenko1979/fast-mcp-telegram`
 
-The old GitHub URL `https://github.com/leshchenko1979/fast-mcp-telegram` is a public 404. Do not restore that owner in README links, `pyproject.toml`, `server.json`, `glama.json`, GHCR image names, or docs clone URLs. PyPI is the stable pointer.
+**Owner order 2026-09-26: the `leshchenko1979` account is the canonical
+location.** This reverses the guidance that stood here, which was written while
+that account was suspended and told agents to avoid its owner name on every
+surface. The account is live again and now carries origin, CI, the issue tracker
+and all current pushes.
 
-Do not create a replacement repository under `leshchenko1979/fast-mcp-telegram`. If GitHub ever unsuspends that account and allows a transfer, keep the old name free so redirects can work.
+The previously used owner account is superseded: do not push to it, file against
+it, or use its owner in new links, image names or registry manifests. Which
+listings and packages still exist under it, and which duplicates still need
+deprecating, is recorded in [docs/published-resources.md](docs/published-resources.md).
+
+Repository identity and published artifacts are separate things: the GHCR
+packages under both owners stay pullable, and both owners' MCP registry and
+Glama listings are live, so a duplicate listing is deprecated in its own console
+rather than assumed gone.
+
+PyPI remains a stable pointer regardless of which GitHub owner is canonical.
 
 Telegram MCP server (stdio, http-no-auth, http-auth). Full setup, ACL matrix, and dev workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
