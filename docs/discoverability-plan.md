@@ -4,12 +4,34 @@
 
 When a user searches for "telegram mcp" on any registry, **fast-mcp-telegram does not appear** in results on the biggest indexes.
 
+## Owner migration (2026-09-26)
+
+**The canonical owner is `leshchenko1979`** (owner order 2026-09-26), replacing
+`alexeyleshchenko` — whose repository has been stale since 2026-08-21 and holds no
+commits the canonical repo lacks.
+
+Everything below dated 2026-06-18 is preserved as the history it is: those
+sessions genuinely published under the then-canonical owner, and rewriting them
+would erase the record of how each listing was created. What changes is which
+owner is canonical from here, and what still needs doing externally.
+
+| Surface | State after migration | Action owed |
+|---------|----------------------|-------------|
+| Repo URLs, image names, manifests | ✅ Migrated in-repo | None |
+| Official MCP Registry | ✅ Manifest now names the canonical entry | **Republish** — both owners are ACTIVE entries; the canonical one carries up to v0.36.0 while the superseded one carries v0.44.1 |
+| Glama | ✅ Badge and `glama.json` now name the canonical listing | **Deprecate** the duplicate listing in Glama admin |
+| GHCR | ✅ Defaults now name the canonical owner | None — both owners' packages stay pullable |
+| Superseded GitHub repo | Still exists, unarchived | Owner's call — deleting or archiving it is not something this repo can do |
+
+Note on Smithery: its namespace is `leshchenko` (neither account name), so this
+migration does not touch it.
+
 ## Current Status (2026-06-18 verified)
 
 | Registry | Status | Search visibility | Action needed |
 |----------|--------|------------------|---------------|
 | **PyPI** | ✅ v0.35.0 | ✅ `pip install fast-mcp-telegram` | Done |
-| **Official MCP Registry** | ✅ Published (v0.35.0) | ✅ Listed as `io.github.alexeyleshchenko/fast-mcp-telegram` | Done — published via `mcp-publisher publish` after GitHub OAuth |
+| **Official MCP Registry** | ✅ Published | ✅ Canonical entry `io.github.leshchenko1979/fast-mcp-telegram` (published 2026-06-18 under the then-canonical owner as `io.github.alexeyleshchenko/fast-mcp-telegram`; renamed in-repo 2026-09-26) | Republish so the canonical entry carries the current version |
 | **Smithery** | ✅ Live | ⚠️ Not in search results yet | All 8 tools indexed in API. May need indexing time or metadata improvements. |
 | **Glama** | ⏳ Submitted for review | ❌ `tools:[]` | User submitted connector. Awaiting Glama review to index tools. |
 | **awesome-mcp-servers** | ✅ MERGED (PR #7019) | ✅ Discoverable | Done |
