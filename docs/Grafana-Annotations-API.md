@@ -30,17 +30,20 @@ to the Grafana internal annotation DS.
 
 ## Minimal example (release annotation)
 
+The values below are from a real release (v0.44.2, published 2026-08-23),
+so the URL resolves as written — substitute your own tag, name and timestamp.
+
 ```bash
 curl -X POST "$GRAFANA_URL/api/annotations" \
   -H "Authorization: Bearer $GRAFANA_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "v0.0.32 — OAuth2 PKCE",
-    "time": 1750000000000,
+    "text": "v0.44.2 — 0.44.2",
+    "time": 1787523525000,
     "tags": ["release", "fast-mcp-telegram"],
     "data": {
-      "tag": "v0.0.32",
-      "url": "https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/v0.0.32"
+      "tag": "v0.44.2",
+      "url": "https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/v0.44.2"
     }
   }'
 ```
@@ -56,10 +59,10 @@ import json
 import urllib.request
 from datetime import datetime, timezone
 
-RELEASE_TAG = "v0.0.32"
-RELEASE_NAME = "OAuth2 PKCE"
+RELEASE_TAG = "v0.44.2"
+RELEASE_NAME = "0.44.2"
 RELEASE_URL = f"https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/{RELEASE_TAG}"
-PUBLISHED_AT = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+PUBLISHED_AT = datetime(2026, 8, 23, 22, 18, 45, tzinfo=timezone.utc)
 
 body = {
     "text": f"{RELEASE_TAG} — {RELEASE_NAME}",

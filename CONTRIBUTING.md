@@ -444,7 +444,7 @@ HTTP Request → extract_bearer_token() → @with_auth_context → set_request_t
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/leshchenko1979/fast-mcp-telegram/discussions)
+- **Discussions**: not enabled on this repository — use [GitHub Issues](https://github.com/leshchenko1979/fast-mcp-telegram/issues) instead.
 - **Community**: [English](https://t.me/+U_3CpNWhXa9jZDcy) · [Russian](https://t.me/mcp_telegram)
 
 ## 📄 License

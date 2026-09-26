@@ -80,8 +80,8 @@ cd fast-mcp-telegram
 
 Option B (download only):
 ```bash
-curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/docker-compose.yml
-curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/main/.env.example
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/master/docker-compose.yml
+curl -O https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/master/.env.example
 mv .env.example .env
 ```
 
