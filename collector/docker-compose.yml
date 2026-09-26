@@ -1,6 +1,6 @@
 services:
   telemetry-collector:
-    image: ${GHCR_IMAGE:-ghcr.io/alexeyleshchenko/telemetry-collector}:${IMAGE_TAG:-main}
+    image: ${GHCR_IMAGE:-ghcr.io/leshchenko1979/telemetry-collector}:${IMAGE_TAG:-main}
     container_name: telemetry-collector
     restart: unless-stopped
     environment:
