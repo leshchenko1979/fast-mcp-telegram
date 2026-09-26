@@ -58,6 +58,8 @@ jobs:
   collector-build-push-ghcr:
     needs: collector-test
     runs-on: ubuntu-latest
+    outputs:
+      image_repo: ${{ steps.img.outputs.image_repo }}
     steps:
       - uses: actions/checkout@v7
 
@@ -120,7 +122,7 @@ jobs:
             content = textwrap.dedent('''
               services:
                 telemetry-collector:
-                  image: ghcr.io/alexeyleshchenko/telemetry-collector:main
+                  image: ${{ needs.collector-build-push-ghcr.outputs.image_repo }}:main
                   container_name: telemetry-collector
                   restart: unless-stopped
                   environment:
