@@ -43,8 +43,28 @@ def sort_messages_ascending(messages: list[dict[str, Any]]) -> list[dict[str, An
     """
     return sorted(messages, key=message_sort_key)
 
+def _sort_context_lists(message: Any) -> None:
+    """Order a result's nested context lists in place.
+
+    ``context.before`` is built most-recent-first and ``context.replies``
+    inherits Telethon's newest-first order, so both need the same treatment as
+    the top-level list.
+    """
+    if not isinstance(message, dict):
+        return
+    context = message.get("context")
+    if not isinstance(context, dict):
+        return
+    for key in CONTEXT_MESSAGE_KEYS:
+        value = context.get(key)
+        if isinstance(value, list):
+            context[key] = sort_messages_ascending(value)
+
 def apply_ascending_message_order(result: dict[str, Any]) -> dict[str, Any]:
-    """Order the ``messages`` list of a tool result by ascending date-time.
+    """Order every message list in a tool result by ascending date-time.
+
+    Covers the top-level ``messages`` list and each result's nested
+    ``context.before`` / ``context.after`` / ``context.replies`` lists.
 
     Applied at the shared output boundary, after the newest-N window has been
     selected, so which messages a call returns never changes — only their
@@ -54,5 +74,8 @@ def apply_ascending_message_order(result: dict[str, Any]) -> dict[str, Any]:
     messages = result.get("messages")
     if not isinstance(messages, list):
         return result
-    result["messages"] = sort_messages_ascending(messages)
+    ordered = sort_messages_ascending(messages)
+    for message in ordered:
+        _sort_context_lists(message)
+    result["messages"] = ordered
     return result

@@ -1166,14 +1166,15 @@ class TestGetMessagesContext:
 
         mock_client.iter_messages = MagicMock(return_value=mock_iter())
 
-        # Neighbors for context (498, 499, 501, 502)
-        def make_raw_msg(mid, text):
+        # Neighbors for context (498, 499, 501, 502). Distinct dates so the
+        # ascending-order policy is observable: ids ascend with time.
+        def make_raw_msg(mid, text, minute):
             m = MagicMock()
             m.id = mid
             m.text = text
             m.message = text
             m.caption = None
-            m.date = datetime(2024, 6, 15, tzinfo=UTC)
+            m.date = datetime(2024, 6, 15, 10, minute, tzinfo=UTC)
             m.sender_id = 42
             m.media = None
             m.reply_to = None
@@ -1181,11 +1182,11 @@ class TestGetMessagesContext:
             return m
 
         neighbors = [
-            make_raw_msg(498, "before 2"),
-            make_raw_msg(499, "before 1"),
-            make_raw_msg(500, "found message"),
-            make_raw_msg(501, "after 1"),
-            make_raw_msg(502, "after 2"),
+            make_raw_msg(498, "before 2", 0),
+            make_raw_msg(499, "before 1", 1),
+            make_raw_msg(500, "found message", 2),
+            make_raw_msg(501, "after 1", 3),
+            make_raw_msg(502, "after 2", 4),
         ]
         mock_batched.return_value = neighbors
 
@@ -1204,10 +1205,9 @@ class TestGetMessagesContext:
         assert "after" in ctx
         assert len(ctx["before"]) == 2
         assert len(ctx["after"]) == 2
-        # Before is ordered most-recent-first (499, 498)
-        assert ctx["before"][0]["id"] == 499
-        assert ctx["before"][1]["id"] == 498
-        # After is ordered oldest-first (501, 502)
+        # Both lists are ordered oldest-first
+        assert ctx["before"][0]["id"] == 498
+        assert ctx["before"][1]["id"] == 499
         assert ctx["after"][0]["id"] == 501
         assert ctx["after"][1]["id"] == 502
 

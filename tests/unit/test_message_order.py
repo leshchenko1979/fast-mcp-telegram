@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from src.utils.message_order import message_sort_key, sort_messages_ascending
+from src.utils.message_order import (
+    apply_ascending_message_order,
+    message_sort_key,
+    sort_messages_ascending,
+)
 
 
 def _msg(msg_id: int, date: str | None) -> dict:
@@ -60,3 +64,69 @@ def test_does_not_mutate_input_order_contract():
 
     assert [m["id"] for m in ordered] == [1, 2]
     assert [m["id"] for m in messages] == [2, 1]
+
+def test_apply_orders_top_level_and_nested_context_lists():
+    """context.before arrives newest-first and must come back oldest-first."""
+    result = {
+        "messages": [
+            _msg(500, "2024-06-15T10:02:00+00:00"),
+            _msg(501, "2024-06-15T10:03:00+00:00"),
+        ],
+        "has_more": False,
+    }
+    result["messages"][0]["context"] = {
+        "before": [
+            _msg(499, "2024-06-15T10:01:00+00:00"),
+            _msg(498, "2024-06-15T10:00:00+00:00"),
+        ],
+        "after": [
+            _msg(501, "2024-06-15T10:03:00+00:00"),
+            _msg(502, "2024-06-15T10:04:00+00:00"),
+        ],
+    }
+
+    ordered = apply_ascending_message_order(result)
+
+    assert [m["id"] for m in ordered["messages"]] == [500, 501]
+    ctx = ordered["messages"][0]["context"]
+    assert [m["id"] for m in ctx["before"]] == [498, 499]
+    assert [m["id"] for m in ctx["after"]] == [501, 502]
+
+def test_apply_orders_nested_replies():
+    result = {
+        "messages": [
+            {
+                "id": 10,
+                "date": "2024-06-15T10:00:00+00:00",
+                "context": {
+                    "replies": [
+                        _msg(13, "2024-06-15T10:03:00+00:00"),
+                        _msg(11, "2024-06-15T10:01:00+00:00"),
+                        _msg(12, "2024-06-15T10:02:00+00:00"),
+                    ]
+                },
+            }
+        ]
+    }
+
+    ordered = apply_ascending_message_order(result)
+
+    assert [m["id"] for m in ordered["messages"][0]["context"]["replies"]] == [
+        11,
+        12,
+        13,
+    ]
+
+def test_apply_leaves_error_envelopes_untouched():
+    envelope = {"ok": False, "operation": "read_messages", "error": "boom"}
+
+    assert apply_ascending_message_order(dict(envelope)) == envelope
+
+def test_apply_tolerates_non_message_entries():
+    """A malformed entry must not raise at the tool boundary."""
+    result = {"messages": ["not a dict", _msg(1, "2023-01-01T00:00:00+00:00")]}
+
+    ordered = apply_ascending_message_order(result)
+
+    assert ordered["messages"][0] == {"id": 1, "date": "2023-01-01T00:00:00+00:00"}
+    assert ordered["messages"][1] == "not a dict"
