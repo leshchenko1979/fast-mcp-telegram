@@ -180,6 +180,8 @@ search_messages_globally(
 }
 ```
 
+**Ordering:** `messages` is ordered by **ascending date-time** (oldest first). `limit` still selects the newest N matches; ordering only changes presentation.
+
 **Examples:**
 ```json
 // Global search across all chats
@@ -271,9 +273,11 @@ get_messages(
 - `message_ids` + `reply_to_id`: Cannot combine
 - `message_ids` + `query`: Cannot combine (specific IDs don't need search)
 
-**`message_ids` — missing or deleted IDs:** Each requested id appears in `messages` in request order. Found messages use the normal message shape (without `chat` when `chat_id` is set). Missing or deleted ids return a per-id stub: `{"id": <id>, "chat": {...}, "error": "Message not found or inaccessible"}`. Single-id and multi-id requests use the same envelope: `{"messages": [...], "has_more": false}`. Operational failures (chat not found, bad params) still return top-level `ok: false` errors. Search, browse, and reply/thread modes omit deleted id gaps silently (no stubs).
+**`message_ids` — missing or deleted IDs:** Found messages come back in **ascending date-time order**, like every other mode — **not** in the order you listed the ids. Found messages use the normal message shape (without `chat` when `chat_id` is set). Missing or deleted ids return a per-id stub: `{"id": <id>, "chat": {...}, "error": "Message not found or inaccessible"}`. Single-id and multi-id requests use the same envelope: `{"messages": [...], "has_more": false}`. Operational failures (chat not found, bad params) still return top-level `ok: false` errors. Search, browse, and reply/thread modes omit deleted id gaps silently (no stubs).
 
 **`from_user` — not a name search:** Resolves the sender like `chat_id` via `get_entity` (username, phone, numeric id, `me`, t.me URL). Does **not** search contacts or match display names — a bare string such as `Adolfo` may resolve to an unrelated `@username`. Prefer `@username`, phone, or numeric user id.
+
+**Ordering:** `messages` is always ordered by **ascending date-time** (oldest first), in every mode — search, browse, `message_ids`, and reply/thread. Nested `context.before`, `context.after`, and `context.replies` lists follow the same rule. `limit` still selects the **newest** N messages; ordering only changes how they are presented, so `has_more` and which messages you get are unaffected. Entries without a date — `message_ids` stubs for missing or deleted messages — come last, in the order they were requested.
 
 **Response (unified format for all modes):**
 ```json

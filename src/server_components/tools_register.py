@@ -82,6 +82,7 @@ def _tool_description(body: str, *, extra: str = "") -> str:
 _DESC_SEARCH_GLOBAL = _tool_description(
     "Search all Telegram chats at once (not scoped to one chat). "
     "Comma-separated query terms; optional filters by date, chat kind, and public username. "
+    "Results are ordered by ascending date-time (oldest first); limit selects the newest N. "
     "Success: message list and metadata dict. ",
     extra="Global search ignores include_total_count.",
 )
@@ -93,6 +94,8 @@ _DESC_GET_MESSAGES = _tool_description(
     "Use context to include neighboring messages and reply chains around each result. "
     "Use include_replies to fetch up to 5 direct replies per result. "
     "Do not combine message_ids with query or reply_to_id. "
+    "Results are ordered by ascending date-time (oldest first) in every mode, "
+    "including message_ids and nested context lists; limit selects the newest N. "
     "Success: messages, has_more, optional total_count and discussion fields. "
 )
 
