@@ -8,6 +8,7 @@ from src.tools.messages import read_messages_by_ids
 from src.utils.entity import get_entity_by_id
 from src.utils.error_handling import log_and_build_error
 from src.utils.message_format import response_attachment_warning
+from src.utils.message_order import apply_ascending_message_order
 
 from .context_enrichment import _enrich_with_context
 from .replies import _handle_reply_mode
@@ -290,7 +291,7 @@ async def search_messages_impl(
             exception=ValueError(f"from_user incompatible with {mode_name} mode"),
         )
 
-    return await _dispatch_search_mode(
+    result = await _dispatch_search_mode(
         mode,
         params,
         query=query,
@@ -309,3 +310,8 @@ async def search_messages_impl(
         context=context,
         include_replies=include_replies,
     )
+
+    # Owner order 2026-10-01: every message list a tool returns is ordered by
+    # ascending date-time. Applied AFTER the newest-N window was selected, so
+    # membership and has_more are unaffected — only presentation order changes.
+    return apply_ascending_message_order(result)
