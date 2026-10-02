@@ -40,7 +40,7 @@ scp "${ssh_opts[@]}" collector/docker-compose.yml "${target}:${REMOTE_DIR}/"
 echo "[deploy] set up .env on remote"
 ssh "${ssh_opts[@]}" "$target" "
 cat > '${REMOTE_DIR}/.env' <<'ENVEOF'
-GHCR_IMAGE=ghcr.io/alexeyleshchenko/telemetry-collector
+GHCR_IMAGE=ghcr.io/leshchenko1979/telemetry-collector
 IMAGE_TAG=main
 TELEMETRY_DB_PASSWORD=${TELEMETRY_DB_PASSWORD}
 ENVEOF

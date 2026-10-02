@@ -125,7 +125,7 @@ Row cap: 10 million (configurable via `MAX_ROWS`).
 Deployed via GitHub Actions (`.github/workflows/deploy-collector.yml`):
 
 1. **Test** — unit + e2e against ephemeral Postgres service
-2. **Build & push** — `ghcr.io/alexeyleshchenko/telemetry-collector:main`
+2. **Build & push** — `ghcr.io/leshchenko1979/telemetry-collector:main`
 3. **Deploy** — appleboy/ssh-action writes `docker-compose.yml` and `.env` to
    `/root/services/telemetry-collector` on Box 3, then runs
    `docker compose pull && docker compose up -d --wait`.

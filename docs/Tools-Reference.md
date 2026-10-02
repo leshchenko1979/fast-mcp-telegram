@@ -180,6 +180,8 @@ search_messages_globally(
 }
 ```
 
+**Ordering:** `messages` is ordered by **ascending date-time** (oldest first). `limit` still selects the newest N matches; ordering only changes presentation.
+
 **Examples:**
 ```json
 // Global search across all chats
@@ -271,9 +273,11 @@ get_messages(
 - `message_ids` + `reply_to_id`: Cannot combine
 - `message_ids` + `query`: Cannot combine (specific IDs don't need search)
 
-**`message_ids` — missing or deleted IDs:** Each requested id appears in `messages` in request order. Found messages use the normal message shape (without `chat` when `chat_id` is set). Missing or deleted ids return a per-id stub: `{"id": <id>, "chat": {...}, "error": "Message not found or inaccessible"}`. Single-id and multi-id requests use the same envelope: `{"messages": [...], "has_more": false}`. Operational failures (chat not found, bad params) still return top-level `ok: false` errors. Search, browse, and reply/thread modes omit deleted id gaps silently (no stubs).
+**`message_ids` — missing or deleted IDs:** Found messages come back in **ascending date-time order**, like every other mode — **not** in the order you listed the ids. Found messages use the normal message shape (without `chat` when `chat_id` is set). Missing or deleted ids return a per-id stub: `{"id": <id>, "chat": {...}, "error": "Message not found or inaccessible"}`. Single-id and multi-id requests use the same envelope: `{"messages": [...], "has_more": false}`. Operational failures (chat not found, bad params) still return top-level `ok: false` errors. Search, browse, and reply/thread modes omit deleted id gaps silently (no stubs).
 
 **`from_user` — not a name search:** Resolves the sender like `chat_id` via `get_entity` (username, phone, numeric id, `me`, t.me URL). Does **not** search contacts or match display names — a bare string such as `Adolfo` may resolve to an unrelated `@username`. Prefer `@username`, phone, or numeric user id.
+
+**Ordering:** `messages` is always ordered by **ascending date-time** (oldest first), in every mode — search, browse, `message_ids`, and reply/thread. Nested `context.before`, `context.after`, and `context.replies` lists follow the same rule. `limit` still selects the **newest** N messages; ordering only changes how they are presented, so `has_more` and which messages you get are unaffected. Entries without a date — `message_ids` stubs for missing or deleted messages — come last, in the order they were requested.
 
 **Response (unified format for all modes):**
 ```json
@@ -618,7 +622,8 @@ invoke_mtproto(
   method_full_name: str,       // Full API method name (e.g., "messages.GetHistory")
   params_json: str,           // JSON string of method parameters (supports automatic TL object construction)
   allow_dangerous: bool,      // Allow dangerous methods (default: false)
-  resolve: bool              // Automatically resolve entities (default: true)
+  resolve: bool,             // Automatically resolve entities (default: true)
+  include_sensitive: bool    // Return the raw result including PII (default: false)
 )
 ```
 
@@ -633,7 +638,26 @@ invoke_mtproto(
 - **Comprehensive error handling**: Structured error responses with machine-readable `error_code` for Telegram RPC errors (e.g., `USER_ALREADY_PARTICIPANT`, `INVITE_HASH_EXPIRED`)
 
 **Parameter notes:**
+- **Results are sanitized by default.** Returned objects drop `phone`, `access_hash` and other credential-shaped fields, including when they are nested inside lists. Pass `include_sensitive: true` to receive the raw payload.
 - `hash` parameter accepts both **string** (e.g., invite hash for `messages.ImportChatInvite`) and **integer** (for state/difference methods like `messages.GetState`)
+- **A bare message id needs a chat binding.** Some requests declare no peer field at all — `messages.GetMessages` takes only `id` — so Telegram resolves a bare id against whatever dialog the account can see, and a read can return an unrelated chat's message. Such a request is **refused** with an error naming the scoped alternatives. Use `channels.GetMessages` (`channel` + `id`) or `messages.GetHistory` (`peer`), both of which carry the binding in the request itself. Passing a plain integer is the same hazard as passing `{"_": "inputMessageID", "id": N}` and is refused the same way.
+
+**Forum topic scoping (reading one topic):**
+`messages.GetHistory` **cannot address a forum topic**. Its parameters are `peer, offset_id, offset_date, add_offset, limit, max_id, min_id, hash` — no `thread_id`, no `top_msg_id`. This is structural in the TL schema, not a limitation of this tool: across the whole API layer **zero** requests carry `thread_id`, and `GetHistory` is not among the dozen that carry `top_msg_id`. There is also no `channels.GetHistory` to route to, so no fix to `GetHistory` is possible.
+
+Use `messages.Search` with `top_msg_id` instead — this is the route the server honours, and it is what the high-level tools already use internally:
+
+```json
+// Read one forum topic (top_msg_id = the topic's root message id)
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.Search",
+  "params_json": "{\"peer\": -1001234567890, \"q\": \"\", \"filter\": {\"_\": \"InputMessagesFilterEmpty\"}, \"top_msg_id\": 42487, \"limit\": 50}"
+}}
+```
+
+`messages.Search` declares many parameters, but only `peer`, `q`, `filter` and `top_msg_id` need spelling out: the remaining ones (`min_date`, `max_date`, `offset_id`, `add_offset`, `max_id`, `min_id`, `hash`) are integers that `invoke_mtproto` fills with `0` automatically. `peer` wants the raw `-100…` id — a dict peer raises `Cannot cast dict to any kind of Peer` before resolution runs.
+
+The high-level `get_messages` tool exposes the same capability more directly: pass `reply_to_id` set to the topic's root message id.
 
 **Use cases:** Advanced operations with complex parameters, raw Telegram API access, joining groups via invite links
 
@@ -745,10 +769,12 @@ When `resolve=true` (default for both MCP tool and HTTP bridge), these parameter
   "params_json": "{}"
 }}
 
-// Delete messages (requires explicit dangerous flag)
+// Delete messages (requires explicit dangerous flag).
+// Note the channel: messages.DeleteMessages takes a bare id with no peer field,
+// so it is refused. channels.DeleteMessages carries the binding in the request.
 {"tool": "invoke_mtproto", "params": {
-  "method_full_name": "messages.DeleteMessages",
-  "params_json": "{\"id\": [123, 456, 789]}",
+  "method_full_name": "channels.DeleteMessages",
+  "params_json": "{\"channel\": -1001234567890, \"id\": [123, 456, 789]}",
   "allow_dangerous": true
 }}
 

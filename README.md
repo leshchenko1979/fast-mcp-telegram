@@ -27,7 +27,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 [![Health Status](https://gatus.l1979.ru/api/v1/endpoints/apps_fast-mcp-telegram/uptimes/30d/badge.svg)](https://gatus.l1979.ru/endpoints/apps_fast-mcp-telegram)
-[![Glama Score](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram/badges/score.svg)](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram)
+[![Glama Score](https://glama.ai/mcp/servers/leshchenko1979/fast-mcp-telegram/badges/score.svg)](https://glama.ai/mcp/servers/leshchenko1979/fast-mcp-telegram)
 [![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.leshchenko1979/fast-mcp-telegram.svg)](https://mcpqueen.com/s/io.github.leshchenko1979/fast-mcp-telegram)
 
 ## How It Works
@@ -141,7 +141,7 @@ Deploy your own MCP server on a VDS — see [Installation Guide](docs/Installati
 | `find_chats` | Find users/groups/channels | Multi-term search, contact discovery, folder filtering, username/phone lookup |
 | `get_chat_info` | Get detailed profile info | Member counts, bio/about, online status, forum topics, common groups, enriched data |
 | `send_message_to_phone` | Message phone numbers | Auto-contact management, optional cleanup, file support (URLs/data URIs), `parse_mode=rich` |
-| `invoke_mtproto` | Direct Telegram API (power user) | Raw MTProto methods, entity resolution, safety guardrails — see [MTProto Bridge](docs/MTProto-Bridge.md) |
+| `invoke_mtproto` | Direct Telegram API (power user) | Raw MTProto methods, entity resolution, PII/credential fields dropped by default (`include_sensitive=true` for raw) — see [MTProto Bridge](docs/MTProto-Bridge.md) |
 
 See [Tools Reference](docs/Tools-Reference.md) for detailed documentation with examples.
 
@@ -164,4 +164,4 @@ Auth flow telemetry since v0.38.0 — atomic events during setup (phone, QR, bot
 
 MIT License - see [LICENSE](LICENSE)
 
-mcp-name: io.github.alexeyleshchenko/fast-mcp-telegram
+mcp-name: io.github.leshchenko1979/fast-mcp-telegram

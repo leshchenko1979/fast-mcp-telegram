@@ -1,6 +1,6 @@
 services:
   fast-mcp-telegram:
-    image: ${GHCR_IMAGE:-ghcr.io/alexeyleshchenko/fast-mcp-telegram}:${IMAGE_TAG:-main}
+    image: ${GHCR_IMAGE:-ghcr.io/leshchenko1979/fast-mcp-telegram}:${IMAGE_TAG:-main}
     container_name: fast-mcp-telegram
     env_file:
       - ./.env
@@ -29,7 +29,7 @@ services:
   setup:
     profiles:
       - setup
-    image: ${GHCR_IMAGE:-ghcr.io/alexeyleshchenko/fast-mcp-telegram}:${IMAGE_TAG:-main}
+    image: ${GHCR_IMAGE:-ghcr.io/leshchenko1979/fast-mcp-telegram}:${IMAGE_TAG:-main}
     env_file:
       - ./.env
     volumes:

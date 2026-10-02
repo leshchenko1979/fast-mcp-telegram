@@ -502,3 +502,74 @@ def _sanitize_mtproto_params(params: dict[str, Any]) -> dict[str, Any]:
             sanitized[key] = value[:10000]
 
     return sanitized
+
+
+# A request declaring one of these is bound to a chat: a message id inside it
+# resolves against that named peer.
+_PEER_BINDING_PARAMS = frozenset(
+    {
+        "peer",
+        "channel",
+        "channel_id",
+        "chat",
+        "chat_id",
+        "user",
+        "user_id",
+        "from_peer",
+        "to_peer",
+        "peers",
+        "users",
+        "chats",
+    }
+)
+
+
+def _declares_peer_binding(method_cls: Any) -> bool:
+    """True when the request itself carries a chat binding."""
+    annotations = getattr(method_cls.__init__, "__annotations__", None) or {}
+    return bool(_PEER_BINDING_PARAMS & set(annotations))
+
+
+def _unbound_message_id_params(method_cls: Any, params: dict[str, Any]) -> list[str]:
+    """Names of params carrying a bare message id on a request with no chat binding.
+
+    A message id is not a coordinate. ``messages.GetMessagesRequest`` has no
+    peer field at all -- its only param is ``id`` -- so the server resolves a
+    bare ``InputMessageID`` against whatever dialog the account can see. A read
+    of id 78605 returned an unrelated 2017 megagroup's message body.
+
+    Telethon's own resolve step (``utils.get_input_message``) converts a plain
+    int into ``InputMessageID``, so an int is the same hazard in a different
+    spelling. It is caught here, before the request reaches the wire: a guard
+    matching only the explicit dict form would be bypassed by writing
+    ``{"id": [78605]}`` instead.
+    """
+    if _declares_peer_binding(method_cls):
+        return []
+
+    from telethon.tl.types import InputMessageID
+
+    annotations = getattr(method_cls.__init__, "__annotations__", None) or {}
+
+    def _is_bare_message_id(value: Any) -> bool:
+        if isinstance(value, InputMessageID):
+            return True
+        if isinstance(value, bool):
+            return False  # bool subclasses int, but is never a message id
+        if isinstance(value, int):
+            return True
+        if isinstance(value, dict):
+            return str(value.get("_", "")).lower() == "inputmessageid"
+        return False
+
+    offenders: list[str] = []
+    for name, annotation in annotations.items():
+        if "InputMessage" not in str(annotation):
+            continue
+        value = params.get(name)
+        if value is None:
+            continue
+        candidates = value if isinstance(value, list | tuple) else [value]
+        if any(_is_bare_message_id(v) for v in candidates):
+            offenders.append(name)
+    return offenders

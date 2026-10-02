@@ -15,6 +15,7 @@ from src.tools.mtproto_tl import (
     _resolve_method_class,
     _resolve_params,
     _sanitize_mtproto_params,
+    _unbound_message_id_params,
 )
 from src.utils.error_handling import log_and_build_error, log_connection_error_response
 from src.utils.helpers import normalize_method_name
@@ -35,6 +36,33 @@ DANGEROUS_METHODS = {
     "channels.DeleteHistory",
     "channels.DeleteMessages",
 }
+
+
+# Fields dropped from a raw invoke_mtproto result unless the caller opts in with
+# include_sensitive=true. A raw passthrough carries no output schema of its own to
+# protect the caller, which is exactly why it needs an explicit boundary:
+#   phone        -- PII, with no legitimate passthrough use case
+#   access_hash  -- credential-shaped handle; its holder can act as the entity
+_SENSITIVE_RESULT_FIELDS = frozenset({"phone", "access_hash"})
+
+
+def _strip_sensitive_fields(value: Any) -> Any:
+    """Recursively drop _SENSITIVE_RESULT_FIELDS from a JSON-safe result.
+
+    Applied AFTER _json_safe: by then every nested TL object has been expanded
+    into plain dicts, so a User nested inside a messages.Messages envelope is
+    reached. Filtering before _json_safe would miss exactly those.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _strip_sensitive_fields(v)
+            for k, v in value.items()
+            if k not in _SENSITIVE_RESULT_FIELDS
+        }
+    if isinstance(value, list):
+        return [_strip_sensitive_fields(v) for v in value]
+    return value
+
 
 # Reverse mapping: Telethon exception class -> Telegram RPC error code (from Telethon guts)
 _RPC_CLASS_TO_CODE: dict[type, str] = {
@@ -77,6 +105,7 @@ async def invoke_mtproto_impl(
     params_json: str,
     allow_dangerous: bool = False,
     resolve: bool = True,
+    include_sensitive: bool = False,
 ) -> dict[str, Any]:
     """
     Invoke MTProto methods with enhanced features.
@@ -143,27 +172,43 @@ async def invoke_mtproto_impl(
                 exception=e,
             )
 
-        # Construct TL objects from dicts + optional entity resolution
-        try:
-            final_params = params
-            if isinstance(params, dict):
-                # Always construct TL objects from nested dicts,
-                # regardless of resolve flag.  Fixes "Cannot cast dict
-                # to Peer" when resolve=false.
+        # Phase 1 — construct TL objects from nested dicts.
+        # Runs unconditionally, regardless of the resolve flag: fixes
+        # "Cannot cast dict to Peer" when resolve=false.
+        final_params = params
+        if isinstance(params, dict):
+            try:
                 final_params = _construct_tl_params(params)
-                if resolve:
+            except Exception as e:
+                return log_and_build_error(
+                    operation="invoke_mtproto",
+                    error_message=f"Failed to construct TL parameters: {e}",
+                    params={
+                        "method_full_name": method_full_name,
+                        "normalized_method": normalized_method,
+                        "params_json": params_json,
+                    },
+                    exception=e,
+                )
+
+            # Phase 2 — resolve entity-like parameters (opt-in).
+            # Kept separate from construction so a client/session-store failure
+            # (get_connected_client inside _resolve_params) is not reported as
+            # a parameter-construction fault.
+            if resolve:
+                try:
                     final_params = await _resolve_params(final_params)
-        except Exception as e:
-            return log_and_build_error(
-                operation="invoke_mtproto",
-                error_message=f"Failed to resolve parameters: {e}",
-                params={
-                    "method_full_name": method_full_name,
-                    "normalized_method": normalized_method,
-                    "params_json": params_json,
-                },
-                exception=e,
-            )
+                except Exception as e:
+                    return log_and_build_error(
+                        operation="invoke_mtproto",
+                        error_message=f"Failed to resolve entity parameters: {e}",
+                        params={
+                            "method_full_name": method_full_name,
+                            "normalized_method": normalized_method,
+                            "params_json": params_json,
+                        },
+                        exception=e,
+                    )
 
         # Now invoke the actual MTProto method
         logger.debug(
@@ -176,6 +221,30 @@ async def invoke_mtproto_impl(
 
             # Security: Validate and sanitize parameters
             sanitized_params = _sanitize_mtproto_params(final_params)
+
+            # A bare message id on a request with no chat binding reads an
+            # arbitrary dialog: ids are per-chat, so the server resolves one
+            # against whatever the account can see. Refuse rather than let the
+            # server guess -- a successful wrong read is worse than an error.
+            unbound = _unbound_message_id_params(method_cls, sanitized_params)
+            if unbound:
+                return log_and_build_error(
+                    operation="invoke_mtproto",
+                    error_message=(
+                        f"{normalized_method} declares no peer/channel field, so the "
+                        f"message id(s) in {', '.join(unbound)} have nothing to bind "
+                        "to and Telegram would resolve them against an arbitrary "
+                        "dialog. Message ids are per-chat, so a bare id is not a "
+                        "coordinate. Name the chat instead: "
+                        'channels.GetMessages {"channel": -100..., "id": [N]} or '
+                        'messages.GetHistory {"peer": ..., "limit": N}.'
+                    ),
+                    params={
+                        "method_full_name": method_full_name,
+                        "normalized_method": normalized_method,
+                        "params_json": params_json,
+                    },
+                )
 
             # Fill missing required int params with 0 so callers that omit
             # offset_id / offset_date / add_offset / hash etc. get defaults
@@ -198,11 +267,21 @@ async def invoke_mtproto_impl(
             client = await get_connected_client()
             result = await client(method_obj)
 
-            # Process result to JSON-safe format
-            result_dict = (
-                result.to_dict() if hasattr(result, "to_dict") else str(result)
-            )
+            # Process result to JSON-safe format.
+            # A non-object RPC result — a bare Bool (e.g. messages.EditChatAbout),
+            # int or str — carries no to_dict(), and rendering it with str() yielded
+            # the Python literal "True", which FastMCP rejects with
+            # "structured_content must be a dict or None". The call had SUCCEEDED, so
+            # the caller saw a hard error for a write that landed. Wrap it instead.
+            if isinstance(result, dict):
+                result_dict = result
+            elif callable(getattr(result, "to_dict", None)):
+                result_dict = result.to_dict()
+            else:
+                result_dict = {"result": result}
             safe_result = _json_safe(result_dict)
+            if not include_sensitive:
+                safe_result = _strip_sensitive_fields(safe_result)
 
             logger.info(f"MTProto method {normalized_method} invoked successfully")
             return safe_result

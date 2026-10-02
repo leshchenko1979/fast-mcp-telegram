@@ -444,3 +444,492 @@ class TestInvokeMtprotoWithTlDict:
 
         # Should not crash with "required argument is not an integer"
         assert result is not None
+
+
+class TestParameterPhaseErrors:
+    """Phase-accurate labels for the construction vs entity-resolution split.
+
+    Regression guard: ``invoke_mtproto`` used to wrap BOTH phases in one
+    exception boundary and report every failure as "Failed to resolve
+    parameters", so a client/session-store fault read as a parameter fault.
+    """
+
+    @pytest.mark.asyncio
+    async def test_construction_failure_uses_construction_label(self):
+        """A construction fault reports the construction phase, not resolution."""
+        with patch(
+            "src.tools.mtproto._construct_tl_params",
+            side_effect=ValueError("construct-boom"),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": {"_": "inputPeerSelf"}}',
+                resolve=True,
+            )
+
+        assert result["ok"] is False
+        assert "Failed to construct TL parameters" in result["error"]
+        assert "Failed to resolve entity parameters" not in result["error"]
+        assert result["operation"] == "invoke_mtproto"
+        assert result["exception"]["type"] == "ValueError"
+        assert result["exception"]["message"] == "construct-boom"
+
+    @pytest.mark.asyncio
+    async def test_resolution_failure_uses_resolution_label(self):
+        """A client/session fault during resolution reports the resolution phase."""
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ),
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+                side_effect=ValueError("resolve-boom"),
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=True,
+            )
+
+        assert result["ok"] is False
+        assert "Failed to resolve entity parameters" in result["error"]
+        assert "Failed to construct TL parameters" not in result["error"]
+        assert result["operation"] == "invoke_mtproto"
+        assert result["exception"]["type"] == "ValueError"
+        assert result["exception"]["message"] == "resolve-boom"
+
+    @pytest.mark.asyncio
+    async def test_successful_construction_runs_both_phases(self):
+        """Control: on the success path both phases run and no phase label appears."""
+        mock_client = AsyncMock()
+        mock_client.return_value = {"_": "Ok"}
+
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ) as mock_construct,
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+                return_value={"peer": 1},
+            ) as mock_resolve,
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=True,
+            )
+
+        mock_construct.assert_called_once()
+        mock_resolve.assert_called_once()
+        assert result is not None
+        error = result.get("error", "") if isinstance(result, dict) else str(result)
+        assert "Failed to construct TL parameters" not in error
+        assert "Failed to resolve entity parameters" not in error
+
+    @pytest.mark.asyncio
+    async def test_resolve_false_skips_resolution_phase(self):
+        """Phase 2 is opt-in: resolve=False must not call _resolve_params."""
+        mock_client = AsyncMock()
+
+        with (
+            patch(
+                "src.tools.mtproto._construct_tl_params",
+                return_value={"peer": 1},
+            ) as mock_construct,
+            patch(
+                "src.tools.mtproto._resolve_params",
+                new_callable=AsyncMock,
+            ) as mock_resolve,
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+        ):
+            await invoke_mtproto_impl(
+                "messages.GetHistory",
+                '{"peer": 1}',
+                resolve=False,
+            )
+
+        mock_construct.assert_called_once()
+        mock_resolve.assert_not_called()
+
+
+class TestScalarRpcResult:
+    """Regression tests for issue #153.
+
+    A method whose RPC result is a bare ``Bool`` (``messages.EditChatAbout`` is
+    the confirmed instance) rendered as the Python literal ``"True"`` through
+    ``str(result)``, and FastMCP rejected it with ``structured_content must be a
+    dict or None. Got str: 'True'``. The call had SUCCEEDED, so the caller saw a
+    hard error for a write that had already landed.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("raw", [True, False, 42, "ok"])
+    async def test_scalar_result_is_wrapped_not_stringified(self, raw):
+        """A non-object RPC result is wrapped so the success signal survives."""
+        mock_client = AsyncMock(return_value=raw)
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.EditChatAbout",
+                '{"peer": 1, "about": "x"}',
+                resolve=False,
+            )
+
+        assert isinstance(result, dict), (
+            "a scalar RPC result must still be a dict or FastMCP rejects it "
+            "as structured_content (issue #153)"
+        )
+        assert result == {"result": raw}
+
+    @pytest.mark.asyncio
+    async def test_object_result_shape_is_unchanged(self):
+        """Negative control: an object result keeps its own fields, unwrapped."""
+
+        class _FakeTLObject:
+            def to_dict(self):
+                return {"_": "FakeTLObject", "value": 1}
+
+        mock_client = AsyncMock(return_value=_FakeTLObject())
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "messages.EditChatAbout",
+                '{"peer": 1, "about": "x"}',
+                resolve=False,
+            )
+
+        assert result == {"_": "FakeTLObject", "value": 1}
+        assert "result" not in result
+
+    @pytest.mark.asyncio
+    async def test_registered_tool_reports_success_for_scalar_result(self):
+        """The REGISTERED tool must not error on a successful scalar call.
+
+        Driving the registered tool is load-bearing: the defect surfaced in
+        FastMCP's structured_content validation, which the impl-level tests
+        above cannot observe.
+        """
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("invoke_mtproto scalar result test")
+        register_tools(temp_mcp)
+
+        mock_client = AsyncMock(return_value=True)
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            async with Client(temp_mcp) as client:
+                result = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "messages.EditChatAbout",
+                        "params_json": '{"peer": 1, "about": "x"}',
+                        "resolve": False,
+                    },
+                )
+
+        assert result.structured_content == {"result": True}
+
+
+class TestSensitiveFieldStripping:
+    """#156: a raw invoke_mtproto result must not carry PII/credential fields.
+
+    The raw passthrough has no output schema of its own, which is exactly why
+    it needs an explicit boundary: phone and access_hash are dropped unless the
+    caller opts in with include_sensitive=true.
+    """
+
+    @staticmethod
+    def _nested():
+        """A messages.Messages-shaped result carrying one User with PII.
+
+        Built fresh per call so no test can leak state into another.
+        """
+        return {
+            "users": [
+                {
+                    "id": 7,
+                    "phone": "+79990000000",
+                    "access_hash": 123456,
+                    "username": "someone",
+                }
+            ]
+        }
+
+    @staticmethod
+    def _client(return_value):
+        """Patch get_connected_client + _convert_peer_types around a mock client."""
+        return (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=AsyncMock(return_value=return_value),
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_dropped_by_default(self):
+        """phone/access_hash are absent from a nested list element by default."""
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
+                resolve=False,
+            )
+
+        user = result["users"][0]
+        assert "phone" not in user
+        assert "access_hash" not in user
+        # Negative control: only the sensitive pair goes, nothing else.
+        assert user["username"] == "someone"
+        assert user["id"] == 7
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_kept_when_opted_in(self):
+        """include_sensitive=true returns the raw payload."""
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
+                resolve=False,
+                include_sensitive=True,
+            )
+
+        user = result["users"][0]
+        assert user["phone"] == "+79990000000"
+        assert user["access_hash"] == 123456
+
+    @pytest.mark.asyncio
+    async def test_sensitive_fields_stripped_from_real_tl_object(self):
+        """The production shape: a TL object expanded via to_dict().
+
+        _strip_sensitive_fields runs AFTER _json_safe, so a User nested inside
+        a messages.Messages envelope must still be reached.
+        """
+        from telethon.tl.types import User
+        from telethon.tl.types.messages import Messages
+
+        tl_result = Messages(
+            messages=[],
+            topics=[],
+            chats=[],
+            users=[
+                User(
+                    id=7,
+                    phone="+79990000000",
+                    access_hash=123456,
+                    username="someone",
+                )
+            ],
+        )
+        p_client, p_convert = self._client(tl_result)
+
+        with p_client, p_convert:
+            result = await invoke_mtproto_impl(
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [1]}',
+                resolve=False,
+            )
+
+        user = result["users"][0]
+        assert "phone" not in user
+        assert "access_hash" not in user
+        assert user["username"] == "someone"
+
+    @pytest.mark.asyncio
+    async def test_registered_tool_exposes_include_sensitive(self):
+        """The REGISTERED tool must advertise and honour include_sensitive."""
+        from fastmcp import Client, FastMCP
+
+        from src.server_components.tools_register import register_tools
+
+        temp_mcp = FastMCP("invoke_mtproto sensitive test")
+        register_tools(temp_mcp)
+
+        p_client, p_convert = self._client(self._nested())
+
+        with p_client, p_convert:
+            async with Client(temp_mcp) as client:
+                default_call = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "channels.GetMessages",
+                        "params_json": '{"channel": -1001234567890, "id": [1]}',
+                        "resolve": False,
+                    },
+                )
+                opted_in = await client.call_tool(
+                    "invoke_mtproto",
+                    {
+                        "method_full_name": "channels.GetMessages",
+                        "params_json": '{"channel": -1001234567890, "id": [1]}',
+                        "resolve": False,
+                        "include_sensitive": True,
+                    },
+                )
+
+        assert "phone" not in default_call.structured_content["users"][0]
+        assert opted_in.structured_content["users"][0]["phone"] == "+79990000000"
+
+
+class TestBareMessageIdRefusal:
+    """#154: a bare message id on a request with no chat binding must be refused.
+
+    messages.GetMessagesRequest declares only `id` -- no peer, no channel -- so
+    the server resolves a bare id against whatever dialog the account can see.
+    The guard refuses rather than letting the server guess.
+    """
+
+    def test_bare_message_id_flagged_on_unbound_method(self):
+        """messages.GetMessages declares no peer field -> a bare int is refused."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        assert _unbound_message_id_params(GetMessagesRequest, {"id": [78605]}) == ["id"]
+
+    def test_bare_message_id_flagged_as_explicit_tl_object(self):
+        """The dict spelling (constructed to InputMessageID) is caught too."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+        from telethon.tl.types import InputMessageID
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"id": [InputMessageID(id=78605)]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == ["id"]
+
+    def test_bare_message_id_not_flagged_when_channel_binds_the_read(self):
+        """Negative control: channels.GetMessages carries a channel."""
+        from telethon.tl.functions.channels import GetMessagesRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"channel": -1001234567890, "id": [78605]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == []
+
+    def test_bare_message_id_not_flagged_when_peer_binds_the_read(self):
+        """Negative control: messages.GetHistory carries a peer."""
+        from telethon.tl.functions.messages import GetHistoryRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"peer": -1001234567890, "limit": 10}
+        assert _unbound_message_id_params(GetHistoryRequest, params) == []
+
+    def test_bare_message_id_ignores_bound_message_variants(self):
+        """InputMessagePinned is a bound variant, not a bare id."""
+        from telethon.tl.functions.messages import GetMessagesRequest
+        from telethon.tl.types import InputMessagePinned
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        params = {"id": [InputMessagePinned()]}
+        assert _unbound_message_id_params(GetMessagesRequest, params) == []
+
+    def test_bare_message_id_not_flagged_on_non_message_id_param(self):
+        """users.GetUsers takes user ids, not message ids -> untouched."""
+        from telethon.tl.functions.users import GetUsersRequest
+
+        from src.tools.mtproto_tl import _unbound_message_id_params
+
+        assert _unbound_message_id_params(GetUsersRequest, {"id": [12345]}) == []
+
+    @pytest.mark.asyncio
+    async def test_bare_message_id_refused_before_reaching_the_wire(self):
+        """The impl refuses, and never calls the client at all."""
+        with patch(
+            "src.tools.mtproto.get_connected_client", new_callable=AsyncMock
+        ) as mock_get:
+            result = await invoke_mtproto_impl(
+                "messages.GetMessages", '{"id": [78605]}', resolve=False
+            )
+
+        assert result.get("ok") is False
+        assert "no peer/channel field" in result.get("error", "")
+        # The scoped alternatives are named in the error.
+        assert "channels.GetMessages" in result["error"]
+        assert "messages.GetHistory" in result["error"]
+        mock_get.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_bare_message_id_scoped_route_still_accepted(self):
+        """Negative control end-to-end: channels.GetMessages still executes."""
+        mock_client = AsyncMock(return_value={"_": "messages.Messages"})
+
+        with (
+            patch(
+                "src.tools.mtproto.get_connected_client",
+                new_callable=AsyncMock,
+                return_value=mock_client,
+            ),
+            patch(
+                "src.tools.mtproto._convert_peer_types",
+                new_callable=AsyncMock,
+                side_effect=lambda _c, p, _m: p,
+            ),
+        ):
+            result = await invoke_mtproto_impl(
+                "channels.GetMessages",
+                '{"channel": -1001234567890, "id": [78605]}',
+                resolve=False,
+            )
+
+        assert result.get("ok") is not False
+        mock_client.assert_awaited()

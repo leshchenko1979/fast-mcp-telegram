@@ -1,9 +1,9 @@
 {
-  "id": "alexeyleshchenko/fast-mcp-telegram",
+  "id": "leshchenko1979/fast-mcp-telegram",
   "name": "Fast MCP Telegram",
   "description": "Production-grade Telegram MCP server with direct MTProto API access, multi-user Bearer ACL, dual transport (stdio + HTTP SSE), voice transcription, file attachments, and context-optimized design. One-command setup with uvx fast-mcp-telegram.",
   "categories": ["communication", "messaging", "telegram"],
-  "repository": "https://github.com/alexeyleshchenko/fast-mcp-telegram",
+  "repository": "https://github.com/leshchenko1979/fast-mcp-telegram",
   "homepage": "https://tg-mcp.l1979.ru",
   "license": "MIT",
   "relatedServers": [

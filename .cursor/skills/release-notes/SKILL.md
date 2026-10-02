@@ -104,7 +104,7 @@ Single-feature: draft with section 5, ship through section 6 without blocking on
 
 This release <primary user-facing value>.
 
-**Full Changelog**: https://github.com/alexeyleshchenko/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
+**Full Changelog**: https://github.com/leshchenko1979/fast-mcp-telegram/compare/<previous-major-tag>...<current-tag>
 ```
 
 - Replace tag placeholders (e.g. `0.12.0`, `0.11.0`). Tags have **no** `v` prefix.
@@ -168,7 +168,7 @@ Use fixed `chat_id` values; do not rely on `find_chats` unless a target moved or
 
 **Formatting**: `parse_mode="html"` only (not Markdown). Tags: `<b>`, `<i>`, `<code>`, `<a href="...">`. Escape `&`, `<`, `>` in literal text. Emojis OK in Telegram.
 
-**Structure**: version header with date (e.g. `🚀 <b>fast-mcp-telegram 0.x.y</b> · YYYY-MM-DD`); feature highlights; release link `<a href="https://github.com/alexeyleshchenko/fast-mcp-telegram/releases/tag/0.x.y">…</a>`.
+**Structure**: version header with date (e.g. `🚀 <b>fast-mcp-telegram 0.x.y</b> · YYYY-MM-DD`); feature highlights; release link `<a href="https://github.com/leshchenko1979/fast-mcp-telegram/releases/tag/0.x.y">…</a>`.
 
 ```bash
 send_message chat_id=5131784155 parse_mode=html message="..."

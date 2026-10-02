@@ -135,4 +135,8 @@ class MtprotoResult(_ErrorFields, total=False):
     users: list[dict[str, Any]]
     chats: list[dict[str, Any]]
     messages: list[dict[str, Any]]
-    result: dict[str, Any]
+    # Wrapper for methods whose RPC result is a bare scalar rather than an
+    # object (messages.EditChatAbout returns Bool). FastMCP rejects a non-dict
+    # structured_content, so the scalar is carried under this key. Typed Any
+    # because the wrapped value may be a bool, int or str.
+    result: Any

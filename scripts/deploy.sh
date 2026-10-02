@@ -13,7 +13,7 @@ set -euo pipefail
 REMOTE_HOST="${REMOTE_HOST:-apps}"
 REMOTE_DIR="${REMOTE_DIR:-/root/fast-mcp-telegram}"
 VERSION="${1:-$(git describe --tags --dirty --always 2>/dev/null || echo "dev")}"
-GHCR_IMAGE="ghcr.io/alexeyleshchenko/fast-mcp-telegram"
+GHCR_IMAGE="ghcr.io/leshchenko1979/fast-mcp-telegram"
 COMPOSE_FILE="docker-compose.yml"
 SERVICE="fast-mcp-telegram"
 CONTAINER_NAME="fast-mcp-telegram"

@@ -54,8 +54,8 @@ async def run_date_filtering_test():
         for m in msgs[:3]:
             print(f"  [{m.get('id')}] {m.get('date')} - {m.get('text', '')[:50]}")
         if msgs:
-            latest_date = msgs[0].get("date") if msgs else None
-            oldest_date = msgs[-1].get("date") if msgs else None
+            oldest_date = msgs[0].get("date") if msgs else None
+            latest_date = msgs[-1].get("date") if msgs else None
             print(f"  Date range in results: {oldest_date} to {latest_date}")
 
     # Test 2: Browse with min_date (recent messages only)
@@ -71,8 +71,8 @@ async def run_date_filtering_test():
         for m in msgs[:3]:
             print(f"  [{m.get('id')}] {m.get('date')} - {m.get('text', '')[:50]}")
         if msgs:
-            latest_date = msgs[0].get("date") if msgs else None
-            oldest_date = msgs[-1].get("date") if msgs else None
+            oldest_date = msgs[0].get("date") if msgs else None
+            latest_date = msgs[-1].get("date") if msgs else None
             print(f"  Date range in results: {oldest_date} to {latest_date}")
 
     # Test 3: Browse with max_date (old messages only)
@@ -88,8 +88,8 @@ async def run_date_filtering_test():
         for m in msgs[:3]:
             print(f"  [{m.get('id')}] {m.get('date')} - {m.get('text', '')[:50]}")
         if msgs:
-            latest_date = msgs[0].get("date") if msgs else None
-            oldest_date = msgs[-1].get("date") if msgs else None
+            oldest_date = msgs[0].get("date") if msgs else None
+            latest_date = msgs[-1].get("date") if msgs else None
             print(f"  Date range in results: {oldest_date} to {latest_date}")
 
     # Test 4: Search with date filter

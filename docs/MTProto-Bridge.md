@@ -58,6 +58,8 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.getHistory" \
 - **`params_json`**: JSON string with method parameters (alternative)
 - **`resolve`**: Boolean to enable automatic entity resolution (default: true)
 - **`allow_dangerous`**: Boolean to allow dangerous methods (default: false)
+- **`include_sensitive`**: Boolean to return the raw result including PII and
+  credential-shaped fields such as `phone` and `access_hash` (default: false — they are dropped)
 
 ## Server Mode Behavior
 
@@ -266,6 +268,36 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.DeleteHistory" \
         "allow_dangerous": true
       }'
 ```
+
+### Result Sanitization
+
+A successful result is stripped of PII and credential-shaped fields before it is
+returned: `phone` and `access_hash` are dropped from every user object, including
+the ones nested inside a list. Pass `include_sensitive: true` to receive the raw
+payload instead. The default is off because those fields carry a contact's phone
+number and a reusable credential into the tool result, and from there into the
+caller's own logs and message history.
+
+### Requests With No Peer Field
+
+A message id is only meaningful inside a chat, and some methods declare no way to
+name that chat. `messages.GetMessages` and `messages.DeleteMessages` accept a bare
+`id` with no peer parameter, so Telegram resolves the id against whatever dialog the
+account happens to see — which can return an unrelated chat's message, or delete the
+wrong one. A request of that shape is **refused**, and the error names the scoped
+alternative to use instead:
+
+| Intent | Refused form | Scoped form |
+|--------|--------------|-------------|
+| Read messages | `messages.GetMessages` (`id`) | `channels.GetMessages` (`channel` + `id`) |
+| Read history | — | `messages.GetHistory` (`peer`) |
+| Delete messages | `messages.DeleteMessages` (`id`) | `channels.DeleteMessages` (`channel` + `id`) |
+
+A plain integer id is the same hazard as `{"_": "inputMessageID", "id": N}` and is
+refused identically. To read a single **forum topic**, `messages.GetHistory` is not a
+route at all — it has no `thread_id` or `top_msg_id` parameter, and `channels.GetHistory`
+does not exist. Use `messages.Search` with `top_msg_id`; see the
+[Tools Reference](Tools-Reference.md#invoke_mtproto) for the call.
 
 ## Response Format
 

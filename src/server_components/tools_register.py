@@ -24,6 +24,7 @@ from src.server_components.mcp_tool_types import (
     FilterParam,
     FromUser,
     IncludeReplies,
+    IncludeSensitive,
     IncludeTotalCount,
     LimitChats,
     LimitMessages,
@@ -69,7 +70,7 @@ from src.tools.return_types import (
 from src.tools.search import search_messages_impl
 
 # Canonical absolute URL for Tools-Reference (appended to each MCP tool description).
-TOOLS_REFERENCE_DOC_URL = "https://github.com/alexeyleshchenko/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
+TOOLS_REFERENCE_DOC_URL = "https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
 
 # MCP-visible tool descriptions (short; full examples at TOOLS_REFERENCE_DOC_URL).
 
@@ -81,6 +82,7 @@ def _tool_description(body: str, *, extra: str = "") -> str:
 _DESC_SEARCH_GLOBAL = _tool_description(
     "Search all Telegram chats at once (not scoped to one chat). "
     "Comma-separated query terms; optional filters by date, chat kind, and public username. "
+    "Results are ordered by ascending date-time (oldest first); limit selects the newest N. "
     "Success: message list and metadata dict. ",
     extra="Global search ignores include_total_count.",
 )
@@ -92,6 +94,8 @@ _DESC_GET_MESSAGES = _tool_description(
     "Use context to include neighboring messages and reply chains around each result. "
     "Use include_replies to fetch up to 5 direct replies per result. "
     "Do not combine message_ids with query or reply_to_id. "
+    "Results are ordered by ascending date-time (oldest first) in every mode, "
+    "including message_ids and nested context lists; limit selects the newest N. "
     "Success: messages, has_more, optional total_count and discussion fields. "
 )
 
@@ -147,6 +151,15 @@ _DESC_INVOKE_MTPROTO = _tool_description(
     "Low-level Telegram API (MTProto) invoke for methods not wrapped by other tools. "
     "Dangerous methods require allow_dangerous=true. "
     "Success: API result dict or normalized error. "
+    "PII and credential-shaped fields (phone, access_hash) are dropped from a "
+    "successful result by default; pass include_sensitive=true for the raw payload. "
+    "A bare message id needs a chat binding: requests with no peer field "
+    "(messages.GetMessages, messages.DeleteMessages) are refused, because a bare id "
+    "resolves against an arbitrary dialog. Use channels.GetMessages or "
+    "messages.GetHistory, which carry the binding. "
+    "messages.GetHistory cannot address a forum topic (no thread_id/top_msg_id in "
+    "the schema, and channels.GetHistory does not exist) -- use messages.Search with "
+    "top_msg_id, or the high-level get_messages with reply_to_id. "
 )
 
 
@@ -453,6 +466,7 @@ def register_tools(mcp: FastMCP) -> None:
         params_json: ParamsJson,
         allow_dangerous: AllowDangerous = False,
         resolve: ResolveEntities = True,
+        include_sensitive: IncludeSensitive = False,
     ) -> MtprotoResult:
         """Raw Telegram API invoke, advanced (full doc URL in tool description)."""
         return await invoke_mtproto_impl(
@@ -460,4 +474,5 @@ def register_tools(mcp: FastMCP) -> None:
             params_json=params_json,
             allow_dangerous=allow_dangerous,
             resolve=resolve,
+            include_sensitive=include_sensitive,
         )
