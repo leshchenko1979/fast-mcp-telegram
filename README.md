@@ -1,7 +1,5 @@
 <img alt="Hero image" src="https://github.com/user-attachments/assets/635236f6-b776-41c7-b6e5-0dd14638ecc1" />
 
-[![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.leshchenko1979/fast-mcp-telegram.svg)](https://mcpqueen.com/s/io.github.leshchenko1979/fast-mcp-telegram)
-
 **Telegram MCP Server** — Model Context Protocol (MCP) gateway for Telegram. 8 context-efficient tools, multi-tenant, MTProto bridge.
 
 ## Try the Demo
@@ -30,6 +28,7 @@ curl -X POST "https://tg-mcp.l1979.ru/mtproto-api/messages.SendMessage" \
 [![Docker Ready](https://img.shields.io/badge/Docker-Ready-blue?logo=docker)](https://github.com/leshchenko1979/fast-mcp-telegram)
 [![Health Status](https://gatus.l1979.ru/api/v1/endpoints/apps_fast-mcp-telegram/uptimes/30d/badge.svg)](https://gatus.l1979.ru/endpoints/apps_fast-mcp-telegram)
 [![Glama Score](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram/badges/score.svg)](https://glama.ai/mcp/servers/alexeyleshchenko/fast-mcp-telegram)
+[![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.leshchenko1979/fast-mcp-telegram.svg)](https://mcpqueen.com/s/io.github.leshchenko1979/fast-mcp-telegram)
 
 ## How It Works
 
