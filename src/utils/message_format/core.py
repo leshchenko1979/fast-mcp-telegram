@@ -32,25 +32,42 @@ def _service_action_placeholder_text(message) -> str | None:
     return f"[Service: {cls_name}]"
 
 
-_KNOWN_MEDIA_CLASSES = frozenset(
-    {
-        "MessageMediaPhoto",
-        "MessageMediaDocument",
-        "MessageMediaAudio",
-        "MessageMediaVoice",
-        "MessageMediaVideo",
-        "MessageMediaWebPage",
-        "MessageMediaGeo",
-        "MessageMediaContact",
-        "MessageMediaPoll",
-        "MessageMediaDice",
-        "MessageMediaVenue",
-        "MessageMediaGame",
-        "MessageMediaInvoice",
-        "MessageMediaToDo",
-        "MessageMediaUnsupported",
-    }
-)
+# Single source of truth for media-class handling. Every real telethon 1.45.0
+# `MessageMedia*` class we render maps to the canonical `media.type` value it
+# produces. `_KNOWN_MEDIA_CLASSES` is DERIVED from this table, so the display
+# filter (`message_has_displayable_content`) and the formatter
+# (`_build_media_placeholder`) can no longer disagree about which classes carry
+# content -- the disagreement that made contact cards arrive as `media: null`
+# (issue #159).
+#
+# Deliberately absent:
+#   * `MessageMediaEmpty` -- carries nothing, must not pass the filter.
+#   * `MessageMediaVoice` / `MessageMediaVideo` / `MessageMediaAudio` -- these
+#     names do NOT exist in telethon 1.45.0. Voice notes and round videos are a
+#     `MessageMediaDocument` distinguished by `DocumentAttributeAudio(voice=True)`
+#     / `DocumentAttributeVideo(round_message=True)`.
+_MEDIA_TYPES: dict[str, str] = {
+    "MessageMediaPhoto": "photo",
+    "MessageMediaDocument": "document",
+    "MessageMediaWebPage": "webpage",
+    "MessageMediaGeo": "geo",
+    "MessageMediaGeoLive": "geo_live",
+    "MessageMediaContact": "contact",
+    "MessageMediaPoll": "poll",
+    "MessageMediaDice": "dice",
+    "MessageMediaVenue": "venue",
+    "MessageMediaGame": "game",
+    "MessageMediaInvoice": "invoice",
+    "MessageMediaToDo": "todo",
+    "MessageMediaStory": "story",
+    "MessageMediaGiveaway": "giveaway",
+    "MessageMediaGiveawayResults": "giveaway_results",
+    "MessageMediaPaidMedia": "paid_media",
+    "MessageMediaVideoStream": "video_stream",
+    "MessageMediaUnsupported": "unsupported",
+}
+
+_KNOWN_MEDIA_CLASSES = frozenset(_MEDIA_TYPES)
 
 
 def _document_voice_and_round_note_flags(document) -> tuple[bool, bool]:
@@ -305,17 +322,6 @@ def _document_duration_and_filename(document) -> tuple[int | None, str | None]:
     return duration, filename
 
 
-def _first_document_attribute_duration(document) -> int | None:
-    return next(
-        (
-            attr.duration
-            for attr in getattr(document, "attributes", []) or []
-            if hasattr(attr, "duration") and attr.duration is not None
-        ),
-        None,
-    )
-
-
 def _apply_document_mime_and_size(placeholder: dict[str, Any], document) -> None:
     if mime_type := getattr(document, "mime_type", None):
         placeholder["mime_type"] = mime_type
@@ -423,24 +429,47 @@ def _fill_poll_media_placeholder(placeholder: dict[str, Any], poll, results) -> 
     placeholder["quiz"] = getattr(poll, "quiz", False)
 
 
+def _fill_geo_media_placeholder(placeholder: dict[str, Any], geo) -> None:
+    """Add latitude/longitude from a MessageMediaGeo(Point) when present."""
+    if not geo:
+        return
+    lat = getattr(geo, "lat", None)
+    long = getattr(geo, "long", None)
+    if lat is not None:
+        placeholder["latitude"] = lat
+    if long is not None:
+        placeholder["longitude"] = long
+
+
 def _build_media_placeholder(message) -> dict[str, Any] | None:
     """Return a lightweight, serializable media placeholder for LLM consumption.
 
     Avoids returning raw Telethon media objects which are large and not LLM-friendly.
+
+    Every class in ``_KNOWN_MEDIA_CLASSES`` yields at least ``{"type": ...}``: a
+    message that passes ``message_has_displayable_content()`` must never come back
+    with an empty placeholder. That invariant is what keeps the filter and this
+    formatter from contradicting each other (issue #159).
     """
     media = getattr(message, "media", None)
     if not media:
         return None
 
+    class_name = media.__class__.__name__
     placeholder: dict[str, Any] = {}
 
-    match media.__class__.__name__:
+    # Seed the canonical type from the table so every known class yields a
+    # non-empty placeholder. MessageMediaDocument refines this to "voice" /
+    # "round_video" inside the filler when the document says so.
+    if type_name := _MEDIA_TYPES.get(class_name):
+        placeholder["type"] = type_name
+
+    match class_name:
         case "MessageMediaDocument":
             if document := getattr(media, "document", None):
                 _fill_document_media_placeholder(placeholder, document)
 
         case "MessageMediaPhoto":
-            placeholder["type"] = "photo"
             ph = getattr(media, "photo", None)
             if (
                 ph
@@ -458,14 +487,6 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
                 placeholder["approx_size_bytes"] = largest.size
             placeholder.setdefault("mime_type", "image/jpeg")
 
-        case "MessageMediaVoice":
-            placeholder["type"] = "voice"
-            if document := getattr(media, "document", None):
-                dur = _first_document_attribute_duration(document)
-                if dur is not None:
-                    placeholder["duration_seconds"] = dur
-                _apply_document_mime_and_size(placeholder, document)
-
         case "MessageMediaToDo":
             if todo_list := getattr(media, "todo", None):
                 _fill_todo_media_placeholder(placeholder, media, todo_list)
@@ -475,6 +496,58 @@ def _build_media_placeholder(message) -> dict[str, Any] | None:
             results = getattr(media, "results", None)
             if poll:
                 _fill_poll_media_placeholder(placeholder, poll, results)
+
+        case "MessageMediaContact":
+            # Names only. `phone_number` and `vcard` are deliberately NOT
+            # serialized: formatted output carries names, matching
+            # `build_entity_dict()`, and phone data is stripped by default (#156).
+            for key in ("first_name", "last_name", "user_id"):
+                if (value := getattr(media, key, None)) is not None:
+                    placeholder[key] = value
+
+        case "MessageMediaGeo":
+            _fill_geo_media_placeholder(placeholder, getattr(media, "geo", None))
+
+        case "MessageMediaGeoLive":
+            _fill_geo_media_placeholder(placeholder, getattr(media, "geo", None))
+            if (period := getattr(media, "period", None)) is not None:
+                placeholder["period_seconds"] = period
+
+        case "MessageMediaVenue":
+            for key in ("title", "address", "provider", "venue_id", "venue_type"):
+                if (value := getattr(media, key, None)) is not None:
+                    placeholder[key] = value
+            _fill_geo_media_placeholder(placeholder, getattr(media, "geo", None))
+
+        case "MessageMediaDice":
+            for key in ("emoticon", "value"):
+                if (value := getattr(media, key, None)) is not None:
+                    placeholder[key] = value
+
+        case "MessageMediaGame":
+            game = getattr(media, "game", None)
+            for key in ("title", "short_name"):
+                if (value := getattr(game, key, None)) is not None:
+                    placeholder[key] = value
+
+        case "MessageMediaInvoice":
+            for key in ("title", "description", "currency", "total_amount"):
+                if (value := getattr(media, key, None)) is not None:
+                    placeholder[key] = value
+
+        case "MessageMediaWebPage":
+            webpage = getattr(media, "webpage", None)
+            for key in ("url", "display_url", "title", "site_name"):
+                if (value := getattr(webpage, key, None)) is not None:
+                    placeholder[key] = value
+
+        case "MessageMediaPaidMedia":
+            if (stars := getattr(media, "stars_amount", None)) is not None:
+                placeholder["stars_amount"] = stars
+
+        case "MessageMediaStory":
+            if (story_id := getattr(media, "id", None)) is not None:
+                placeholder["story_id"] = story_id
 
         case _:
             if mime_type := getattr(media, "mime_type", None):

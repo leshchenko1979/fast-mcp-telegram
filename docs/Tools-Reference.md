@@ -929,7 +929,7 @@ Read/search tools use `build_message_result`. Send/edit/phone success payloads u
   "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
   "topic_id": 52,                 // Forum topic ID (forum chats only)
   "media": {                      // Media attachment info (optional, lightweight)
-    "type": "voice",              // Media type (voice, photo, video, etc.)
+    "type": "voice",              // One of the values listed under "media.type" below
     "mime_type": "image/jpeg",    // File MIME type
     "filename": "photo.jpg",      // Original filename (if available)
     "approx_size_bytes": 2048576, // Approximate file size
@@ -977,8 +977,35 @@ Read/search tools use `build_message_result`. Send/edit/phone success payloads u
 - Lightweight metadata only (not actual files)
 - Includes MIME type, filename, approximate size, and media type
 - Voice messages include duration and automatic transcription (Premium accounts)
-- Covers: photos, documents, videos, audio, voice messages, polls, todo lists, etc.
+- A message whose only content is media **always** returns a `media` object with a `type` — it is never `text: null` with no `media` key.
 - **`attachment_download_url`** (optional): When the server runs **HTTP transport** and **`DOMAIN`** is a real public host (not a placeholder), photos, documents, voice messages, and round videos may include this URL. The URL format is `/v1/attachments/<uuid>/<filename>` — photos get a synthetic `photo_<msg_id>.jpg`. **`GET` does not require a Bearer token**; anyone with the URL can download until the ticket expires (`ATTACHMENT_TICKET_TTL_SECONDS`). Treat links as confidential. Tickets are stored in memory (single-process; restart invalidates them).
+
+**`media.type` values:**
+
+| Value | Telegram source | Extra fields |
+|---|---|---|
+| `photo` | `MessageMediaPhoto` | `mime_type`, `approx_size_bytes` |
+| `document` | `MessageMediaDocument` | `filename`, `mime_type`, `approx_size_bytes`; refined to `voice` / `round_video` when the document carries the matching attribute |
+| `voice` | `MessageMediaDocument` + `DocumentAttributeAudio(voice=True)` | `duration_seconds` |
+| `round_video` | `MessageMediaDocument` + `DocumentAttributeVideo(round_message=True)` | `duration_seconds` |
+| `todo` | `MessageMediaToDo` | `title`, `items[]` |
+| `poll` | `MessageMediaPoll` | `question`, `options[]` |
+| `contact` | `MessageMediaContact` | `first_name`, `last_name`, `user_id` — see note below |
+| `geo` | `MessageMediaGeo` | `latitude`, `longitude` |
+| `geo_live` | `MessageMediaGeoLive` | `latitude`, `longitude`, `period_seconds` |
+| `venue` | `MessageMediaVenue` | `title`, `address`, `provider`, `venue_id`, `venue_type`, `latitude`, `longitude` |
+| `dice` | `MessageMediaDice` | `emoticon`, `value` |
+| `game` | `MessageMediaGame` | `title`, `short_name` |
+| `invoice` | `MessageMediaInvoice` | `title`, `description`, `currency`, `total_amount` |
+| `webpage` | `MessageMediaWebPage` | `url`, `display_url`, `title`, `site_name` |
+| `story` | `MessageMediaStory` | `story_id` |
+| `paid_media` | `MessageMediaPaidMedia` | `stars_amount` |
+| `giveaway` | `MessageMediaGiveaway` | — |
+| `giveaway_results` | `MessageMediaGiveawayResults` | — |
+| `video_stream` | `MessageMediaVideoStream` | — |
+| `unsupported` | `MessageMediaUnsupported` | Telegram could not decode the media |
+
+**Contact cards:** a shared contact returns the name fields and `user_id` only. `phone_number` and `vcard` are deliberately **not** serialized — this matches the names-only entity shape returned by `get_chat_info`, and the default-strip policy for phone data ([#156](https://github.com/leshchenko1979/fast-mcp-telegram/issues/156)).
 
 **Voice Message Transcription:**
 - Automatic transcription for Premium Telegram accounts
