@@ -12,6 +12,7 @@ from src.client.connection import get_connected_client
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
 from src.tools.messages.file_handling import _calculate_file_count
 from src.tools.messages.sending import _send_message_or_files
+from src.utils.datetime_parse import format_schedule_date, parse_schedule_date
 from src.utils.error_handling import log_and_build_error
 from src.utils.logging_utils import (
     log_operation_start,
@@ -32,6 +33,8 @@ async def send_message_to_phone_impl(
     reply_to_msg_id: int | None = None,
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
+    schedule_date: str | None = None,
+    save_as_draft: bool = False,
 ) -> dict[str, Any]:
     """
     Send a message to a phone number, handling both existing and new contacts safely.
@@ -52,6 +55,12 @@ async def send_message_to_phone_impl(
         parse_mode: Parse mode for message formatting (optional)
         files: Single file or list of files. URLs (http/https) work in all server modes;
             local filesystem paths are only allowed in stdio mode (blocked for HTTP transports).
+        schedule_date: ISO 8601 instant at which Telegram should send the message.
+            Must be in the future; the result then carries ``status="scheduled"``.
+        save_as_draft: Save the text as the draft in that chat instead of sending.
+            An empty ``message`` clears it. User sessions only — bot accounts
+            cannot call ``messages.saveDraft``. Cannot be combined with
+            ``schedule_date``, ``files`` or ``parse_mode="rich"``.
 
     Returns:
         Dictionary with operation results consistent with send_message format, plus:
@@ -76,11 +85,23 @@ async def send_message_to_phone_impl(
         "has_reply": reply_to_msg_id is not None,
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
+        "schedule_date": schedule_date,
+        "save_as_draft": save_as_draft,
     }
     if parse_mode == "auto":
         params["detected_parse_mode"] = resolved_parse_mode
 
     log_operation_start("Sending message to phone number", params)
+
+    try:
+        schedule_timestamp = parse_schedule_date(schedule_date)
+    except ValueError as e:
+        return log_and_build_error(
+            operation="send_message_to_phone",
+            error_message=str(e),
+            params=params,
+            exception=e,
+        )
 
     client = await get_connected_client()
     phone_for_log = mask_phone_number_for_log(phone_number)
@@ -129,6 +150,8 @@ async def send_message_to_phone_impl(
             resolved_parse_mode,
             "send_message_to_phone",
             params,
+            schedule_date=schedule_timestamp,
+            save_as_draft=save_as_draft,
         )
         if error:
             return error
@@ -153,9 +176,26 @@ async def send_message_to_phone_impl(
                 "(remove_if_new=True but contact was not new)"
             )
 
+        if isinstance(sent_message, dict):
+            # Draft path: a draft is not a message, so the payload is already built.
+            draft_result = dict(sent_message)
+            draft_result.update(
+                {
+                    "phone_number": phone_number,
+                    "contact_was_new": contact_was_new,
+                    "contact_removed": contact_removed,
+                }
+            )
+            log_operation_success("Draft saved", phone_for_log)
+            return draft_result
+
+        status = "scheduled" if schedule_timestamp is not None else "sent"
         result = build_send_edit_result(
-            sent_message, user, "sent", rich_format=params.get("rich_format")
+            sent_message, user, status, rich_format=params.get("rich_format")
         )
+        if schedule_timestamp is not None:
+            result["scheduled"] = True
+            result["schedule_date"] = format_schedule_date(schedule_timestamp)
 
         result.update(
             {

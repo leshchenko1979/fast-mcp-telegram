@@ -8,6 +8,7 @@ from typing import Any
 from src.client.connection import get_connected_client
 from src.server_components.attachment_tickets import get_attachment_ticket
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
+from src.tools.messages.drafts import save_draft
 from src.tools.messages.file_handling import (
     _calculate_file_count,
     force_document_for_file_list,
@@ -16,6 +17,7 @@ from src.tools.messages.file_handling import (
 )
 from src.tools.messages.rich_send import send_rich_via_tl
 from src.tools.messages.security import _validate_file_paths
+from src.utils.datetime_parse import format_schedule_date, parse_schedule_date
 from src.utils.discussion import get_post_discussion_info
 from src.utils.entity import get_entity_by_id
 from src.utils.error_handling import log_and_build_error
@@ -37,6 +39,7 @@ async def _send_files_to_entity(
     message: str,
     reply_to_msg_id: int | None,
     parse_mode: str | None,
+    schedule_date: int | None = None,
 ):
     """
     Send files to an entity, handling both single and multiple files.
@@ -56,6 +59,7 @@ async def _send_files_to_entity(
         reply_to=reply_to_msg_id,
         parse_mode=parse_mode,
         force_document=force_doc,
+        schedule=schedule_date,
     )
     return _extract_first_message(result)
 
@@ -69,12 +73,66 @@ async def _send_message_or_files(
     parse_mode: str | None,
     operation: str,
     params: dict[str, Any],
+    schedule_date: int | None = None,
+    save_as_draft: bool = False,
 ):
     """
     Send message with or without files to an entity.
 
-    Handles validation and routing to appropriate send method.
+    Handles validation and routing to the appropriate send method. Three exits
+    carry the scheduling flag (text, files, rich) so a queued message is queued
+    whichever path it takes.
+
+    ``save_as_draft=True`` is a different operation, not a variant of send: it
+    returns the already-built draft payload as the second tuple element instead of
+    a Message, so callers must check for a ``dict`` before formatting it.
     """
+    if save_as_draft:
+        if files:
+            return (
+                log_and_build_error(
+                    operation=operation,
+                    error_message=(
+                        "save_as_draft=True cannot be combined with files. "
+                        "Drafts are text-only here; send the file normally or "
+                        "drop save_as_draft."
+                    ),
+                    params=params,
+                    exception=ValueError("draft_with_files"),
+                ),
+                None,
+            )
+        if parse_mode == "rich":
+            return (
+                log_and_build_error(
+                    operation=operation,
+                    error_message=(
+                        "save_as_draft=True cannot be combined with "
+                        "parse_mode='rich': messages.saveDraft has no rich_message "
+                        "field. Use classic parse_mode for the draft."
+                    ),
+                    params=params,
+                    exception=ValueError("draft_with_rich"),
+                ),
+                None,
+            )
+        if schedule_date is not None:
+            return (
+                log_and_build_error(
+                    operation=operation,
+                    error_message=(
+                        "A draft cannot be scheduled: messages.saveDraft has no "
+                        "schedule_date field. Pass either schedule_date (queue a "
+                        "send) or save_as_draft (save for later), not both."
+                    ),
+                    params=params,
+                    exception=ValueError("draft_with_schedule"),
+                ),
+                None,
+            )
+        draft_payload = await save_draft(client, entity, message, reply_to_msg_id)
+        return None, draft_payload
+
     if parse_mode == "rich" and files:
         return (
             log_and_build_error(
@@ -92,7 +150,7 @@ async def _send_message_or_files(
 
     if parse_mode == "rich":
         sent_message, rich_format = await send_rich_via_tl(
-            client, entity, message, reply_to_msg_id
+            client, entity, message, reply_to_msg_id, schedule_date=schedule_date
         )
         params["rich_format"] = rich_format
         return None, sent_message
@@ -124,6 +182,7 @@ async def _send_message_or_files(
                     reply_to=reply_to_msg_id,
                     parse_mode=parse_mode,
                     force_document=force_doc,
+                    schedule=schedule_date,
                 )
                 return None, _extract_first_message(result)
 
@@ -132,7 +191,13 @@ async def _send_message_or_files(
             return validation_error or {}, None
 
         sent_message = await _send_files_to_entity(
-            client, entity, file_list, message, effective_reply_to, parse_mode
+            client,
+            entity,
+            file_list,
+            message,
+            effective_reply_to,
+            parse_mode,
+            schedule_date,
         )
         return None, sent_message
 
@@ -141,6 +206,7 @@ async def _send_message_or_files(
         message=message,
         reply_to=effective_reply_to,
         parse_mode=parse_mode,
+        schedule=schedule_date,
     )
     return None, sent_message
 
@@ -151,6 +217,8 @@ def _extract_send_message_params(
     reply_to_id: int | None = None,
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
+    schedule_date: str | None = None,
+    save_as_draft: bool = False,
 ) -> dict:
     """Extract params for send_message error handling and logging."""
     return {
@@ -162,6 +230,8 @@ def _extract_send_message_params(
         "has_reply": reply_to_id is not None,
         "has_files": bool(files),
         "file_count": _calculate_file_count(files),
+        "schedule_date": schedule_date,
+        "save_as_draft": save_as_draft,
     }
 
 
@@ -171,9 +241,11 @@ async def send_message_impl(
     reply_to_id: int | None = None,
     parse_mode: str | None = None,
     files: str | list[str] | None = None,
+    schedule_date: str | None = None,
+    save_as_draft: bool = False,
 ) -> dict[str, Any]:
     """
-    Send a message to a Telegram chat, optionally with files.
+    Send a message to a Telegram chat, optionally with files, scheduled or as a draft.
 
     Args:
         chat_id: The ID of the chat to send the message to
@@ -186,6 +258,13 @@ async def send_message_impl(
               ideal for remote deployments where local paths are unavailable.
             - **http(s) URLs** — downloaded server-side with security validation.
             - **Local filesystem paths** — only allowed in stdio mode.
+        schedule_date: ISO 8601 instant at which Telegram should send the message
+            (e.g. ``2026-10-20T09:00:00Z``). Must be in the future. When set the
+            message is queued and the result carries ``status="scheduled"``.
+        save_as_draft: Save the text as the chat's draft instead of sending it.
+            An empty ``message`` clears the existing draft. User sessions only —
+            bot accounts cannot call ``messages.saveDraft``. Cannot be combined
+            with ``schedule_date``, ``files`` or ``parse_mode="rich"``.
     """
     parse_mode = _normalize_parse_mode(parse_mode)
     resolved_parse_mode = parse_mode
@@ -193,9 +272,25 @@ async def send_message_impl(
         resolved_parse_mode = detect_message_formatting(message)
 
     params = _extract_send_message_params(
-        chat_id, message, reply_to_id, resolved_parse_mode, files
+        chat_id,
+        message,
+        reply_to_id,
+        resolved_parse_mode,
+        files,
+        schedule_date,
+        save_as_draft,
     )
     log_operation_start("Sending message to chat", params)
+
+    try:
+        schedule_timestamp = parse_schedule_date(schedule_date)
+    except ValueError as e:
+        return log_and_build_error(
+            operation="send_message",
+            error_message=str(e),
+            params=params,
+            exception=e,
+        )
 
     client = await get_connected_client()
     chat = await get_entity_by_id(chat_id)
@@ -240,15 +335,30 @@ async def send_message_impl(
         resolved_parse_mode,
         "send_message",
         params,
+        schedule_date=schedule_timestamp,
+        save_as_draft=save_as_draft,
     )
     if error:
         return error
 
+    if isinstance(sent_message, dict):
+        # Draft path: a draft is not a message, so the payload is already built.
+        log_operation_success("Draft saved", params["chat_id"])
+        return sent_message
+
+    status = "scheduled" if schedule_timestamp is not None else "sent"
     result = build_send_edit_result(
         sent_message,
         effective_entity,
-        "sent",
+        status,
         rich_format=params.get("rich_format"),
     )
-    log_operation_success("Message sent", params["chat_id"])
+    if schedule_timestamp is not None:
+        result["scheduled"] = True
+        result["schedule_date"] = format_schedule_date(schedule_timestamp)
+
+    log_operation_success(
+        "Message scheduled" if schedule_timestamp is not None else "Message sent",
+        params["chat_id"],
+    )
     return result

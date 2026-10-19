@@ -12,7 +12,9 @@ from src.tools.messages.core import detect_rich_dialect
 RichFormat = Literal["html", "markdown"]
 
 
-def build_input_rich_message(text: str, dialect: RichFormat) -> types.TypeInputRichMessage:
+def build_input_rich_message(
+    text: str, dialect: RichFormat
+) -> types.TypeInputRichMessage:
     """Build InputRichMessageHTML or InputRichMessageMarkdown."""
     if dialect == "html":
         return types.InputRichMessageHTML(html=text)
@@ -52,8 +54,14 @@ async def send_rich_via_tl(
     reply_to_msg_id: int | None = None,
     *,
     dialect: RichFormat | None = None,
+    schedule_date: int | None = None,
 ) -> tuple[Any, RichFormat]:
-    """Send a Rich Message; returns (Message, rich_format)."""
+    """Send a Rich Message; returns (Message, rich_format).
+
+    ``schedule_date`` is a unix timestamp: when set, Telegram queues the message
+    instead of delivering it now, and the returned Message carries the scheduled
+    date rather than a delivery date.
+    """
     resolved = dialect or detect_rich_dialect(message)
     input_peer = await client.get_input_entity(entity)
     reply_to = None
@@ -65,6 +73,7 @@ async def send_rich_via_tl(
         random_id=secrets.randbits(63),
         reply_to=reply_to,
         rich_message=build_input_rich_message(message, resolved),
+        schedule_date=schedule_date,
     )
     result = await client(request)
     msg = await _message_from_tl_result(client, request, result, entity)
@@ -78,8 +87,13 @@ async def edit_rich_via_tl(
     new_text: str,
     *,
     dialect: RichFormat | None = None,
+    schedule_date: int | None = None,
 ) -> tuple[Any, RichFormat]:
-    """Edit a message to Rich Message content; returns (Message, rich_format)."""
+    """Edit a message to Rich Message content; returns (Message, rich_format).
+
+    ``schedule_date`` reschedules an already-queued message instead of editing a
+    delivered one.
+    """
     resolved = dialect or detect_rich_dialect(new_text)
     input_peer = await client.get_input_entity(entity)
     request = functions.messages.EditMessageRequest(
@@ -87,6 +101,7 @@ async def edit_rich_via_tl(
         id=message_id,
         message="",
         rich_message=build_input_rich_message(new_text, resolved),
+        schedule_date=schedule_date,
     )
     result = await client(request)
     msg = await _message_from_tl_result(client, request, result, entity)

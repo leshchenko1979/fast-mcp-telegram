@@ -64,6 +64,11 @@ class SendEditResult(_ErrorFields, total=False):
     topic_id: int
     rich: bool
     rich_format: str
+    # Scheduling / drafts
+    scheduled: bool
+    schedule_date: str
+    draft_saved: bool
+    reply_to_id: int
 
 
 # ---------------------------------------------------------------------------

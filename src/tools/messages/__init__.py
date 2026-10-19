@@ -5,6 +5,7 @@ Submodules:
 - security: URL and file validation
 - file_handling: File download and processing
 - sending: Message sending functionality
+- drafts: Draft save/clear (messages.saveDraft)
 - editing: Message editing functionality
 - reading: Message reading functionality
 - phone: Phone number message sending
@@ -12,6 +13,7 @@ Submodules:
 
 from src.client.connection import get_connected_client
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
+from src.tools.messages.drafts import save_draft
 from src.tools.messages.editing import edit_message_impl
 from src.tools.messages.file_handling import _calculate_file_count
 from src.tools.messages.phone import send_message_to_phone_impl
@@ -41,6 +43,7 @@ __all__ = [
     "get_entity_by_id",
     "get_post_discussion_info",
     "read_messages_by_ids",
+    "save_draft",
     "send_message_impl",
     "send_message_to_phone_impl",
 ]

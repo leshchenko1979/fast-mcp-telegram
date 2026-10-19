@@ -46,6 +46,8 @@ from src.server_components.mcp_tool_types import (
     ReplyToId,
     ReplyToMsgId,
     ResolveEntities,
+    SaveAsDraft,
+    ScheduleDate,
     ThreadScope,
     TopicsLimit,
 )
@@ -107,6 +109,11 @@ _DESC_SEND_MESSAGE = _tool_description(
     "File attachments as http(s) URLs, local paths, or data: URIs. "
     "When files are provided, the message text becomes a caption. "
     "For channel posts with reply_to_id, automatically posts in the linked discussion group. "
+    "schedule_date (ISO 8601, must be in the future) queues the message instead of "
+    "delivering it now, so the result carries status='scheduled' plus scheduled and "
+    "schedule_date. save_as_draft=true saves the text as the chat's draft instead of "
+    "sending it (empty message clears the draft; user sessions only, bots cannot; "
+    "text-only, so no files, no parse_mode='rich', no schedule_date). "
     "Success: dict with message_id, date, chat, text, status='sent', and sender info "
     "(rich messages also set rich=true and rich_format). "
     "Error: dict with ok=false and error string. "
@@ -119,6 +126,11 @@ _DESC_EDIT_MESSAGE = _tool_description(
     "Only works on messages sent by the authenticated account. "
     "Cannot edit media or other message attributes — text only. "
     "parse_mode: classic markdown/html/auto or rich (Rich Message; dialect auto-detected). "
+    "schedule_date (ISO 8601) reschedules an already-queued message; it does not turn "
+    "a delivered message into a scheduled one, and the result then carries "
+    "status='scheduled'. save_as_draft=true replaces the chat's draft with the text "
+    "instead of editing a message (message_id is then optional, empty text clears the "
+    "draft; user sessions only). "
     "Success: dict with message_id, date, chat, text, status='edited', and edit_date "
     "(rich messages also set rich=true and rich_format). "
     "Error: dict with ok=false and error string (e.g. message not found or not editable). "
@@ -144,6 +156,8 @@ _DESC_SEND_PHONE = _tool_description(
     "Send to a phone number: may create a temporary contact, then send text or files. "
     "Supports parse_mode: classic markdown/html/auto or rich (Rich Message; "
     "dialect auto-detected). parse_mode=rich cannot be combined with files. "
+    "schedule_date (ISO 8601, future) queues the message instead of delivering now; "
+    "save_as_draft=true saves the text as the draft in that chat instead of sending. "
     "Success: send result plus contact_was_new / contact_removed when applicable. "
 )
 
@@ -347,9 +361,19 @@ def register_tools(mcp: FastMCP) -> None:
         reply_to_id: ReplyToId = None,
         parse_mode: ParseMode = "auto",
         files: FilesListParam = None,
+        schedule_date: ScheduleDate = None,
+        save_as_draft: SaveAsDraft = False,
     ) -> SendEditResult:
         """Send text or media to a chat (full doc URL in tool description)."""
-        return await send_message_impl(chat_id, message, reply_to_id, parse_mode, files)
+        return await send_message_impl(
+            chat_id,
+            message,
+            reply_to_id,
+            parse_mode,
+            files,
+            schedule_date=schedule_date,
+            save_as_draft=save_as_draft,
+        )
 
     @mcp.tool(
         description=_DESC_EDIT_MESSAGE,
@@ -363,9 +387,11 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp_tool_with_restrictions("edit_message")
     async def edit_message(
         chat_id: ChatId,
-        message_id: MessageIdInChat,
         message: MessageBody,
+        message_id: MessageIdInChat = None,
         parse_mode: ParseMode = "auto",
+        schedule_date: ScheduleDate = None,
+        save_as_draft: SaveAsDraft = False,
     ) -> SendEditResult:
         """Edit an existing message (full doc URL in tool description)."""
         return await edit_message_impl(
@@ -373,6 +399,8 @@ def register_tools(mcp: FastMCP) -> None:
             message_id,
             message,
             parse_mode,
+            schedule_date=schedule_date,
+            save_as_draft=save_as_draft,
         )
 
     @mcp.tool(
@@ -439,6 +467,8 @@ def register_tools(mcp: FastMCP) -> None:
         reply_to_msg_id: ReplyToMsgId = None,
         parse_mode: ParseMode = "auto",
         files: FilesListParam = None,
+        schedule_date: ScheduleDate = None,
+        save_as_draft: SaveAsDraft = False,
     ) -> SendToPhoneResult:
         """Send to a phone number with optional contact auto-create (full doc URL in tool description)."""
         return await send_message_to_phone_impl(
@@ -450,6 +480,8 @@ def register_tools(mcp: FastMCP) -> None:
             reply_to_msg_id=reply_to_msg_id,
             parse_mode=parse_mode,
             files=files,
+            schedule_date=schedule_date,
+            save_as_draft=save_as_draft,
         )
 
     @mcp.tool(
