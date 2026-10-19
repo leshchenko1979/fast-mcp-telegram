@@ -173,6 +173,10 @@ When **`DOMAIN`** is set to a non-placeholder public host and the server runs ov
 
 ### SSRF Protection
 - **URL Security Validation**: Blocks localhost, private IPs, and suspicious domains
+- **Address pinning**: Validation resolves the hostname once and the download dials a
+  validated address literally, with `Host` and TLS SNI restored to the original name.
+  Resolving twice would leave a DNS-rebinding window between the check and the
+  connection (GHSA-5572-g2vw-qp6f)
 - **Enhanced HTTP Client**: Disabled redirects, connection limits, security headers, and timeouts
 - **File Size Limits**: Configurable maximum file size with both header and content validation
 - **Configuration Options**: `allow_http_urls`, `max_file_size_mb`, `block_private_ips` settings
