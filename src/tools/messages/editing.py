@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
+from telethon.tl import functions
+
 from src.client.connection import get_connected_client
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
 from src.tools.messages.drafts import save_draft
@@ -16,6 +18,29 @@ from src.utils.logging_utils import log_operation_start, log_operation_success
 from src.utils.message_format import build_send_edit_result, extract_topic_metadata
 
 logger = logging.getLogger(__name__)
+
+
+async def _refetch_scheduled_message(client: Any, entity: Any, message_id: int) -> Any:
+    """Read one queued message back by id.
+
+    ``client.edit_message`` returns ``None`` when it edits a *scheduled* message:
+    Telegram answers with ``UpdateNewScheduledMessage`` alone, and Telethon's
+    ``_get_response_message`` can only map that update back to the request
+    through ``UpdateMessageID``/``random_id``, which ``messages.editMessage``
+    never carries. ``messages.getMessages`` cannot see the queue either — only
+    ``messages.getScheduledMessages`` addresses it.
+    """
+    input_peer = await client.get_input_entity(entity)
+    result = await client(
+        functions.messages.GetScheduledMessagesRequest(peer=input_peer, id=[message_id])
+    )
+    for message in getattr(result, "messages", None) or []:
+        if getattr(message, "id", None) == message_id:
+            return message
+    raise RuntimeError(
+        f"Telegram accepted the scheduled edit but message id={message_id} "
+        "is no longer in the scheduled queue"
+    )
 
 
 async def edit_message_impl(
@@ -140,6 +165,18 @@ async def edit_message_impl(
                 parse_mode=cast(Any, resolved_parse_mode or None),
                 schedule=schedule_timestamp,
             )
+            if edited_message is None:
+                if schedule_timestamp is not None:
+                    # Rescheduling answers with UpdateNewScheduledMessage only,
+                    # which Telethon cannot map back to the request — read it
+                    # from the scheduled queue instead.
+                    edited_message = await _refetch_scheduled_message(
+                        client, chat, cast(int, message_id)
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Telegram returned no message for the edit of id={message_id}"
+                    )
 
         status = "scheduled" if schedule_timestamp is not None else "edited"
         result = build_send_edit_result(

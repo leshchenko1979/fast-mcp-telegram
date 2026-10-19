@@ -19,10 +19,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import Client, FastMCP
+from telethon.tl import functions, types
 
 from src.server_components.tools_register import register_tools
 from src.tools.messages.drafts import save_draft
 from src.tools.messages.editing import edit_message_impl
+from src.tools.messages.rich_send import _message_from_tl_result
 from src.tools.messages.sending import _send_message_or_files, send_message_impl
 from src.utils.datetime_parse import (
     parse_iso_datetime_utc,
@@ -501,3 +503,81 @@ async def test_registered_edit_message_forwards_draft_flag_without_id():
     assert impl.await_args.kwargs["save_as_draft"] is True
     # message_id travels positionally: (chat_id, message_id, new_text, ...)
     assert impl.await_args.args[1] is None
+
+
+class TestRescheduleMessageExtraction:
+    """Rescheduling a queued message must survive Telethon returning ``None``.
+
+    Telegram answers ``messages.editMessage`` carrying ``schedule_date`` with a
+    lone ``UpdateNewScheduledMessage``: no ``UpdateMessageID``, so Telethon's
+    ``_get_response_message`` has no ``random_id`` to map the update back to the
+    request and returns ``None`` (issue #163).
+    """
+
+    @pytest.mark.asyncio
+    async def test_scheduled_edit_refetches_from_the_scheduled_queue(self):
+        refetched = _fake_message(11)
+        refetched.text = "new text"
+        client = AsyncMock()
+        client.edit_message = AsyncMock(return_value=None)
+        client.get_input_entity = AsyncMock(return_value=object())
+        client.return_value = SimpleNamespace(messages=[refetched])
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl(
+                "7", 11, "new text", schedule_date=FUTURE_ISO
+            )
+
+        assert result.get("ok") is not False, result
+        assert result["status"] == "scheduled"
+        assert result["message_id"] == 11
+        assert result["text"] == "new text"
+
+        request = client.call_args.args[0]
+        assert isinstance(request, functions.messages.GetScheduledMessagesRequest)
+        assert request.id == [11]
+
+    @pytest.mark.asyncio
+    async def test_plain_edit_never_touches_the_scheduled_queue(self):
+        client = AsyncMock()
+        client.edit_message = AsyncMock(return_value=_fake_message(11))
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl("7", 11, "new text")
+
+        assert result["status"] == "edited"
+        client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rich_scheduled_result_uses_the_update_message(self):
+        """A queued rich message is unreachable by messages.getMessages."""
+        message = _fake_message(21)
+        update = types.UpdateNewScheduledMessage(message=message)
+        client = MagicMock()
+        client._get_response_message = MagicMock(return_value=None)
+        client.get_messages = AsyncMock(return_value=None)
+
+        extracted = await _message_from_tl_result(
+            client, object(), SimpleNamespace(updates=[update]), object()
+        )
+
+        assert extracted is message
+        client.get_messages.assert_not_called()

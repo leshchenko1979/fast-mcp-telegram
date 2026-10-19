@@ -32,7 +32,15 @@ async def _message_from_tl_result(
     msg_id = None
     for update in getattr(result, "updates", None) or []:
         message = getattr(update, "message", None)
-        if message is not None and getattr(message, "id", None) is not None:
+        if message is None:
+            continue
+        if isinstance(update, types.UpdateNewScheduledMessage):
+            # ``_get_response_message`` already ran ``_finish_init`` on this
+            # message. A queued message is invisible to ``messages.getMessages``
+            # (only ``messages.getScheduledMessages`` reaches it), so return the
+            # update's own message instead of trying to refetch it.
+            return message
+        if getattr(message, "id", None) is not None:
             msg_id = message.id
             break
     if msg_id is None:
