@@ -273,6 +273,16 @@ re-reads the message with `messages.GetScheduledMessages` after a scheduled
 edit. Note also that `messages.GetMessages` cannot see the queue at all; only
 `messages.GetScheduledMessages` addresses queued entries.
 
+**Scheduled ids are a separate namespace.** The `id` in an
+`UpdateNewScheduledMessage` (or in a `messages.GetScheduledHistory` entry) is
+the queued message's own id, and Telethon's own comment on the response parser
+warns that *"Scheduled IDs may collide with normal IDs."* Never pass one to
+`messages.GetMessages` / `channels.GetMessages` and expect the queued message:
+read the queue with `messages.GetScheduledMessages`, delete from it with
+`messages.DeleteScheduledMessages`, and edit it with `messages.EditMessage`
+plus `schedule_date`. The MCP tools set `scheduled: true` on such results for
+exactly this reason.
+
 **Save a draft** (`messages.saveDraft`, returns `True`):
 
 ```bash

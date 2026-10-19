@@ -438,7 +438,7 @@ send_message(
 
 **Scheduling and drafts:**
 
-- `schedule_date` accepts ISO 8601 (`2026-10-20T09:00:00Z`, `2026-10-20T12:00:00+03:00`, or a naive string treated as UTC). The instant must be in the future; a bad or past value returns a structured error rather than silently sending now. The result then carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`. Scheduled sends work with text, files, and `parse_mode='rich'`.
+- `schedule_date` accepts ISO 8601 (`2026-10-20T09:00:00Z`, `2026-10-20T12:00:00+03:00`, or a naive string treated as UTC). The instant must be in the future; a bad or past value returns a structured error rather than silently sending now. The result then carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`. Scheduled sends work with text, files, and `parse_mode='rich'`. The returned `message_id` is a **scheduled-queue id, not a delivered message id** — a separate namespace that can collide with normal ids. Read it back with `messages.GetScheduledHistory`, not `get_messages`.
 - `save_as_draft: true` saves the text as the chat's draft instead of sending it; an empty `message` clears the existing draft. The result carries `status: "draft_saved"` (or `"draft_cleared"`) and `draft_saved: true`. **Drafts are a user-session capability — bot accounts cannot call `messages.saveDraft` and get an error.** A draft cannot be combined with `schedule_date` (Telegram has no such field on `saveDraft`), with `files`, or with `parse_mode='rich'`.
 
 **parse_mode:**
