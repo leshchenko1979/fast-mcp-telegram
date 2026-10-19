@@ -1,7 +1,12 @@
 # Production-optimized Dockerfile without editable install
 # Uses Alpine Linux with clean dependency installation
 
-FROM python:3-alpine
+# Pinned to 3.14 on purpose: the floating `python:3-alpine` tag moved to 3.15,
+# which has no pydantic-core wheels yet, so uv fell back to a source build and
+# died on the missing C toolchain (#162). 3.14 is the interpreter this project
+# develops and tests on, and every locked dependency ships a cp314 musllinux
+# wheel, so the build stage needs no compiler.
+FROM python:3.14-alpine
 
 # Install essential runtime dependencies
 RUN apk add --no-cache curl
