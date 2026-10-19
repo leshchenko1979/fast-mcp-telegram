@@ -7,12 +7,12 @@ import base64
 import logging
 import os
 from io import BytesIO
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 import httpx
 
 from src.config.server_config import cfg
-from src.tools.messages.security import _validate_url_security
+from src.tools.messages.security import _resolve_and_validate_url, pin_url_to_ip
 
 logger = logging.getLogger(__name__)
 
@@ -203,19 +203,53 @@ async def prepare_files_for_send(file_list: list[str]) -> list[BytesIO | str]:
     return out
 
 
+async def _get_pinned(
+    http_client: httpx.AsyncClient, url: str, pinned_ips: list[str]
+) -> httpx.Response:
+    """GET *url* dialling only the addresses the guard already validated.
+
+    The guard resolves DNS once and returns the addresses it approved. Dialling a
+    hostname here would resolve it a second time, and the second answer is the one
+    the socket would use — that gap is exactly the DNS-rebinding window. So each
+    approved address is tried literally, with ``Host`` and SNI set back to the
+    original hostname so routing and certificate validation are unchanged.
+    """
+    hostname = urlparse(url).hostname or ""
+    last_exc: Exception | None = None
+
+    for ip in pinned_ips:
+        pinned_url, headers = pin_url_to_ip(url, ip)
+        try:
+            return await http_client.get(
+                pinned_url,
+                headers=headers,
+                follow_redirects=False,
+                extensions={"sni_hostname": hostname},
+            )
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            last_exc = exc
+            logger.debug(
+                "Connect to validated address %s for %s failed: %s", ip, url, exc
+            )
+
+    raise ValueError(
+        f"Could not connect to any validated address for {url}: {last_exc!s}"
+    )
+
+
 async def _download_single_file(
     http_client: httpx.AsyncClient, url: str
 ) -> bytes | str:
     """Download a single file from URL with security validation."""
 
-    is_safe, error_msg = _validate_url_security(url)
+    is_safe, error_msg, pinned_ips = _resolve_and_validate_url(url)
     if not is_safe:
         raise ValueError(f"Unsafe URL blocked: {error_msg}")
 
     if url.startswith(("http://", "https://")):
         logger.debug(f"Downloading file from {url}")
         try:
-            response = await http_client.get(url, follow_redirects=False)
+            response = await _get_pinned(http_client, url, pinned_ips)
             content_length = response.headers.get("content-length")
             config = cfg()
             max_size_bytes = config.max_file_size_mb * 1024 * 1024
