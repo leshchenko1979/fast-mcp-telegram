@@ -10,6 +10,7 @@ from .attachments import (
 from .core import (
     build_message_result,
     build_send_edit_result,
+    extract_reply_quote,
     extract_topic_metadata,
     get_sender_info,
     message_has_displayable_content,
@@ -21,6 +22,7 @@ __all__ = [
     "PremiumRequiredError",
     "build_message_result",
     "build_send_edit_result",
+    "extract_reply_quote",
     "extract_topic_metadata",
     "flatten_rich_message",
     "get_sender_info",

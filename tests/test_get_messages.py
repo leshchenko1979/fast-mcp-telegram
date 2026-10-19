@@ -1783,6 +1783,9 @@ class TestGetMessagesContextHelpers:
         msg.caption = None
         msg.date = datetime(2024, 6, 15, tzinfo=UTC)
         msg.sender_id = 42
+        # Explicit: a bare MagicMock fabricates reply_to/quote, which would add
+        # a reply_quote key the real "no reply" message never has.
+        msg.reply_to = None
 
         result = _lightweight_from_raw(msg)
         assert result == {

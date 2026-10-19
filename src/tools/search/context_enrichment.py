@@ -8,6 +8,7 @@ from typing import Any
 from telethon.errors import FloodWaitError
 
 from src.utils.message_format import (
+    extract_reply_quote,
     extract_topic_metadata,
     message_has_displayable_content,
 )
@@ -54,24 +55,31 @@ def _lightweight_from_raw(message) -> dict[str, Any]:
         media = getattr(message, "media", None)
         if media:
             full_text = f"[{type(media).__name__}]"
-    return {
+    lightweight: dict[str, Any] = {
         "id": message.id,
         "date": message.date.isoformat() if getattr(message, "date", None) else None,
         "text": full_text,
         "sender_id": getattr(message, "sender_id", None),
     }
+    reply_quote = extract_reply_quote(message)
+    if reply_quote is not None:
+        lightweight["reply_quote"] = reply_quote
+    return lightweight
 
 
 def _lightweight_from_result(result: dict[str, Any]) -> dict[str, Any]:
     """Build lightweight context dict from a result dict."""
     sender = result.get("sender")
     sender_id = sender.get("id") if isinstance(sender, dict) else None
-    return {
+    lightweight: dict[str, Any] = {
         "id": result.get("id"),
         "date": result.get("date"),
         "text": result.get("text"),
         "sender_id": sender_id,
     }
+    if (reply_quote := result.get("reply_quote")) is not None:
+        lightweight["reply_quote"] = reply_quote
+    return lightweight
 
 
 async def _enrich_with_context(

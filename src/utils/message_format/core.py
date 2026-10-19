@@ -576,6 +576,63 @@ def extract_topic_metadata(message: Any) -> dict[str, Any]:
     return {"topic_id": topic_id} if topic_id is not None else {}
 
 
+_MESSAGE_ENTITY_PREFIX = "MessageEntity"
+
+
+def _snake_case(name: str) -> str:
+    """``TextUrl`` -> ``text_url``, ``Bold`` -> ``bold``."""
+    out: list[str] = []
+    for index, char in enumerate(name):
+        if char.isupper() and index and not name[index - 1].isupper():
+            out.append("_")
+        out.append(char.lower())
+    return "".join(out)
+
+
+def _serialize_quote_entities(entities: Any) -> list[dict[str, Any]]:
+    """Serialize the ``MessageEntity*`` objects attached to a reply quote."""
+    serialized: list[dict[str, Any]] = []
+    for entity in entities or []:
+        class_name = entity.__class__.__name__
+        entity_type = class_name
+        if class_name.startswith(_MESSAGE_ENTITY_PREFIX):
+            entity_type = _snake_case(class_name[len(_MESSAGE_ENTITY_PREFIX) :])
+        item: dict[str, Any] = {"type": entity_type}
+        for key in ("offset", "length", "url", "user_id"):
+            value = getattr(entity, key, None)
+            if value is not None:
+                item[key] = value
+        serialized.append(item)
+    return serialized
+
+
+def extract_reply_quote(message: Any) -> dict[str, Any] | None:
+    """Return the quoted fragment when a message replies to *part* of another.
+
+    Telegram's "reply with quote" sets ``reply_to.quote`` and carries the
+    fragment in ``quote_text`` / ``quote_offset`` / ``quote_entities``. Emitting
+    only ``reply_to_msg_id`` makes an agent assume the reply addresses the whole
+    original message, which flips the meaning whenever that message is a list
+    (issue #160). Returns ``None`` for plain replies, so their output shape is
+    unchanged.
+    """
+    reply_to = getattr(message, "reply_to", None)
+    if reply_to is None or not getattr(reply_to, "quote", False):
+        return None
+
+    quote: dict[str, Any] = {}
+    text = getattr(reply_to, "quote_text", None)
+    if text is not None:
+        quote["text"] = text
+    offset = getattr(reply_to, "quote_offset", None)
+    if offset is not None:
+        quote["offset"] = offset
+    entities = _serialize_quote_entities(getattr(reply_to, "quote_entities", None))
+    if entities:
+        quote["entities"] = entities
+    return quote or None
+
+
 async def build_message_result(
     message, entity_or_chat, link: str | None, include_chat_entity: bool = False
 ) -> dict[str, Any]:
@@ -584,7 +641,9 @@ async def build_message_result(
     forward_info = await _extract_forward_info(message)
 
     rich_message = getattr(message, "rich_message", None)
-    rich_cache = flatten_rich_message(rich_message) if rich_message is not None else None
+    rich_cache = (
+        flatten_rich_message(rich_message) if rich_message is not None else None
+    )
     full_text = _resolve_message_text(message, rich_cache=rich_cache)
 
     result: dict[str, Any] = {
@@ -607,6 +666,11 @@ async def build_message_result(
     if reply_to_msg_id is not None:
         result["reply_to_msg_id"] = reply_to_msg_id
 
+    # Quoted fragment: present only when the reply targets part of the original.
+    reply_quote = extract_reply_quote(message)
+    if reply_quote is not None:
+        result["reply_quote"] = reply_quote
+
     # Topic metadata: derived from reply_to.forum_topic (set on forum thread messages).
     result |= extract_topic_metadata(message)
 
@@ -626,9 +690,7 @@ async def build_message_result(
         media_placeholder = _build_media_placeholder(message)
         if media_placeholder is not None:
             result["media"] = media_placeholder
-            await _maybe_set_attachment_download_url(
-                result["media"], message, chat_id
-            )
+            await _maybe_set_attachment_download_url(result["media"], message, chat_id)
 
     if forward_info is not None:
         result["forwarded_from"] = forward_info
