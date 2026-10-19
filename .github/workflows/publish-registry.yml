@@ -1,0 +1,27 @@
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # GitHub OIDC is the registry's proof that this repo owns the io.github.<owner>/<repo> name
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install mcp-publisher
+      run: |
+        curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+        ./mcp-publisher --version
+
+    - name: Authenticate with GitHub OIDC
+      run: ./mcp-publisher login github-oidc
+
+    - name: Publish server.json
+      run: ./mcp-publisher publish
