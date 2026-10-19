@@ -243,6 +243,45 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.sendMedia" \
 - `TextWithEntities` - Rich text with formatting
 - `MessageEntityBold/Italic/Url/etc.` - Text formatting entities
 - `InputPeerUser/Channel/Chat` - Peer references
+
+### Scheduled Messages and Drafts
+
+Both are plain TL parameters — no special bridge support is needed, and the MCP
+tools expose them as `schedule_date` / `save_as_draft` on `send_message`,
+`edit_message` and `send_message_to_phone`.
+
+**Schedule a send** (`schedule_date`, unix timestamp, must be in the future):
+
+```bash
+curl -X POST "https://your-domain.com/mtproto-api/messages.SendMessage" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"peer": "me", "message": "Later!", "random_id": 1234567890123456789, "schedule_date": 1792413570}}'
+```
+
+The response carries `UpdateNewScheduledMessage` instead of a delivered message.
+Read the queue with `messages.GetScheduledHistory`, drop entries with
+`messages.DeleteScheduledMessages`, and reschedule with `messages.EditMessage`
+(`schedule_date` again — this only moves a message that is already queued).
+
+**Save a draft** (`messages.saveDraft`, returns `True`):
+
+```bash
+curl -X POST "https://your-domain.com/mtproto-api/messages.SaveDraft" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"peer": "me", "message": "Half-written thought..."}}'
+```
+
+Saving an empty `message` clears the draft. Read drafts with
+`messages.GetAllDrafts` (returns `UpdateDraftMessage` entries).
+
+Two limits worth knowing:
+
+- **Drafts are user-session only.** Bot accounts cannot call `messages.saveDraft`.
+- **Drafts cannot be scheduled.** `saveDraft` has no `schedule_date` field; the
+  two concepts are disjoint server-side, and the MCP tools reject the combination
+  rather than dropping one silently.
 ## Safety Features
 
 ### Dangerous Method Protection

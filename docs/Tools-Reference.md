@@ -430,9 +430,16 @@ send_message(
   message: str,                  // Message content (becomes caption when files sent)
   reply_to_id?: number,          // Reply target (message ID, forum topic root, or channel post for comments)
   parse_mode?: 'markdown'|'html'|'auto'|'rich' = 'auto', // Classic entities, or 'rich' for Rich Message document
-  files?: string[]               // File paths, URLs, or data: URIs (base64). Use a one-element array for a single file. Incompatible with parse_mode='rich'
+  files?: string[],              // File paths, URLs, or data: URIs (base64). Use a one-element array for a single file. Incompatible with parse_mode='rich'
+  schedule_date?: str,           // ISO 8601 instant (future). Queues the message instead of sending now
+  save_as_draft?: boolean = false // Save the text as the chat's draft instead of sending
 )
 ```
+
+**Scheduling and drafts:**
+
+- `schedule_date` accepts ISO 8601 (`2026-10-20T09:00:00Z`, `2026-10-20T12:00:00+03:00`, or a naive string treated as UTC). The instant must be in the future; a bad or past value returns a structured error rather than silently sending now. The result then carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`. Scheduled sends work with text, files, and `parse_mode='rich'`.
+- `save_as_draft: true` saves the text as the chat's draft instead of sending it; an empty `message` clears the existing draft. The result carries `status: "draft_saved"` (or `"draft_cleared"`) and `draft_saved: true`. **Drafts are a user-session capability — bot accounts cannot call `messages.saveDraft` and get an error.** A draft cannot be combined with `schedule_date` (Telegram has no such field on `saveDraft`), with `files`, or with `parse_mode='rich'`.
 
 **parse_mode:**
 - `markdown` / `html` / `auto` — classic flat text + entities (`auto` detects tags vs markdown patterns).
@@ -518,6 +525,20 @@ send_message(
   "message": "Great post!",
   "reply_to_id": 42
 }}
+
+// Schedule for later (message is queued, not delivered now)
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Reminder: standup at 10:00",
+  "schedule_date": "2026-10-20T07:00:00Z"
+}}
+
+// Save as a draft instead of sending (empty message clears the draft)
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Half-written thought...",
+  "save_as_draft": true
+}}
 ```
 
 ### edit_message
@@ -526,11 +547,18 @@ send_message(
 ```typescript
 edit_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
-  message_id: number,            // Message ID to edit (required)
   message: str,                  // New message content
-  parse_mode?: 'markdown'|'html'|'auto'|'rich' = 'auto' // Classic entities, or 'rich' for Rich Message
+  message_id?: number,           // Message ID to edit (required unless save_as_draft=true)
+  parse_mode?: 'markdown'|'html'|'auto'|'rich' = 'auto', // Classic entities, or 'rich' for Rich Message
+  schedule_date?: str,           // ISO 8601 instant: reschedule an already-queued message
+  save_as_draft?: boolean = false // Replace the chat's draft instead of editing a message
 )
 ```
+
+**Scheduling and drafts:**
+
+- `schedule_date` reschedules a message that is already queued (Telegram's `messages.editMessage` `schedule_date`). It does **not** turn a delivered message into a scheduled one. The result carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`.
+- `save_as_draft: true` replaces the chat's draft with `message` and needs no `message_id` — a draft has no message id. An empty `message` clears the draft. User sessions only (bots cannot call `messages.saveDraft`); cannot be combined with `schedule_date` or `parse_mode='rich'`.
 
 **Examples:**
 ```json
@@ -563,6 +591,21 @@ edit_message(
   "message": "## Updated\n\n- done",
   "parse_mode": "rich"
 }}
+
+// Reschedule a message that is already queued
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 67891,
+  "message": "Standup moved to 11:00",
+  "schedule_date": "2026-10-20T08:00:00Z"
+}}
+
+// Replace the chat's draft (no message_id — a draft has none)
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message": "Rewritten draft text",
+  "save_as_draft": true
+}}
 ```
 
 ### send_message_to_phone
@@ -575,8 +618,11 @@ send_message_to_phone(
   first_name?: str = "Contact", // For new contacts
   last_name?: str = "Name",    // For new contacts
   remove_if_new?: boolean = false, // Remove temp contact after send
+  reply_to_msg_id?: number,    // Reply to this message id in the resolved chat
   parse_mode?: 'markdown'|'html'|'auto'|'rich' = 'auto',  // Classic or 'rich' (no files with rich)
-  files?: string | string[]    // File URL(s), data: URI(s), or local path(s)
+  files?: string | string[],   // File URL(s), data: URI(s), or local path(s)
+  schedule_date?: str,         // ISO 8601 instant (future). Queues the message
+  save_as_draft?: boolean = false // Save the text as the draft in that chat
 )
 ```
 
@@ -587,6 +633,7 @@ send_message_to_phone(
 - File sending support (URLs, data: URIs, or local paths)
 - data: URIs work in all modes; local paths in stdio only
 - Multiple files sent as album when possible
+- Scheduling (`schedule_date`) and drafts (`save_as_draft`) behave exactly as in `send_message`; note the contact is still created/removed around the operation, and drafts require a user session
 
 **Examples:**
 ```json
