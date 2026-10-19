@@ -24,6 +24,7 @@ from telethon.tl import functions, types
 from src.server_components.tools_register import register_tools
 from src.tools.messages.drafts import save_draft
 from src.tools.messages.editing import edit_message_impl
+from src.tools.messages.phone import send_message_to_phone_impl
 from src.tools.messages.rich_send import _message_from_tl_result
 from src.tools.messages.sending import _send_message_or_files, send_message_impl
 from src.utils.datetime_parse import (
@@ -581,3 +582,60 @@ class TestRescheduleMessageExtraction:
 
         assert extracted is message
         client.get_messages.assert_not_called()
+
+
+class TestPhonePathCarriesScheduleAndDraft:
+    """send_message_to_phone resolves a contact first, then delegates."""
+
+    @pytest.mark.asyncio
+    async def test_phone_send_forwards_schedule(self):
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=SimpleNamespace(id=99))
+        delegated = AsyncMock(return_value=(None, _fake_message(31)))
+
+        with (
+            patch(
+                "src.tools.messages.phone.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch("src.tools.messages.phone._send_message_or_files", new=delegated),
+        ):
+            result = await send_message_to_phone_impl(
+                phone_number="+10000000000", message="hi", schedule_date=FUTURE_ISO
+            )
+
+        assert result.get("ok") is not False, result
+        assert delegated.await_args.kwargs["schedule_date"] == FUTURE_TS
+        assert delegated.await_args.kwargs["save_as_draft"] is False
+
+    @pytest.mark.asyncio
+    async def test_phone_send_forwards_draft_flag(self):
+        client = AsyncMock()
+        client.get_entity = AsyncMock(return_value=SimpleNamespace(id=99))
+        delegated = AsyncMock(return_value=({"status": "draft_saved"}, None))
+
+        with (
+            patch(
+                "src.tools.messages.phone.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch("src.tools.messages.phone._send_message_or_files", new=delegated),
+        ):
+            result = await send_message_to_phone_impl(
+                phone_number="+10000000000", message="hi", save_as_draft=True
+            )
+
+        assert result["status"] == "draft_saved"
+        assert delegated.await_args.kwargs["save_as_draft"] is True
+        assert delegated.await_args.kwargs["schedule_date"] is None
+
+    @pytest.mark.asyncio
+    async def test_phone_draft_plus_schedule_is_rejected(self):
+        result = await send_message_to_phone_impl(
+            phone_number="+10000000000",
+            message="hi",
+            schedule_date=FUTURE_ISO,
+            save_as_draft=True,
+        )
+
+        assert result["ok"] is False
