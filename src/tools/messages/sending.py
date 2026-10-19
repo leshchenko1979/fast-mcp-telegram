@@ -64,6 +64,64 @@ async def _send_files_to_entity(
     return _extract_first_message(result)
 
 
+def validate_send_options(
+    *,
+    message: str,
+    files: str | list[str] | None,
+    parse_mode: str | None,
+    schedule_date: str | None,
+    save_as_draft: bool,
+    operation: str,
+    params: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Reject impossible option combinations before any network work.
+
+    These checks used to live only in ``_send_message_or_files``, which runs
+    after ``get_connected_client()`` — so an invalid combination still opened a
+    client (and failed on a missing API_ID) instead of reporting the parameter
+    error. Call this first; ``_send_message_or_files`` re-checks for its own
+    direct callers.
+
+    Returns the error dict when the combination is invalid, else ``None``.
+    """
+    if not save_as_draft:
+        return None
+    if files:
+        return log_and_build_error(
+            operation=operation,
+            error_message=(
+                "save_as_draft=True cannot be combined with files. "
+                "Drafts are text-only here; send the file normally or "
+                "drop save_as_draft."
+            ),
+            params=params,
+            exception=ValueError("draft_with_files"),
+        )
+    if parse_mode == "rich":
+        return log_and_build_error(
+            operation=operation,
+            error_message=(
+                "save_as_draft=True cannot be combined with "
+                "parse_mode='rich': messages.saveDraft has no rich_message "
+                "field. Use classic parse_mode for the draft."
+            ),
+            params=params,
+            exception=ValueError("draft_with_rich"),
+        )
+    if schedule_date is not None:
+        return log_and_build_error(
+            operation=operation,
+            error_message=(
+                "A draft cannot be scheduled: messages.saveDraft has no "
+                "schedule_date field. Pass either schedule_date (queue a "
+                "send) or save_as_draft (save for later), not both."
+            ),
+            params=params,
+            exception=ValueError("draft_with_schedule"),
+        )
+    return None
+
+
 async def _send_message_or_files(
     client,
     entity,
@@ -88,48 +146,17 @@ async def _send_message_or_files(
     a Message, so callers must check for a ``dict`` before formatting it.
     """
     if save_as_draft:
-        if files:
-            return (
-                log_and_build_error(
-                    operation=operation,
-                    error_message=(
-                        "save_as_draft=True cannot be combined with files. "
-                        "Drafts are text-only here; send the file normally or "
-                        "drop save_as_draft."
-                    ),
-                    params=params,
-                    exception=ValueError("draft_with_files"),
-                ),
-                None,
-            )
-        if parse_mode == "rich":
-            return (
-                log_and_build_error(
-                    operation=operation,
-                    error_message=(
-                        "save_as_draft=True cannot be combined with "
-                        "parse_mode='rich': messages.saveDraft has no rich_message "
-                        "field. Use classic parse_mode for the draft."
-                    ),
-                    params=params,
-                    exception=ValueError("draft_with_rich"),
-                ),
-                None,
-            )
-        if schedule_date is not None:
-            return (
-                log_and_build_error(
-                    operation=operation,
-                    error_message=(
-                        "A draft cannot be scheduled: messages.saveDraft has no "
-                        "schedule_date field. Pass either schedule_date (queue a "
-                        "send) or save_as_draft (save for later), not both."
-                    ),
-                    params=params,
-                    exception=ValueError("draft_with_schedule"),
-                ),
-                None,
-            )
+        rejection = validate_send_options(
+            message=message,
+            files=files,
+            parse_mode=parse_mode,
+            schedule_date=schedule_date,
+            save_as_draft=True,
+            operation=operation,
+            params=params,
+        )
+        if rejection is not None:
+            return rejection, None
         draft_payload = await save_draft(client, entity, message, reply_to_msg_id)
         return None, draft_payload
 
@@ -291,6 +318,18 @@ async def send_message_impl(
             params=params,
             exception=e,
         )
+
+    rejection = validate_send_options(
+        message=message,
+        files=files,
+        parse_mode=resolved_parse_mode,
+        schedule_date=schedule_date,
+        save_as_draft=save_as_draft,
+        operation="send_message",
+        params=params,
+    )
+    if rejection is not None:
+        return rejection
 
     client = await get_connected_client()
     chat = await get_entity_by_id(chat_id)

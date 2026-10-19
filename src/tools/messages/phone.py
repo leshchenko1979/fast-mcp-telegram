@@ -11,7 +11,10 @@ from telethon.tl.types import InputPhoneContact
 from src.client.connection import get_connected_client
 from src.tools.messages.core import _normalize_parse_mode, detect_message_formatting
 from src.tools.messages.file_handling import _calculate_file_count
-from src.tools.messages.sending import _send_message_or_files
+from src.tools.messages.sending import (
+    _send_message_or_files,
+    validate_send_options,
+)
 from src.utils.datetime_parse import format_schedule_date, parse_schedule_date
 from src.utils.error_handling import log_and_build_error
 from src.utils.logging_utils import (
@@ -102,6 +105,18 @@ async def send_message_to_phone_impl(
             params=params,
             exception=e,
         )
+
+    rejection = validate_send_options(
+        message=message,
+        files=files,
+        parse_mode=resolved_parse_mode,
+        schedule_date=schedule_date,
+        save_as_draft=save_as_draft,
+        operation="send_message_to_phone",
+        params=params,
+    )
+    if rejection is not None:
+        return rejection
 
     client = await get_connected_client()
     phone_for_log = mask_phone_number_for_log(phone_number)

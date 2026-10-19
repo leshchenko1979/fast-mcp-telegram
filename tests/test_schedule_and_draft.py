@@ -631,11 +631,51 @@ class TestPhonePathCarriesScheduleAndDraft:
 
     @pytest.mark.asyncio
     async def test_phone_draft_plus_schedule_is_rejected(self):
-        result = await send_message_to_phone_impl(
-            phone_number="+10000000000",
-            message="hi",
-            schedule_date=FUTURE_ISO,
-            save_as_draft=True,
-        )
+        """The combination is refused before any client is opened.
+
+        Asserting only ``ok is False`` let this test pass while still building a
+        real client — it failed in CI, where API_ID is absent, and would have
+        reached the network locally. The patch makes the ordering the assertion.
+        """
+
+        def _no_client():
+            raise AssertionError(
+                "draft+schedule must be rejected before get_connected_client()"
+            )
+
+        with patch(
+            "src.tools.messages.phone.get_connected_client",
+            new=AsyncMock(side_effect=_no_client),
+        ):
+            result = await send_message_to_phone_impl(
+                phone_number="+10000000000",
+                message="hi",
+                schedule_date=FUTURE_ISO,
+                save_as_draft=True,
+            )
 
         assert result["ok"] is False
+        assert "draft_with_schedule" in str(result)
+
+    @pytest.mark.asyncio
+    async def test_send_message_draft_plus_schedule_is_rejected_without_client(self):
+        """Same ordering guarantee on the send path."""
+
+        def _no_client():
+            raise AssertionError(
+                "draft+schedule must be rejected before get_connected_client()"
+            )
+
+        with patch(
+            "src.tools.messages.sending.get_connected_client",
+            new=AsyncMock(side_effect=_no_client),
+        ):
+            result = await send_message_impl(
+                chat_id="me",
+                message="hi",
+                schedule_date=FUTURE_ISO,
+                save_as_draft=True,
+            )
+
+        assert result["ok"] is False
+        assert "draft_with_schedule" in str(result)
