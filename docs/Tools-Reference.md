@@ -306,7 +306,7 @@ When `context > 0` or `include_replies=true`, each message gains a `context` env
 }
 ```
 
-Context messages use a lightweight format (id, date, text, sender_id) to save tokens. `replies` is only populated when `include_replies=true`. `reply_to` is `null` when the message has no reply target. The `context` key is absent entirely when no enrichment is requested.
+Context messages use a lightweight format (id, date, text, sender_id, plus `reply_quote` when the message quotes a fragment) to save tokens. `replies` is only populated when `include_replies=true`. `reply_to` is `null` when the message has no reply target. The `context` key is absent entirely when no enrichment is requested.
 
 **Features:**
 - **Rich Media Parsing**: Automatically parses Todo lists, polls, photos, documents
@@ -974,6 +974,13 @@ Read/search tools use `build_message_result`. Send/edit/phone success payloads u
     "username": "johndoe"
   },
   "reply_to_msg_id": 12344,       // ID of message being replied to (optional)
+  "reply_quote": {                // Quoted fragment, when the reply targets part of the message (optional)
+    "text": "India",              // The quoted text
+    "offset": 17,                 // Its position in the original message text
+    "entities": [                 // Formatting inside the quote (optional)
+      {"type": "bold", "offset": 0, "length": 5}
+    ]
+  },
   "topic_id": 52,                 // Forum topic ID (forum chats only)
   "media": {                      // Media attachment info (optional, lightweight)
     "type": "voice",              // One of the values listed under "media.type" below
