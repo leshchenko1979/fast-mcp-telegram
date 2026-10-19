@@ -264,6 +264,15 @@ Read the queue with `messages.GetScheduledHistory`, drop entries with
 `messages.DeleteScheduledMessages`, and reschedule with `messages.EditMessage`
 (`schedule_date` again — this only moves a message that is already queued).
 
+One Telethon caveat, since it costs a live crash if you hit it: a scheduled
+**edit** is answered with a lone `UpdateNewScheduledMessage` and no
+`UpdateMessageID`, so Telethon's `client.edit_message(..., schedule=...)`
+returns `None` — its response parser maps updates back to the request through
+`random_id`, which `EditMessageRequest` does not carry. The MCP tool therefore
+re-reads the message with `messages.GetScheduledMessages` after a scheduled
+edit. Note also that `messages.GetMessages` cannot see the queue at all; only
+`messages.GetScheduledMessages` addresses queued entries.
+
 **Save a draft** (`messages.saveDraft`, returns `True`):
 
 ```bash
