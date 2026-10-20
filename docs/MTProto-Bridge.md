@@ -274,6 +274,15 @@ re-reads the message with `messages.GetScheduledMessages` after a scheduled
 edit. Note also that `messages.GetMessages` cannot see the queue at all; only
 `messages.GetScheduledMessages` addresses queued entries.
 
+**A queued id is invisible to a plain edit.** `messages.EditMessage` without
+`schedule_date` searches the *delivered* history, where a queued id does not
+exist, and answers `MESSAGE_EDIT_TIME_EXPIRED` ("You can't edit this message
+anymore, too much time has passed since its creation") — even for a message
+queued seconds earlier. To change the text of a queued message without moving
+it, read its `date` from `messages.GetScheduledHistory` and pass that same
+instant back as `schedule_date`. The MCP `edit_message` tool exposes this as
+`schedule_date`; worked examples are in `docs/Tools-Reference.md`.
+
 **Scheduled ids are a separate namespace.** The `id` in an
 `UpdateNewScheduledMessage` (or in a `messages.GetScheduledHistory` entry) is
 the queued message's own id, and Telethon's own comment on the response parser

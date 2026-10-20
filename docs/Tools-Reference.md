@@ -440,6 +440,7 @@ send_message(
 
 - `schedule_date` accepts ISO 8601 (`2026-10-20T09:00:00Z`, `2026-10-20T12:00:00+03:00`, or a naive string treated as UTC). The instant must be in the future; a bad or past value returns a structured error rather than silently sending now. The result then carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`. Scheduled sends work with text, files, and `parse_mode='rich'`. The returned `message_id` is a **scheduled-queue id, not a delivered message id** — a separate namespace that can collide with normal ids. Read it back with `messages.GetScheduledHistory`, not `get_messages`.
 - `save_as_draft: true` saves the text as the chat's draft instead of sending it; an empty `message` clears the existing draft. The result carries `status: "draft_saved"` (or `"draft_cleared"`) and `draft_saved: true`. **Drafts are a user-session capability — bot accounts cannot call `messages.saveDraft` and get an error.** A draft cannot be combined with `schedule_date` (Telegram has no such field on `saveDraft`), with `files`, or with `parse_mode='rich'`.
+- Full recipes — change or delete a draft, list the scheduled queue, reschedule, cancel — are in [Managing scheduled messages and drafts](#managing-scheduled-messages-and-drafts).
 
 **parse_mode:**
 - `markdown` / `html` / `auto` — classic flat text + entities (`auto` detects tags vs markdown patterns).
@@ -557,6 +558,7 @@ edit_message(
 **Scheduling:**
 
 - `schedule_date` reschedules a message that is already queued (Telegram's `messages.editMessage` `schedule_date`). It does **not** turn a delivered message into a scheduled one. The result carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`.
+- To change the text of a queued message **without** moving it, pass its current `schedule_date` (read it from `messages.GetScheduledHistory` first) — omitting it makes Telegram look in the delivered history and fail with `MessageEditTimeExpiredError`. Worked examples: [Managing scheduled messages and drafts](#managing-scheduled-messages-and-drafts).
 - Drafts are a **send-side** concept: use `send_message` with `save_as_draft: true`. A draft has no message id, so there is nothing for `edit_message` to address.
 
 **Examples:**
@@ -650,6 +652,79 @@ send_message_to_phone(
   "remove_if_new": true
 }}
 ```
+
+### Managing scheduled messages and drafts
+
+A **draft** has no id and no date — it is server state keyed by chat (plus reply target). A **scheduled message** does have an id, but it lives in its own namespace and `get_messages` cannot see it.
+
+**Drafts — create, change, delete.** Saving is an upsert, so "change the draft" is just "save it again"; an empty `message` clears it.
+
+```json
+// Create or replace the draft in a chat
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "Half-written thought",
+  "save_as_draft": true
+}}
+
+// Delete the draft
+{"tool": "send_message", "params": {
+  "chat_id": "me",
+  "message": "",
+  "save_as_draft": true
+}}
+```
+
+The result carries `status: "draft_saved"` or `"draft_cleared"`. Read drafts back with `messages.GetAllDrafts` (via `invoke_mtproto`). Drafts are a **user-session** capability — bot accounts cannot call `messages.saveDraft`.
+
+**Scheduled — read the queue first.** `get_messages` cannot see the queue at all; the only route is the raw method, and `hash: 0` forces the full list instead of a diff:
+
+```json
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.GetScheduledHistory",
+  "params_json": "{\"peer\": \"me\", \"hash\": 0}"
+}}
+```
+
+Each entry carries `id`, `date` (unix seconds) and `message`.
+
+**Change the text, keep the time.** `edit_message` needs the message's *current* `schedule_date` round-tripped: without it Telegram looks in the delivered history, where a queued id does not exist, and answers `MessageEditTimeExpiredError` ("too much time has passed since its creation") even for a message queued seconds ago.
+
+```json
+// schedule_date copied unchanged from the GetScheduledHistory entry
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 15,
+  "message": "Updated wording",
+  "schedule_date": "2026-10-20T12:56:41Z"
+}}
+```
+
+**Reschedule** — the same call with a new instant:
+
+```json
+{"tool": "edit_message", "params": {
+  "chat_id": "me",
+  "message_id": 15,
+  "message": "Updated wording",
+  "schedule_date": "2026-10-20T14:56:41Z"
+}}
+```
+
+**Cancel** — drop the entry from the queue (`messages.DeleteScheduledMessages` is a dangerous method, so it needs `allow_dangerous`):
+
+```json
+{"tool": "invoke_mtproto", "params": {
+  "method_full_name": "messages.DeleteScheduledMessages",
+  "params_json": "{\"peer\": \"me\", \"id\": [15]}",
+  "allow_dangerous": true
+}}
+```
+
+Two rules that hold in every case:
+
+- **A delivered message can never be rescheduled.** Telegram has no un-send: `edit_message` with `schedule_date` on an already-delivered message is rejected, not converted.
+- **A `message_id` returned by a scheduled send is a queue id.** Never pass it to `get_messages` — that reads a different message, or nothing.
 
 ## 4. Advanced
 
