@@ -558,7 +558,7 @@ edit_message(
 **Scheduling:**
 
 - `schedule_date` reschedules a message that is already queued (Telegram's `messages.editMessage` `schedule_date`). It does **not** turn a delivered message into a scheduled one. The result carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`.
-- To change the text of a queued message **without** moving it, pass its current `schedule_date` (read it from `messages.GetScheduledHistory` first) — omitting it makes Telegram look in the delivered history and fail with `MessageEditTimeExpiredError`. Worked examples: [Managing scheduled messages and drafts](#managing-scheduled-messages-and-drafts).
+- To change the text of a queued message **without** moving it, omit `schedule_date`: the tool finds the id in the scheduled queue and reuses its own date. Passing `schedule_date` *moves* the message, and a delivered message cannot be rescheduled at all (Telegram has no un-send) — that case is reported by name instead of as `MESSAGE_ID_INVALID`. Worked examples: [Managing scheduled messages and drafts](#managing-scheduled-messages-and-drafts).
 - Drafts are a **send-side** concept: use `send_message` with `save_as_draft: true`. A draft has no message id, so there is nothing for `edit_message` to address.
 
 **Examples:**
@@ -688,17 +688,17 @@ The result carries `status: "draft_saved"` or `"draft_cleared"`. Read drafts bac
 
 Each entry carries `id`, `date` (unix seconds) and `message`.
 
-**Change the text, keep the time.** `edit_message` needs the message's *current* `schedule_date` round-tripped: without it Telegram looks in the delivered history, where a queued id does not exist, and answers `MessageEditTimeExpiredError` ("too much time has passed since its creation") even for a message queued seconds ago.
+**Change the text, keep the time.** Just omit `schedule_date`. A queued id is invisible to a plain `messages.editMessage` (Telegram only searches delivered history and answers `MessageEditTimeExpiredError`, "too much time has passed since its creation", even for a message queued seconds ago), so the tool reads the entry's own date back from the scheduled queue and retries once with that exact instant. The result reports `status: "scheduled"`, `scheduled: true` and the unchanged `schedule_date`.
 
 ```json
-// schedule_date copied unchanged from the GetScheduledHistory entry
 {"tool": "edit_message", "params": {
   "chat_id": "me",
   "message_id": 15,
-  "message": "Updated wording",
-  "schedule_date": "2026-10-20T12:56:41Z"
+  "message": "Updated wording"
 }}
 ```
+
+Passing `schedule_date` explicitly still works and is the way to *move* the message. The retry is an error-path fallback, so a normal edit of a delivered message costs no extra round-trip, and a genuinely old message still reports time-expiry.
 
 **Reschedule** — the same call with a new instant:
 
