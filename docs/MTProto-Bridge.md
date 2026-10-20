@@ -247,8 +247,9 @@ curl -X POST "https://your-domain.com/mtproto-api/messages.sendMedia" \
 ### Scheduled Messages and Drafts
 
 Both are plain TL parameters — no special bridge support is needed, and the MCP
-tools expose them as `schedule_date` / `save_as_draft` on `send_message`,
-`edit_message` and `send_message_to_phone`.
+tools expose them as `schedule_date` on `send_message`, `edit_message` and
+`send_message_to_phone`, and `save_as_draft` on the two send tools (`edit_message`
+addresses an existing message by id, so it has no draft mode).
 
 **Schedule a send** (`schedule_date`, unix timestamp, must be in the future):
 

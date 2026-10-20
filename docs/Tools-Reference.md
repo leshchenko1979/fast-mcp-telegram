@@ -548,17 +548,16 @@ send_message(
 edit_message(
   chat_id: str,                  // Target chat ID (see Supported Chat ID Formats above)
   message: str,                  // New message content
-  message_id?: number,           // Message ID to edit (required unless save_as_draft=true)
+  message_id: number,            // Message ID to edit
   parse_mode?: 'markdown'|'html'|'auto'|'rich' = 'auto', // Classic entities, or 'rich' for Rich Message
-  schedule_date?: str,           // ISO 8601 instant: reschedule an already-queued message
-  save_as_draft?: boolean = false // Replace the chat's draft instead of editing a message
+  schedule_date?: str            // ISO 8601 instant: reschedule an already-queued message
 )
 ```
 
-**Scheduling and drafts:**
+**Scheduling:**
 
 - `schedule_date` reschedules a message that is already queued (Telegram's `messages.editMessage` `schedule_date`). It does **not** turn a delivered message into a scheduled one. The result carries `status: "scheduled"`, `scheduled: true` and the resolved `schedule_date`.
-- `save_as_draft: true` replaces the chat's draft with `message` and needs no `message_id` — a draft has no message id. An empty `message` clears the draft. User sessions only (bots cannot call `messages.saveDraft`); cannot be combined with `schedule_date` or `parse_mode='rich'`.
+- Drafts are a **send-side** concept: use `send_message` with `save_as_draft: true`. A draft has no message id, so there is nothing for `edit_message` to address.
 
 **Examples:**
 ```json
@@ -598,13 +597,6 @@ edit_message(
   "message_id": 67891,
   "message": "Standup moved to 11:00",
   "schedule_date": "2026-10-20T08:00:00Z"
-}}
-
-// Replace the chat's draft (no message_id — a draft has none)
-{"tool": "edit_message", "params": {
-  "chat_id": "me",
-  "message": "Rewritten draft text",
-  "save_as_draft": true
 }}
 ```
 
