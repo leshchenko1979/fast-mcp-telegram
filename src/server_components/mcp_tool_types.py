@@ -159,8 +159,8 @@ SaveAsDraft = Annotated[
     bool,
     Field(
         description=(
-            "If true, save the text as the chat's draft instead of sending or "
-            "editing (an empty text clears the existing draft). User sessions only "
+            "If true, save the text as the chat's draft instead of sending it "
+            "(an empty text clears the existing draft). User sessions only "
             "— bot accounts cannot call messages.saveDraft. Cannot be combined "
             "with schedule_date, files, or parse_mode='rich'."
         )

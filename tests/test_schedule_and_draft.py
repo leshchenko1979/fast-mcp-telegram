@@ -390,42 +390,11 @@ class TestEditMessageScheduling:
         assert client.edit_message.await_args.kwargs["schedule"] is None
 
     @pytest.mark.asyncio
-    async def test_missing_message_id_without_draft_is_rejected(self):
-        result = await edit_message_impl("7", None, "text")
-
-        assert result["ok"] is False
-        assert "message_id is required" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_draft_mode_needs_no_message_id(self):
-        client = AsyncMock()
-        client.get_input_entity = AsyncMock(return_value=object())
-
-        with (
-            patch(
-                "src.tools.messages.editing.get_connected_client",
-                new=AsyncMock(return_value=client),
-            ),
-            patch(
-                "src.tools.messages.editing.get_entity_by_id",
-                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
-            ),
-        ):
-            result = await edit_message_impl(
-                "7", None, "draft text", save_as_draft=True
-            )
-
-        assert result["status"] == "draft_saved"
-        client.edit_message.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_draft_plus_schedule_is_rejected(self):
-        result = await edit_message_impl(
-            "7", None, "x", schedule_date=FUTURE_ISO, save_as_draft=True
-        )
-
-        assert result["ok"] is False
-        assert "schedule" in result["error"].lower()
+    async def test_message_id_is_required(self):
+        """A draft has no id, so draft mode lived here once — it now lives in
+        send_message, and message_id is a hard requirement again."""
+        with pytest.raises(TypeError):
+            await edit_message_impl("7", new_text="text")
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +402,7 @@ class TestEditMessageScheduling:
 # the impl-level tests above (same defect class as issue #150).
 # ---------------------------------------------------------------------------
 
-_SEND_EDIT_TOOLS = ("send_message", "edit_message", "send_message_to_phone")
+_SEND_EDIT_TOOLS = ("send_message", "send_message_to_phone")
 
 
 def _schemas() -> dict[str, dict]:
@@ -458,13 +427,20 @@ def test_every_send_tool_advertises_both_params():
         assert props["save_as_draft"]["default"] is False
 
 
-def test_edit_message_advertises_message_id_as_optional():
-    """Draft mode has no message id, so the registered param must be optional."""
+def test_edit_message_advertises_schedule_but_no_draft():
+    """Drafts are a send-side concept: send_message owns them."""
     props = _schemas()["edit_message"]["properties"]
 
-    assert "message_id" in props
-    assert props["message_id"].get("default") is None
-    assert "message_id" not in _schemas()["edit_message"].get("required", [])
+    assert "schedule_date" in props
+    assert "save_as_draft" not in props
+
+
+def test_edit_message_requires_message_id():
+    """There is no draft mode here any more, so the id is not optional."""
+    schema = _schemas()["edit_message"]
+
+    assert "message_id" in schema["properties"]
+    assert "message_id" in schema.get("required", [])
 
 
 @pytest.mark.asyncio
@@ -489,8 +465,8 @@ async def test_registered_send_message_forwards_non_default_values():
 
 
 @pytest.mark.asyncio
-async def test_registered_edit_message_forwards_draft_flag_without_id():
-    impl = AsyncMock(return_value={"status": "draft_saved"})
+async def test_registered_edit_message_forwards_id_and_schedule():
+    impl = AsyncMock(return_value={"message_id": 11, "status": "scheduled"})
 
     with patch("src.server_components.tools_register.edit_message_impl", new=impl):
         temp_mcp = FastMCP("forward test")
@@ -498,12 +474,17 @@ async def test_registered_edit_message_forwards_draft_flag_without_id():
         async with Client(temp_mcp) as client:
             await client.call_tool(
                 "edit_message",
-                {"chat_id": "me", "message": "draft", "save_as_draft": True},
+                {
+                    "chat_id": "me",
+                    "message": "later",
+                    "message_id": 11,
+                    "schedule_date": FUTURE_ISO,
+                },
             )
 
-    assert impl.await_args.kwargs["save_as_draft"] is True
+    assert impl.await_args.kwargs["schedule_date"] == FUTURE_ISO
     # message_id travels positionally: (chat_id, message_id, new_text, ...)
-    assert impl.await_args.args[1] is None
+    assert impl.await_args.args[1] == 11
 
 
 class TestRescheduleMessageExtraction:

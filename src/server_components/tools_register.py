@@ -128,9 +128,7 @@ _DESC_EDIT_MESSAGE = _tool_description(
     "parse_mode: classic markdown/html/auto or rich (Rich Message; dialect auto-detected). "
     "schedule_date (ISO 8601) reschedules an already-queued message; it does not turn "
     "a delivered message into a scheduled one, and the result then carries "
-    "status='scheduled'. save_as_draft=true replaces the chat's draft with the text "
-    "instead of editing a message (message_id is then optional, empty text clears the "
-    "draft; user sessions only). "
+    "status='scheduled'. "
     "Success: dict with message_id, date, chat, text, status='edited', and edit_date "
     "(rich messages also set rich=true and rich_format). "
     "Error: dict with ok=false and error string (e.g. message not found or not editable). "
@@ -388,10 +386,9 @@ def register_tools(mcp: FastMCP) -> None:
     async def edit_message(
         chat_id: ChatId,
         message: MessageBody,
-        message_id: MessageIdInChat = None,
+        message_id: MessageIdInChat,
         parse_mode: ParseMode = "auto",
         schedule_date: ScheduleDate = None,
-        save_as_draft: SaveAsDraft = False,
     ) -> SendEditResult:
         """Edit an existing message (full doc URL in tool description)."""
         return await edit_message_impl(
@@ -400,7 +397,6 @@ def register_tools(mcp: FastMCP) -> None:
             message,
             parse_mode,
             schedule_date=schedule_date,
-            save_as_draft=save_as_draft,
         )
 
     @mcp.tool(
