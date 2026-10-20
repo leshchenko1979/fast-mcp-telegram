@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import Client, FastMCP
+from telethon.errors import MessageEditTimeExpiredError, MessageIdInvalidError
 from telethon.tl import functions, types
 
 from src.server_components.tools_register import register_tools
@@ -28,6 +29,7 @@ from src.tools.messages.phone import send_message_to_phone_impl
 from src.tools.messages.rich_send import _message_from_tl_result
 from src.tools.messages.sending import _send_message_or_files, send_message_impl
 from src.utils.datetime_parse import (
+    format_schedule_date,
     parse_iso_datetime_utc,
     parse_schedule_date,
 )
@@ -660,3 +662,171 @@ class TestPhonePathCarriesScheduleAndDraft:
 
         assert result["ok"] is False
         assert "draft_with_schedule" in str(result)
+
+
+class TestQueuedEditWithoutDate:
+    """Editing a queued message must not require the caller to resend its date.
+
+    ``messages.editMessage`` only searches *delivered* history when
+    ``schedule_date`` is absent, so a queued id comes back as
+    ``MESSAGE_EDIT_TIME_EXPIRED`` — a lie, since nothing expired. The tool reads
+    the queue's own date back and retries once with it.
+    """
+
+    @staticmethod
+    def _queued(msg_id: int, when: datetime) -> SimpleNamespace:
+        message = _fake_message(msg_id)
+        message.date = when
+        message.text = "queued text"
+        return message
+
+    @pytest.mark.asyncio
+    async def test_retry_reuses_the_queue_date_and_reports_scheduled(self):
+        queued_when = datetime.now(UTC) + timedelta(days=7)
+        queued = self._queued(11, queued_when)
+        edited = _fake_message(11)
+        edited.text = "new text"
+
+        client = AsyncMock()
+        client.edit_message = AsyncMock(
+            side_effect=[MessageEditTimeExpiredError(request=None), edited]
+        )
+        client.get_input_entity = AsyncMock(return_value=object())
+        client.return_value = SimpleNamespace(messages=[queued])
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl("7", 11, "new text")
+
+        assert result.get("ok") is not False, result
+        assert result["status"] == "scheduled"
+        assert result["scheduled"] is True
+        # The retry carried the queue's own instant, not a guess.
+        assert result["schedule_date"] == format_schedule_date(
+            int(queued_when.timestamp())
+        )
+        assert client.edit_message.await_args.kwargs["schedule"] == int(
+            queued_when.timestamp()
+        )
+        assert client.edit_message.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_queue_miss_reraises_time_expired(self):
+        """A genuinely old delivered message must still report time-expiry."""
+        client = AsyncMock()
+        client.edit_message = AsyncMock(
+            side_effect=MessageEditTimeExpiredError(request=None)
+        )
+        client.get_input_entity = AsyncMock(return_value=object())
+        client.return_value = SimpleNamespace(messages=[])
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl("7", 11, "new text")
+
+        assert result["ok"] is False
+        assert result["exception"]["type"] == "MessageEditTimeExpiredError"
+        # No second attempt against a message that is not queued.
+        assert client.edit_message.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_rich_queued_edit_also_retries(self):
+        """The fallback wraps the rich TL path too — it fails identically."""
+        queued_when = datetime.now(UTC) + timedelta(days=3)
+        queued = self._queued(21, queued_when)
+        edited = _fake_message(21)
+
+        client = AsyncMock()
+        client.get_input_entity = AsyncMock(return_value=object())
+        client.return_value = SimpleNamespace(messages=[queued])
+
+        rich_edit = AsyncMock(
+            side_effect=[MessageEditTimeExpiredError(request=None), (edited, "html")]
+        )
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+            patch("src.tools.messages.editing.edit_rich_via_tl", new=rich_edit),
+        ):
+            result = await edit_message_impl("7", 21, "<b>new</b>", parse_mode="rich")
+
+        assert result.get("ok") is not False, result
+        assert result["status"] == "scheduled"
+        assert rich_edit.await_count == 2
+        assert rich_edit.await_args.kwargs["schedule_date"] == int(
+            queued_when.timestamp()
+        )
+
+
+class TestDeliveredMessageCannotBeRescheduled:
+    """A delivered message + ``schedule_date`` gets Telegram's unhelpful
+    ``MESSAGE_ID_INVALID``; the tool names the real reason instead."""
+
+    @pytest.mark.asyncio
+    async def test_named_error_explains_the_message_is_already_delivered(self):
+        client = AsyncMock()
+        client.edit_message = AsyncMock(side_effect=MessageIdInvalidError(request=None))
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl(
+                "7", 11, "new text", schedule_date=FUTURE_ISO
+            )
+
+        assert result["ok"] is False
+        assert "only a queued" in result["error"]
+        assert "cannot be un-sent" in result["error"]
+        # Never reads the queue: the id may be perfectly valid, just delivered.
+        client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_plain_edit_keeps_the_original_error(self):
+        """Without a schedule the same error is a real bad id — untouched."""
+        client = AsyncMock()
+        client.edit_message = AsyncMock(side_effect=MessageIdInvalidError(request=None))
+
+        with (
+            patch(
+                "src.tools.messages.editing.get_connected_client",
+                new=AsyncMock(return_value=client),
+            ),
+            patch(
+                "src.tools.messages.editing.get_entity_by_id",
+                new=AsyncMock(return_value=SimpleNamespace(id=7, title="Chat")),
+            ),
+        ):
+            result = await edit_message_impl("7", 11, "new text")
+
+        assert result["ok"] is False
+        assert result["exception"]["type"] == "MessageIdInvalidError"
