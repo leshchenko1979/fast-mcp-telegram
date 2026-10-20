@@ -171,14 +171,24 @@ async def edit_message_impl(
                 resolved_parse_mode,
                 schedule_timestamp,
             )
-        except MessageEditTimeExpiredError:
+        except (MessageEditTimeExpiredError, MessageIdInvalidError) as exc:
             # Telegram only searches *delivered* history when ``schedule_date``
-            # is absent, so a queued id comes back as MESSAGE_EDIT_TIME_EXPIRED
-            # — a lie, since nothing expired. Retry once against the queue's own
-            # date: same instant, new text. A genuinely old delivered message
-            # stays expired and re-raises below.
+            # is absent, so a queued id comes back as one of two errors that
+            # both name the wrong cause: MESSAGE_EDIT_TIME_EXPIRED ("too much
+            # time has passed") or MESSAGE_ID_INVALID ("the specified message ID
+            # is invalid"). Which one depends on the message; neither is true.
             if schedule_timestamp is not None:
+                if isinstance(exc, MessageIdInvalidError):
+                    # The reverse case: a delivered message cannot be un-sent.
+                    raise ValueError(
+                        f"Cannot reschedule message id={message_id}: only a queued "
+                        "(scheduled) message can be rescheduled. A delivered message "
+                        "cannot be un-sent, and an unknown id has nothing to move."
+                    ) from None
                 raise
+
+            # Retry once against the queue's own date: same instant, new text.
+            # A genuinely undeliverable id stays queued-less and re-raises.
             queued = await _find_queued_message(client, chat, message_id)
             queued_timestamp = _queued_timestamp(queued) if queued is not None else None
             if queued_timestamp is None:
@@ -194,17 +204,6 @@ async def edit_message_impl(
                 resolved_parse_mode,
                 schedule_timestamp,
             )
-        except MessageIdInvalidError:
-            # The reverse case: a delivered message cannot be un-sent. Telegram
-            # says only "the specified message ID is invalid or you can't do
-            # that operation on such message", which names neither cause.
-            if schedule_timestamp is None:
-                raise
-            raise ValueError(
-                f"Cannot reschedule message id={message_id}: only a queued "
-                "(scheduled) message can be rescheduled. A delivered message "
-                "cannot be un-sent, and an unknown id has nothing to move."
-            ) from None
 
         status = "scheduled" if schedule_timestamp is not None else "edited"
         result = build_send_edit_result(
