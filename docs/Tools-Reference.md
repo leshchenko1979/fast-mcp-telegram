@@ -688,7 +688,7 @@ The result carries `status: "draft_saved"` or `"draft_cleared"`. Read drafts bac
 
 Each entry carries `id`, `date` (unix seconds) and `message`.
 
-**Change the text, keep the time.** Just omit `schedule_date`. A queued id is invisible to a plain `messages.editMessage` (Telegram only searches delivered history and answers `MessageEditTimeExpiredError`, "too much time has passed since its creation", even for a message queued seconds ago), so the tool reads the entry's own date back from the scheduled queue and retries once with that exact instant. The result reports `status: "scheduled"`, `scheduled: true` and the unchanged `schedule_date`.
+**Change the text, keep the time.** Just omit `schedule_date`. A queued id is invisible to a plain `messages.editMessage`: Telegram only searches delivered history and answers one of two errors that both name the wrong cause, `MessageEditTimeExpiredError` ("too much time has passed since its creation") or `MessageIdInvalidError` ("the specified message ID is invalid") — even for a message queued seconds ago. The tool reads the entry's own date back from the scheduled queue and retries once with that exact instant. The result reports `status: "scheduled"`, `scheduled: true` and the unchanged `schedule_date`.
 
 ```json
 {"tool": "edit_message", "params": {

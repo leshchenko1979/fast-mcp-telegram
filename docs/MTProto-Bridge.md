@@ -276,15 +276,20 @@ edit. Note also that `messages.GetMessages` cannot see the queue at all; only
 
 **A queued id is invisible to a plain edit.** `messages.EditMessage` without
 `schedule_date` searches the *delivered* history, where a queued id does not
-exist, and answers `MESSAGE_EDIT_TIME_EXPIRED` ("You can't edit this message
-anymore, too much time has passed since its creation") — even for a message
-queued seconds earlier. At the TL level you must read its `date` from
+exist, and answers one of two errors that both name the wrong cause —
+`MESSAGE_EDIT_TIME_EXPIRED` ("You can't edit this message anymore, too much
+time has passed since its creation") or `MESSAGE_ID_INVALID` ("the specified
+message ID is invalid or you can't do that operation on such message") — even
+for a message queued seconds earlier. Which one you get varies by message; the
+id is valid either way, it simply is not in the history that was searched.
+
+At the TL level you must read the entry's `date` from
 `messages.GetScheduledHistory` and pass that same instant back as
 `schedule_date`. The MCP `edit_message` tool does this for you: it attempts the
-edit, catches `MESSAGE_EDIT_TIME_EXPIRED`, looks the id up with
-`messages.GetScheduledMessages` and retries once with the entry's own date, so
-"change the text, keep the time" needs no `schedule_date` at all. Worked
-examples are in `docs/Tools-Reference.md`.
+edit, catches either error when no `schedule_date` was given, looks the id up
+with `messages.GetScheduledMessages` and retries once with the entry's own
+date, so "change the text, keep the time" needs no `schedule_date` at all.
+Worked examples are in `docs/Tools-Reference.md`.
 
 The reverse case is not a bug: a **delivered** message plus `schedule_date` is
 rejected (`MESSAGE_ID_INVALID`, "the specified message ID is invalid or you
