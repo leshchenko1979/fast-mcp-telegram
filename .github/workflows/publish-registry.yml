@@ -23,5 +23,35 @@ jobs:
     - name: Authenticate with GitHub OIDC
       run: ./mcp-publisher login github-oidc
 
+    # The registry validates that the PyPI version exists before accepting the
+    # entry. A release triggers this workflow and the PyPI publish in parallel,
+    # so the index can still be propagating when we get here — the registry
+    # answers 400 "version ... was not found (status: 404)". That is a race, not
+    # a bad manifest, so wait for the version to appear rather than failing a
+    # release on it.
+    - name: Wait for PyPI to serve the version
+      run: |
+        version=$(python3 -c "import json;print(json.load(open('server.json'))['version'])")
+        for attempt in $(seq 1 30); do
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/fast-mcp-telegram/${version}/json")
+          if [ "$status" = "200" ]; then
+            echo "PyPI serves ${version} (attempt ${attempt})"
+            exit 0
+          fi
+          echo "PyPI does not serve ${version} yet (HTTP ${status}, attempt ${attempt}/30)"
+          sleep 20
+        done
+        echo "::error::PyPI still does not serve ${version} after 10 minutes"
+        exit 1
+
     - name: Publish server.json
-      run: ./mcp-publisher publish
+      run: |
+        for attempt in $(seq 1 5); do
+          if ./mcp-publisher publish; then
+            exit 0
+          fi
+          echo "Publish attempt ${attempt} failed, retrying in 20s"
+          sleep 20
+        done
+        echo "::error::mcp-publisher publish failed after 5 attempts"
+        exit 1
