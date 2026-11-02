@@ -447,6 +447,14 @@ send_message(
 - `rich` — Telegram **Rich Message** (`InputRichMessage*`). Dialect is auto-detected: known HTML tags **outside** code fences/backticks → rich HTML; otherwise rich markdown (including plain text and docs that only mention tags inside code). Cannot be combined with `files`.
 - Success for rich sends includes `rich: true` and `rich_format: "markdown"|"html"`, with `text` flattened from PageBlocks (same family as `get_messages`).
 
+**rich formatting caveats (measured against a live server, 2026-11-02):**
+- The server passes your string to Telegram as `InputRichMessageMarkdown`/`InputRichMessageHTML` and **builds no blocks itself** — layout is Telegram's parser policy, not this server's.
+- **Tables** — GFM pipe tables and HTML `<table>` both become real `PageBlockTable` blocks (header cells flagged, `bordered`/`striped` set). A pipe table sent with `parse_mode="markdown"` or `"html"` stays literal text.
+- **Table inside a blockquote** — parsed correctly but nested inside `PageBlockBlockquoteBlocks`, and the client renders the nested table as raw text. Keep tables at top level to get a grid.
+- **Blank lines** — markdown blank lines are dropped: `A\n\n\n\nB` yields two adjacent `PageBlockParagraph` blocks with no gap. The HTML dialect keeps `<p><br></p>` as a paragraph containing `\n`, so spacing is controllable there.
+- **`U+200B`** becomes its own paragraph block but is zero-width: it creates a block, not a visible gap.
+- **Spacing *and* a table in one message**: use the HTML dialect — `<p>` paragraphs with `<p><br></p>` spacers plus `<table>`. Verified: two spacer paragraphs and a two-row `PageBlockTable` in a single Rich Message.
+
 **reply_to_id automatically handles:**
 - 📢 **Channel post comments** - Detects discussion group and posts comment there
 - 📋 **Forum topic messages** - Posts into forum topic
@@ -1093,6 +1101,7 @@ Read/search tools use `build_message_result`. Send/edit/phone success payloads u
 - Embedded photos/videos/audio referenced from blocks appear in `attachments` (tree order, deduplicated by media id).
 - `media` duplicates the first `attachments` entry for backward compatibility.
 - Rich attachment tickets use `rich_kind` + `rich_media_id` (Telegram object id, not array index).
+- Flattened `text` carries no table delimiter row (the block model has `bordered`, not `|---|`), so re-sending read-back text produces a paragraph, not a table. Keep the original markdown if you need to re-send it.
 
 **Media Attachments:**
 - Lightweight metadata only (not actual files)
