@@ -992,8 +992,10 @@ All error responses follow this consistent structure:
 All tools include MCP ToolAnnotations to help AI agents make informed decisions:
 
 - **`openWorldHint=True`**: All tools interact with external Telegram APIs
-- **`readOnlyHint=True`**: Applied to search and informational tools (safe to retry)
-- **`destructiveHint=True`**: Applied to messaging and state-changing tools (use cautiously)
+- **`readOnlyHint=True`, `destructiveHint=False`**: Applied to search and informational tools (safe to retry)
+- **`readOnlyHint=False`, `destructiveHint=True`**: Applied to messaging and state-changing tools (use cautiously)
+
+Every tool sets `readOnlyHint`, `destructiveHint` and `openWorldHint` explicitly. The MCP spec defaults an absent `destructiveHint` to `true`, and some clients and directories (OpenAI app review among them) check each hint on its own.
 - **`idempotentHint=True`**: Applied to safely repeatable operations (can retry safely)
 
 ### AI-Optimized Parameter Constraints
