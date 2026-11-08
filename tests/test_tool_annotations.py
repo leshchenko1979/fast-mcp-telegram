@@ -25,6 +25,11 @@ async def _list_tools():
 
 
 def test_every_tool_sets_all_three_hints_explicitly():
+    """Verify each registered tool declares its title and effect hints.
+
+    Raises:
+        AssertionError: If the registered tool set or any hint is incomplete.
+    """
     tools = asyncio.run(_list_tools())
     assert {t.name for t in tools} == READ_ONLY | WRITES
     for tool in tools:
@@ -37,6 +42,11 @@ def test_every_tool_sets_all_three_hints_explicitly():
 
 
 def test_hints_match_what_each_tool_does():
+    """Verify effect hints distinguish read operations from write operations.
+
+    Raises:
+        AssertionError: If a tool has effect hints that contradict its group.
+    """
     tools = {t.name: t.annotations for t in asyncio.run(_list_tools())}
     for name in READ_ONLY:
         assert tools[name].readOnlyHint is True, name
