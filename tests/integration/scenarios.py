@@ -8,7 +8,9 @@ Design rules
 ------------
 * Every scenario is just data — a ``tool`` name and a ``params`` dict.
   No embedded logic, no closures.
-* The runner (``ScenarioRunner``) calls ``impl_map[tool](client, **params)``.
+* The runner (``ScenarioRunner``) calls ``impl_map[tool](**params)``.  The
+  tool impls resolve their own client via ``get_connected_client()``; the
+  runner keeps a client only for its own warmup and identity check.
 * Assertion scenarios (dedup, fairness, partial) are **not** here — they
   are correctness tests better suited to ``pytest`` assertions, not
   performance benchmarks.

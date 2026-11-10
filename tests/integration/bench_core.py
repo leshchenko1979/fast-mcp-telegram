@@ -102,9 +102,7 @@ class ScenarioRunner:
         print(f"Connected as: {me.first_name or ''} (@{me.username or '?'})")
         for tool in self.impl_map:
             try:
-                result = await self.impl_map[tool](
-                    self.client, query=practice_query, limit=1
-                )
+                result = await self.impl_map[tool](query=practice_query, limit=1)
                 status = (
                     "OK"
                     if isinstance(result, dict) and "error" not in result
@@ -159,7 +157,7 @@ class ScenarioRunner:
 
             while True:
                 try:
-                    result = await impl(self.client, **scenario.params)
+                    result = await impl(**scenario.params)
                     if isinstance(result, dict):
                         if "error" in result:
                             error = result["error"]

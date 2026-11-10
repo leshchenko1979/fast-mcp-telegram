@@ -24,11 +24,16 @@ finally:
     sys.argv = _saved_argv
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def telethon_client():
     """Module-scoped Telethon client for integration benchmarks.
 
     Created once per test module and disconnected after all tests finish.
+
+    ``loop_scope="module"`` must match the tests' own loop scope: the cached
+    client carries asyncio locks and a sqlite session, all bound to the loop
+    that created them, so running the tests on a fresh per-function loop
+    raises "bound to a different event loop" and then "database is locked".
     """
     client = await get_connected_client()
     me = await client.get_me()

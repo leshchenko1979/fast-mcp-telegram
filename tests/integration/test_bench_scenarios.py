@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from telethon.errors import BotMethodInvalidError
 
 # ── Ensure src is importable ──────────────────────────────────────────────
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -30,6 +31,14 @@ try:
     from tests.integration.scenarios import get_scenarios
 finally:
     sys.argv = _saved_argv
+
+# ── Loop scope ────────────────────────────────────────────────────────────
+# The cached Telethon client is created once per module and its asyncio locks
+# and sqlite session stay bound to that loop.  Function-scoped test loops
+# therefore reuse a client from a dead loop ("bound to a different event
+# loop", then "database is locked"), so every test here shares the module's
+# loop — the same scope the ``telethon_client`` fixture uses.
+pytestmark = pytest.mark.asyncio(loop_scope="module")
 
 
 # ── Build parametrized cases ──────────────────────────────────────────────
@@ -65,11 +74,35 @@ async def test_bench_scenario(telethon_client, scenario_name, impl_func, params)
     Verifies that the implementation returns a dict without errors.
     Timing is not measured here — use the standalone CLI (``run_bench.py``)
     for timing benchmarks.
+
+    The ``telethon_client`` fixture is requested for its connection check and
+    identity print only: the impls resolve the same cached client internally,
+    so they are called with their own parameters alone.
+
+    Scenarios whose prerequisite the signed-in account does not meet are
+    **skipped with a reason**, never failed: a bot session cannot use
+    ``GetDialogs``/``SearchGlobal`` at all, and an account without dialog
+    filters has no folder to query.  Failing on those reports the account's
+    shape as a code defect, which is what this file used to do.
     """
-    result = await impl_func(telethon_client, **params)
+    try:
+        result = await impl_func(**params)
+    except BotMethodInvalidError as e:
+        pytest.skip(f"[{scenario_name}] bot session cannot run this method: {e}")
+
     assert isinstance(result, dict), (
         f"[{scenario_name}] Expected dict, got {type(result).__name__}"
     )
-    assert "error" not in result or not result.get("error"), (
-        f"[{scenario_name}] Failed: {result.get('error')}"
-    )
+
+    error = result.get("error")
+    if error:
+        if "bot users is restricted" in str(error):
+            pytest.skip(
+                f"[{scenario_name}] bot session cannot run this method: {error}"
+            )
+        if "not found. Available:" in str(error):
+            pytest.skip(
+                f"[{scenario_name}] dialog filter missing on this account: {error}"
+            )
+
+    assert not error, f"[{scenario_name}] Failed: {error}"

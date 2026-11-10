@@ -569,8 +569,20 @@ def clear_request_token_context():
 
 
 @pytest.fixture(autouse=True)
-def clear_connection_session_cache():
-    """Clear token session cache between tests to avoid cross-test pollution."""
+def clear_connection_session_cache(request):
+    """Clear token session cache between tests to avoid cross-test pollution.
+
+    Skipped for ``integration``-marked tests: those drive a real Telethon
+    client, and clearing the cache without disconnecting leaks the client —
+    its sqlite session stays open on the same ``.session`` file, so the next
+    ``get_connected_client()`` builds a SECOND connection to it and every
+    query then fails with ``sqlite3.OperationalError: database is locked``.
+    Such tests own their client through a module-scoped fixture instead.
+    """
+    if request.node.get_closest_marker("integration"):
+        yield
+        return
+
     import src.client.connection as conn
 
     conn._session_cache.clear()

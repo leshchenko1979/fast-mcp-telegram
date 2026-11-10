@@ -280,14 +280,19 @@ fast-mcp-telegram/
 - **Docker environment**: Container-specific configuration
 
 ### Project Configuration
-- **`pyproject.toml`**: Project metadata and dependencies
+- **`pyproject.toml`**: Project metadata, dependencies and the **single source
+  of pytest configuration** (`[tool.pytest.ini_options]`)
   - Package configuration
   - Dependency management
   - Build system configuration
-- **`pytest.ini`**: Test configuration
-  - Test discovery patterns
-  - Coverage settings
-  - Async test configuration
+  - Test discovery patterns and `asyncio_mode = "auto"`
+
+> Do not add a `pytest.ini`/`tox.ini`/`setup.cfg`: a `[pytest]`-style file takes
+> precedence over `pyproject.toml` for the whole repository. An invalid one
+> (a `[tool:pytest]` header in a file named `pytest.ini`, which pytest only
+> honours inside `setup.cfg`) is silently ignored *and* suppresses
+> `pyproject.toml`, so every async test falls back to strict mode and fails
+> with "async def functions are not natively supported".
 
 ## Documentation Structure
 
