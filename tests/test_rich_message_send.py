@@ -188,10 +188,10 @@ async def test_message_from_tl_result_refetches_when_primary_extract_fails():
             self.get_messages = AsyncMock(return_value=refetched)
 
     client = FakeClient()
-    result = SimpleNamespace(
-        updates=[SimpleNamespace(message=SimpleNamespace(id=99))]
+    result = SimpleNamespace(updates=[SimpleNamespace(message=SimpleNamespace(id=99))])
+    msg = await _message_from_tl_result(
+        client, request=object(), result=result, entity="me"
     )
-    msg = await _message_from_tl_result(client, request=object(), result=result, entity="me")
     assert msg is refetched
     client.get_messages.assert_awaited_once_with("me", ids=99)
 
@@ -242,9 +242,7 @@ def test_build_send_edit_result_flattens_rich_and_sets_fields():
         "src.utils.message_format.core.flatten_rich_message",
         return_value=("## Flat", [RichMediaRef("photo", 1, "PageBlockPhoto")]),
     ):
-        result = build_send_edit_result(
-            message, chat, "sent", rich_format="markdown"
-        )
+        result = build_send_edit_result(message, chat, "sent", rich_format="markdown")
 
     assert result["text"] == "## Flat"
     assert result["rich"] is True

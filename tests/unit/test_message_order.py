@@ -15,6 +15,7 @@ def _msg(msg_id: int, date: str | None) -> dict:
         message["date"] = date
     return message
 
+
 def test_sorts_iso_dates_ascending():
     messages = [
         _msg(3, "2025-01-01T00:00:00+00:00"),
@@ -23,6 +24,7 @@ def test_sorts_iso_dates_ascending():
     ]
 
     assert [m["id"] for m in sort_messages_ascending(messages)] == [1, 2, 3]
+
 
 def test_undated_entries_land_last_in_stable_order():
     messages = [
@@ -35,11 +37,13 @@ def test_undated_entries_land_last_in_stable_order():
 
     assert [m["id"] for m in sort_messages_ascending(messages)] == [1, 2, 10, 11, 12]
 
+
 def test_equal_dates_keep_original_order():
     same = "2024-06-15T12:30:00+00:00"
     messages = [_msg(7, same), _msg(8, same), _msg(9, same)]
 
     assert [m["id"] for m in sort_messages_ascending(messages)] == [7, 8, 9]
+
 
 def test_whole_second_sorts_before_same_second_with_microseconds():
     messages = [
@@ -49,6 +53,7 @@ def test_whole_second_sorts_before_same_second_with_microseconds():
 
     assert [m["id"] for m in sort_messages_ascending(messages)] == [1, 2]
 
+
 def test_empty_and_blank_dates():
     assert sort_messages_ascending([]) == []
     assert message_sort_key(_msg(1, "")) == (True, "")
@@ -57,13 +62,18 @@ def test_empty_and_blank_dates():
         "2024-06-15T12:30:00+00:00",
     )
 
+
 def test_does_not_mutate_input_order_contract():
     """The helper returns a new list; callers rely on the original staying put."""
-    messages = [_msg(2, "2024-06-15T12:30:00+00:00"), _msg(1, "2023-01-01T00:00:00+00:00")]
+    messages = [
+        _msg(2, "2024-06-15T12:30:00+00:00"),
+        _msg(1, "2023-01-01T00:00:00+00:00"),
+    ]
     ordered = sort_messages_ascending(messages)
 
     assert [m["id"] for m in ordered] == [1, 2]
     assert [m["id"] for m in messages] == [2, 1]
+
 
 def test_apply_orders_top_level_and_nested_context_lists():
     """context.before arrives newest-first and must come back oldest-first."""
@@ -92,6 +102,7 @@ def test_apply_orders_top_level_and_nested_context_lists():
     assert [m["id"] for m in ctx["before"]] == [498, 499]
     assert [m["id"] for m in ctx["after"]] == [501, 502]
 
+
 def test_apply_orders_nested_replies():
     result = {
         "messages": [
@@ -117,10 +128,12 @@ def test_apply_orders_nested_replies():
         13,
     ]
 
+
 def test_apply_leaves_error_envelopes_untouched():
     envelope = {"ok": False, "operation": "read_messages", "error": "boom"}
 
     assert apply_ascending_message_order(dict(envelope)) == envelope
+
 
 def test_apply_tolerates_non_message_entries():
     """A malformed entry must not raise at the tool boundary."""

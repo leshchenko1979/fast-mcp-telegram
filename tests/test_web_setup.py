@@ -489,7 +489,7 @@ async def test_complete_reauth_from_state_success_without_token(
 
     assert response.template == "fragments/success.html"
     assert "token" not in response.context
-    assert web_setup.REAUTH_SUCCESS_MESSAGE == response.context["message"]
+    assert response.context["message"] == web_setup.REAUTH_SUCCESS_MESSAGE
     assert original_path.read_text() == "new"
     assert not temp_path.exists()
     finalized = web_setup._setup_sessions[setup_id]

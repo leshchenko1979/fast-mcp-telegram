@@ -216,7 +216,9 @@ async def test_build_message_result_rich_text_and_flag():
         reply_markup=None,
         forward=None,
     )
-    result = await build_message_result(message, {"id": 1, "type": "group"}, "https://t.me/c/1/12688")
+    result = await build_message_result(
+        message, {"id": 1, "type": "group"}, "https://t.me/c/1/12688"
+    )
     assert result["rich"] is True
     assert result["text"] == "Rich body"
 
@@ -255,7 +257,9 @@ async def test_rich_attachment_urls_minted(http_no_auth_config):
     message = SimpleNamespace(id=100)
     with patch(f"{_ATTACH}.mint_attachment_ticket", new_callable=AsyncMock) as mint_m:
         mint_m.return_value = "ticket-uuid"
-        await _maybe_set_rich_attachment_download_urls(attachments, message, -1003627148483)
+        await _maybe_set_rich_attachment_download_urls(
+            attachments, message, -1003627148483
+        )
     assert attachments[0]["attachment_download_url"].startswith(
         "https://files.example.test/v1/attachments/ticket-uuid"
     )

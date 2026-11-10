@@ -70,6 +70,10 @@ include = ["src"]
 [tool.ruff]
 line-length = 88
 target-version = "py311"
+# Ruff 0.17 formats Python code fences inside Markdown too.  Docs samples are
+# prose illustrations, not modules: reformatting them churns the documentation
+# and makes `ruff format --check` fail on files nobody is writing Python in.
+extend-exclude = ["**/*.md"]
 
 [tool.ruff.lint]
 select = [

@@ -1,5 +1,6 @@
 """Attachment ticket store and unauthenticated GET /v1/attachments/{ticket_id} streaming."""
 
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import quote
 
@@ -379,8 +380,8 @@ async def test_stream_rich_photo_by_id():
         id = 101
 
     class FakeRich:
-        photos = [FakePhoto()]
-        documents = []
+        photos: ClassVar[list] = [FakePhoto()]
+        documents: ClassVar[list] = []
 
     class FakeMsg:
         media = None
@@ -427,8 +428,8 @@ async def test_stream_rich_document_by_id():
         size = 50
 
     class FakeRich:
-        photos = []
-        documents = [FakeDoc()]
+        photos: ClassVar[list] = []
+        documents: ClassVar[list] = [FakeDoc()]
 
     class FakeMsg:
         media = None
@@ -465,8 +466,8 @@ async def test_stream_rich_missing_id_returns_404():
     )
 
     class FakeRich:
-        photos = []
-        documents = []
+        photos: ClassVar[list] = []
+        documents: ClassVar[list] = []
 
     class FakeMsg:
         media = None

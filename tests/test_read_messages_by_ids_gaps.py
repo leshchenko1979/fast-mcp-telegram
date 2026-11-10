@@ -92,9 +92,7 @@ class TestMessageIdsMissingStubs:
     @pytest.mark.asyncio
     @patch("src.tools.messages.reading.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.messages.reading.get_entity_by_id", new_callable=AsyncMock)
-    async def test_mix_present_and_missing(
-        self, mock_get_entity, mock_get_client
-    ):
+    async def test_mix_present_and_missing(self, mock_get_entity, mock_get_client):
         mock_entity = Mock()
         present = make_mock_message(id=12661, text="found", date=datetime.now())
         mock_get_entity.return_value = mock_entity
@@ -117,9 +115,7 @@ class TestMessageIdsMissingStubs:
     @pytest.mark.asyncio
     @patch("src.tools.messages.reading.get_connected_client", new_callable=AsyncMock)
     @patch("src.tools.messages.reading.get_entity_by_id", new_callable=AsyncMock)
-    async def test_message_empty_returns_stub(
-        self, mock_get_entity, mock_get_client
-    ):
+    async def test_message_empty_returns_stub(self, mock_get_entity, mock_get_client):
         mock_entity = Mock()
         empty = _make_message_empty(12659)
         mock_get_entity.return_value = mock_entity

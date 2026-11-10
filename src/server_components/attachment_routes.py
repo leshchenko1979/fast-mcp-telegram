@@ -29,7 +29,9 @@ def _content_disposition(filename: str | None) -> str:
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
 
 
-def _resolve_rich_download_target(message: Message, ticket: AttachmentTicket) -> Any | None:
+def _resolve_rich_download_target(
+    message: Message, ticket: AttachmentTicket
+) -> Any | None:
     """Resolve Photo/Document from message.rich_message by ticket rich_kind + rich_media_id."""
     rich_message = getattr(message, "rich_message", None)
     if rich_message is None or ticket.rich_kind is None or ticket.rich_media_id is None:

@@ -88,9 +88,7 @@ async def _get_messages_by_ids_batched(
         batch = message_ids[offset : offset + THREAD_SEARCH_CHUNK]
         loaded = await client.get_messages(entity, ids=batch)
         messages.extend(
-            message
-            for message in loaded
-            if message_has_displayable_content(message)
+            message for message in loaded if message_has_displayable_content(message)
         )
     return messages
 

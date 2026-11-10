@@ -58,9 +58,7 @@ def rich_media_maps(rich_message: Any) -> tuple[dict[int, Any], dict[int, Any]]:
     )
 
 
-def resolve_rich_media(
-    rich_message: Any, kind: RichKind, media_id: int
-) -> Any | None:
+def resolve_rich_media(rich_message: Any, kind: RichKind, media_id: int) -> Any | None:
     """Return the Photo or Document object for a rich embed id."""
     photos, documents = rich_media_maps(rich_message)
     if kind == "photo":
@@ -185,7 +183,9 @@ class _RichFlattener:
             match cls:
                 case "PageBlockParagraph" | "PageBlockFooter":
                     self._emit_text(getattr(block, "text", None))
-                case name if name.startswith("PageBlockHeading") or name in _HEADING_BLOCKS:
+                case name if (
+                    name.startswith("PageBlockHeading") or name in _HEADING_BLOCKS
+                ):
                     text = self._flatten_text(getattr(block, "text", None))
                     if text:
                         self._append(f"{'#' * min(_heading_level(name), 6)} {text}")
@@ -218,7 +218,9 @@ class _RichFlattener:
                             self._append(" | ".join(row_texts))
                             self._newline()
                 case "PageBlockDetails":
-                    self._emit_text(getattr(block, "title", None), prefix="**", suffix="**")
+                    self._emit_text(
+                        getattr(block, "title", None), prefix="**", suffix="**"
+                    )
                     self._flatten_blocks(getattr(block, "blocks", []) or [])
                 case "PageBlockBlockquote" | "PageBlockPullquote":
                     self._emit_text(getattr(block, "text", None), prefix="> ")

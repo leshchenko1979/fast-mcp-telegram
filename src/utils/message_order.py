@@ -21,6 +21,7 @@ from typing import Any
 # Nested lists inside a result's ``context`` envelope that also hold messages.
 CONTEXT_MESSAGE_KEYS: tuple[str, ...] = ("before", "after", "replies")
 
+
 def message_sort_key(message: Any) -> tuple[bool, str]:
     """Return a sort key ordering dated messages first, undated ones last.
 
@@ -36,12 +37,14 @@ def message_sort_key(message: Any) -> tuple[bool, str]:
         return (False, date)
     return (True, "")
 
+
 def sort_messages_ascending(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return ``messages`` ordered by ascending date-time.
 
     The sort is stable, so messages sharing a date keep their existing order.
     """
     return sorted(messages, key=message_sort_key)
+
 
 def _sort_context_lists(message: Any) -> None:
     """Order a result's nested context lists in place.
@@ -59,6 +62,7 @@ def _sort_context_lists(message: Any) -> None:
         value = context.get(key)
         if isinstance(value, list):
             context[key] = sort_messages_ascending(value)
+
 
 def apply_ascending_message_order(result: dict[str, Any]) -> dict[str, Any]:
     """Order every message list in a tool result by ascending date-time.

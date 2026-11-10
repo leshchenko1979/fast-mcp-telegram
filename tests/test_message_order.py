@@ -21,9 +21,11 @@ def _dated(msg_id: int, year: int, month: int = 1, day: int = 1):
         id=msg_id, text=f"message {msg_id}", date=datetime(year, month, day, tzinfo=UTC)
     )
 
+
 async def _iter_newest_first(messages):
     for message in messages:
         yield message
+
 
 def _search_mode_patches(func):
     """Patch the client/entity lookups the per-chat search path uses.
@@ -40,12 +42,15 @@ def _search_mode_patches(func):
         func = patch(target, new_callable=AsyncMock)(func)
     return func
 
+
 class TestAscendingOrderThroughSearchImpl:
     """Order is applied at the shared boundary, for every mode."""
 
     @pytest.mark.asyncio
     @_search_mode_patches
-    async def test_browse_returns_ascending_dates(self, mock_get_entity, mock_get_client):
+    async def test_browse_returns_ascending_dates(
+        self, mock_get_entity, mock_get_client
+    ):
         """Newest-first from Telethon comes back oldest-first."""
         mock_entity = Mock()
         mock_entity.id = 123
@@ -106,9 +111,7 @@ class TestAscendingOrderThroughSearchImpl:
             {"id": 20, "date": "2024-01-01T00:00:00+00:00", "text": "b"},
         ]
 
-        result = await search_messages_impl(
-            chat_id="123", message_ids=[30, 10, 20]
-        )
+        result = await search_messages_impl(chat_id="123", message_ids=[30, 10, 20])
 
         assert [m["id"] for m in result["messages"]] == [10, 20, 30]
         assert result["has_more"] is False

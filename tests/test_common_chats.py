@@ -75,7 +75,11 @@ async def test_get_chat_info_non_user_skips_common_chats(entity, entity_type):
         patch(
             "src.tools.chat_discovery.chat_info.build_entity_dict_enriched",
             new=AsyncMock(
-                return_value={"id": entity.id, "title": entity.title, "type": entity_type}
+                return_value={
+                    "id": entity.id,
+                    "title": entity.title,
+                    "type": entity_type,
+                }
             ),
         ),
         patch(
@@ -138,7 +142,9 @@ async def test_list_common_chats_clamps_limit_low():
 async def test_list_common_chats_clamps_limit_high():
     """limit=5000 -> clamped to 100 in the GetCommonChatsRequest."""
     entity = make_user(1004, first_name="Bob")
-    raw_chats = [SimpleNamespace(id=i, title=f"G{i}", access_hash=i) for i in range(100)]
+    raw_chats = [
+        SimpleNamespace(id=i, title=f"G{i}", access_hash=i) for i in range(100)
+    ]
     client = AsyncMock(return_value=SimpleNamespace(chats=raw_chats))
 
     with (
@@ -148,7 +154,9 @@ async def test_list_common_chats_clamps_limit_high():
         ),
         patch(
             "src.tools.chat_discovery.chat_info.build_entity_dict",
-            side_effect=[{"id": c.id, "title": c.title, "type": "group"} for c in raw_chats],
+            side_effect=[
+                {"id": c.id, "title": c.title, "type": "group"} for c in raw_chats
+            ],
         ),
     ):
         result = await _list_common_chats(entity, limit=5000)
