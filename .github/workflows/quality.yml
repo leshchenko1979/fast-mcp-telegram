@@ -1,0 +1,56 @@
+name: Lint and test
+
+# Runs on every push and pull request, including changes under `tests/` that
+# `deploy.yml` deliberately does not trigger on (it only fires for shipping
+# paths).  Without this, a test-only or docs-adjacent commit could break the
+# suite or reintroduce lint debt with nothing watching.
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install --no-cache-dir uv
+
+      - name: Cache uv packages
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Ruff lint
+        run: uv run ruff check --output-format=concise
+
+      - name: Ruff format check
+        run: uv run ruff format --check
+
+      - name: Run tests
+        run: uv run pytest -v --tb=short -m "not integration"
