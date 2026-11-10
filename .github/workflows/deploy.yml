@@ -1,16 +1,21 @@
-name: Build and deploy
+name: Build, test and deploy
+
+# One workflow for the whole gate: lint, test, build, push, deploy.
+#
+# This used to be two files. `deploy.yml` fired only on shipping paths, so a
+# test-only commit ran nothing at all and the suite could stay broken with no
+# signal; `quality.yml` was added to cover that gap. Two files describing one
+# pipeline is two chances to disagree, so they are merged here.
+#
+# The shipping-path filter did not disappear with the merge -- it moved into the
+# `changes` job, which decides whether the build and deploy jobs run. Every
+# push and pull request still gets linted and tested.
 
 on:
   push:
     branches:
       - master
-    paths:
-      - "src/**"
-      - "Dockerfile"
-      - "docker-compose.yml"
-      - ".github/workflows/deploy.yml"
-      - "pyproject.toml"
-      - "uv.lock"
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -18,13 +23,18 @@ permissions:
   packages: write
   actions: write
 
+# Pushes queue instead of cancelling: a cancelled run could interrupt
+# `deploy-vds` halfway and leave the container on a stale image. Pull request
+# runs have no side effects, so they cancel freely.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test-build-push-ghcr:
+  lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -47,8 +57,79 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-extras --dev
 
+      - name: Ruff lint
+        run: uv run ruff check --output-format=concise
+
+      - name: Ruff format check
+        run: uv run ruff format --check
+
       - name: Run tests
-        run: uv run pytest -v --tb=short -x -m "not integration"
+        run: uv run pytest -v --tb=short -m "not integration"
+
+  # Decides whether this run ships. The old `on.push.paths` filter lived at the
+  # workflow level, where a non-matching push ran no jobs at all; here it only
+  # gates the build and deploy jobs.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      shipping: ${{ steps.diff.outputs.shipping }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect shipping-path changes
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Pull requests never build or deploy, so the answer is moot there.
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "shipping=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A manual dispatch is an explicit request to ship.
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "shipping=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A new branch or a force-push leaves no reliable parent commit. Fail
+          # toward deploying: a redundant rebuild is cheap, a skipped one is a
+          # silent stale production.
+          case "$BEFORE" in
+            ""|0000000000000000000000000000000000000000)
+              echo "shipping=true" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+
+          changed=$(git diff --name-only "$BEFORE" "$SHA")
+          echo "changed files:"
+          printf '%s\n' "$changed"
+
+          if printf '%s\n' "$changed" | grep -qE '^(src/|Dockerfile|docker-compose\.ya?ml|pyproject\.toml|uv\.lock|\.github/workflows/deploy\.yml)'; then
+            echo "shipping=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "shipping=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-build-push-ghcr:
+    needs: [lint-and-test, changes]
+    if: github.event_name != 'pull_request' && needs.changes.outputs.shipping == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref }}
+
+      # No Python setup or `uv sync` here: the suite already ran in
+      # `lint-and-test`, and this job only drives Docker.
 
       - id: img
         run: |
