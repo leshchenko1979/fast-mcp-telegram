@@ -272,6 +272,51 @@ fast-mcp-telegram/
   - Error handling and logging
 - **`scripts/check-status.sh`**: Health status check script
 
+## CI/CD
+
+### `.github/workflows/deploy.yml` — "Build, test and deploy"
+
+One workflow owns the whole gate: lint, test, build, push to GHCR, deploy to the
+VDS. It runs on **every** push to `master`, on every pull request, and on manual
+dispatch.
+
+The jobs form a chain:
+
+| Job | Runs when | Does |
+|---|---|---|
+| `lint-and-test` | always | `ruff check`, `ruff format --check`, `pytest -m "not integration"` |
+| `changes` | always | decides whether this run ships (see below) |
+| `test-build-push-ghcr` | `lint-and-test` passed **and** `changes` says shipping **and** not a PR | builds and pushes the image |
+| `deploy-vds` | the build job ran | pulls the new image and restarts the container |
+
+**The shipping filter moved from the trigger into the `changes` job.** It used to
+be `on.push.paths`, which meant a commit touching only `tests/` or `docs/` ran
+*no jobs at all* — the suite could stay broken and lint debt could accumulate
+with no signal. A workflow-level `paths` filter cannot be widened to "run the
+tests but not the deploy", so the decision now happens inside the pipeline:
+
+- **shipping paths**: `src/**`, `Dockerfile`, `docker-compose.yml`,
+  `pyproject.toml`, `uv.lock`, this workflow file.
+- **pull requests**: never build or deploy, so they only lint and test.
+- **manual dispatch**: always ships.
+- **unknown parent** (new branch, force-push, missing `before`): ships. A
+  redundant rebuild is cheap; a skipped one is a silent stale production.
+
+The build job deliberately has **no Python setup and no `uv sync`** — the suite
+already ran in `lint-and-test`, and that job only drives Docker.
+
+**Concurrency** serialises pushes rather than cancelling them: a cancelled run
+could interrupt `deploy-vds` halfway and leave the container on a stale image.
+Pull request runs have no side effects, so they cancel freely.
+
+### Other workflows
+
+- **`publish.yml`** — publishes to PyPI when a GitHub release is published.
+- **`publish-registry.yml`** — publishes to the MCP registry, polling the PyPI
+  index first because the two can race by seconds.
+- **`deploy-collector.yml`** — builds and deploys the `collector/` service,
+  which has its own test suite.
+
 ## Configuration Management
 
 ### Environment Variables
