@@ -273,6 +273,7 @@ def register_tools(mcp: FastMCP) -> None:
         annotations=ToolAnnotations(
             title="Search messages globally",
             readOnlyHint=True,
+            destructiveHint=False,
             idempotentHint=True,
             openWorldHint=True,
         ),
@@ -306,6 +307,7 @@ def register_tools(mcp: FastMCP) -> None:
         annotations=ToolAnnotations(
             title="Get messages in chat",
             readOnlyHint=True,
+            destructiveHint=False,
             idempotentHint=True,
             openWorldHint=True,
         ),
@@ -348,6 +350,7 @@ def register_tools(mcp: FastMCP) -> None:
         description=_DESC_SEND_MESSAGE,
         annotations=ToolAnnotations(
             title="Send message",
+            readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         ),
@@ -377,6 +380,7 @@ def register_tools(mcp: FastMCP) -> None:
         description=_DESC_EDIT_MESSAGE,
         annotations=ToolAnnotations(
             title="Edit message",
+            readOnlyHint=False,
             destructiveHint=True,
             idempotentHint=True,
             openWorldHint=True,
@@ -404,6 +408,7 @@ def register_tools(mcp: FastMCP) -> None:
         annotations=ToolAnnotations(
             title="Find chats",
             readOnlyHint=True,
+            destructiveHint=False,
             idempotentHint=True,
             openWorldHint=True,
         ),
@@ -428,6 +433,7 @@ def register_tools(mcp: FastMCP) -> None:
         annotations=ToolAnnotations(
             title="Get chat info",
             readOnlyHint=True,
+            destructiveHint=False,
             idempotentHint=True,
             openWorldHint=True,
         ),
@@ -449,6 +455,7 @@ def register_tools(mcp: FastMCP) -> None:
         description=_DESC_SEND_PHONE,
         annotations=ToolAnnotations(
             title="Send message to phone",
+            readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         ),
@@ -484,6 +491,7 @@ def register_tools(mcp: FastMCP) -> None:
         description=_DESC_INVOKE_MTPROTO,
         annotations=ToolAnnotations(
             title="Invoke MTProto",
+            readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         ),
