@@ -58,12 +58,13 @@ def validate_api_credentials() -> None:
         logger.info("✓ Telegram API credentials validated")
 
     # HTTP auth mode should have credentials (warn if missing)
-    elif config.server_mode == ServerMode.HTTP_AUTH:
-        if not config.api_id or not config.api_hash:
-            logger.warning(
-                "⚠️ HTTP_AUTH mode without API_ID/API_HASH - "
-                "web setup and session creation will fail until credentials are configured"
-            )
+    elif config.server_mode == ServerMode.HTTP_AUTH and (
+        not config.api_id or not config.api_hash
+    ):
+        logger.warning(
+            "⚠️ HTTP_AUTH mode without API_ID/API_HASH - "
+            "web setup and session creation will fail until credentials are configured"
+        )
 
 
 @lru_cache(maxsize=1)
