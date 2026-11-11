@@ -4,6 +4,12 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'publish = register the version in server.json; edit = update that version''s metadata in place'
+        type: choice
+        options: [publish, edit]
+        default: publish
 
 jobs:
   publish:
@@ -30,6 +36,7 @@ jobs:
     # a bad manifest, so wait for the version to appear rather than failing a
     # release on it.
     - name: Wait for PyPI to serve the version
+      if: github.event_name != 'workflow_dispatch' || inputs.mode != 'edit'
       run: |
         version=$(python3 -c "import json;print(json.load(open('server.json'))['version'])")
         for attempt in $(seq 1 30); do
@@ -45,6 +52,7 @@ jobs:
         exit 1
 
     - name: Publish server.json
+      if: github.event_name != 'workflow_dispatch' || inputs.mode != 'edit'
       run: |
         for attempt in $(seq 1 5); do
           if ./mcp-publisher publish; then
@@ -55,3 +63,29 @@ jobs:
         done
         echo "::error::mcp-publisher publish failed after 5 attempts"
         exit 1
+
+    # `publish` registers a NEW version and the registry refuses one it has
+    # already seen, so a metadata-only change (title, icons, description) to a
+    # version that is already out has to go through PUT. That endpoint is gated
+    # on the repository's OIDC identity: a personal GitHub token gets
+    # 403 "You do not have edit permissions for this server", which is why this
+    # lives here and not in a local script.
+    - name: Edit the published version's metadata
+      if: github.event_name == 'workflow_dispatch' && inputs.mode == 'edit'
+      run: |
+        set -euo pipefail
+        name=$(python3 -c "import json;print(json.load(open('server.json'))['name'])")
+        version=$(python3 -c "import json;print(json.load(open('server.json'))['version'])")
+        encoded=$(python3 -c "import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1], safe=''))" "$name")
+        token=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.config/mcp-publisher/token.json')))['token'])")
+        # keep the bearer out of the process list
+        printf 'header = "Authorization: Bearer %s"\n' "$token" > /tmp/curlrc
+        url="https://registry.modelcontextprotocol.io/v0/servers/${encoded}/versions/${version}"
+        code=$(curl -sS -K /tmp/curlrc -o /tmp/resp.json -w '%{http_code}' \
+          -X PUT -H 'Content-Type: application/json' \
+          --data-binary @server.json "$url")
+        rm -f /tmp/curlrc
+        echo "PUT ${name}@${version} -> HTTP ${code}"
+        cat /tmp/resp.json
+        echo
+        [ "$code" = "200" ] || { echo "::error::registry rejected the edit (HTTP ${code})"; exit 1; }
