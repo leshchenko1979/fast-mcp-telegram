@@ -45,5 +45,15 @@
       "type": "streamable-http",
       "url": "https://tg-mcp.l1979.ru/v1/mcp"
     }
+  ],
+  "title": "Fast MCP Telegram",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/leshchenko1979/fast-mcp-telegram/master/images/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
   ]
 }
