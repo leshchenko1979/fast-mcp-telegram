@@ -66,6 +66,14 @@ jobs:
       - name: Run tests
         run: uv run pytest -v --tb=short -m "not integration"
 
+      # `testpaths` in pyproject.toml is `tests`, so the suite above never
+      # collects `collector/tests/`. Those only ran in deploy-collector.yml,
+      # which fires on pushes to master — meaning a collector change reached
+      # a PR with zero test execution. The e2e module needs PostgreSQL and
+      # stays in its own workflow; everything else runs here in ~9s.
+      - name: Run collector tests
+        run: uv run pytest collector/tests/ -v --tb=short -m "not e2e"
+
   # Decides whether this run ships. The old `on.push.paths` filter lived at the
   # workflow level, where a non-matching push ran no jobs at all; here it only
   # gates the build and deploy jobs.
