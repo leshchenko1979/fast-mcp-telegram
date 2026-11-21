@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from typing import Protocol
 
 from app.auth_models import AuthPayload
@@ -24,6 +25,14 @@ RETENTION_DAYS: int = 90  # TTL — purge rows older than this
 
 # Union type for storage backends
 PayloadLike = TelemetryPayload | AuthPayload
+
+logger = logging.getLogger("collector.services")
+
+
+def _log_field(payload: PayloadLike, key: str, limit: int) -> str:
+    """Read a string field for logging without ever raising."""
+    value = getattr(payload, key, None)
+    return value[:limit] if isinstance(value, str) else "-"
 
 
 class StorageBackend(Protocol):
@@ -119,7 +128,15 @@ def process_event(
     # 3. Check dedup against exact payload in last N seconds
     payload_hash = compute_payload_hash(payload)
     if storage.has_exact_payload(payload_hash, window_seconds=dedup_window):
-        return  # Silent dedup — already seen this exact payload
+        # Already seen this exact payload. DEBUG only: dedup is normal
+        # traffic, but it must stay observable when chasing a missing event.
+        logger.debug(
+            "dedup drop iid=%s ver=%s payload_hash=%s",
+            _log_field(payload, "iid", 16),
+            _log_field(payload, "ver", 32),
+            payload_hash[:12],
+        )
+        return
 
     # 4. Store (pass the precomputed hash — no recomputation)
     ip_hash = hash_source_ip(source_ip)
