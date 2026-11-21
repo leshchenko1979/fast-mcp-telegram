@@ -40,7 +40,7 @@ class TelemetryPayload:
     os: str
     py: str
     features: dict[str, Any] = field(default_factory=dict)
-    runtime: dict[str, int] = field(default_factory=dict)
+    runtime: dict[str, int | None] = field(default_factory=dict)
     counters: dict[str, int] = field(default_factory=dict)
     tools: dict[str, Any] = field(default_factory=dict)
 
@@ -98,19 +98,46 @@ class TelemetryPayload:
                     errors.append(f"feature key {k!r} exceeds 128 chars")
                     break
 
-        # --- runtime / counters (dict[str, int] with non-negative values) ---
-        for field_name, d in (("runtime", self.runtime), ("counters", self.counters)):
-            if not isinstance(d, dict):
-                errors.append(f"{field_name} must be a dict")
-                continue
-            for k, val in d.items():
+        # --- runtime / counters ---
+        #
+        # Two different rules, deliberately not shared:
+        #
+        # ``runtime`` values may be ``int`` *or* ``None``.  ``memory_kb``
+        # is the RSS of the client process, read from /proc/self/status,
+        # which only exists on Linux — non-Linux clients (macOS/Windows)
+        # send ``null`` for it by design (see ADR 0005 and
+        # ``src.telemetry._get_rss_kb``).  The key is optional and null
+        # is a valid value, so rejecting it silently drops every event
+        # from those platforms.
+        #
+        # ``counters`` values are strictly non-negative ints: they are
+        # accumulating totals, never absent by platform.
+        if not isinstance(self.runtime, dict):
+            errors.append("runtime must be a dict")
+        else:
+            for k, val in self.runtime.items():
+                if val is None:
+                    continue
                 if not isinstance(val, int) or isinstance(val, bool):
                     errors.append(
-                        f"{field_name}.{k!r} must be int, got {type(val).__name__}"
+                        f"runtime.{k!r} must be int or null, got {type(val).__name__}"
                     )
                     break
                 if val < 0:
-                    errors.append(f"{field_name}.{k!r} must be >= 0, got {val}")
+                    errors.append(f"runtime.{k!r} must be >= 0, got {val}")
+                    break
+
+        if not isinstance(self.counters, dict):
+            errors.append("counters must be a dict")
+        else:
+            for k, val in self.counters.items():
+                if not isinstance(val, int) or isinstance(val, bool):
+                    errors.append(
+                        f"counters.{k!r} must be int, got {type(val).__name__}"
+                    )
+                    break
+                if val < 0:
+                    errors.append(f"counters.{k!r} must be >= 0, got {val}")
                     break
 
         if errors:

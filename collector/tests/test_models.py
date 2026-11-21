@@ -48,6 +48,29 @@ class TestTelemetryPayload:
         with pytest.raises(ValidationError):
             TelemetryPayload.from_dict(valid_payload_data)
 
+    def test_runtime_accepts_null_values(self, valid_payload_data):
+        """A null runtime value validates.
+
+        Non-Linux clients send ``memory_kb: null`` by design (ADR 0005),
+        so rejecting it dropped every macOS/Windows event.
+        """
+        valid_payload_data["runtime"] = {"sessions": 1, "memory_kb": None}
+        payload = TelemetryPayload.from_dict(valid_payload_data)
+        assert payload.runtime["memory_kb"] is None
+        assert payload.runtime["sessions"] == 1
+
+    def test_counters_reject_null_values(self, valid_payload_data):
+        """Counters stay strictly int — null is not a valid counter."""
+        valid_payload_data["counters"] = {"total_calls": None}
+        with pytest.raises(ValidationError):
+            TelemetryPayload.from_dict(valid_payload_data)
+
+    def test_counters_reject_bool_values(self, valid_payload_data):
+        """bool is an int subclass but must not pass as a counter."""
+        valid_payload_data["counters"] = {"total_calls": True}
+        with pytest.raises(ValidationError):
+            TelemetryPayload.from_dict(valid_payload_data)
+
     def test_future_ts_beyond_5min_fails(self, valid_payload_data):
         """``ts`` more than 5 min in the future is rejected."""
         valid_payload_data["ts"] = int(time.time()) + 600
